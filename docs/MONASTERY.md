@@ -15,7 +15,7 @@
 | Oostvleugel | x 10…22, y −10…10 | **Van binnen speelbaar**: hal + 6 kamers (zie hieronder) |
 | Eetzaal (Refectory) | zuid, x −10,6…22 | Loopt door tot de oostmuur, zodat de hoek dicht is |
 | Westvleugel | west | Voorraad/gasten, grote poort naar buiten |
-| **Monastery Garden** | oost + achter de kerk | Vredige tuin met vijver, koi, beekjes, moestuin (zie hieronder) |
+| **Monastery Garden** | oost + achter de kerk | Vredige tuin met vijver, beekjes, moestuin (zie hieronder) |
 
 ## Daken en muren
 
@@ -53,9 +53,7 @@ oostkant en achter de kerk langs tot de toren, met een lage stenen muur eromheen
   bankjes en een prieel aan de oostkant.
 - **Beekje** uit een bronnetje met watervalletje (noordoost) de vijver in; aan de andere kant stroomt het achter de kerk
   langs naar een poel. Twee houten bruggetjes waar het pad het water kruist.
-- **3 koi:** 1 witte (`MON_Koi_White`) en 2 zwarte (`MON_Koi_Black_1/2`, nachtinkt-kleur, nooit puur zwart). In Blender
-  zwemmen ze rond over `MON_Koi_SwimPath` (Follow Path, 720 frames, loopt rond). In de game moet het zwemmen nog als
-  kleine code (zie open vragen).
+- **Koi:** voor nu weggehaald (2026-10-12, Bo). De kleuren `GH_Monastery_Koi_White/Black` blijven bewaard in het .blend.
 - **Groen:** boomgaard achter de kerk, bloesembomen, loofbomen en dennen, struiken, bloemenvelden, lavendel langs het pad.
 - **Moestuin met kweekbare bedden** (met hekje, vogelverschrikker, regenton):
 

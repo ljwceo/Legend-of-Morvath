@@ -22,7 +22,6 @@
 | 4 | Moet `player.glb` ook in de open wereld gebruikt worden? | Nu alleen in Greyhaven; in de open wereld nog het placeholder-poppetje |
 | 6 | Past het nieuwe Monastery (met tuin, samen ±100 × 70 m) op de kliffen aan de westkust van Greyhaven? Het oude placeholder-klooster is ±31 × 32 m | Nog niet geplaatst; in de Greyhaven-chat bekijken (plek, draaien, eventueel kleiner). Zie `docs/MONASTERY.md` |
 | 7 | Kweekbare bedden in de kloostertuin (`MON_FarmPlot_1…6`): hoe moet farming werken (zaad, groeitijd, oogst, seizoenen)? | Alleen de bedden + markers staan in Blender; nog geen spelregels of code |
-| 8 | Koi zwemmen in Blender over een pad; in de game nog niet. Ook: is het water in de game doorzichtig genoeg om de koi te zien? | Kleine zwem-code nodig (pad volgen); de koi zwemmen nu vlak onder het oppervlak |
 
 ---
 
@@ -473,7 +472,7 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - Extra taak (2026-10-12, opdracht van Bo, in Blender): **Monastery als eigen asset + kloostertuin** (`Monastery.blend` naast `Forge.blend`; uitleg in `docs/MONASTERY.md`, scripts in `tools/blender/monastery/`)
   - Klooster naar een echt middeleeuws plan: kerk met apsis, roosvenster en klokkentoren, kloostergang met bogen, oost-, zuid- en westvleugel. Daken met 4 leivormen + 2 nokpannen, muren met 3 stenen + 2 funderingsstenen, echte ramen en deuren.
   - Oostvleugel van binnen: hal + 6 kamers (Dormitory, Infirmary, Warming Room, Chapter House, Scriptorium, Brother Ansel's Cell), plankenvloer, plafond 6,5 m. Markers voor spawn (bed), Brother Ansel, deuren en kamers.
-  - Kloostertuin (±2× het klooster, vorm getekend door Bo): vijver met 3 koi (1 wit, 2 zwart), beekje met bron en poel, bruggetjes, bomen en bloemen, prieel, moestuin met 6 kweekbare bedden (`MON_FarmPlot_1…6`).
+  - Kloostertuin (±2× het klooster, vorm getekend door Bo): vijver (koi voor nu weggehaald), beekje met bron en poel, bruggetjes, bomen en bloemen, prieel, moestuin met 6 kweekbare bedden (`MON_FarmPlot_1…6`).
   - Nog niet in Greyhaven en nog niet geoptimaliseerd (±545.000 vertices, vooral daken en stenen). Open vragen 6–8.
 
 ## Besluiten
