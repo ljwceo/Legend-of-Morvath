@@ -20,6 +20,9 @@
 | 3 | Kloppen de plekken in het Blender-Greyhaven? | **Opgemeten in het model** (2026-10-11): smidse (aambeeld + vuur), markt, Monastery, haven, Academy met trainingsveld, toren van Brink, kelder van Sam. Golden Kettle en Alchemy Lab zijn niet te herkennen (gewone huizen bij de markt), de Garden (binnentuin van het Monastery) is dicht, dus Rose staat aan de rivieroever ernaast. Alleen data |
 | 5 | Het model heeft geen echte landpoort: de stadsmuur is dicht behalve waar de rivier eronderdoor gaat | Bo: een poort in Blender maken? Daarna alleen data (`exits`, `city_gate`, `sultan_gate`, arena) |
 | 4 | Moet `player.glb` ook in de open wereld gebruikt worden? | Nu alleen in Greyhaven; in de open wereld nog het placeholder-poppetje |
+| 6 | Past het nieuwe Monastery (met tuin, samen ±100 × 70 m) op de kliffen aan de westkust van Greyhaven? Het oude placeholder-klooster is ±31 × 32 m | Nog niet geplaatst; in de Greyhaven-chat bekijken (plek, draaien, eventueel kleiner). Zie `docs/MONASTERY.md` |
+| 7 | Kweekbare bedden in de kloostertuin (`MON_FarmPlot_1…6`): hoe moet farming werken (zaad, groeitijd, oogst, seizoenen)? | Alleen de bedden + markers staan in Blender; nog geen spelregels of code |
+| 8 | Koi zwemmen in Blender over een pad; in de game nog niet. Ook: is het water in de game doorzichtig genoeg om de koi te zien? | Kleine zwem-code nodig (pad volgen); de koi zwemmen nu vlak onder het oppervlak |
 
 ---
 
@@ -467,6 +470,12 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
   - Getest: 385 tests, lint, opmaak, typecheck, build. Headless Chromium (software-rendering, ~1–8 fps, dus fps zegt niets): naar de torendeur lopen → toren laadt (17 meshes) → cutscene → Overslaan → Brink staat er → de deur uit → terug in de stad (161 meshes); keldertrap af → kelder (18 meshes) → cutscene; herladen in de kelder → trap op → terug in de oostvleugel; smidse met Hilda, geen Biscuit zonder quest; Greenwood met 42 vijanden. Geen fouten.
   - Tijdelijke namen (alleen in data): Master Brink's Tower en Wizard Sam's Cellar (nieuw), Hilda Ironhand, Professor Fizzwick, Old Bertha, Sir Garrick, Marco the Merchant, Biscuit, Gold.
 
+- Extra taak (2026-10-12, opdracht van Bo, in Blender): **Monastery als eigen asset + kloostertuin** (`Monastery.blend` naast `Forge.blend`; uitleg in `docs/MONASTERY.md`, scripts in `tools/blender/monastery/`)
+  - Klooster naar een echt middeleeuws plan: kerk met apsis, roosvenster en klokkentoren, kloostergang met bogen, oost-, zuid- en westvleugel. Daken met 4 leivormen + 2 nokpannen, muren met 3 stenen + 2 funderingsstenen, echte ramen en deuren.
+  - Oostvleugel van binnen: hal + 6 kamers (Dormitory, Infirmary, Warming Room, Chapter House, Scriptorium, Brother Ansel's Cell), plankenvloer, plafond 6,5 m. Markers voor spawn (bed), Brother Ansel, deuren en kamers.
+  - Kloostertuin (±2× het klooster, vorm getekend door Bo): vijver met 3 koi (1 wit, 2 zwart), beekje met bron en poel, bruggetjes, bomen en bloemen, prieel, moestuin met 6 kweekbare bedden (`MON_FarmPlot_1…6`).
+  - Nog niet in Greyhaven en nog niet geoptimaliseerd (±545.000 vertices, vooral daken en stenen). Open vragen 6–8.
+
 ## Besluiten
 
 | Datum | Besluit | Waarom |
@@ -673,3 +682,5 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 ### 2026-10-11
 - Op verzoek (Bo/Lucas): PR #34 niet mergen, wel bijwerken op Bo's branch. Main erin gemerged, één vijandsysteem, NPC's/plekken/Sultan-gevecht opgemeten in het Blender-model, toren van Brink en kelder van Sam als instances met cutscene (stap 3.3). Save versie 7. 385 tests, headless Chromium zonder fouten. Open: fps meten op pc en iPhone, een echte landpoort in het model (open vraag 5).
 
+### 2026-10-12
+- Blender (Bo + Claude): Monastery.blend gebouwd (klooster, daken, stenen, ramen/deuren, binnenkant oostvleugel met 6 kamers) en de kloostertuin met vijver, koi en kweekbare bedden. Alleen docs en Blender-scripts in de repo; geen game-code veranderd. Tijdelijke namen: Monastery Garden, Moonbell.
