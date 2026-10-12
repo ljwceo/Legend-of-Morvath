@@ -54,7 +54,7 @@ oostkant en achter de kerk langs tot de toren, met een lage stenen muur eromheen
 - **Beekje** uit een bronnetje met watervalletje (noordoost) de vijver in; aan de andere kant stroomt het achter de kerk
   langs naar een poel. Twee houten bruggetjes waar het pad het water kruist.
 - **Koi:** voor nu weggehaald (2026-10-12, Bo). De kleuren `GH_Monastery_Koi_White/Black` blijven bewaard in het .blend.
-- **Groen:** boomgaard achter de kerk, bloesembomen, loofbomen en dennen, struiken, bloemenvelden, lavendel langs het pad.
+- **Groen:** boomgaard achter de kerk, bloesembomen, loofbomen, treurwilgen, struiken, bloemenvelden, lavendel langs het pad.
 - **Moestuin met kweekbare bedden** (met hekje, vogelverschrikker, regenton):
 
 | Marker | Gewas nu |
@@ -84,7 +84,7 @@ zodat de web-export ze als bomen herkent (zoals de `GH_Tree*`-nodes in Greyhaven
 | Gewassen, 3 groeistadia | `Crop_<Cabbage/Carrot/Pumpkin/Wheat/Moonbell>_1_Seedling`, `_2_Growing`, `_3_Ripe` |
 | Overig | `Scarecrow` |
 
-In de tuin: 47 bomen, 39 rotsen, 94 gewassen (rijp), de vogelverschrikker en afgevallen appels onder de appelbomen.
+In de tuin: 41 bomen, 39 rotsen, 94 gewassen (rijp), de vogelverschrikker en afgevallen appels onder de appelbomen.
 De kweekbedden `MON_FarmPlot_1…6` hebben nu ook `stage` (0 = leeg, 3 = rijp). Script: `tools/blender/monastery/05_garden_pieces.py`.
 
 ![Tuinmodellen](monastery/garden_pieces.png)
@@ -116,6 +116,18 @@ Dat is zwaar per boom; omdat het instances zijn kost het geheugen weinig, maar v
 ![Sakura in Genshin-stijl](monastery/card_trees_sakura.png)
 ![Sakura met twee stammen](monastery/sakura_twin_trunks.png)
 ![Tuin met de nieuwe bomen](monastery/garden_card_trees.png)
+
+**Treurwilgen en vuurvliegjes (2026-10-12, idee van Claude):** `Tree_Willow` is opnieuw gemaakt in de kaartjes-stijl:
+korte dikke stam, koepel van blaadjes en 78 lange slierten blaadjes die tot vlak boven de grond hangen. De slierten
+**zwaaien zachtjes in de wind** (shape keys `Sway_A`/`Sway_B` op de mesh, lus van 5 s; elke sliert beweegt een beetje
+anders). Rond elke wilg zweven **16 vuurvliegjes** (`MON_Fireflies_Willow` als collection instance in
+`MON_Garden_Fireflies`, lus van 10 s, elk knippert op zijn eigen moment). Script: `tools/blender/monastery/07_willow.py`
+(backup ervoor: `Monastery_backup_before_willow.blend`). Ongeveer 17.000 vertices per wilg.
+
+**Dennen:** voor nu uit de tuin gehaald (Bo wil er nog iets anders voor bedenken). Het model `Tree_Pine` staat nog in
+`MON_GardenPieces`.
+
+![Treurwilg met vuurvliegjes](monastery/willow_fireflies.png)
 
 ## Markers (collectie `MON_Markers`)
 
