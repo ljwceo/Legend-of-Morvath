@@ -703,4 +703,4 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - Blender (middag): sakura's met doorkijkbare kroon (takken + bloesemtrosjes) en vallende blaadjes (lus van 10 s).
 - Blender (avond): bomen in Genshin-stijl naar Bo's voorbeelden: sakura's, eiken en appelboom met een kroon van veel kleine blad-/bloesemkaartjes in lagen (licht boven, donker onder). Vallende blaadjes starten in de nieuwe kroon. Script `06_card_trees.py`.
 - Blender (avond): dennen voor nu uit de tuin (Bo bedenkt nog iets anders). Treurwilgen opnieuw in kaartjes-stijl met zwaaiende slierten en vuurvliegjes eromheen (`07_willow.py`).
-- Blender (avond): kronen met grote blaadjes binnen en kleine buiten; bladwolken en wilgenslierten hangen nu aan twijgjes (niets zweeft meer).
+- Blender (avond): kronen met grote blaadjes binnen en kleine buiten; bladwolken en wilgenslierten hangen nu aan twijgjes (niets zweeft meer). Wilgenslierten hangen aan boogtakken die uit de takken groeien.

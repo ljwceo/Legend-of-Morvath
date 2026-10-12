@@ -135,7 +135,10 @@ aan een twijgje vanaf een tak, en bij de wilg zit elke sliert aan een dun hangen
 met de blaadjes eraan vast; het twijgje zwaait mee. Vertices nu: sakura ~25.600 / ~24.600, eik ~10.400 / ~12.100,
 appel ~8.000, wilg ~19.000. Backup ervoor: `Monastery_backup_before_twigs.blend`.
 
-![Wilg met twijgjes](monastery/willow_twigs.png)
+**Wilg aan de boom vast (2026-10-12, Bo):** uit elk takeinde groeien 3 dunne boogtakken naar buiten en omlaag, met
+blaadjes erop; de slierten hangen aan die boogtakken, dus alles zit aan de boom vast. ~23.400 vertices.
+
+![Wilg met boogtakken](monastery/willow_twigs.png)
 
 ## Markers (collectie `MON_Markers`)
 
