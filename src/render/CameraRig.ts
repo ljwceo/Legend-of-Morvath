@@ -11,6 +11,17 @@ const WALL_MARGIN = 0.4;
 
 export type CameraConfig = PlayerConfig['camera'];
 
+/**
+ * How big one screen pixel is in meters at `distance` from the camera. Something that must keep
+ * the same size on screen (the lock-on mark) scales by this. It counts in CSS pixels, so Low,
+ * Mid and High show it at exactly the same size.
+ */
+export function metersPerPixel(distance: number, fovDegrees: number, viewHeightPx: number): number {
+  if (viewHeightPx <= 0) return 0;
+  const fov = fovDegrees * DEG;
+  return (2 * Math.max(0.1, distance) * Math.tan(fov / 2)) / viewHeightPx;
+}
+
 /** Fraction of the way to close in `seconds` with a given sharpness (per second); fps-independent. */
 function damp(sharpness: number, seconds: number): number {
   return 1 - Math.exp(-sharpness * seconds);

@@ -76,6 +76,8 @@ export class BootState implements GameState {
     }
 
     ctx.data = data;
+    // Keys and mouse buttons: defaults from controls.json, the player's own choices from the save.
+    ctx.bindings.configure(data.controls, ctx.session?.settings.keybindings);
     ctx.seasons = new SeasonService(data.seasons);
     ctx.dayNight = new DayNightService(data.daynight);
     const seasonParam = ctx.params.get('season');

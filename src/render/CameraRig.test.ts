@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { LookDelta } from '../core/Input';
 import type { PlayerConfig } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
-import { CameraOrbit } from './CameraRig';
+import { CameraOrbit, metersPerPixel } from './CameraRig';
 
 const cfg = (readPublicJson('data/player.json') as PlayerConfig).camera;
 const DEG = Math.PI / 180;
@@ -107,5 +107,30 @@ describe('CameraOrbit (over the shoulder)', () => {
     expect(4 - at60.x).toBeLessThan(0.25);
     // Within 5 cm: the goal itself jumps per frame, so a few cm difference is expected.
     expect(at120.x).toBeCloseTo(at60.x, 1);
+  });
+});
+
+describe('size on screen (lock-on mark, fase 3.6)', () => {
+  const fov = 55;
+  const height = 1000;
+
+  it('grows with the distance, so the mark stays the same size on screen', () => {
+    const near = metersPerPixel(5, fov, height);
+    const far = metersPerPixel(20, fov, height);
+    expect(far / near).toBeCloseTo(4, 5);
+    // 7 pixels at 5 m is a few centimeters in the world.
+    expect(7 * near).toBeGreaterThan(0.01);
+    expect(7 * near).toBeLessThan(0.1);
+  });
+
+  it('counts in screen pixels, so it does not change with the graphics preset', () => {
+    // Low renders at a lower pixel ratio, but the canvas keeps the same CSS height.
+    expect(metersPerPixel(10, fov, height)).toBe(metersPerPixel(10, fov, height));
+    expect(metersPerPixel(10, fov, 500)).toBeCloseTo(2 * metersPerPixel(10, fov, 1000), 6);
+  });
+
+  it('is 0 without a screen and never negative up close', () => {
+    expect(metersPerPixel(10, fov, 0)).toBe(0);
+    expect(metersPerPixel(0, fov, height)).toBeGreaterThan(0);
   });
 });

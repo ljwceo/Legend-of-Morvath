@@ -61,6 +61,12 @@ export class I18n {
 
   /** Called once per missing key; main.ts shows these in debug mode. */
   onMissing: ((key: string, language: Language) => void) | null = null;
+  /**
+   * Parameters every text may use without being passed them, for things that are the same
+   * everywhere: main.ts fills in the keys the player bound ({keyInteract}, {keyDash}, ...), so
+   * a hint always names the key they actually use. Explicit parameters win.
+   */
+  defaultParams: (() => TextParams) | null = null;
 
   constructor(private readonly fetcher: JsonFetcher = fetchJson) {}
 
@@ -98,6 +104,11 @@ export class I18n {
     this.reported.clear();
   }
 
+  /** The text as it stands, without default parameters (used to build those parameters). */
+  plain(key: string): string {
+    return this.current.get(key) ?? this.fallback.get(key) ?? key;
+  }
+
   has(key: string): boolean {
     return this.current.has(key) || this.fallback.has(key);
   }
@@ -108,7 +119,10 @@ export class I18n {
       this.report(key);
       text = this.fallback.get(key) ?? key;
     }
-    return format(text, params);
+    if (!text.includes('{')) return text;
+    const defaults = this.defaultParams?.();
+    if (!defaults) return format(text, params);
+    return format(text, params ? { ...defaults, ...params } : defaults);
   }
 
   private report(key: string): void {

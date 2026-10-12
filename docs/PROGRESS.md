@@ -6,10 +6,10 @@
 
 | | |
 |---|---|
-| **Huidige fase** | Fase 3 – Je pad, Entrance Exam en gear (plan goedgekeurd 2026-10-10) |
-| **Status** | Stap 3.0 t/m 3.5 klaar. Stap 3.5 (vechten met een staf: Arcane Shard, spreuken met opladen en lock-on) gebouwd, plus trage mana-regen en drankjes op percentage; testen kan via het cheatmenu (Geven → Staf, Spreuk). Fase 2, het Blender-Greyhaven en de teksten van de leraren wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
-| **Volgende stap** | Bo/Lucas: staf-gevecht en lock-on spelen (voelt de richthulp goed? zie de cheats onder "Richthulp"); daarna 3.6 (Entrance Exams, Crystal Ceremony en de stadspoort) |
-| **Laatste sessie** | 2026-10-12: stap 3.5 (staf + lock-on); daarvoor stap 3.4 (*Your Resolve*) gemerged en in Blender het Monastery met kloostertuin |
+| **Huidige fase** | Fase 3.6 – Buttonmapping en lock-on (Elden Ring-stijl) |
+| **Status** | **Fase 3.6 gebouwd (2026-10-12):** elke toets en muisknop is in te stellen (Settings → Besturing, save versie 9) en lock-on werkt als Elden Ring (wit puntje op de vijand, alleen op wie je ziet, lock breekt als er iets tussen de camera en de vijand komt, doel wisselen op een eigen knop). Daarvoor: stap 3.0 t/m 3.5 klaar. Stap 3.5 (vechten met een staf: Arcane Shard, spreuken met opladen en lock-on) gebouwd, plus trage mana-regen en drankjes op percentage; testen kan via het cheatmenu (Geven → Staf, Spreuk). Fase 2, het Blender-Greyhaven en de teksten van de leraren wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
+| **Volgende stap** | **Fase 3.7 – Stats en builds** in een nieuwe chat (prompt hieronder). Bo/Lucas: 3.6 spelen — voelen het puntje, het zicht-breken en de toetsen goed? |
+| **Laatste sessie** | 2026-10-12: fase 3 opgesplitst in 3.6 t/m 3.10 én fase 3.6 gebouwd (buttonmapping + lock-on) |
 
 ### Open vragen
 
@@ -26,7 +26,77 @@
 | 9 | Schoten vliegen dwars door een vijand die je niet kunt raken (Treewarden in de elfenstad, een baas die ontwijkt); bij het zwaard krijg je dan wel een melding of een "geblokkeerd"-effect | Voorstel: zo laten (je schiet erlangs); zeg het als een schot op zo'n vijand ook moet melden dat hij beschermd is |
 | 10 | De Q-knop (snel drinken) pakt alleen health potions (`player.json` → `potions.quickOrder`). Mana potions drink je uit de tas | Voorstel: zo laten, of een tweede knop/regel ("pak een mana potion als je HP vol is") |
 | 11 | Vallende sakura-blaadjes zijn een Blender-animatie via collection instances. Gaat die mee met de glTF-export, of laat de game de blaadjes zelf vallen? | Nog testen bij het inbouwen in Greyhaven |
+| 13 | Zit het lock-on-puntje op het midden van de **vijand** of vast in het **midden van je scherm**? | Voorstel en nu afgesproken: op het midden van de vijand (de camera houdt hem toch vast, dus het zit in de praktijk vlak bij het schermmidden). Eén regel anders als Bo een vast vizier wil |
 | 12 | Bomen in de kloostertuin gebruiken nu Genshin-achtige trosjes-kaartjes (plaatje met alpha + bol-normals, `GH_Monastery_Foliage_*`). De game-shader heeft daar nog geen modus voor | Nodig: bladmodus in `ToonMaterial` (plaatje, `discard` op alpha, custom normals, wind; geldt ook voor het gras `GH_Grass_MON_*`) en de export moet UV/normals/plaatje meenemen. Zie `docs/MONASTERY.md` |
+
+---
+
+## Fase 3 opgesplitst (2026-10-12) – fase 3.6 t/m 3.10
+
+Fase 3 bleek te groot voor één reeks, en Bo voegde drie wensen toe (buttonmapping, lock-on als Elden Ring, levels als puntensysteem met eieren om te herverdelen). Het restant is daarom opgesplitst in **vijf eigen fases**, elk in een eigen chat en met een eigen pull request per stap. De blokken met Doel / Bouwen / Data / Niet doen / Definition of Done staan onderaan `CLAUDE.md`.
+
+| Fase | Wat | Was eerst |
+|---|---|---|
+| **3.6** | Buttonmapping (elke knop zelf instellen) + lock-on als Elden Ring | nieuw |
+| **3.7** | Stats en builds: 20 startpunten, 1 punt per level, tien stats | nieuw |
+| **3.8** | Entrance Exams (9 quests), pad-effecten + Crystal Ceremony, stadspoort open | oude stap 3.6 |
+| **3.9** | Eieren bij mini-bosses + je build opnieuw verdelen bij Sultan | nieuw |
+| **3.10** | Afronden fase 3: balans, Meet 20 s, geheugen, documentatie | oude stap 3.7 |
+
+### Afspraken die hierbij horen (Bo, 2026-10-12)
+
+- **Buttonmapping:** standaardbindingen in `controls.json`, eigen bindingen in de save, twee bindingen per actie (W én pijltje), muisknoppen even goed bindbaar, Settings → Besturing met "druk een toets…", conflicten afpakken met melding, Terug naar standaard. Alle hint-teksten worden `{key}`-teksten. Telefoonknoppen blijven zoals ze zijn.
+- **Lock-on:** een klein **wit puntje met een dun ringetje** op het **midden van de vijand** (±55% van zijn hoogte), altijd even groot op het scherm, **niet** door muren heen. Locken kan alleen op een vijand die dichtbij genoeg is **en te zien is**; komt er iets tussen **de camera** (niet het karakter) en de vijand, dan **stopt de lock** — straal tegen de MeshBVH van Greyhaven of terrein + gebouwen in de open wereld, waarbij gras, klimop, water en kleine props niet blokkeren, met een tolerantie van 0,2 s tegen geknipper (0 = messcherp). **Doel wisselen** op een eigen instelbare knop. Alle getallen cheat-baar.
+- **Levels = punten:** 20 punten aan het begin (character creator), daarna **1 punt per level**, alleen uit XP. De automatische groei per level verdwijnt: `player.json` → `perLevel` (+10 HP, +5 mana), `sword.damagePerLevel` en `staff.shard.damagePerLevel` gaan naar de stats. **Gold is alleen voor spullen.**
+- **De `core`-stats van `skills.json` vervallen** (Health vs Speed enzovoort, 1–2 punten per level) en worden deze tien stats, 1 punt per level voor iedereen. De skill tree van fase 4 gaat daarna alleen nog over skills en perks.
+- **Faith** hoort bij bepaalde magie; **lichtmagie komt later in het spel** en is extra effectief tegen duistere vijanden. Duister houdt zijn krachtcurve (sterk aan het begin, later zwakker).
+- **Eieren:** **10 vindbare eieren**, elk eenmalig bij een **mini-boss** op een vaste plek, plus **het ei van Sultan** uit zijn baasgevecht. Inleveren bij Sultan (na hem verslagen te hebben) geeft al je punten vrij; level, pad, gear en quests blijven.
+
+### De tien stats (voorstel, alles in `stats.json`)
+
+| Stat | Wat één punt doet |
+|---|---|
+| HP | +8 max HP |
+| Defense | −0,8% schade die je krijgt (zachte grens) |
+| Strength | +2 zwaardschade |
+| Power | +4 max energie en zwaardere heavy hits |
+| Mana | +4 max mana |
+| Magic Power | +2 spreuk- en Arcane-Shard-schade |
+| Regen | sneller mana, energie en HP buiten gevecht |
+| Dexterity | sneller slaan, casten en opladen |
+| Faith | sterkere lichtmagie en drankjes genezen meer |
+| Luck | meer kans op buit en op een kritieke treffer |
+
+**Zachte grenzen (soft caps) zoals Elden Ring:** na een aantal punten levert een stat minder op, met breekpunten in `stats.json`, zodat alles-in-één-stat niet gebroken is. Een "gemiddelde" build moet ongeveer zo sterk zijn als de speler nu, zodat de balans van fase 2 blijft kloppen. Namen van de stats en alle getallen zijn een **voorstel**.
+
+### Prompts voor een nieuwe chat
+
+Eén chat per fase. Begin een nieuwe chat met het blok hieronder (en laat de vorige pull request eerst gemerged zijn).
+
+**Fase 3.7 – Stats en builds** (de eerste die na deze chat komt):
+
+```
+Lees CLAUDE.md en docs/PROGRESS.md. We beginnen met fase 3.7 – Stats en builds.
+
+Fase 3.6 (buttonmapping en lock-on) is klaar en gemerged; stap 3.0 t/m 3.5 ook.
+Houd je aan de afspraken van 2026-10-12 onderaan CLAUDE.md: 20 startpunten in de
+character creator, 1 punt per level (alleen uit XP), tien stats met zachte grenzen
+in een nieuwe stats.json, de automatische groei per level eruit (perLevel,
+sword.damagePerLevel, staff.shard.damagePerLevel), de core-stats van skills.json
+vervallen, gold is alleen voor spullen, en een statusvenster op een eigen
+instelbare toets.
+
+Schrijf eerst een kort plan (bestanden, volgorde, risico's) en wacht op mijn
+akkoord. Maak een eigen branch, kleine commits, een pull request in gewoon
+Nederlands met een testlijst voor de pc, en werk docs/PROGRESS.md bij.
+Uitleg aan mij in het Nederlands, code en commits in het Engels.
+```
+
+**Fase 3.8 – Entrance Exams, je pad en de stadspoort:** zelfde blok, maar met "we beginnen met fase 3.8" en: 9 exam-quests (3 per leraar, alleen voor je eigen pad), het nieuwe doel-type `train`, de pad-effecten (beter zwaard / geen mana / 115% kracht / de drie perks, of Mage Staff + Crystal Ceremony met kristal in de save), en `canLeaveCity` = Sultan verslagen + exam klaar.
+
+**Fase 3.9 – Eieren, mini-bosses en opnieuw verdelen:** zelfde blok, met "we beginnen met fase 3.9" en: 10 vindbare eieren bij eenmalige mini-bosses, het ei van Sultan, inleveren bij Sultan om al je punten opnieuw te verdelen (level, pad, gear en quests blijven).
+
+**Fase 3.10 – Afronden fase 3:** zelfde blok, met "we beginnen met fase 3.10" en: balans nameten met een nagebootste speler (ook extreme builds), Meet 20 s op Low/Mid/High, geheugen na 10 minuten lopen en na instances in en uit, `docs/ARCHITECTURE.md` bijwerken.
 
 ---
 
@@ -510,10 +580,37 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
   - Kloostertuin (±2× het klooster, vorm getekend door Bo): vijver (koi voor nu weggehaald), beekje met bron en poel, bruggetjes, bomen en bloemen, prieel, moestuin met 6 kweekbare bedden (`MON_FarmPlot_1…6`).
   - Nog niet in Greyhaven en nog niet geoptimaliseerd (±545.000 vertices, vooral daken en stenen). Open vragen 6–8.
 
+### Fase 3.6 – Buttonmapping en lock-on (Elden Ring-stijl)
+**Status:** gebouwd op 2026-10-12; wacht op spelen door Bo en Lucas.
+**Gebouwd:**
+- **Elke knop zelf instellen** (3.6a): de toetsen zaten vast in de code; nu gaat alles via een mapping (`src/core/Bindings.ts`, puur en getest) met de standaardbindingen in **`public/data/controls.json`** en jouw eigen toetsen in de save (**versie 9**, `settings.keybindings`).
+  - **Settings → Besturing**: per actie twee slots (bijv. W én ↑). Klik op een slot, druk een toets **of muisknop**; **Esc** annuleert, **Backspace** maakt leeg. Een toets die al bezet is wordt afgepakt met een melding ("F is weggehaald bij 'Praten en gebruiken'"), acties zonder toets worden onderaan genoemd, en **Terug naar standaard** zet alles terug. De debug-actie (omlaag vliegen) staat er alleen in debugmodus.
+  - **Instelbaar:** vooruit, achteruit, links, rechts, slaan, zware slag, dash, praten en gebruiken, drankje, tas, lock-on, **volgend doel** (nieuw, standaard X), bevestigen en omlaag vliegen. Muisknoppen (links, midden, rechts, muis 4 en 5) zijn even goed te binden als toetsen. **Niet te binden:** Escape (pauze) en de functietoetsen F3/F4/F6 (debug), want die heeft het spel zelf nodig.
+  - **Teksten noemen nooit meer een toets:** elke tekst kan `{keyInteract}`, `{keyDash}`, `{keyAttack}` … gebruiken en toont dan de toets die jij hebt ingesteld (ook het icoontje boven een NPC). Een test over `en.json` en `nl.json` faalt als een tekst zelf een toets noemt.
+  - De knoppen op het scherm van een telefoon blijven precies zoals ze waren.
+- **Lock-on als Elden Ring** (3.6b): de draaiende gouden ring boven het hoofd is weg. Nu staat er een **klein wit puntje met een dun ringetje** op het **midden van het lijf** van je doel, dat altijd naar de camera draait en **altijd even groot op je scherm** is (dichtbij en ver weg hetzelfde, en gelijk op Low, Mid en High).
+  - **Je kunt alleen locken op een vijand die je ziet** en **de lock breekt zodra er iets tussen de camera en de vijand komt** (niet tussen je karakter en de vijand): een straal van de camera naar het lijf tegen de MeshBVH van Greyhaven (water, klimop en gloeiende dingen blokkeren niet) of, in de open wereld, tegen de gebouwen plus de heuvels van het terrein. Een **tolerantie van 0,2 s** (`player.json` → `lockOn.loseSightSeconds`) voorkomt dat een lantaarnpaal die één frame voorbij schiet de lock breekt.
+  - **Doel wisselen** op een eigen, instelbare knop (standaard X): de volgende vijand die je kunt zien, met je huidige doel eruit gelaten. Zonder lock doet hij hetzelfde als de lock-knop.
+  - **Cheatmenu → Richthulp** heeft er **Zicht-tolerantie** (0× / 1× / 2× / 5×) bij; 0× is messcherp. De debugregel **`lock`** laat zien op wie je vergrendeld bent, hoe ver, of de camera hem ziet (en hoe lang niet), en zonder lock hoeveel vijanden binnen bereik staan en hoeveel daarvan achter iets staan.
+- **Getest:** 475 tests (mapping, een toets afpakken, de oude toets laat echt los, save 8 → 9, toetslabels per taal, `{key}`-teksten, zicht-tolerantie in seconden gelijk op 60 en 120 fps, markergrootte, validator), lint, opmaak, typecheck en build. Headless Chromium (pc 1100×760, NL): in Settings → Besturing vooruit op T gezet (W doet daarna niets meer, ↑ nog wel), E naar F (het icoontje boven de NPC toont F), een bezette toets afgepakt met melding, F3 geweigerd, Backspace leeg, middelste muisknop gebonden, Terug naar standaard; in het spel bij het slime-erf lock op een slime (puntje 7 px, "in sight"), X wisselt naar de volgende slime, weglopen voorbij 24 m laat los. Geen fouten in de console.
+- **Tijdelijke namen:** geen nieuwe.
+- **Nog niet gemeten:** fps op de pc en de iPhone (zoals heel fase 2 en 3 nog).
+
 ## Besluiten
 
 | Datum | Besluit | Waarom |
 |---|---|---|
+| 2026-10-12 | Fase 3 opgesplitst in fase 3.6 t/m 3.10, elk in een eigen chat | De fase werd te groot en er kwamen drie wensen bij (Bo) |
+| 2026-10-12 | Escape en de functietoetsen (F3, F4, F6) zijn niet te binden; Backspace maakt een slot leeg | Pauze en debug moeten altijd werken, ook na een rare mapping |
+| 2026-10-12 | Een actie mag zonder toets komen te staan; Settings waarschuwt erover | Anders kun je een toets niet van de ene actie naar de andere verplaatsen |
+| 2026-10-12 | Een linkerklik bevestigt altijd ook een regel in een gesprek, wat `attack` ook is | Anders kun je een gesprek niet meer doorklikken met een andere mapping |
+| 2026-10-12 | Het lock-on-puntje zit op het midden van de **vijand** (niet vast in het schermmidden) | Zoals Elden Ring; de camera houdt het doel toch vast, dus het zit vlakbij het schermmidden |
+| 2026-10-12 | Het puntje rekent in CSS-pixels, niet renderpixels | Dan is het op Low, Mid en High precies even groot (harde eis 3) |
+| 2026-10-12 | Elke knop is zelf in te stellen (buttonmapping), ook lock en doel wisselen | Bo: "zelfde als elke andere button" |
+| 2026-10-12 | Lock-on: wit puntje met dun ringetje op de vijand, en de lock stopt als er iets tussen de camera en de vijand komt | Bo: zo krijg je leuke interacties met dekking (Elden Ring) |
+| 2026-10-12 | Levels geven 1 punt in plaats van automatische groei; 20 punten aan het begin; gold is alleen voor spullen | Bo: je bouwt zelf je personage |
+| 2026-10-12 | De `core`-stat-punten van `skills.json` vervallen; de skill tree van fase 4 gaat alleen over skills en perks | Anders twee puntensystemen naast elkaar |
+| 2026-10-12 | 10 vindbare eieren bij eenmalige mini-bosses + het ei van Sultan; inleveren bij Sultan geeft je punten vrij | Bo: één keer per ei een nieuwe build |
 | 2026-10-09 | Overstap van Arcane Oath (2D, Phaser, gewoon JS) naar **Legend of Morvath** (3D, Three.js, Vite + TypeScript) | Nieuwe master prompt van Bo en Lucas |
 | 2026-10-09 | Oude `CLAUDE.md` bewaard als `docs/archive/CLAUDE-arcane-oath.md` | Niets weggooien |
 | 2026-10-09 | Oude spelgids, fase-tracker en `prompt.md` naar `docs/archive/` | Horen bij Arcane Oath (2D) |
@@ -752,3 +849,4 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - Blender (avond): nieuwe zuidelijke stadsmuur volgens Bo's tekening (haven → zuidkust → toren 13), oude zuidmuur + zuidpoort uit (`GH_SouthWall_Replaced`). De stad is daarmee naar het zuiden groter.
 | 10 | Kloostertuin: water met diepte (`WaterDepth`), grond met plaatje + vijverbodem-mix (`BedMix`), houtplaatjes, gras- en bloemenpollen als instances (`GH_Grass_MON_*`, `GH_Flower_MON_*`, `GH_Bush_MON_*`) | Game: watermodus met diepte-alpha, terrein-mix, triplanar voor grond/hout, instancing zoals bij `GH_Tree*`. Zie `docs/MONASTERY.md` |
 | 11 | Klooster, Monastery Garden en (later) Academy als **eigen zones**: kerkportaal = Greyhaven ↔ klooster, oostdeur van de oostvleugel = klooster ↔ tuin (markers `MON_Zone_*`, `MON_GardenGate_*`). via het kerkportaal (`MON_Zone_Door`) laad je `Monastery.blend` als eigen .glb en wordt de rest niet getekend (idee van Bo) | Game: `instances` kunnen nu alleen een stuk van `greyhaven.glb` tonen; nodig is een instance met een eigen model. Greyhaven krijgt een simpele buitenkant van het klooster. Zie `docs/MONASTERY.md` |
+- Fase 3 opgesplitst na nieuwe wensen van Bo: **fase 3.6** (buttonmapping + lock-on als Elden Ring: wit puntje op de vijand, lock stopt als er iets tussen de camera en de vijand komt), **3.7** (stats en builds: 20 startpunten, 1 punt per level, tien stats met zachte grenzen, geen automatische groei meer, gold alleen voor spullen, `core` uit `skills.json`), **3.8** (de oude stap 3.6: exams, pad-effecten, Crystal Ceremony, poort), **3.9** (10 eieren bij eenmalige mini-bosses + het ei van Sultan, herverdelen bij Sultan) en **3.10** (de oude stap 3.7: afronden). De blokken staan onderaan `CLAUDE.md`, de prompts per chat hierboven. Daarna fase 3.6 gebouwd (zie hierboven): buttonmapping en de nieuwe lock-on.

@@ -55,7 +55,9 @@
     "deleteConfirm1": "Je save verwijderen? Je begint dan helemaal opnieuw.",
     "deleteConfirm2": "Weet je het echt zeker? Dit kun je niet ongedaan maken.",
     "deleted": "Je save is verwijderd.",
-    "browserDataWarning": "Je spel wordt in deze browser opgeslagen. Wis je je browsergegevens, dan is je save ook weg."
+    "browserDataWarning": "Je spel wordt in deze browser opgeslagen. Wis je je browsergegevens, dan is je save ook weg.",
+    "controls": "Besturing",
+    "controlsOpen": "Toetsen en knoppen…"
   },
   "save": {
     "saved": "Spel opgeslagen",
@@ -148,7 +150,7 @@
     "tapToContinue": "Tik of druk op spatie om verder te gaan",
     "fight": {
       "arrive": "Kijk eens, broer. Bezoek!",
-      "hint": "Val ze aan! Linkermuisknop = slaan, rechtermuisknop = zware slag.",
+      "hint": "Val ze aan! {keyAttack} = slaan, {keyHeavy} = zware slag.",
       "hintTouch": "Val ze aan! Tik op Slaan of Zwaar.",
       "tickle": "Raakte er nou iets… mij aan?",
       "behind": "Psst. Hier.",
@@ -444,7 +446,7 @@
         "3": "Je bed staat daar. Ga even liggen en rust uit; dat geneest lichaam en geest. Kom daarna bij me terug."
       },
       "progress": {
-        "1": "Ga eerst even rusten in je bed. Loop ernaartoe en druk op E (of tik op Rusten)."
+        "1": "Ga eerst even rusten in je bed. Loop ernaartoe en druk op {keyInteract} (of tik op Rusten)."
       },
       "complete": {
         "1": "Zo, weer wat kleur op je wangen. Ben je gewond, dan maakt een bed bij een checkpoint je weer heel.",
@@ -461,7 +463,7 @@
         "1": "Nog aan het twijfelen? Twee Health Potions, speciale prijs, speciaal voor jou."
       },
       "complete": {
-        "1": "Fijn zakendoen! Drink er een met Q, of tik op de drankknop, als je gewond bent.",
+        "1": "Fijn zakendoen! Drink er een met {keyPotion}, of tik op de drankknop, als je gewond bent.",
         "2": "Hier, een kleinigheidje terug. Niet tegen de andere kooplui zeggen."
       }
     },
@@ -562,7 +564,68 @@
     "potion": "Drankje drinken",
     "shard": "Shard",
     "spell": "Spreuk",
-    "lock": "Lock-on"
+    "lock": "Lock-on",
+    "title": "Besturing",
+    "help": "Klik op een toets om hem te veranderen. Druk dan een toets of muisknop; Esc annuleert, Backspace maakt hem leeg. De knoppen op het scherm van een telefoon blijven zoals ze zijn.",
+    "pressAKey": "druk…",
+    "reset": "Terug naar standaard",
+    "takenFrom": "{key} is weggehaald bij “{action}”.",
+    "reserved": "{key} kan niet; die heeft het spel zelf nodig.",
+    "unbound": "Zonder toets: {actions}.",
+    "action": {
+      "moveForward": "Vooruit",
+      "moveBack": "Achteruit",
+      "moveLeft": "Links",
+      "moveRight": "Rechts",
+      "attack": "Slaan (fast hit / Shard)",
+      "heavy": "Zware slag / spreuk",
+      "dash": "Dash",
+      "interact": "Praten en gebruiken",
+      "potion": "Drankje drinken",
+      "bag": "Tas",
+      "lock": "Lock-on",
+      "lockSwitch": "Volgend doel",
+      "confirm": "Bevestigen",
+      "down": "Omlaag vliegen (debug)"
+    }
+  },
+  "key": {
+    "mouse0": "Linkermuisknop",
+    "mouse1": "Middelste muisknop",
+    "mouse2": "Rechtermuisknop",
+    "mouse3": "Muis 4",
+    "mouse4": "Muis 5",
+    "numpad": "Numpad",
+    "Space": "Spatie",
+    "Tab": "Tab",
+    "Enter": "Enter",
+    "NumpadEnter": "Numpad Enter",
+    "ArrowUp": "↑",
+    "ArrowDown": "↓",
+    "ArrowLeft": "←",
+    "ArrowRight": "→",
+    "ShiftLeft": "Shift links",
+    "ShiftRight": "Shift rechts",
+    "ControlLeft": "Ctrl links",
+    "ControlRight": "Ctrl rechts",
+    "AltLeft": "Alt links",
+    "AltRight": "Alt rechts",
+    "Comma": ",",
+    "Period": ".",
+    "Slash": "/",
+    "Semicolon": ";",
+    "Quote": "'",
+    "BracketLeft": "[",
+    "BracketRight": "]",
+    "Backslash": "\\",
+    "Minus": "-",
+    "Equal": "=",
+    "Backquote": "`",
+    "Home": "Home",
+    "End": "End",
+    "PageUp": "Page Up",
+    "PageDown": "Page Down",
+    "Delete": "Delete"
   },
   "cheats": {
     "debugView": "Debugvenster",
@@ -578,7 +641,7 @@
     "fly": "Vliegen",
     "on": "Aan",
     "off": "Uit",
-    "flyHintKeys": "Spatie = omhoog · Shift = omlaag · door muren heen",
+    "flyHintKeys": "{keyDash} = omhoog · {keyDown} = omlaag · door muren heen",
     "flyHintTouch": "▲ / ▼ knoppen = omhoog en omlaag · door muren heen",
     "teleport": "Teleporteren",
     "chunkLines": "Chunkranden",
@@ -629,7 +692,9 @@
     "aimNote": "Vermenigvuldigers op de getallen in player.json, om te vinden wat goed voelt.",
     "aimAssist": "Richtkegel",
     "lockRange": "Lock-on bereik",
-    "homing": "Schoten krommen"
+    "homing": "Schoten krommen",
+    "lockSight": "Zicht-tolerantie",
+    "lockSightNote": "Hoe lang een vergrendelde vijand uit het zicht mag zijn voordat de lock losgaat (0× = meteen)."
   },
   "bag": {
     "title": "Tas",

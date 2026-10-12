@@ -1,9 +1,6 @@
-/** Game actions, independent of key, button or (later) gamepad. */
-/** `down` only matters while flying (debug cheat): Shift or C. */
-/** `confirm`: Enter, or a left click while the mouse is captured (e.g. next dialogue line). */
-/** `lock`: lock-on, the middle mouse button or Tab (on a phone its own button). */
-export type Action =
-  'dash' | 'interact' | 'down' | 'confirm' | 'attack' | 'heavy' | 'potion' | 'bag' | 'lock';
+import { type Action, Bindings, mouseCode } from './Bindings';
+
+export type { Action };
 
 /** Turning and zoom gathered since the camera last read them. */
 export interface LookDelta {
@@ -34,23 +31,6 @@ export interface JoystickState {
   knobY: number;
 }
 
-const KEY_UP = ['KeyW', 'ArrowUp'] as const;
-const KEY_DOWN = ['KeyS', 'ArrowDown'] as const;
-const KEY_LEFT = ['KeyA', 'ArrowLeft'] as const;
-const KEY_RIGHT = ['KeyD', 'ArrowRight'] as const;
-const ACTION_KEYS: Readonly<Record<string, Action>> = {
-  Space: 'dash',
-  KeyE: 'interact',
-  KeyQ: 'potion',
-  KeyI: 'bag',
-  KeyB: 'bag',
-  Tab: 'lock',
-  Enter: 'confirm',
-  NumpadEnter: 'confirm',
-  ShiftLeft: 'down',
-  ShiftRight: 'down',
-  KeyC: 'down',
-};
 /** Keys whose browser default (scrolling) must not happen during play. */
 const BLOCK_DEFAULT = new Set([
   'Space',
@@ -61,6 +41,9 @@ const BLOCK_DEFAULT = new Set([
   // Tab would move the focus out of the game (and show the browser's focus ring).
   'Tab',
 ]);
+/** Mouse buttons the camera needs itself while the mouse is not captured. */
+const LEFT_BUTTON = 0;
+const RIGHT_BUTTON = 2;
 /** Pixels per wheel "line" when the browser reports lines instead of pixels. */
 const WHEEL_LINE_PX = 40;
 const WHEEL_NOTCH_PX = 100;
@@ -78,8 +61,8 @@ const JOYSTICK_ZONE_TOP = 0.5;
  * (`getMoveVector`, `isPressed`, `consumePressed`), never for keys, so a gamepad can be added
  * here later without touching game code.
  *
- * - Keyboard: WASD / arrows to walk, Space to dash, E to interact, Enter to confirm, Q to drink
- *   a potion, I or B for the bag, Tab to lock on to an enemy.
+ * - Keyboard and mouse buttons go through `Bindings`, so every action can be set in
+ *   Settings -> Controls (defaults from controls.json: WASD / arrows, Space, E, Q, I, Tab, X).
  * - Mouse (like Genshin Impact): click once to capture the mouse (pointer lock); from then on
  *   moving the mouse turns the camera without holding a button. Escape releases it (the browser
  *   does that itself). Without the lock, dragging with the right button also turns. Wheel zooms.
@@ -93,7 +76,6 @@ export class Input {
   /** Called when the mouse lock ends without the game asking (the player pressed Escape). */
   onPointerLockLost: (() => void) | null = null;
 
-  private readonly keys = new Set<string>();
   private readonly held = new Set<Action>();
   private readonly pressed = new Set<Action>();
   private readonly look: LookDelta = { yaw: 0, pitch: 0, zoom: 1 };
@@ -114,6 +96,8 @@ export class Input {
   constructor(
     private readonly surface: HTMLElement,
     private readonly cfg: InputConfig,
+    /** Which key or mouse button does what; shared with Settings -> Controls. */
+    private readonly bindings: Bindings = new Bindings(),
   ) {}
 
   attach(): void {
@@ -183,10 +167,11 @@ export class Input {
   getMoveVector(out: { x: number; y: number }): { x: number; y: number } {
     let x = 0;
     let y = 0;
-    if (this.anyKey(KEY_RIGHT)) x += 1;
-    if (this.anyKey(KEY_LEFT)) x -= 1;
-    if (this.anyKey(KEY_UP)) y += 1;
-    if (this.anyKey(KEY_DOWN)) y -= 1;
+    const held = this.held;
+    if (held.has('moveRight')) x += 1;
+    if (held.has('moveLeft')) x -= 1;
+    if (held.has('moveForward')) y += 1;
+    if (held.has('moveBack')) y -= 1;
     if (x !== 0 || y !== 0) {
       const length = Math.sqrt(x * x + y * y);
       out.x = x / length;
@@ -262,7 +247,6 @@ export class Input {
 
   /** Forgets every held key, finger and press (pause, app in background, window blur). */
   readonly releaseAll = (): void => {
-    this.keys.clear();
     this.held.clear();
     this.pressed.clear();
     this.joystickPointer = null;
@@ -276,24 +260,17 @@ export class Input {
     this.look.zoom = 1;
   };
 
-  /** Allocation-free: called every simulation step. */
-  private anyKey(codes: readonly [string, string]): boolean {
-    return this.keys.has(codes[0]) || this.keys.has(codes[1]);
-  }
-
   // ---------------------------------------------------------------- keyboard
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (isTextField(event.target)) return;
     if (BLOCK_DEFAULT.has(event.code)) event.preventDefault();
-    this.keys.add(event.code);
-    const action = ACTION_KEYS[event.code];
+    const action = this.bindings.actionFor(event.code);
     if (action && !event.repeat) this.press(action);
   };
 
   private readonly onKeyUp = (event: KeyboardEvent): void => {
-    this.keys.delete(event.code);
-    const action = ACTION_KEYS[event.code];
+    const action = this.bindings.actionFor(event.code);
     if (action) this.release(action);
   };
 
@@ -302,25 +279,21 @@ export class Input {
   private readonly onPointerDown = (event: PointerEvent): void => {
     const id = event.pointerId;
     if (event.pointerType === 'mouse') {
+      const action = this.bindings.actionFor(mouseCode(event.button));
       if (this.pointerLocked) {
-        // Left = fast hit / Arcane Shard (and "next" in a conversation), right = heavy hit or
-        // spell. Both stay held while the button is down, so you can keep attacking and charge
-        // a spell; the middle button is a single press (lock-on).
-        if (event.button === 0) {
-          this.tap('confirm');
-          this.press('attack');
-        } else if (event.button === 2) {
-          this.press('heavy');
-        } else if (event.button === 1) {
-          this.tap('lock');
-        }
+        // A bound button stays held while it is down, so you can keep attacking or charge a
+        // spell. A left click always also confirms (the next line of a conversation), whatever
+        // it is bound to.
+        if (event.button === LEFT_BUTTON) this.tap('confirm');
+        if (action) this.press(action);
         return;
       }
-      if (event.button === 1) this.tap('lock');
-      else if (event.button === 0) this.requestPointerLock();
-      else if (event.button === 2 && this.lookPointer === null) {
+      // Without the captured mouse, the left button captures it and the right one turns the
+      // camera; any other bound button (the middle one by default) still works.
+      if (event.button === LEFT_BUTTON) this.requestPointerLock();
+      else if (event.button === RIGHT_BUTTON && this.lookPointer === null) {
         this.startLook(event, this.cfg.rotateRadiansPerPixelMouse);
-      }
+      } else if (action) this.tap(action);
       return;
     }
 
@@ -406,9 +379,9 @@ export class Input {
   private readonly onPointerUp = (event: PointerEvent): void => {
     const id = event.pointerId;
     if (event.pointerType === 'mouse' && this.pointerLocked) {
-      // Letting go of the mouse stops attacking (and fires a charged spell).
-      if (event.button === 0) this.release('attack');
-      else if (event.button === 2) this.release('heavy');
+      // Letting go of the button stops attacking (and fires a charged spell).
+      const action = this.bindings.actionFor(mouseCode(event.button));
+      if (action) this.release(action);
       return;
     }
     if (id === this.joystickPointer) {

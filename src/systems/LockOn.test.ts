@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest';
 import { playerFileSchema } from '../data/schemas';
 import type { PlayerConfig } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
-import { followLockedTarget, headingTo, lockBroken, lockOnConfig, pickLockTarget } from './LockOn';
+import {
+  followLockedTarget,
+  headingTo,
+  lockBroken,
+  lockOnConfig,
+  lostSight,
+  pickLockTarget,
+  stepBlindSeconds,
+} from './LockOn';
 
 const player = playerFileSchema.parse(readPublicJson('data/player.json')) as PlayerConfig;
 const cfg = lockOnConfig(player);
@@ -87,5 +95,58 @@ describe('aiming and the camera', () => {
   it('stops turning once the camera looks at the target', () => {
     const target = monster(0, 10);
     expect(followLockedTarget(0, 0, 0, target, cfg, 1)).toBeCloseTo(0, 6);
+  });
+});
+
+describe('only what you can see (fase 3.6)', () => {
+  const targets = [monster(0, 5), monster(3, 6)];
+
+  it('never locks on to an enemy the camera cannot see', () => {
+    const blind = (): boolean => false;
+    expect(pickLockTarget(0, 0, 0, targets, cfg, blind)).toBe(null);
+  });
+
+  it('takes the next best one when the nearest is behind something', () => {
+    const hidden = targets[0];
+    const canSee = (t: (typeof targets)[number]): boolean => t !== hidden;
+    expect(pickLockTarget(0, 0, 0, targets, cfg, canSee)).toBe(targets[1]);
+  });
+
+  it('leaves out the target you are switching away from', () => {
+    expect(pickLockTarget(0, 0, 0, targets, cfg, undefined, targets[0])).toBe(targets[1]);
+    // Nothing else in sight: switching finds nothing and the lock simply stays.
+    expect(
+      pickLockTarget(0, 0, 0, [targets[0] as (typeof targets)[number]], cfg, undefined, targets[0]),
+    ).toBe(null);
+  });
+
+  it('counts the seconds out of sight and breaks past the tolerance', () => {
+    const tolerant = { ...cfg, loseSightSeconds: 0.2 };
+    let blind = 0;
+    blind = stepBlindSeconds(blind, false, 1 / 60);
+    expect(lostSight(blind, tolerant)).toBe(false);
+    for (let i = 0; i < 12; i++) blind = stepBlindSeconds(blind, false, 1 / 60);
+    expect(lostSight(blind, tolerant)).toBe(true);
+    // Seeing it again forgets everything.
+    expect(stepBlindSeconds(blind, true, 1 / 60)).toBe(0);
+  });
+
+  it('breaks at the same moment on 60 and 120 fps (seconds, not frames)', () => {
+    const tolerant = { ...cfg, loseSightSeconds: 0.2 };
+    const until = (step: number): number => {
+      let blind = 0;
+      let seconds = 0;
+      while (!lostSight(blind, tolerant) && seconds < 2) {
+        blind = stepBlindSeconds(blind, false, step);
+        seconds += step;
+      }
+      return seconds;
+    };
+    expect(Math.abs(until(1 / 60) - until(1 / 120))).toBeLessThan(0.02);
+  });
+
+  it('breaks at once when the tolerance is 0 (cheat menu)', () => {
+    const sharp = { ...cfg, loseSightSeconds: 0 };
+    expect(lostSight(stepBlindSeconds(0, false, 1 / 60), sharp)).toBe(true);
   });
 });

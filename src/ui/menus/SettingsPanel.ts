@@ -4,10 +4,12 @@ import type { SaveSettings } from '../../save/SaveData';
 import { button, el, segmented } from '../dom';
 import type { Panel } from '../Overlays';
 import { bindT, confirmPanel } from './ConfirmPanel';
+import { controlsPanel } from './ControlsPanel';
 
 /**
- * Settings: language, graphics preset, frame rate cap, volume, camera sensitivity, debug mode
- * and deleting the save (two confirmations). Every change is saved immediately.
+ * Settings: language, graphics preset, frame rate cap, volume, camera sensitivity, controls
+ * (own panel), debug mode and deleting the save (two confirmations). Every change is saved
+ * immediately.
  */
 export function settingsPanel(ctx: GameContext): Panel {
   const change = (apply: (settings: SaveSettings) => void): void => {
@@ -33,6 +35,8 @@ export function settingsPanel(ctx: GameContext): Panel {
           confirmPanel(ctx, 'settings.deleteConfirm2', () => {
             ctx.saves.delete();
             ctx.session = null;
+            // Starting completely over also means the default keys again.
+            ctx.bindings.resetToDefaults();
             ctx.overlays.closeAll();
             // Back to the very beginning: language choice, then a new game.
             ctx.goto('language');
@@ -157,6 +161,10 @@ export function settingsPanel(ctx: GameContext): Panel {
             settings.debug ? 'on' : 'off',
             (value) => change((s) => (s.debug = value === 'on')),
           ),
+        ),
+        row(
+          t('settings.controls'),
+          button(t('settings.controlsOpen'), () => ctx.overlays.open(controlsPanel(ctx))),
         ),
         el('p', { className: 'ui-note', text: t('settings.browserDataWarning') }),
         el(

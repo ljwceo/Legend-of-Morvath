@@ -1,9 +1,11 @@
+import { Bindings } from './core/Bindings';
 import { createEventBus } from './core/events';
 import type { GameContext } from './core/GameContext';
 import { GameLoop } from './core/GameLoop';
 import { LazyState } from './core/LazyState';
 import { StateMachine } from './core/StateMachine';
 import { I18n } from './i18n/I18n';
+import { keyParams } from './ui/keyLabels';
 import { DebugOverlay } from './render/DebugOverlay';
 import { PerfProbe, type PerfResult } from './render/PerfProbe';
 import { QualityManager } from './render/QualityManager';
@@ -68,6 +70,9 @@ i18n.onMissing = (key, language) => {
   showInDebug(message);
 };
 const saves = new SaveManager(browserStorage());
+const bindings = new Bindings();
+// Any text may name the key the player bound: "{keyInteract}" becomes E, or whatever they chose.
+i18n.defaultParams = () => keyParams(bindings, i18n);
 
 // `?fps=30` caps the frame rate, to check that the game runs equally fast at any fps.
 const fpsParam = Number(params.get('fps'));
@@ -89,6 +94,7 @@ const ctx: GameContext = {
   loop,
   i18n,
   saves,
+  bindings,
   debug: debugOverlay,
   quality: qualityManager,
   perf,

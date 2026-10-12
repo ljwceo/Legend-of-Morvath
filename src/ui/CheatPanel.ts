@@ -2,7 +2,13 @@ import type { GameContext } from '../core/GameContext';
 import type { Input } from '../core/Input';
 import { PLAYER_PATHS, type PlayerPath } from '../data/schemas';
 import { DEBUG_VIEWS } from '../render/DebugOverlay';
-import { CHEAT_AIM_SCALES, CHEAT_LOCK_SCALES, CHEAT_SPEEDS, type Cheats } from '../systems/Cheats';
+import {
+  CHEAT_AIM_SCALES,
+  CHEAT_LOCK_SCALES,
+  CHEAT_SIGHT_SCALES,
+  CHEAT_SPEEDS,
+  type Cheats,
+} from '../systems/Cheats';
 import { el } from './dom';
 
 export interface CheatPanelHandlers {
@@ -306,6 +312,18 @@ export class CheatPanel {
             }),
           ),
         ),
+        el('p', { className: 'ui-label', text: t('cheats.lockSight') }),
+        el(
+          'div',
+          { className: 'ui-chips' },
+          ...CHEAT_SIGHT_SCALES.map((scale) =>
+            chip(`${scale}×`, cheats.lockSight === scale, () => {
+              cheats.lockSight = scale;
+              this.changed();
+            }),
+          ),
+        ),
+        el('p', { className: 'ui-note', text: t('cheats.lockSightNote') }),
       ),
       section(
         t('cheats.boss'),

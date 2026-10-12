@@ -55,7 +55,9 @@
     "deleteConfirm1": "Delete your save? You will start completely over.",
     "deleteConfirm2": "Are you really sure? This cannot be undone.",
     "deleted": "Your save has been deleted.",
-    "browserDataWarning": "Your game is saved in this browser. Clearing your browser data also deletes your save."
+    "browserDataWarning": "Your game is saved in this browser. Clearing your browser data also deletes your save.",
+    "controls": "Controls",
+    "controlsOpen": "Keys and buttons…"
   },
   "save": {
     "saved": "Game saved",
@@ -148,7 +150,7 @@
     "tapToContinue": "Tap or press Space to continue",
     "fight": {
       "arrive": "Oh look, Brother. A visitor!",
-      "hint": "Attack them! Left mouse = strike, right mouse = heavy hit.",
+      "hint": "Attack them! {keyAttack} for a fast hit, {keyHeavy} for a heavy one.",
       "hintTouch": "Attack them! Tap Attack or Heavy.",
       "tickle": "Did something just… touch me?",
       "behind": "Psst. Over here.",
@@ -444,7 +446,7 @@
         "3": "Your bed is right over there. Lie down and rest a while; it heals body and mind. Come and see me when you feel better."
       },
       "progress": {
-        "1": "Go on, rest in your bed first. Walk up to it and press E (or tap Rest)."
+        "1": "Go on, rest in your bed first. Walk up to it and press {keyInteract} (or tap Rest)."
       },
       "complete": {
         "1": "There, colour in your cheeks again. Whenever you are hurt, a bed at a checkpoint makes you whole.",
@@ -461,7 +463,7 @@
         "1": "Still thinking it over? Two Health Potions, special price, just for you."
       },
       "complete": {
-        "1": "Pleasure doing business! Drink one with Q, or tap the potion button, whenever you are hurt.",
+        "1": "Pleasure doing business! Drink one with {keyPotion}, or tap the potion button, whenever you are hurt.",
         "2": "Here, a little something back. Don't tell the other merchants."
       }
     },
@@ -562,7 +564,68 @@
     "potion": "Drink potion",
     "shard": "Shard",
     "spell": "Spell",
-    "lock": "Lock-on"
+    "lock": "Lock-on",
+    "title": "Controls",
+    "help": "Click a key to change it. Then press a key or mouse button; Esc cancels, Backspace clears it. The on-screen buttons on a phone stay as they are.",
+    "pressAKey": "press…",
+    "reset": "Back to default",
+    "takenFrom": "{key} was taken from “{action}”.",
+    "reserved": "{key} cannot be used; the game needs it.",
+    "unbound": "Without a key: {actions}.",
+    "action": {
+      "moveForward": "Forward",
+      "moveBack": "Backwards",
+      "moveLeft": "Left",
+      "moveRight": "Right",
+      "attack": "Attack (fast hit / Shard)",
+      "heavy": "Heavy hit / spell",
+      "dash": "Dash",
+      "interact": "Talk and use",
+      "potion": "Drink potion",
+      "bag": "Bag",
+      "lock": "Lock-on",
+      "lockSwitch": "Next target",
+      "confirm": "Confirm",
+      "down": "Fly down (debug)"
+    }
+  },
+  "key": {
+    "mouse0": "Left mouse",
+    "mouse1": "Middle mouse",
+    "mouse2": "Right mouse",
+    "mouse3": "Mouse 4",
+    "mouse4": "Mouse 5",
+    "numpad": "Numpad",
+    "Space": "Space",
+    "Tab": "Tab",
+    "Enter": "Enter",
+    "NumpadEnter": "Numpad Enter",
+    "ArrowUp": "↑",
+    "ArrowDown": "↓",
+    "ArrowLeft": "←",
+    "ArrowRight": "→",
+    "ShiftLeft": "Left Shift",
+    "ShiftRight": "Right Shift",
+    "ControlLeft": "Left Ctrl",
+    "ControlRight": "Right Ctrl",
+    "AltLeft": "Left Alt",
+    "AltRight": "Right Alt",
+    "Comma": ",",
+    "Period": ".",
+    "Slash": "/",
+    "Semicolon": ";",
+    "Quote": "'",
+    "BracketLeft": "[",
+    "BracketRight": "]",
+    "Backslash": "\\",
+    "Minus": "-",
+    "Equal": "=",
+    "Backquote": "`",
+    "Home": "Home",
+    "End": "End",
+    "PageUp": "Page Up",
+    "PageDown": "Page Down",
+    "Delete": "Delete"
   },
   "cheats": {
     "debugView": "Debug overlay",
@@ -578,7 +641,7 @@
     "fly": "Fly",
     "on": "On",
     "off": "Off",
-    "flyHintKeys": "Space = up · Shift = down · through walls",
+    "flyHintKeys": "{keyDash} = up · {keyDown} = down · through walls",
     "flyHintTouch": "▲ / ▼ buttons = up and down · through walls",
     "teleport": "Teleport",
     "chunkLines": "Chunk borders",
@@ -629,7 +692,9 @@
     "aimNote": "Multipliers on the numbers in player.json, to find what feels right.",
     "aimAssist": "Aim cone",
     "lockRange": "Lock-on range",
-    "homing": "Shots curve"
+    "homing": "Shots curve",
+    "lockSight": "Sight tolerance",
+    "lockSightNote": "How long a locked enemy may be out of sight before the lock lets go (0× = at once)."
   },
   "bag": {
     "title": "Bag",

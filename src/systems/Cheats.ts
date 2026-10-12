@@ -7,6 +7,8 @@ export const CHEAT_SPEEDS = [1, 2, 5, 10, 25] as const;
 export const CHEAT_AIM_SCALES = [0, 0.5, 1, 2] as const;
 /** Lock-on range multipliers offered in the cheat menu. */
 export const CHEAT_LOCK_SCALES = [0.5, 1, 1.5, 2] as const;
+/** How long a locked enemy may be out of sight, as multipliers (0 = break at once). */
+export const CHEAT_SIGHT_SCALES = [0, 1, 2, 5] as const;
 /** Highest a flying player may go above the ground (m). */
 export const FLY_MAX_ABOVE_GROUND = 400;
 
@@ -29,6 +31,12 @@ export class Cheats {
   aimAssist = 1;
   lockRange = 1;
   homing = 1;
+  /**
+   * How long a locked enemy may be out of sight before the lock breaks, as a multiplier on
+   * `lockOn.loseSightSeconds` (0 = break the moment something comes between the camera and the
+   * enemy, 1 = as the game ships).
+   */
+  lockSight = 1;
 
   get active(): boolean {
     return (
@@ -37,7 +45,8 @@ export class Cheats {
       !this.monsters ||
       this.aimAssist !== 1 ||
       this.lockRange !== 1 ||
-      this.homing !== 1
+      this.homing !== 1 ||
+      this.lockSight !== 1
     );
   }
 
@@ -49,6 +58,7 @@ export class Cheats {
     this.aimAssist = 1;
     this.lockRange = 1;
     this.homing = 1;
+    this.lockSight = 1;
   }
 }
 

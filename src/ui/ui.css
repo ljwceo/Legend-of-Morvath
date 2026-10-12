@@ -1737,3 +1737,50 @@
   flex-shrink: 0;
   gap: 6px;
 }
+
+/* ------------------------------------------------------------ controls (fase 3.6) */
+
+/* One row per action: the name on the left, its two keys on the right. */
+.ui-control-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.ui-control-row .ui-label {
+  flex: 1;
+}
+
+.ui-key-row {
+  display: flex;
+  gap: 6px;
+}
+
+.ui-key {
+  min-width: 68px;
+  min-height: 36px;
+  padding: 4px 8px;
+  font: 15px var(--gh-font-tekst);
+  color: var(--gh-tekst);
+  background: transparent;
+  border: 1px solid var(--gh-rand);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ui-key:hover,
+.ui-key:focus-visible {
+  border-color: var(--gh-ornamentgoud);
+  outline: none;
+}
+
+/* Waiting for a key: the amber glow of a primary button, so it is obvious where the press goes. */
+.ui-key-waiting {
+  color: var(--gh-nachtinkt);
+  background: var(--gh-lantaarnamber);
+  border-color: var(--gh-zonlicht);
+}
+
+.ui-note-warn {
+  color: var(--gh-lantaarnamber);
+}

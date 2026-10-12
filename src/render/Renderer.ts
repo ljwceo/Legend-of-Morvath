@@ -129,6 +129,14 @@ export class Renderer {
     this.renderPass = null;
   }
 
+  /**
+   * Height of the canvas in CSS pixels (not render pixels), so something that must be the same
+   * size on screen — the lock-on mark — is the same on every graphics preset.
+   */
+  get viewHeight(): number {
+    return this.container.clientHeight || window.innerHeight;
+  }
+
   private readonly resize = (): void => {
     const width = this.container.clientWidth || window.innerWidth;
     const height = this.container.clientHeight || window.innerHeight;

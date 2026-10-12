@@ -24,6 +24,7 @@ export type TriggersFile = GameData['triggers'];
 export type TriggerDef = TriggersFile['triggers'][number];
 export type QuestsFile = GameData['quests'];
 export type QuestDef = QuestsFile['quests'][number];
+export type ControlsFile = GameData['controls'];
 export type SpellsFile = GameData['spells'];
 export type SkillsFile = GameData['skills'];
 export type CombosFile = GameData['combos'];

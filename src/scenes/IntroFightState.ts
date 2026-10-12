@@ -502,13 +502,17 @@ export class IntroFightState implements GameState {
 
     const camera = data.player.camera;
     const controls = data.player.controls;
-    this.input = new Input(this.surface, {
-      joystickRadiusPx: controls.joystickRadiusPx,
-      joystickDeadZone: controls.joystickDeadZone,
-      rotateRadiansPerPixelMouse: camera.rotateRadiansPerPixelMouse,
-      rotateRadiansPerPixelTouch: camera.rotateRadiansPerPixelTouch,
-      zoomStepPerWheelNotch: camera.zoomStepPerWheelNotch,
-    });
+    this.input = new Input(
+      this.surface,
+      {
+        joystickRadiusPx: controls.joystickRadiusPx,
+        joystickDeadZone: controls.joystickDeadZone,
+        rotateRadiansPerPixelMouse: camera.rotateRadiansPerPixelMouse,
+        rotateRadiansPerPixelTouch: camera.rotateRadiansPerPixelTouch,
+        zoomStepPerWheelNotch: camera.zoomStepPerWheelNotch,
+      },
+      this.ctx.bindings,
+    );
     this.input.attach();
     this.touch = new TouchControls(
       this.input,

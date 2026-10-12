@@ -1,11 +1,12 @@
 import {
   BufferAttribute,
   BufferGeometry,
+  CircleGeometry,
   Color,
   ConeGeometry,
   CylinderGeometry,
   DynamicDrawUsage,
-  type Group,
+  Group,
   InstancedMesh,
   Matrix4,
   MeshBasicMaterial,
@@ -13,8 +14,8 @@ import {
   Mesh,
   DoubleSide,
   Quaternion,
+  RingGeometry,
   SphereGeometry,
-  TorusGeometry,
   Vector3,
 } from 'three';
 import type { Enemy } from '../entities/Enemy';
@@ -23,7 +24,7 @@ import type { Arena } from '../systems/BossAI';
 import { currentSpecial } from '../systems/EnemyAI';
 import type { Projectile } from '../systems/Projectiles';
 import type { Shot } from '../systems/Shots';
-import { palette } from './palette';
+import { palette, uiColors } from './palette';
 
 /** Warnings on screen at the same time (more are simply not drawn). */
 const MAX_WARNINGS = 8;
@@ -55,11 +56,12 @@ const ORB_MIN_RADIUS = 0.1;
 const ORB_MAX_RADIUS = 0.42;
 const ORB_PULSE = 0.08;
 const ORB_PULSE_SPEED = 9;
-/** The lock-on ring: size (m), how see-through it is and how fast it turns (rad/s). */
-const LOCK_RING_RADIUS = 0.42;
-const LOCK_RING_THICKNESS = 0.055;
-const LOCK_RING_OPACITY = 0.85;
-const LOCK_RING_TURN_SPEED = 1.2;
+/** The lock-on mark (fase 3.6): a white dot with a thin ring, as in Elden Ring. */
+const LOCK_DOT_OPACITY = 0.95;
+const LOCK_RING_OPACITY = 0.7;
+/** Corners of the dot and the ring: plenty at this size, and cheap. */
+const LOCK_DOT_SEGMENTS = 16;
+const LOCK_RING_SEGMENTS = 28;
 
 /** A flat disc (or ring band from `inner` to 1) as a grid whose heights are set every frame. */
 class GroundDisc {
@@ -448,32 +450,62 @@ export class ShotRenderer {
   }
 }
 
+/** How the lock-on mark looks, from player.json `lockOn.marker` (screen pixels). */
+export interface LockMarkerLook {
+  dotPixels: number;
+  ringPixels: number;
+  ringThicknessPixels: number;
+  /** The mark floats this far (m) in front of the body, so it is never inside the enemy. */
+  frontOffset: number;
+}
+
 /**
- * The lock-on mark: a ring above the locked enemy that always faces the camera and turns
- * slowly, so you can see at a glance who your shots are curving towards.
+ * The lock-on mark, like Elden Ring: a small white dot with a thin ring around it, on the
+ * middle of the locked enemy's body. It always faces the camera and is always the same size on
+ * screen (`show` gets the meters per pixel at that distance), so it reads the same up close and
+ * far away, and on every graphics preset. It is drawn with depth testing, so a wall in front of
+ * the enemy hides it — and that is also when the lock itself lets go.
  */
 export class LockOnMarker {
-  private readonly mesh: Mesh;
+  private readonly group: Group;
+  private readonly dot: Mesh;
+  private readonly ring: Mesh;
   private readonly towards = new Vector3();
+  private readonly look: LockMarkerLook;
 
-  constructor(root: Group) {
-    this.mesh = new Mesh(
-      new TorusGeometry(LOCK_RING_RADIUS, LOCK_RING_THICKNESS, 8, 24),
+  constructor(root: Group, look: LockMarkerLook) {
+    this.look = look;
+    // The ring's thickness is a fraction of its size, so one geometry scales as a whole.
+    const thickness = Math.min(0.9, look.ringThicknessPixels / Math.max(1, look.ringPixels));
+    this.dot = new Mesh(
+      new CircleGeometry(1, LOCK_DOT_SEGMENTS),
       new MeshBasicMaterial({
-        color: palette.zonlicht,
+        color: uiColors.tekst,
+        transparent: true,
+        opacity: LOCK_DOT_OPACITY,
+        depthWrite: false,
+      }),
+    );
+    this.ring = new Mesh(
+      new RingGeometry(1 - thickness, 1, LOCK_RING_SEGMENTS),
+      new MeshBasicMaterial({
+        color: uiColors.tekst,
         transparent: true,
         opacity: LOCK_RING_OPACITY,
         depthWrite: false,
       }),
     );
-    this.mesh.visible = false;
-    this.mesh.name = 'lockOn';
-    root.add(this.mesh);
+    this.group = new Group();
+    this.group.name = 'lockOn';
+    this.group.add(this.dot, this.ring);
+    this.group.visible = false;
+    root.add(this.group);
   }
 
   /**
-   * Puts the ring above (x, y, z), facing the camera at (camX, camY, camZ) in the same
-   * coordinates; `time` (s) turns it.
+   * Puts the mark at (x, y, z) — the middle of the enemy's body — facing the camera at
+   * (camX, camY, camZ) in the same coordinates. `metersPerPixel` is how big one screen pixel is
+   * at that distance, which keeps the mark the same size on screen. Allocation-free.
    */
   show(
     x: number,
@@ -482,23 +514,39 @@ export class LockOnMarker {
     camX: number,
     camY: number,
     camZ: number,
-    time: number,
+    metersPerPixel: number,
   ): void {
-    this.mesh.position.set(x, y, z);
+    const look = this.look;
+    let dx = camX - x;
+    let dy = camY - y;
+    let dz = camZ - z;
+    const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+    if (length > 1e-6) {
+      dx /= length;
+      dy /= length;
+      dz /= length;
+    }
+    const front = look.frontOffset;
+    this.group.position.set(x + dx * front, y + dy * front, z + dz * front);
     this.towards.set(camX, camY, camZ);
-    this.mesh.lookAt(this.towards);
-    this.mesh.rotateZ(time * LOCK_RING_TURN_SPEED);
-    this.mesh.visible = true;
+    this.group.lookAt(this.towards);
+    const dot = (look.dotPixels / 2) * metersPerPixel;
+    const ring = (look.ringPixels / 2) * metersPerPixel;
+    this.dot.scale.setScalar(dot);
+    this.ring.scale.setScalar(ring);
+    this.group.visible = true;
   }
 
   hide(): void {
-    this.mesh.visible = false;
+    this.group.visible = false;
   }
 
   dispose(): void {
-    this.mesh.removeFromParent();
-    this.mesh.geometry.dispose();
-    (this.mesh.material as MeshBasicMaterial).dispose();
+    this.group.removeFromParent();
+    for (const mesh of [this.dot, this.ring]) {
+      mesh.geometry.dispose();
+      (mesh.material as MeshBasicMaterial).dispose();
+    }
   }
 }
 
