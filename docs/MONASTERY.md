@@ -284,6 +284,19 @@ alles daarbuiten niet getekend: meer fps, en het klooster mag dan veel detail he
 - De westpoort (`MON_Gate_*`) is **decoratie** (Bo, 2026-10-12): de poortdeur gaat niet open en de doorgang is direct
   erachter dicht (`MON_WestRange_GatePlug`). De rest van de doorgang is nu een gang tussen voorraadkamer en gastenzaal.
 
+### Drie zones, twee overgangen (2026-10-12, Bo)
+
+| Overgang | Tussen | Markers |
+|---|---|---|
+| **Kerkportaal** (`MON_Church_Portal_Frame`) | Greyhaven ↔ klooster | `MON_Zone_Door`, `MON_Zone_Spawn`, `MON_Zone_Exit`, `MON_Zone_ExitTo` |
+| **Oostdeur** (`MON_EastRange_Door_East`) | klooster ↔ Monastery Garden | `MON_GardenGate_FromMonastery` (cirkel in de hal), `MON_GardenGate_SpawnInGarden` (net buiten, kijkt naar het oosten), `MON_GardenGate_FromGarden` (cirkel buiten bij de deur), `MON_GardenGate_SpawnInMonastery` (in de hal, kijkt naar het westen) |
+
+- **Klooster-zone:** de gebouwen met binnenkant + de kloostergang met binnentuin.
+- **Garden-zone:** de Monastery Garden (vijver, moestuin, bomen, gras, bloemen) binnen de tuinmuur.
+- Alle markers hebben de eigenschappen `gate`, `role` en een `note`. Voor de game: als je de tuin in gaat, hoeven de
+  binnenkanten niet getekend te worden en andersom. Of het één bestand blijft (en de game per zone een deel tekent,
+  zoals bij de instances) of twee aparte .glb's wordt, is aan de game-kant (open vraag 11).
+
 ## Markers (collectie `MON_Markers`)
 
 `MON_Spawn_PlayerBed`, `MON_NPC_BrotherAnsel`, `MON_Door_Cloister_Outside`, `MON_Door_East_Outside`,
