@@ -284,6 +284,12 @@ alles daarbuiten niet getekend: meer fps, en het klooster mag dan veel detail he
 - De westpoort (`MON_Gate_*`) is **decoratie** (Bo, 2026-10-12): de poortdeur gaat niet open en de doorgang is direct
   erachter dicht (`MON_WestRange_GatePlug`). De rest van de doorgang is nu een gang tussen voorraadkamer en gastenzaal.
 
+**Portaaldeur half open (Bo, 2026-10-12):** `MON_Church_Portal_Door` is nu een dubbele deur: de linkerhelft (zuidkant)
+staat 62° open naar buiten op het trapje, de rechterhelft is dicht. IJzeren banden en de ring zitten op beide helften.
+De oude dichte deur is bewaard als mesh `MON_Church_Portal_Door_Closed`.
+
+![Portaal half open](monastery/portal_half_open.png)
+
 ### Drie zones, twee overgangen (2026-10-12, Bo)
 
 | Overgang | Tussen | Markers |
