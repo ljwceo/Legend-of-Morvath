@@ -19,6 +19,12 @@ import { palette } from '../render/palette';
 import { CharacterCreator } from '../ui/CharacterCreator';
 import { Screen } from '../ui/Screen';
 import {
+  normalizeStatPoints,
+  presetPoints,
+  randomStatPoints,
+  type StatPoints,
+} from '../systems/Stats';
+import {
   type Appearance,
   createCharacter,
   normalizeAppearance,
@@ -54,6 +60,7 @@ export class CharacterCreateState implements GameState {
   private ui: CharacterCreator | null = null;
   private resizeObserver: ResizeObserver | null = null;
   private appearance: Appearance | null = null;
+  private points: StatPoints = {};
   private name = '';
 
   // Turntable (simulation state + previous step for interpolation).
@@ -75,6 +82,8 @@ export class CharacterCreateState implements GameState {
       return;
     }
     this.appearance = normalizeAppearance(data.appearance.defaults, data.appearance);
+    // A new character starts with nothing spent: every point is yours to place.
+    this.points = normalizeStatPoints(data.stats, null, 1);
     this.name = '';
     this.yaw = this.prevYaw = 0;
     this.idleSeconds = SPIN_RESUME_SECONDS;
@@ -91,12 +100,21 @@ export class CharacterCreateState implements GameState {
       {
         change: (appearance) => this.apply(appearance),
         random: () => this.apply(randomAppearance(data.appearance, new Random(Date.now()))),
+        changeStats: (points) => this.applyPoints(points),
+        randomStats: () => {
+          const random = new Random(Date.now());
+          this.applyPoints(randomStatPoints(data.stats, 1, () => random.next()));
+        },
+        preset: (presetId) => this.applyPoints(presetPoints(data.stats, presetId, 1)),
+        clearStats: () => this.applyPoints(normalizeStatPoints(data.stats, null, 1)),
         begin: (name) => this.begin(name),
         back: () => ctx.goto('title'),
       },
       this.appearance,
+      this.points,
       this.name,
     );
+    this.ui.onRebuild = () => this.screen.refresh();
 
     this.buildScene();
     this.model?.setAppearance(this.appearance);
@@ -166,12 +184,19 @@ export class CharacterCreateState implements GameState {
     this.ui?.setAppearance(this.appearance);
   }
 
+  private applyPoints(points: StatPoints): void {
+    const data = this.ctx.data;
+    if (!data) return;
+    this.points = normalizeStatPoints(data.stats, points, 1);
+    this.ui?.setPoints(this.points);
+  }
+
   private begin(name: string): void {
     const { ctx } = this;
     if (!ctx.data || !this.appearance) return;
     // Only now is an old save replaced: Back leaves it as it was.
     const save = startNewGame(ctx.session, ctx.i18n.language);
-    save.character = createCharacter(name, this.appearance, ctx.data.player);
+    save.character = createCharacter(name, this.appearance, ctx.data.player, this.points);
     ctx.session = save;
     ctx.persist();
     ctx.goto('intro');

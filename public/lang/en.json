@@ -83,7 +83,49 @@
     "nameEmpty": "Choose a name first.",
     "back": "Back",
     "dragToTurn": "Drag to turn",
-    "startItems": "Starting gear: {weapon} and {mantle} in your mantle color."
+    "startItems": "Starting gear: {weapon} and {mantle} in your mantle color.",
+    "next": "Next: your stats",
+    "backToLooks": "Back to your looks"
+  },
+  "stats": {
+    "title": "Your stats",
+    "hint": "Spend your points. You get one more every level, and you can always change your mind here before you begin.",
+    "pointsLeft": "{n} points left",
+    "pointsLeftOne": "1 point left",
+    "pointsNone": "Every point is spent.",
+    "spend": "Spend a point in {stat}",
+    "refund": "Take a point back from {stat}",
+    "random": "Random",
+    "clear": "Start over",
+    "suggestions": "Suggestions",
+    "softCap": "Above {n} points a point gives less.",
+    "desc": {
+      "hp": "More maximum HP.",
+      "defense": "Less damage reaches you.",
+      "strength": "You can carry more.",
+      "power": "Your normal attacks hit harder, with a sword and with a staff.",
+      "mana": "More maximum mana.",
+      "magic_power": "Spells hit harder, and your staff’s normal attack a little.",
+      "regen": "Energy comes back faster. A mage also gets mana back, a sword fighter health.",
+      "dexterity": "You swing, cast and charge faster.",
+      "faith": "Potions heal you more.",
+      "luck": "A bigger chance of a critical hit."
+    },
+    "summary": {
+      "title": "What that gives you",
+      "hp": "HP {n}",
+      "mana": "Mana {n}",
+      "energy": "Energy {n}",
+      "sword": "Sword {fast} / {combo} / {heavy}",
+      "shard": "Arcane Shard {n}",
+      "spell": "Spells +{n}%",
+      "damageTaken": "Damage taken −{n}%",
+      "carry": "Carry {n} kg",
+      "crit": "Critical {n}% ({factor}×)",
+      "attackSpeed": "Attack speed +{n}%",
+      "regen": "Regen {hp} HP/s · {mana} mana/s · {energy} energy/s",
+      "potion": "Potions +{n}%"
+    }
   },
   "appearance": {
     "body": {

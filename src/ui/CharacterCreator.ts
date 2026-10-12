@@ -2,17 +2,27 @@ import type { GameContext } from '../core/GameContext';
 import type { AppearanceFile } from '../data/types';
 import { numberToHex, resolveColorToken } from '../render/palette';
 import { type Appearance, checkName, hairstylesFor, sanitizeName } from '../scenes/creator';
+import type { StatPoints } from '../systems/Stats';
 import { button, el, segmented } from './dom';
 import { dismissKeyboard, guardTextInput } from './keyboard';
+import { pointsLeftText, statSummary, statsEditor, statsPresetRow } from './StatsPanel';
 
 export interface CreatorHandlers {
   /** The player picked another option (body type, hairstyle or a color). */
   change(appearance: Appearance): void;
   random(): void;
-  /** "Begin your journey" with a valid name. */
+  /** A point moved, or a suggestion / Random / Start over was used (fase 3.7). */
+  changeStats(points: StatPoints): void;
+  randomStats(): void;
+  preset(presetId: string): void;
+  clearStats(): void;
+  /** "Begin your journey" with a valid name and the points spread. */
   begin(name: string): void;
   back(): void;
 }
+
+/** The creator has two steps: first how you look, then how you fight. */
+export type CreatorStep = 'looks' | 'stats';
 
 /** A clickable color dot; `selected` gets the gold ring. */
 function swatch(
@@ -51,6 +61,7 @@ export class CharacterCreator {
   private readonly nameError: HTMLParagraphElement;
   private readonly options: HTMLDivElement;
   private releaseInput: (() => void) | null = null;
+  private step: CreatorStep = 'looks';
 
   constructor(
     private readonly ctx: GameContext,
@@ -58,6 +69,7 @@ export class CharacterCreator {
     private readonly startItems: { weapon: string; mantle: string },
     private readonly handlers: CreatorHandlers,
     private appearance: Appearance,
+    private points: Readonly<StatPoints>,
     name: string,
   ) {
     this.stage = el('div', { className: 'ui-creator-stage' });
@@ -87,13 +99,23 @@ export class CharacterCreator {
   /** Builds the screen (again after a language change). The draft stays as it was. */
   build(): (Node | null)[] {
     const t = this.ctx.i18n.t.bind(this.ctx.i18n);
+    const panel = this.step === 'stats' ? this.statsPanel() : this.looksPanel();
+    this.stage.replaceChildren(
+      el('p', { className: 'ui-note ui-creator-hint', text: t('creator.dragToTurn') }),
+    );
+    return [this.stage, panel];
+  }
+
+  /** Step 1: your name and your looks. */
+  private looksPanel(): HTMLElement {
+    const t = this.ctx.i18n.t.bind(this.ctx.i18n);
     this.input.placeholder = t('creator.namePlaceholder');
     this.nameError.textContent = '';
     this.renderOptions();
 
-    const begin = button(t('creator.start'), () => this.begin(), true);
-    begin.classList.add('ui-creator-begin');
-    const panel = el(
+    const next = button(t('creator.next'), () => this.toStats(), true);
+    next.classList.add('ui-creator-begin');
+    return el(
       'div',
       { className: 'ui-panel ui-creator-panel' },
       el('h2', { className: 'ui-heading', text: t('creator.title') }),
@@ -119,13 +141,45 @@ export class CharacterCreator {
         button(t('creator.back'), () => this.handlers.back()),
         button(t('creator.random'), () => this.handlers.random()),
       ),
+      next,
+    );
+  }
+
+  /** Step 2: spread your 20 points over the ten stats (fase 3.7). */
+  private statsPanel(): HTMLElement {
+    const ctx = this.ctx;
+    const t = ctx.i18n.t.bind(ctx.i18n);
+    const left = pointsLeftText(ctx, 1, this.points);
+    const begin = button(t('creator.start'), () => this.begin(), true);
+    begin.classList.add('ui-creator-begin');
+    return el(
+      'div',
+      { className: 'ui-panel ui-creator-panel' },
+      el('h2', { className: 'ui-heading', text: t('stats.title') }),
+      el('p', { className: 'ui-note', text: t('stats.hint') }),
+      el('p', { className: 'ui-stat-left', attrs: { 'aria-live': 'polite' }, text: left.text }),
+      statsPresetRow(
+        ctx,
+        (presetId) => this.handlers.preset(presetId),
+        () => this.handlers.randomStats(),
+        () => this.handlers.clearStats(),
+      ),
+      statsEditor(ctx, {
+        points: this.points,
+        level: 1,
+        path: null,
+        canSpend: true,
+        canRefund: true,
+        onChange: (points) => this.handlers.changeStats(points),
+      }),
+      statSummary(ctx, this.points, 1, null),
+      el(
+        'div',
+        { className: 'ui-row' },
+        button(t('creator.backToLooks'), () => this.toLooks()),
+      ),
       begin,
     );
-
-    this.stage.replaceChildren(
-      el('p', { className: 'ui-note ui-creator-hint', text: t('creator.dragToTurn') }),
-    );
-    return [this.stage, panel];
   }
 
   /** Call once the screen is in the document. */
@@ -143,22 +197,58 @@ export class CharacterCreator {
   /** Shows a new appearance (after an option, Random, ...). */
   setAppearance(appearance: Appearance): void {
     this.appearance = appearance;
-    this.renderOptions();
+    if (this.step === 'looks') this.renderOptions();
   }
 
+  /** Shows a new point spread (after a plus, a suggestion, Random, ...). */
+  setPoints(points: Readonly<StatPoints>): void {
+    this.points = points;
+    this.rebuild();
+  }
+
+  /** On to the points, but only with a name the game accepts. */
+  private toStats(): void {
+    if (!this.validName()) return;
+    this.step = 'stats';
+    this.rebuild();
+  }
+
+  private toLooks(): void {
+    this.step = 'looks';
+    this.rebuild();
+  }
+
+  /** Builds the screen again (the scene mounted it, so it owns the rebuild). */
+  private rebuild(): void {
+    this.onRebuild?.();
+  }
+
+  /** Set by the scene: rebuilds the screen with `build()`. */
+  onRebuild: (() => void) | null = null;
+
   private begin(): void {
+    const name = this.validName();
+    if (name === null) return;
+    this.handlers.begin(name);
+  }
+
+  /** The typed name, or null (with the reason shown) when the game cannot use it. */
+  private validName(): string | null {
     dismissKeyboard();
     const check = checkName(this.input.value, this.data.name);
-    if (!check.ok) {
-      const t = this.ctx.i18n.t.bind(this.ctx.i18n);
-      this.nameError.textContent =
-        check.reason === 'empty'
-          ? t('creator.nameEmpty')
-          : t('creator.nameInvalid', { max: this.data.name.maxLength });
-      this.input.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      return;
+    if (check.ok) return check.name;
+    const t = this.ctx.i18n.t.bind(this.ctx.i18n);
+    // Back to the name field; the message is set after the rebuild, which clears it.
+    if (this.step !== 'looks') {
+      this.step = 'looks';
+      this.rebuild();
     }
-    this.handlers.begin(check.name);
+    this.nameError.textContent =
+      check.reason === 'empty'
+        ? t('creator.nameEmpty')
+        : t('creator.nameInvalid', { max: this.data.name.maxLength });
+    this.input.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    return null;
   }
 
   private pick(change: Partial<Appearance>): void {

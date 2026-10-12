@@ -1793,3 +1793,101 @@
 .ui-note-warn {
   color: var(--gh-lantaarnamber);
 }
+
+/* ---------------------------------------------- stats and builds (fase 3.7) */
+
+/* How many points are still waiting to be spent: the one line you look for. */
+.ui-stat-left {
+  margin: 0;
+  font: 17px var(--gh-font-tekst);
+  color: var(--gh-ornamentgoud);
+  text-align: center;
+}
+
+.ui-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ui-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--gh-rand);
+}
+
+.ui-stat-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ui-stat-name {
+  flex: 1;
+  font: 17px var(--gh-font-tekst);
+  color: var(--gh-tekst);
+}
+
+.ui-stat-points {
+  min-width: 2ch;
+  font: 19px var(--gh-font-tekst);
+  color: var(--gh-ornamentgoud);
+  text-align: right;
+}
+
+.ui-stat-steps {
+  display: flex;
+  gap: 6px;
+}
+
+/* 40px squares: big enough to tap on a phone. */
+.ui-stat-step {
+  width: 40px;
+  height: 40px;
+  font: 20px var(--gh-font-tekst);
+  color: var(--gh-tekst);
+  background: transparent;
+  border: 1px solid var(--gh-rand);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ui-stat-step:hover:enabled,
+.ui-stat-step:focus-visible:enabled {
+  border-color: var(--gh-ornamentgoud);
+  outline: none;
+}
+
+.ui-stat-step:disabled {
+  color: var(--gh-tekst-zacht);
+  cursor: default;
+  opacity: 0.4;
+}
+
+.ui-stat-desc,
+.ui-stat-cap {
+  text-align: left;
+}
+
+.ui-stat-cap {
+  color: var(--gh-lantaarnamber);
+}
+
+.ui-stat-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ui-stat-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+
+.ui-stat-line {
+  font: 15px var(--gh-font-tekst);
+  color: var(--gh-tekst-zacht);
+}
