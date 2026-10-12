@@ -225,6 +225,15 @@ bladmodus voor gras/bloemen, en `GH_Grass_MON_*` / `GH_Flower_MON_*` als instanc
 ![Moestuin](monastery/vegetable_garden_genshin.png)
 ![Bloemen](monastery/meadow_flowers.png)
 
+## Bosjes (2026-10-12)
+
+De 62 bosjes zijn nu net als de boomkronen gemaakt: `GH_Monastery_Bush_A` (9 kaartjes = 18 driehoeken) en `_B` (11 kaartjes
+= 22 driehoeken, voor de hogere), met het bladtrosje-plaatje en bol-normals. Als instances `GH_Bush_MON_###` in
+`MON_Garden_BushInstances`, op dezelfde plekken en in dezelfde grootte, nu op het maaiveld. Samen ±1.250 driehoeken
+(was 1.240, maar nu veel voller). Script `18_bushes.py`, backup `Monastery_backup_before_bushes.blend`.
+
+![Bosjes](monastery/bushes.png)
+
 ## Markers (collectie `MON_Markers`)
 
 `MON_Spawn_PlayerBed`, `MON_NPC_BrotherAnsel`, `MON_Door_Cloister_Outside`, `MON_Door_East_Outside`,
