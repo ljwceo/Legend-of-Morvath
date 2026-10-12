@@ -53,6 +53,15 @@ for e in [o for o in vl.objects if o.type == 'EMPTY' and o.instance_type == 'COL
     kids = list(e.children_recursive)
     if source in NO_COLLISION_SETS:
         nocoll.update(k.name for k in kids)
+        # The rounded (bevel) edges of tiles and stones are 5x the triangles; flat is fine in-game.
+        for k in kids:
+            for mod in [m for m in k.modifiers if m.type == 'BEVEL']:
+                k.modifiers.remove(mod)
+    mods = {}
+    for k in kids:
+        for mod in k.modifiers:
+            mods[mod.type] = mods.get(mod.type, 0) + 1
+    P(' modifiers', mods)
     P('real', e.name, len(kids), 'dropped', dropped)
     e.instance_type = 'NONE'
 

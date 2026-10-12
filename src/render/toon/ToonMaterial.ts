@@ -163,7 +163,12 @@ const FRAG = /* glsl */ `
   float hash(vec3 p) { return fract(sin(dot(floor(p), vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 
   void main() {
-    vec3 n = normalize(vWNormal) * (gl_FrontFacing ? 1.0 : -1.0);
+    #if MODE == 5
+      // Foliage cards keep their painted normals on both sides (grass up, tree crowns outwards).
+      vec3 n = normalize(vWNormal);
+    #else
+      vec3 n = normalize(vWNormal) * (gl_FrontFacing ? 1.0 : -1.0);
+    #endif
     vec3 base = color;
     #if MODE == 1
       // Triplanar texture with the axes of Blender's GH_TriCoord (Blender x, y, z-up).

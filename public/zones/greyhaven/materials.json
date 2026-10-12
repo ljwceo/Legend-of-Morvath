@@ -195,6 +195,17 @@
     0.7457
    ]
   },
+  "AC_Poster_Crust": {
+   "kind": "tri",
+   "tex": "T_poster_crust.jpg",
+   "scale": 1.0,
+   "gamma": 1.0,
+   "tint": [
+    1,
+    1,
+    1
+   ]
+  },
   "AC_PurpleGlow": {
    "kind": "emit",
    "color": [
@@ -408,15 +419,6 @@
     1
    ]
   },
-  "GH_Embers": {
-   "kind": "emit",
-   "color": [
-    1.0,
-    0.32,
-    0.06
-   ],
-   "strength": 4.0
-  },
   "GH_Field_Crops": {
    "kind": "flat",
    "color": [
@@ -432,6 +434,118 @@
     0.5734,
     0.2518
    ]
+  },
+  "GH_Forge_CoalBed": {
+   "kind": "flat",
+   "color": [
+    0.4,
+    0.08,
+    0.02
+   ]
+  },
+  "GH_Forge_CoalLump": {
+   "kind": "flat",
+   "color": [
+    0.4,
+    0.08,
+    0.02
+   ]
+  },
+  "GH_Forge_Flame": {
+   "kind": "flat",
+   "color": [
+    1.0,
+    0.5,
+    0.1
+   ]
+  },
+  "GH_Forge_LanternGlass": {
+   "kind": "flat",
+   "color": [
+    1.0,
+    0.6,
+    0.25
+   ]
+  },
+  "GH_Forge_RoofTile_Dark": {
+   "kind": "flat",
+   "color": [
+    0.52,
+    0.14,
+    0.06
+   ]
+  },
+  "GH_Forge_RoofTile_Orange": {
+   "kind": "flat",
+   "color": [
+    0.68,
+    0.22,
+    0.08
+   ]
+  },
+  "GH_Forge_RoofTile_Red": {
+   "kind": "flat",
+   "color": [
+    0.62,
+    0.16,
+    0.07
+   ]
+  },
+  "GH_Forge_RoofUnder": {
+   "kind": "flat",
+   "color": [
+    0.18,
+    0.07,
+    0.05
+   ]
+  },
+  "GH_Forge_Smoke": {
+   "kind": "flat",
+   "color": [
+    0.62,
+    0.6,
+    0.6
+   ]
+  },
+  "GH_Forge_Spark": {
+   "kind": "emit",
+   "color": [
+    1.0,
+    0.6,
+    0.15
+   ],
+   "strength": 5.0
+  },
+  "GH_Forge_Stone": {
+   "kind": "tri",
+   "tex": "T_stone_wall_grey.jpg",
+   "scale": 0.25,
+   "gamma": 1.375,
+   "tint": [
+    0.55,
+    0.55,
+    0.595
+   ]
+  },
+  "GH_Forge_Stone_Dark": {
+   "kind": "tri",
+   "tex": "T_stone_wall_grey.jpg",
+   "scale": 0.3125,
+   "gamma": 1.375,
+   "tint": [
+    0.72,
+    0.74,
+    0.82
+   ]
+  },
+  "GH_Forge_WindowGlow": {
+   "kind": "emit",
+   "color": [
+    0.95,
+    0.52,
+    0.18
+   ],
+   "strength": 0.9
   },
   "GH_Fruit_Green": {
    "kind": "flat",
@@ -490,6 +604,592 @@
    ],
    "strength": 6.0
   },
+  "GH_Monastery_Apple": {
+   "kind": "flat",
+   "color": [
+    0.8,
+    0.18,
+    0.15
+   ]
+  },
+  "GH_Monastery_Bark": {
+   "kind": "tri",
+   "tex": "T_MON_Bark.jpg",
+   "scale": 1.1111,
+   "gamma": 1.0,
+   "tint": [
+    0.33,
+    0.22,
+    0.15
+   ]
+  },
+  "GH_Monastery_Bark_Sakura": {
+   "kind": "tri",
+   "tex": "T_MON_BarkSakura.jpg",
+   "scale": 1.1111,
+   "gamma": 1.0,
+   "tint": [
+    0.3,
+    0.2,
+    0.2
+   ]
+  },
+  "GH_Monastery_Blossom": {
+   "kind": "flat",
+   "color": [
+    0.93,
+    0.7,
+    0.78
+   ]
+  },
+  "GH_Monastery_Book_Green": {
+   "kind": "flat",
+   "color": [
+    0.22,
+    0.38,
+    0.25
+   ]
+  },
+  "GH_Monastery_Burlap": {
+   "kind": "flat",
+   "color": [
+    0.76,
+    0.66,
+    0.48
+   ]
+  },
+  "GH_Monastery_Cabbage": {
+   "kind": "flat",
+   "color": [
+    0.56,
+    0.74,
+    0.42
+   ]
+  },
+  "GH_Monastery_Carrot": {
+   "kind": "flat",
+   "color": [
+    0.93,
+    0.5,
+    0.16
+   ]
+  },
+  "GH_Monastery_Cloth_Blue": {
+   "kind": "flat",
+   "color": [
+    0.24,
+    0.27,
+    0.5
+   ]
+  },
+  "GH_Monastery_Cloth_Cream": {
+   "kind": "flat",
+   "color": [
+    0.9,
+    0.85,
+    0.72
+   ]
+  },
+  "GH_Monastery_Cloth_Red": {
+   "kind": "flat",
+   "color": [
+    0.55,
+    0.16,
+    0.16
+   ]
+  },
+  "GH_Monastery_Flower_Pink": {
+   "kind": "flat",
+   "color": [
+    0.92,
+    0.55,
+    0.65
+   ]
+  },
+  "GH_Monastery_Flower_White": {
+   "kind": "flat",
+   "color": [
+    0.95,
+    0.93,
+    0.88
+   ]
+  },
+  "GH_Monastery_Foliage_Blossom_Deep": {
+   "kind": "foliage",
+   "tex": "T_MON_BlossomCluster.png",
+   "tint": [
+    0.78,
+    0.38,
+    0.6
+   ]
+  },
+  "GH_Monastery_Foliage_Blossom_Light": {
+   "kind": "foliage",
+   "tex": "T_MON_BlossomCluster.png",
+   "tint": [
+    1.0,
+    0.84,
+    0.9
+   ]
+  },
+  "GH_Monastery_Foliage_Blossom_Mid": {
+   "kind": "foliage",
+   "tex": "T_MON_BlossomCluster.png",
+   "tint": [
+    0.96,
+    0.62,
+    0.76
+   ]
+  },
+  "GH_Monastery_Foliage_Flower_Buttercup": {
+   "kind": "foliage",
+   "tex": "T_MON_Flower_Buttercup.png",
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "GH_Monastery_Foliage_Flower_Daisy": {
+   "kind": "foliage",
+   "tex": "T_MON_Flower_Daisy.png",
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "GH_Monastery_Foliage_Flower_Lavender": {
+   "kind": "foliage",
+   "tex": "T_MON_Flower_Lavender.png",
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "GH_Monastery_Foliage_Flower_Moonbell": {
+   "kind": "foliage",
+   "tex": "T_MON_Flower_Moonbell.png",
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "GH_Monastery_Foliage_Flower_Pink": {
+   "kind": "foliage",
+   "tex": "T_MON_Flower_Pink.png",
+   "tint": [
+    1.0,
+    1.0,
+    1.0
+   ]
+  },
+  "GH_Monastery_Foliage_Grass_Deep": {
+   "kind": "foliage",
+   "tex": "T_MON_GrassTuft2.png",
+   "tint": [
+    0.4756,
+    0.6707,
+    0.3415
+   ]
+  },
+  "GH_Monastery_Foliage_Grass_Light": {
+   "kind": "foliage",
+   "tex": "T_MON_GrassTuft2.png",
+   "tint": [
+    0.6341,
+    0.8293,
+    0.4024
+   ]
+  },
+  "GH_Monastery_Foliage_Grass_Mid": {
+   "kind": "foliage",
+   "tex": "T_MON_GrassTuft2.png",
+   "tint": [
+    0.5366,
+    0.7439,
+    0.3659
+   ]
+  },
+  "GH_Monastery_Foliage_Leaf_Deep": {
+   "kind": "foliage",
+   "tex": "T_MON_LeafCluster.png",
+   "tint": [
+    0.16,
+    0.38,
+    0.19
+   ]
+  },
+  "GH_Monastery_Foliage_Leaf_Light": {
+   "kind": "foliage",
+   "tex": "T_MON_LeafCluster.png",
+   "tint": [
+    0.55,
+    0.8,
+    0.3
+   ]
+  },
+  "GH_Monastery_Foliage_Leaf_Mid": {
+   "kind": "foliage",
+   "tex": "T_MON_LeafCluster.png",
+   "tint": [
+    0.34,
+    0.62,
+    0.24
+   ]
+  },
+  "GH_Monastery_Foliage_WillowStrand_Deep": {
+   "kind": "foliage",
+   "tex": "T_MON_WillowStrand.png",
+   "tint": [
+    0.24,
+    0.47,
+    0.25
+   ]
+  },
+  "GH_Monastery_Foliage_WillowStrand_Light": {
+   "kind": "foliage",
+   "tex": "T_MON_WillowStrand.png",
+   "tint": [
+    0.66,
+    0.84,
+    0.4
+   ]
+  },
+  "GH_Monastery_Foliage_WillowStrand_Mid": {
+   "kind": "foliage",
+   "tex": "T_MON_WillowStrand.png",
+   "tint": [
+    0.45,
+    0.68,
+    0.3
+   ]
+  },
+  "GH_Monastery_Foliage_Willow_Deep": {
+   "kind": "foliage",
+   "tex": "T_MON_WillowCluster.png",
+   "tint": [
+    0.24,
+    0.47,
+    0.25
+   ]
+  },
+  "GH_Monastery_Foliage_Willow_Light": {
+   "kind": "foliage",
+   "tex": "T_MON_WillowCluster.png",
+   "tint": [
+    0.66,
+    0.84,
+    0.4
+   ]
+  },
+  "GH_Monastery_Foliage_Willow_Mid": {
+   "kind": "foliage",
+   "tex": "T_MON_WillowCluster.png",
+   "tint": [
+    0.45,
+    0.68,
+    0.3
+   ]
+  },
+  "GH_Monastery_Grass": {
+   "kind": "tri",
+   "tex": "T_MON_GroundGrass.jpg",
+   "scale": 0.0625,
+   "gamma": 1.0,
+   "tint": [
+    1,
+    1,
+    1
+   ]
+  },
+  "GH_Monastery_GravelTex": {
+   "kind": "tri",
+   "tex": "T_MON_Gravel.jpg",
+   "scale": 0.5,
+   "gamma": 1.0,
+   "tint": [
+    1,
+    1,
+    1
+   ]
+  },
+  "GH_Monastery_Leaves": {
+   "kind": "flat",
+   "color": [
+    0.25,
+    0.45,
+    0.22
+   ]
+  },
+  "GH_Monastery_Leaves_Light": {
+   "kind": "flat",
+   "color": [
+    0.4,
+    0.6,
+    0.29
+   ]
+  },
+  "GH_Monastery_LilyPad": {
+   "kind": "flat",
+   "color": [
+    0.3,
+    0.55,
+    0.3
+   ]
+  },
+  "GH_Monastery_Moonbell": {
+   "kind": "flat",
+   "color": [
+    0.37,
+    0.43,
+    1.0
+   ]
+  },
+  "GH_Monastery_Plaster": {
+   "kind": "flat",
+   "color": [
+    0.88,
+    0.82,
+    0.7
+   ]
+  },
+  "GH_Monastery_PondBed": {
+   "kind": "tri",
+   "tex": "T_MON_PondBed.jpg",
+   "scale": 0.25,
+   "gamma": 1.0,
+   "tint": [
+    1,
+    1,
+    1
+   ]
+  },
+  "GH_Monastery_Pumpkin": {
+   "kind": "flat",
+   "color": [
+    0.93,
+    0.56,
+    0.18
+   ]
+  },
+  "GH_Monastery_Reed": {
+   "kind": "flat",
+   "color": [
+    0.55,
+    0.62,
+    0.33
+   ]
+  },
+  "GH_Monastery_Rock": {
+   "kind": "flat",
+   "color": [
+    0.52,
+    0.5,
+    0.47
+   ]
+  },
+  "GH_Monastery_RoofTile_Blue": {
+   "kind": "flat",
+   "color": [
+    0.35,
+    0.38,
+    0.54
+   ]
+  },
+  "GH_Monastery_RoofTile_Dark": {
+   "kind": "flat",
+   "color": [
+    0.23,
+    0.24,
+    0.36
+   ]
+  },
+  "GH_Monastery_RoofTile_Darkest": {
+   "kind": "flat",
+   "color": [
+    0.17,
+    0.18,
+    0.28
+   ]
+  },
+  "GH_Monastery_RoofTile_Light": {
+   "kind": "flat",
+   "color": [
+    0.42,
+    0.45,
+    0.6
+   ]
+  },
+  "GH_Monastery_RoofTile_Slate": {
+   "kind": "flat",
+   "color": [
+    0.3,
+    0.32,
+    0.46
+   ]
+  },
+  "GH_Monastery_RoofUnder": {
+   "kind": "flat",
+   "color": [
+    0.11,
+    0.1,
+    0.17
+   ]
+  },
+  "GH_Monastery_Soil": {
+   "kind": "flat",
+   "color": [
+    0.33,
+    0.22,
+    0.14
+   ]
+  },
+  "GH_Monastery_Stone_Base": {
+   "kind": "flat",
+   "color": [
+    0.42,
+    0.39,
+    0.35
+   ]
+  },
+  "GH_Monastery_Stone_Dressed": {
+   "kind": "flat",
+   "color": [
+    0.86,
+    0.82,
+    0.72
+   ]
+  },
+  "GH_Monastery_Stone_Dressed2": {
+   "kind": "flat",
+   "color": [
+    0.78,
+    0.74,
+    0.64
+   ]
+  },
+  "GH_Monastery_Stone_Light": {
+   "kind": "flat",
+   "color": [
+    0.66,
+    0.62,
+    0.55
+   ]
+  },
+  "GH_Monastery_Stone_Moss": {
+   "kind": "flat",
+   "color": [
+    0.45,
+    0.47,
+    0.38
+   ]
+  },
+  "GH_Monastery_Stone_Warm": {
+   "kind": "flat",
+   "color": [
+    0.56,
+    0.52,
+    0.46
+   ]
+  },
+  "GH_Monastery_Water": {
+   "kind": "water"
+  },
+  "GH_Monastery_Wheat": {
+   "kind": "flat",
+   "color": [
+    0.9,
+    0.76,
+    0.4
+   ]
+  },
+  "GH_Monastery_WoodTex_Beam": {
+   "kind": "tri",
+   "tex": "T_MON_WoodPlanks.jpg",
+   "scale": 1.0,
+   "gamma": 1.0,
+   "tint": [
+    0.62,
+    0.52,
+    0.46
+   ]
+  },
+  "GH_Monastery_WoodTex_BoxDark": {
+   "kind": "tri",
+   "tex": "T_MON_WoodPlanks.jpg",
+   "scale": 1.0,
+   "gamma": 1.0,
+   "tint": [
+    0.62,
+    0.52,
+    0.46
+   ]
+  },
+  "GH_Monastery_WoodTex_BoxLight": {
+   "kind": "tri",
+   "tex": "T_MON_WoodPlanks.jpg",
+   "scale": 1.0,
+   "gamma": 1.0,
+   "tint": [
+    1.0,
+    0.97,
+    0.92
+   ]
+  },
+  "GH_Monastery_WoodTex_Plank": {
+   "kind": "tri",
+   "tex": "T_MON_WoodPlanks.jpg",
+   "scale": 1.0,
+   "gamma": 1.0,
+   "tint": [
+    1.0,
+    0.97,
+    0.92
+   ]
+  },
+  "GH_Monastery_Wood_Dark": {
+   "kind": "flat",
+   "color": [
+    0.27,
+    0.17,
+    0.1
+   ]
+  },
+  "GH_Monastery_Wood_Door": {
+   "kind": "flat",
+   "color": [
+    0.4,
+    0.24,
+    0.13
+   ]
+  },
+  "GH_Monastery_Wood_Floor_A": {
+   "kind": "flat",
+   "color": [
+    0.5,
+    0.33,
+    0.19
+   ]
+  },
+  "GH_Monastery_Wood_Floor_B": {
+   "kind": "flat",
+   "color": [
+    0.44,
+    0.28,
+    0.16
+   ]
+  },
+  "GH_Monastery_Wood_Floor_C": {
+   "kind": "flat",
+   "color": [
+    0.56,
+    0.38,
+    0.22
+   ]
+  },
   "GH_Roof_Red": {
    "kind": "tri",
    "tex": "T_roof_red.jpg",
@@ -512,6 +1212,14 @@
     1
    ]
   },
+  "GH_RoseWindow": {
+   "kind": "flat",
+   "color": [
+    0.35,
+    0.25,
+    0.6
+   ]
+  },
   "GH_Stone": {
    "kind": "tri",
    "tex": "T_stone_wall_grey.jpg",
@@ -521,6 +1229,14 @@
     1,
     1,
     1
+   ]
+  },
+  "GH_Stone.003": {
+   "kind": "flat",
+   "color": [
+    0.55,
+    0.52,
+    0.48
    ]
   },
   "GH_Stone_Dark": {
@@ -568,6 +1284,14 @@
     1
    ]
   },
+  "GH_Wood.003": {
+   "kind": "flat",
+   "color": [
+    0.42,
+    0.26,
+    0.14
+   ]
+  },
   "Gold_Trim": {
    "kind": "flat",
    "color": [
@@ -598,6 +1322,94 @@
     0.3,
     0.18,
     0.1
+   ]
+  },
+  "MON_Flower": {
+   "kind": "flat",
+   "color": [
+    0.66,
+    0.55,
+    0.95
+   ]
+  },
+  "MON_Grass": {
+   "kind": "flat",
+   "color": [
+    0.38,
+    0.52,
+    0.26
+   ]
+  },
+  "MON_Leaves": {
+   "kind": "flat",
+   "color": [
+    0.22,
+    0.42,
+    0.2
+   ]
+  },
+  "NPC_Smith_Brow": {
+   "kind": "flat",
+   "color": [
+    0.62,
+    0.2,
+    0.05
+   ]
+  },
+  "NPC_Smith_Eye": {
+   "kind": "flat",
+   "color": [
+    0.1,
+    0.22,
+    0.12
+   ]
+  },
+  "NPC_Smith_Gloves": {
+   "kind": "flat",
+   "color": [
+    0.42,
+    0.24,
+    0.11
+   ]
+  },
+  "NPC_Smith_Hair": {
+   "kind": "flat",
+   "color": [
+    0.95,
+    0.36,
+    0.08
+   ]
+  },
+  "NPC_Smith_Mouth": {
+   "kind": "flat",
+   "color": [
+    0.32,
+    0.06,
+    0.05
+   ]
+  },
+  "NPC_Smith_Soot": {
+   "kind": "flat",
+   "color": [
+    0.16,
+    0.15,
+    0.16
+   ]
+  },
+  "NPC_Smith_Tunic": {
+   "kind": "flat",
+   "color": [
+    0.55,
+    0.17,
+    0.09
+   ]
+  },
+  "NPC_Smith_White": {
+   "kind": "flat",
+   "color": [
+    1.0,
+    1.0,
+    1.0
    ]
   },
   "Old_Steel": {
