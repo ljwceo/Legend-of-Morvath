@@ -207,6 +207,26 @@ describe('validateGameData catches broken data', () => {
     expect(found).toContainEqual(expect.stringContaining('costs no mana'));
   });
 
+  it('checks the lock-on mark: the ring goes around the dot, not over it', () => {
+    const raw = freshData();
+    raw.player.lockOn.marker.ringPixels = raw.player.lockOn.marker.dotPixels;
+    raw.player.lockOn.marker.ringThicknessPixels = raw.player.lockOn.marker.ringPixels;
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('wider than the dot'));
+    expect(found).toContainEqual(expect.stringContaining('the ring is a disc'));
+  });
+
+  it('wants every action in controls.json, each key only once', () => {
+    const raw = freshData();
+    raw.controls.actions = raw.controls.actions.filter(
+      (action: { id: string }) => action.id !== 'dash',
+    );
+    raw.controls.actions[0].keys = ['KeyE'];
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('action "dash" is missing'));
+    expect(found).toContainEqual(expect.stringContaining('also bound to'));
+  });
+
   it('reports an element without a spell (a crystal of it would be useless)', () => {
     const raw = freshData();
     raw.spells.spells = raw.spells.spells.filter(

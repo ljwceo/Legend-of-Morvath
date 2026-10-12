@@ -619,8 +619,10 @@ export const playerFileSchema = z.strictObject({
     aimAssist: z.strictObject({ range: max(nonNegative, 100), arcDegrees: range(0, 360) }),
   }),
   /**
-   * Lock-on (middle mouse button, Tab or the button on a phone): the camera keeps the target in
-   * view and shots curve towards it. The same numbers on every graphics preset.
+   * Lock-on (the key or button bound to it, see controls.json): the camera keeps the target in
+   * view, a white dot marks it and shots curve towards it. Like Elden Ring you can only lock on
+   * to an enemy you can see: something between the camera and the enemy breaks the lock.
+   * The same numbers on every graphics preset.
    */
   lockOn: z.strictObject({
     /** Enemies within this distance (m) can be locked on to. */
@@ -633,6 +635,22 @@ export const playerFileSchema = z.strictObject({
     maxOffViewDegrees: range(1, 180),
     /** How fast the camera turns along to keep the target in view. */
     cameraFollowDegreesPerSecond: max(nonNegative, 1440),
+    /**
+     * How long the target may be out of sight before the lock breaks (s). A little keeps a
+     * lamppost flashing past from breaking it; 0 is razor sharp.
+     */
+    loseSightSeconds: max(nonNegative, 5),
+    /** The white mark on the target: always the same size on screen, wherever the enemy is. */
+    marker: z.strictObject({
+      /** Height on the enemy's body (0 = feet, 1 = top of the head). */
+      heightFraction: fraction,
+      /** The dot and its thin ring, in screen pixels (on a 1080-pixel-high screen). */
+      dotPixels: range(1, 40),
+      ringPixels: range(1, 80),
+      ringThicknessPixels: range(0.2, 10),
+      /** The mark floats this far (m) in front of the body, so it is never inside the enemy. */
+      frontOffset: range(0, 2),
+    }),
   }),
   combat: z.strictObject({
     /** You count as "in a fight" until this long after the last hit given or taken. */

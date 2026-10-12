@@ -49,7 +49,7 @@ import type { Enemy } from '../entities/Enemy';
 import { dialogueLines, type Npc } from '../entities/Npc';
 import { Player } from '../entities/Player';
 import { PropLibrary } from '../entities/PropFactory';
-import { CameraRig } from '../render/CameraRig';
+import { CameraRig, metersPerPixel } from '../render/CameraRig';
 import { NpcRenderer } from '../render/NpcRenderer';
 import { colorTokens, palette, resolveColorToken } from '../render/palette';
 import { Cheats, stepFlying } from '../systems/Cheats';
@@ -74,7 +74,9 @@ import {
   lockBroken,
   type LockOnConfig,
   lockOnConfig,
+  lostSight,
   pickLockTarget,
+  stepBlindSeconds,
 } from '../systems/LockOn';
 import { type Shot, type ShotWorld, Shots } from '../systems/Shots';
 import {
@@ -209,8 +211,12 @@ const SUN_DISTANCE = 150;
 /** No attack this step (while a dash finishes). */
 const NO_SWORD_INPUT: SwordInput = { fast: false, heavy: false };
 const NO_STAFF_INPUT: StaffInput = { shard: false, spell: false };
-/** The lock-on ring hangs this far (m) above the enemy's head. */
-const LOCK_RING_ABOVE_HEAD = 0.45;
+/**
+ * Line of sight for lock-on in the open world: this many samples of the terrain along the line,
+ * and a hill only blocks when it rises this far (m) above it (so a bumpy field is no wall).
+ */
+const SIGHT_SAMPLES = 8;
+const SIGHT_GROUND_MARGIN = 0.35;
 /** The charge orb floats this far (m) in front of the player. */
 const ORB_AHEAD = 0.55;
 /** Seconds over which fog and sky change color after entering another zone. */
@@ -369,6 +375,10 @@ export class WorldState implements GameState, InstanceHost {
   private shotWorld: ShotWorld | null = null;
   /** The enemy you are locked on to (lock-on), or null. */
   private locked: Enemy | null = null;
+  /** Seconds the locked enemy has been out of sight (past the tolerance the lock breaks). */
+  private lockBlindSeconds = 0;
+  /** Where the lock-on mark sits on a body (player.json `lockOn.marker.heightFraction`). */
+  private lockMarkerHeight = 0.55;
   private lockMarker: LockOnMarker | null = null;
   /** The growing ball of magic while a spell is being charged. */
   private chargeOrb: ChargeOrb | null = null;
@@ -443,6 +453,7 @@ export class WorldState implements GameState, InstanceHost {
     pickHalfArc: 0,
     maxOffView: 0,
     cameraFollowRadians: 0,
+    loseSightSeconds: 0,
   };
   private readonly look: LookDelta = { yaw: 0, pitch: 0, zoom: 1 };
   private readonly enemyTarget: EnemyTarget = { x: 0, z: 0, radius: 0.4, hostile: true };
@@ -754,6 +765,7 @@ export class WorldState implements GameState, InstanceHost {
       input.consumePressed('potion');
       input.consumePressed('bag');
       input.consumePressed('lock');
+      input.consumePressed('lockSwitch');
       if (input.consumePressed('confirm') || next || dash) this.dialog.advance();
       // Answers ("Yes" / "No"): W/S, A/D, arrows or the joystick move the highlight, one step
       // per push.
@@ -765,8 +777,9 @@ export class WorldState implements GameState, InstanceHost {
       input.consumePressed('confirm');
       // Interaction: E (or tapping the icon): talk to / pet an NPC, or rest at a checkpoint.
       if (input.consumePressed('interact')) this.interact();
-      // Lock-on: middle mouse button, Tab or the button on a phone (pressing again lets go).
+      // Lock-on on its own key or button (pressing again lets go), and "next target" on its own.
       if (input.consumePressed('lock')) this.toggleLock();
+      if (input.consumePressed('lockSwitch')) this.switchLock();
       // Left = fast hit / Arcane Shard, right = heavy hit / spell (held = keeps attacking).
       const left = input.consumePressed('attack') || input.isPressed('attack');
       const right = input.consumePressed('heavy') || input.isPressed('heavy');
@@ -787,6 +800,7 @@ export class WorldState implements GameState, InstanceHost {
       this.command.z = 0;
       input.consumePressed('dash');
       input.consumePressed('lock');
+      input.consumePressed('lockSwitch');
       this.clearAttackInput();
       this.stepDeath(dt);
     }
@@ -846,7 +860,7 @@ export class WorldState implements GameState, InstanceHost {
     this.enemies?.stepSpawning(dt, s.x, s.z, this.spawnWorld);
     this.updateEnemies(dt);
     this.updateShots(dt);
-    this.updateLock();
+    this.updateLock(dt);
     this.encounter?.step(dt);
     this.updateCombatHud();
     this.hud?.rules.setEnergyFraction(s.energy / movement.maxEnergy);
@@ -999,33 +1013,142 @@ export class WorldState implements GameState, InstanceHost {
     now.pickHalfArc = cfg.pickHalfArc;
     now.maxOffView = cfg.maxOffView;
     now.cameraFollowRadians = cfg.cameraFollowRadians;
+    now.loseSightSeconds = cfg.loseSightSeconds * this.cheats.lockSight;
     return now;
   }
 
   /**
-   * Lock-on: locks on to the enemy nearest the middle of the screen, or lets the current one
-   * go when you press again. The camera then keeps the target in view and shots curve towards
-   * it; it works with the sword too (your swings turn towards the target).
+   * Lock-on: locks on to the enemy nearest the middle of the screen that you can actually see,
+   * or lets the current one go when you press again. The camera then keeps the target in view
+   * and shots curve towards it; it works with the sword too (your swings turn towards it).
    */
   private toggleLock(): void {
-    const { player, enemies, rig } = this;
-    const cfg = this.lockConfig();
-    if (!player || !enemies || !rig || !cfg) return;
     if (this.locked) {
-      this.locked = null;
+      this.setLocked(null);
       return;
     }
-    this.locked = pickLockTarget(player.state.x, player.state.z, rig.orbit.yaw, enemies.shown, cfg);
+    this.setLocked(this.findLockTarget(null));
   }
 
-  /** The lock breaks by itself when the target dies, walks away or you look away from it. */
-  private updateLock(): void {
+  /**
+   * The "next target" key: steps to another enemy you can see (the one nearest the middle of
+   * the screen, the current target left out). Without a lock it simply locks on.
+   */
+  private switchLock(): void {
+    const next = this.findLockTarget(this.locked);
+    if (next) this.setLocked(next);
+  }
+
+  /** The enemy to lock on to, `skip` left out (switching targets); null when there is none. */
+  private findLockTarget(skip: Enemy | null): Enemy | null {
+    const { player, enemies, rig } = this;
+    const cfg = this.lockConfig();
+    if (!player || !enemies || !rig || !cfg) return null;
+    return pickLockTarget(
+      player.state.x,
+      player.state.z,
+      rig.orbit.yaw,
+      enemies.shown,
+      cfg,
+      this.canSeeTarget,
+      skip,
+    );
+  }
+
+  private setLocked(target: Enemy | null): void {
+    this.locked = target;
+    this.lockBlindSeconds = 0;
+    if (!target) this.lockMarker?.hide();
+  }
+
+  /**
+   * The lock breaks by itself when the target dies, walks away, you look away from it, or
+   * something comes between the camera and the enemy for longer than the tolerance (fase 3.6,
+   * like Elden Ring: duck behind a house and the lock lets go).
+   */
+  private updateLock(seconds: number): void {
     const locked = this.locked;
     const s = this.player?.state;
     const cfg = this.lockConfig();
     const yaw = this.rig?.orbit.yaw;
     if (!locked || !s || !cfg || yaw === undefined) return;
-    if (lockBroken(locked, s.x, s.z, yaw, cfg)) this.locked = null;
+    if (lockBroken(locked, s.x, s.z, yaw, cfg)) {
+      this.setLocked(null);
+      return;
+    }
+    this.lockBlindSeconds = stepBlindSeconds(
+      this.lockBlindSeconds,
+      this.canSeeFromCamera(locked),
+      seconds,
+    );
+    if (lostSight(this.lockBlindSeconds, cfg)) this.setLocked(null);
+  }
+
+  /**
+   * How big one screen pixel (CSS pixel) is in meters at this distance from the camera. The
+   * lock-on mark uses it to stay the same size on screen, and because it counts in CSS pixels
+   * it is the same on Low, Mid and High.
+   */
+  private markSizeAt(distance: number): number {
+    const rig = this.rig;
+    if (!rig) return 0;
+    return metersPerPixel(distance, rig.camera.fov, this.ctx.renderer.viewHeight);
+  }
+
+  /** Reused by `pickLockTarget` (no closure per press). */
+  private readonly canSeeTarget = (target: Enemy): boolean => this.canSeeFromCamera(target);
+
+  /**
+   * Can the camera see this enemy? A ray from the camera to the middle of its body against the
+   * world: the MeshBVH of Greyhaven (water, ivy and glowing things are not in it, so they never
+   * block) or, in the open world, the buildings plus the hills of the terrain.
+   */
+  private canSeeFromCamera(target: Enemy): boolean {
+    const { rig, origin, enemyRenderer } = this;
+    if (!rig) return true;
+    const camera = rig.camera.position;
+    const camX = camera.x + (origin?.x ?? 0);
+    const camZ = camera.z + (origin?.z ?? 0);
+    const height = enemyRenderer?.heightOf(target) ?? 1.5;
+    const y = target.y + height * this.lockMarkerHeight;
+    return this.lineOfSight(camX, camera.y, camZ, target.x, y, target.z);
+  }
+
+  /** True when nothing solid stands between the two points (world coordinates). */
+  private lineOfSight(
+    ax: number,
+    ay: number,
+    az: number,
+    bx: number,
+    by: number,
+    bz: number,
+  ): boolean {
+    const scene = this.sceneZone;
+    if (scene) return scene.clipSegment(ax, ay, az, bx, by, bz) >= 1;
+    if (this.structures && this.structures.clipSegment(ax, ay, az, bx, by, bz) < 1) return false;
+    return !this.hillInTheWay(ax, ay, az, bx, by, bz);
+  }
+
+  /**
+   * A hill between the two points (open world): samples the terrain along the line. Cheap and
+   * allocation-free, and enough for the lock: a hill you cannot see over blocks it.
+   */
+  private hillInTheWay(
+    ax: number,
+    ay: number,
+    az: number,
+    bx: number,
+    by: number,
+    bz: number,
+  ): boolean {
+    for (let i = 1; i < SIGHT_SAMPLES; i++) {
+      const t = i / SIGHT_SAMPLES;
+      const x = ax + (bx - ax) * t;
+      const z = az + (bz - az) * t;
+      const y = ay + (by - ay) * t;
+      if (this.groundHeight(x, z) > y + SIGHT_GROUND_MARGIN) return true;
+    }
+    return false;
   }
 
   /** The player's shots fly on; each hit takes HP off and shows a number. */
@@ -2153,7 +2276,8 @@ export class WorldState implements GameState, InstanceHost {
 
   /**
    * Lock-on while drawing: the camera turns along to keep the target in view (per second, so
-   * 60 and 120 fps follow equally fast) and the ring is drawn above the target's head.
+   * 60 and 120 fps follow equally fast) and the white dot is drawn on the middle of its body,
+   * always the same size on screen.
    */
   private followLock(seconds: number, alpha: number): void {
     const { rig, player, lockMarker, enemyRenderer, origin } = this;
@@ -2175,16 +2299,21 @@ export class WorldState implements GameState, InstanceHost {
       );
     }
     const height = enemyRenderer?.heightOf(locked) ?? 1.5;
-    // The ring lives in the world (shifted by the floating origin); so does the camera here.
+    // The mark lives in the world (shifted by the floating origin); so does the camera here.
     const camera = rig.camera.position;
+    const x = locked.drawX(alpha);
+    const y = locked.drawY(alpha) + height * this.lockMarkerHeight;
+    const z = locked.drawZ(alpha);
+    const camX = camera.x + (origin?.x ?? 0);
+    const camZ = camera.z + (origin?.z ?? 0);
     lockMarker?.show(
-      locked.drawX(alpha),
-      locked.drawY(alpha) + height + LOCK_RING_ABOVE_HEAD,
-      locked.drawZ(alpha),
-      camera.x + (origin?.x ?? 0),
+      x,
+      y,
+      z,
+      camX,
       camera.y,
-      camera.z + (origin?.z ?? 0),
-      this.time,
+      camZ,
+      this.markSizeAt(Math.hypot(camX - x, camera.y - y, camZ - z)),
     );
   }
 
@@ -2938,6 +3067,7 @@ export class WorldState implements GameState, InstanceHost {
     this.sword = swordConfig(data.player);
     this.staff = staffConfig(data.player, data.spells);
     this.lockCfg = lockOnConfig(data.player);
+    this.lockMarkerHeight = data.player.lockOn.marker.heightFraction;
     this.staffState.reset();
     this.locked = null;
     const combat = player.combat;
@@ -3020,7 +3150,7 @@ export class WorldState implements GameState, InstanceHost {
     this.shotRenderer = new ShotRenderer(shots.list, worldRoot, (element) =>
       this.shotColor(element, data),
     );
-    this.lockMarker = new LockOnMarker(worldRoot);
+    this.lockMarker = new LockOnMarker(worldRoot, data.player.lockOn.marker);
     this.chargeOrb = new ChargeOrb(worldRoot);
     const enemies = this.enemies;
     this.enemiesWorld = {
@@ -3406,6 +3536,7 @@ export class WorldState implements GameState, InstanceHost {
         `${s.recoverTime > 0 ? ' · getting up' : ''} · dmg ×${c.damageFactor.toFixed(2)} taken ×${c.damageTakenFactor.toFixed(2)}`,
     );
     debug.lines.set('enemies', this.enemyDebugLine(s.x, s.z));
+    debug.lines.set('lock', this.lockDebugLine(s.x, s.z));
     const quests = this.ctx.session?.quests;
     debug.lines.set(
       'quests',
@@ -3474,6 +3605,36 @@ export class WorldState implements GameState, InstanceHost {
       `${enemies.shown.length} shown / ${enemies.activeCount} in world / ${enemies.list.length} pool · ` +
       `fighting ${enemies.engagedCount} · arrows ${this.projectiles?.activeCount ?? 0}` +
       `${this.cheats.monsters ? '' : ' · OFF (cheat)'}${nearText}`
+    );
+  }
+
+  /**
+   * Debug: the locked target, how far away it is, whether the camera can see it (and for how
+   * long it has not been able to), and how big the white mark is on screen (fase 3.6).
+   */
+  private lockDebugLine(px: number, pz: number): string {
+    const locked = this.locked;
+    const cfg = this.lockConfig();
+    if (!locked || !cfg) {
+      // Nothing locked: say what is within range, and how much of it is out of sight.
+      let inRange = 0;
+      let hidden = 0;
+      const enemies = this.enemies?.shown ?? [];
+      for (const enemy of enemies) {
+        if (!enemy.hittable) continue;
+        if (Math.hypot(enemy.x - px, enemy.z - pz) > (cfg?.range ?? 0)) continue;
+        inRange++;
+        if (!this.canSeeFromCamera(enemy)) hidden++;
+      }
+      return `none · in range ${inRange} (${hidden} hidden) · range ${cfg ? cfg.range.toFixed(0) : '-'} m`;
+    }
+    const distance = Math.hypot(locked.x - px, locked.z - pz);
+    const seen = this.canSeeFromCamera(locked);
+    const marker = this.ctx.data?.player.lockOn.marker;
+    const size = marker ? marker.dotPixels : 0;
+    return (
+      `${locked.def.id} ${distance.toFixed(1)} m · ${seen ? 'in sight' : 'hidden'} ` +
+      `(${this.lockBlindSeconds.toFixed(2)}/${cfg.loseSightSeconds.toFixed(2)} s) · dot ${size} px`
     );
   }
 

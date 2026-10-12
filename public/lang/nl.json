@@ -692,7 +692,9 @@
     "aimNote": "Vermenigvuldigers op de getallen in player.json, om te vinden wat goed voelt.",
     "aimAssist": "Richtkegel",
     "lockRange": "Lock-on bereik",
-    "homing": "Schoten krommen"
+    "homing": "Schoten krommen",
+    "lockSight": "Zicht-tolerantie",
+    "lockSightNote": "Hoe lang een vergrendelde vijand uit het zicht mag zijn voordat de lock losgaat (0× = meteen)."
   },
   "bag": {
     "title": "Tas",

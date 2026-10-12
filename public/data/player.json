@@ -156,7 +156,15 @@
     "breakRange": 24,
     "pickArcDegrees": 120,
     "maxOffViewDegrees": 80,
-    "cameraFollowDegreesPerSecond": 240
+    "cameraFollowDegreesPerSecond": 240,
+    "loseSightSeconds": 0.2,
+    "marker": {
+      "heightFraction": 0.55,
+      "dotPixels": 7,
+      "ringPixels": 17,
+      "ringThicknessPixels": 1.6,
+      "frontOffset": 0.35
+    }
   },
   "combat": {
     "lingerSeconds": 4

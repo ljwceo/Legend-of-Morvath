@@ -692,7 +692,9 @@
     "aimNote": "Multipliers on the numbers in player.json, to find what feels right.",
     "aimAssist": "Aim cone",
     "lockRange": "Lock-on range",
-    "homing": "Shots curve"
+    "homing": "Shots curve",
+    "lockSight": "Sight tolerance",
+    "lockSightNote": "How long a locked enemy may be out of sight before the lock lets go (0× = at once)."
   },
   "bag": {
     "title": "Bag",

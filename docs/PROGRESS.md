@@ -6,10 +6,10 @@
 
 | | |
 |---|---|
-| **Huidige fase** | Fase 3 – Je pad, Entrance Exam en gear (plan goedgekeurd 2026-10-10) |
-| **Status** | Stap 3.0 t/m 3.5 klaar. Stap 3.5 (vechten met een staf: Arcane Shard, spreuken met opladen en lock-on) gebouwd, plus trage mana-regen en drankjes op percentage; testen kan via het cheatmenu (Geven → Staf, Spreuk). Fase 2, het Blender-Greyhaven en de teksten van de leraren wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
-| **Volgende stap** | **Fase 3.6 – Buttonmapping en lock-on (Elden Ring-stijl)**. Het restant van fase 3 is op 2026-10-12 opgesplitst in fase 3.6 t/m 3.10 (zie `CLAUDE.md` onderaan en "Prompts voor een nieuwe chat" hieronder). Bo/Lucas kunnen ondertussen het staf-gevecht van 3.5 spelen |
-| **Laatste sessie** | 2026-10-12: fase 3 opgesplitst in 3.6 t/m 3.10 met de nieuwe wensen van Bo (buttonmapping, lock-on als Elden Ring, stats als puntensysteem, eieren bij Sultan); daarvoor stap 3.5 (staf + lock-on) |
+| **Huidige fase** | Fase 3.6 – Buttonmapping en lock-on (Elden Ring-stijl) |
+| **Status** | **Fase 3.6 gebouwd (2026-10-12):** elke toets en muisknop is in te stellen (Settings → Besturing, save versie 9) en lock-on werkt als Elden Ring (wit puntje op de vijand, alleen op wie je ziet, lock breekt als er iets tussen de camera en de vijand komt, doel wisselen op een eigen knop). Daarvoor: stap 3.0 t/m 3.5 klaar. Stap 3.5 (vechten met een staf: Arcane Shard, spreuken met opladen en lock-on) gebouwd, plus trage mana-regen en drankjes op percentage; testen kan via het cheatmenu (Geven → Staf, Spreuk). Fase 2, het Blender-Greyhaven en de teksten van de leraren wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
+| **Volgende stap** | **Fase 3.7 – Stats en builds** in een nieuwe chat (prompt hieronder). Bo/Lucas: 3.6 spelen — voelen het puntje, het zicht-breken en de toetsen goed? |
+| **Laatste sessie** | 2026-10-12: fase 3 opgesplitst in 3.6 t/m 3.10 én fase 3.6 gebouwd (buttonmapping + lock-on) |
 
 ### Open vragen
 
@@ -580,11 +580,32 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
   - Kloostertuin (±2× het klooster, vorm getekend door Bo): vijver (koi voor nu weggehaald), beekje met bron en poel, bruggetjes, bomen en bloemen, prieel, moestuin met 6 kweekbare bedden (`MON_FarmPlot_1…6`).
   - Nog niet in Greyhaven en nog niet geoptimaliseerd (±545.000 vertices, vooral daken en stenen). Open vragen 6–8.
 
+### Fase 3.6 – Buttonmapping en lock-on (Elden Ring-stijl)
+**Status:** gebouwd op 2026-10-12; wacht op spelen door Bo en Lucas.
+**Gebouwd:**
+- **Elke knop zelf instellen** (3.6a): de toetsen zaten vast in de code; nu gaat alles via een mapping (`src/core/Bindings.ts`, puur en getest) met de standaardbindingen in **`public/data/controls.json`** en jouw eigen toetsen in de save (**versie 9**, `settings.keybindings`).
+  - **Settings → Besturing**: per actie twee slots (bijv. W én ↑). Klik op een slot, druk een toets **of muisknop**; **Esc** annuleert, **Backspace** maakt leeg. Een toets die al bezet is wordt afgepakt met een melding ("F is weggehaald bij 'Praten en gebruiken'"), acties zonder toets worden onderaan genoemd, en **Terug naar standaard** zet alles terug. De debug-actie (omlaag vliegen) staat er alleen in debugmodus.
+  - **Instelbaar:** vooruit, achteruit, links, rechts, slaan, zware slag, dash, praten en gebruiken, drankje, tas, lock-on, **volgend doel** (nieuw, standaard X), bevestigen en omlaag vliegen. Muisknoppen (links, midden, rechts, muis 4 en 5) zijn even goed te binden als toetsen. **Niet te binden:** Escape (pauze) en de functietoetsen F3/F4/F6 (debug), want die heeft het spel zelf nodig.
+  - **Teksten noemen nooit meer een toets:** elke tekst kan `{keyInteract}`, `{keyDash}`, `{keyAttack}` … gebruiken en toont dan de toets die jij hebt ingesteld (ook het icoontje boven een NPC). Een test over `en.json` en `nl.json` faalt als een tekst zelf een toets noemt.
+  - De knoppen op het scherm van een telefoon blijven precies zoals ze waren.
+- **Lock-on als Elden Ring** (3.6b): de draaiende gouden ring boven het hoofd is weg. Nu staat er een **klein wit puntje met een dun ringetje** op het **midden van het lijf** van je doel, dat altijd naar de camera draait en **altijd even groot op je scherm** is (dichtbij en ver weg hetzelfde, en gelijk op Low, Mid en High).
+  - **Je kunt alleen locken op een vijand die je ziet** en **de lock breekt zodra er iets tussen de camera en de vijand komt** (niet tussen je karakter en de vijand): een straal van de camera naar het lijf tegen de MeshBVH van Greyhaven (water, klimop en gloeiende dingen blokkeren niet) of, in de open wereld, tegen de gebouwen plus de heuvels van het terrein. Een **tolerantie van 0,2 s** (`player.json` → `lockOn.loseSightSeconds`) voorkomt dat een lantaarnpaal die één frame voorbij schiet de lock breekt.
+  - **Doel wisselen** op een eigen, instelbare knop (standaard X): de volgende vijand die je kunt zien, met je huidige doel eruit gelaten. Zonder lock doet hij hetzelfde als de lock-knop.
+  - **Cheatmenu → Richthulp** heeft er **Zicht-tolerantie** (0× / 1× / 2× / 5×) bij; 0× is messcherp. De debugregel **`lock`** laat zien op wie je vergrendeld bent, hoe ver, of de camera hem ziet (en hoe lang niet), en zonder lock hoeveel vijanden binnen bereik staan en hoeveel daarvan achter iets staan.
+- **Getest:** 475 tests (mapping, een toets afpakken, de oude toets laat echt los, save 8 → 9, toetslabels per taal, `{key}`-teksten, zicht-tolerantie in seconden gelijk op 60 en 120 fps, markergrootte, validator), lint, opmaak, typecheck en build. Headless Chromium (pc 1100×760, NL): in Settings → Besturing vooruit op T gezet (W doet daarna niets meer, ↑ nog wel), E naar F (het icoontje boven de NPC toont F), een bezette toets afgepakt met melding, F3 geweigerd, Backspace leeg, middelste muisknop gebonden, Terug naar standaard; in het spel bij het slime-erf lock op een slime (puntje 7 px, "in sight"), X wisselt naar de volgende slime, weglopen voorbij 24 m laat los. Geen fouten in de console.
+- **Tijdelijke namen:** geen nieuwe.
+- **Nog niet gemeten:** fps op de pc en de iPhone (zoals heel fase 2 en 3 nog).
+
 ## Besluiten
 
 | Datum | Besluit | Waarom |
 |---|---|---|
 | 2026-10-12 | Fase 3 opgesplitst in fase 3.6 t/m 3.10, elk in een eigen chat | De fase werd te groot en er kwamen drie wensen bij (Bo) |
+| 2026-10-12 | Escape en de functietoetsen (F3, F4, F6) zijn niet te binden; Backspace maakt een slot leeg | Pauze en debug moeten altijd werken, ook na een rare mapping |
+| 2026-10-12 | Een actie mag zonder toets komen te staan; Settings waarschuwt erover | Anders kun je een toets niet van de ene actie naar de andere verplaatsen |
+| 2026-10-12 | Een linkerklik bevestigt altijd ook een regel in een gesprek, wat `attack` ook is | Anders kun je een gesprek niet meer doorklikken met een andere mapping |
+| 2026-10-12 | Het lock-on-puntje zit op het midden van de **vijand** (niet vast in het schermmidden) | Zoals Elden Ring; de camera houdt het doel toch vast, dus het zit vlakbij het schermmidden |
+| 2026-10-12 | Het puntje rekent in CSS-pixels, niet renderpixels | Dan is het op Low, Mid en High precies even groot (harde eis 3) |
 | 2026-10-12 | Elke knop is zelf in te stellen (buttonmapping), ook lock en doel wisselen | Bo: "zelfde als elke andere button" |
 | 2026-10-12 | Lock-on: wit puntje met dun ringetje op de vijand, en de lock stopt als er iets tussen de camera en de vijand komt | Bo: zo krijg je leuke interacties met dekking (Elden Ring) |
 | 2026-10-12 | Levels geven 1 punt in plaats van automatische groei; 20 punten aan het begin; gold is alleen voor spullen | Bo: je bouwt zelf je personage |

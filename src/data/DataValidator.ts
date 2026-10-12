@@ -613,6 +613,13 @@ class CrossChecker {
     if (lock.range > player.staff.shard.range) {
       this.issue(f, 'lockOn.range', 'you could lock on to an enemy an Arcane Shard cannot reach');
     }
+    // The ring sits around the dot; the other way round the dot would swallow it (fase 3.6).
+    if (lock.marker.ringPixels <= lock.marker.dotPixels) {
+      this.issue(f, 'lockOn.marker.ringPixels', 'the ring must be wider than the dot');
+    }
+    if (lock.marker.ringThicknessPixels >= lock.marker.ringPixels / 2) {
+      this.issue(f, 'lockOn.marker.ringThicknessPixels', 'that thick, the ring is a disc');
+    }
     if (player.staff.shard.manaCost > 0) {
       this.issue(f, 'staff.shard.manaCost', 'the Arcane Shard costs no mana (concept)');
     }
