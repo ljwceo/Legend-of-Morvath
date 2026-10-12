@@ -189,6 +189,40 @@ Het gazon heeft nu **graspollen** zoals in Genshin: `GH_Monastery_GrassPatch_A` 
 
 ![Gras](monastery/grass_meadow.png)
 
+## Genshin-look voor grond, water, bloemen en hout (2026-10-12)
+
+Backup ervoor: `Monastery_backup_before_genshin_ground.blend`. Alle plaatjes staan in `assets/textures/`, zitten ín
+het .blend en een kopie staat in `tools/blender/monastery/textures/`. Kleuren in de scripts zijn lineair (net als de
+RGB-nodes); bij het opslaan worden ze naar sRGB omgerekend.
+
+- **Grond:** `GH_Monastery_Grass` heeft nu het geschilderde plaatje `T_MON_GroundGrass` (tegel van 16 m): zachte vlekken
+  in 3 groentinten, penseelstreekjes en een paar mini-bloemetjes. Onder water gaat de grond vloeiend over in
+  `T_MON_PondBed` (zand, kiezels, mos; tegel 4 m) via de kleur-attribuut `BedMix`. De oevers zijn gladgestreken.
+- **Gras:** 6 graspollen (`GrassPatch_A/B_<Deep|Mid|Light>`), elke pol pakt de tint van de grond eronder, zodat gras en
+  grond in elkaar overlopen. Pollen die over een pad/water/bed zouden steken zijn kleiner gemaakt of weggehaald
+  (rechte onderrand gaf trapjes). Nu 1.156 pollen. De collectie staat verborgen in de viewport (sneller); in render/export telt ze mee.
+- **Water** (`GH_Monastery_Water`, eigen materiaal; `GH_Water` van Greyhaven is niet veranderd): per punt de diepte tot
+  de bodem (`WaterDepth`, 0 = oever, 1 = 0,75 m diep). Ondiep helder turquoise en doorzichtig (je ziet de kiezels), diep
+  donkerblauw, smalle schuimrand langs de oever, zachte rimpels (`T_MON_WaterRipple`) die langzaam drijven. De rand van
+  het water ligt nu een halve meter onder de oever, zodat de oeverlijn ontstaat waar water en grond elkaar raken.
+- **Bloemen:** de oude gemodelleerde bloemen (±42.000 vertices) zijn vervangen door 647 bloemenpollen
+  (`GH_Monastery_FlowerPatch_<Daisy|Buttercup|Pink|Lavender|Moonbell>`, ±10.000 vertices samen) op dezelfde plekken
+  en in dezelfde kleur. Ze steken boven het gras uit en wiegen mee.
+- **Bruggen:** twee nieuwe houten boogbruggen: losse planken (iets scheef, met kiertjes), gebogen draagbalken, palen met
+  dopjes, boven- en middenleuning, stenen voeten. Houtplaatje `T_MON_WoodPlanks` met de nerf in de lengte van elk stuk
+  (`GH_Monastery_WoodTex_Plank/Beam`). Bankjes, hekjes, moestuinbakken en de vogelverschrikker hebben hetzelfde hout via
+  box-projectie (`GH_Monastery_WoodTex_BoxLight/BoxDark`, zoals de triplanar-modus van de game).
+
+**Voor de game** (open vraag 9 + 10): grond en hout passen op de bestaande triplanar-modus (`tex` + schaal). Nieuw nodig:
+water met diepte-kleur/doorzichtigheid uit `WaterDepth` (nu vaste alpha 0,88), de grond-mix met `BedMix`, de
+bladmodus voor gras/bloemen, en `GH_Grass_MON_*` / `GH_Flower_MON_*` als instances tekenen (zoals `GH_Tree*`).
+
+![Brug west](monastery/bridge_west.png)
+![Brug oost](monastery/bridge_east.png)
+![Vijver](monastery/pond_genshin.png)
+![Moestuin](monastery/vegetable_garden_genshin.png)
+![Bloemen](monastery/meadow_flowers.png)
+
 ## Markers (collectie `MON_Markers`)
 
 `MON_Spawn_PlayerBed`, `MON_NPC_BrotherAnsel`, `MON_Door_Cloister_Outside`, `MON_Door_East_Outside`,
