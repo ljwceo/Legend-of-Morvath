@@ -11,7 +11,7 @@
 - Extra voor deze keer: (niets / een wens, bug of idee)
 
 **Opdracht**
-Je werkt aan Legend of Morvath in de repo `ljwceo/journey-gaym`.
+Je werkt aan Legend of Morvath in de repo `ljwceo/Legend-of-Morvath` (vroeger `journey-gaym`).
 
 1. Lees `CLAUDE.md`, `docs/PROGRESS.md` en `docs/art-style/README.md`. Lees het spelconcept "Legend of Morvath – spelconcept" via de Google Drive-connector, alleen de delen die je voor deze taak nodig hebt.
 2. Geef een korte samenvatting in het Nederlands: waar we zijn, wat af is, en wat je voor deze taak gaat doen (bestanden, volgorde, risico's).

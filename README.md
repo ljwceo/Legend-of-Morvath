@@ -1,14 +1,14 @@
 ## De game starten
 
-**Online (pc en iPhone):** <https://ljwceo.github.io/journey-gaym/>
+**Online (pc en iPhone):** <https://ljwceo.github.io/Legend-of-Morvath/>
 Elke keer dat er iets in `main` komt, bouwt GitHub de game opnieuw en zet hem online (tabblad *Actions* → "Check and deploy"). Dat duurt ongeveer 1–2 minuten.
 
 **Lokaal op de pc** (eenmalig [Node.js](https://nodejs.org/) 22 of nieuwer installeren):
 1. Open een terminal in de map van deze repo.
 2. `npm install` (alleen de eerste keer, of als `package.json` veranderd is).
-3. `npm run dev` en open <http://localhost:5173/journey-gaym/>.
+3. `npm run dev` en open <http://localhost:5173/Legend-of-Morvath/>.
 
-**Lokaal op de iPhone:** zorg dat iPhone en pc op hetzelfde wifi-netwerk zitten. Na `npm run dev` staat in de terminal een regel `Network: http://192.168.x.x:5173/journey-gaym/`. Typ dat adres in Safari op je iPhone.
+**Lokaal op de iPhone:** zorg dat iPhone en pc op hetzelfde wifi-netwerk zitten. Na `npm run dev` staat in de terminal een regel `Network: http://192.168.x.x:5173/Legend-of-Morvath/`. Typ dat adres in Safari op je iPhone.
 
 **Debug en testen**
 | Wat | Hoe |
@@ -52,7 +52,7 @@ Een aparte testpagina om te meten hoe snel de game kan lopen. Hij staat los van 
 
 Dubbelklikken op `index.html` werkt níet: de browser mag dan de kleurenlijst niet inladen.
 
-**Online en op de iPhone:** open `https://ljwceo.github.io/journey-gaym/experiments/perftest/`. De build kopieert de PerfTest mee naar GitHub Pages.
+**Online en op de iPhone:** open `https://ljwceo.github.io/Legend-of-Morvath/experiments/perftest/`. De build kopieert de PerfTest mee naar GitHub Pages.
 
 **Bediening**
 | Wat | Pc | iPhone |
