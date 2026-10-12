@@ -76,7 +76,7 @@ export function createSharedLightUniforms(): SharedLightUniforms {
 }
 
 /** What a toon material draws. */
-export type ToonMode = 'lit' | 'triplanar' | 'terrain' | 'glow' | 'water';
+export type ToonMode = 'lit' | 'triplanar' | 'terrain' | 'glow' | 'water' | 'foliage';
 
 const MODE_NUMBER: Record<ToonMode, number> = {
   lit: 0,
@@ -84,6 +84,7 @@ const MODE_NUMBER: Record<ToonMode, number> = {
   terrain: 2,
   glow: 3,
   water: 4,
+  foliage: 5,
 };
 
 export interface ToonOptions {
@@ -91,7 +92,7 @@ export interface ToonOptions {
   /** Base color (linear), for `lit` and `glow`. */
   color?: Color | undefined;
   map?: Texture | null | undefined;
-  /** Triplanar: texture repeats per meter. */
+  /** Triplanar: texture repeats per meter. Foliage: the cut-out card texture (with alpha). */
   scale?: number | undefined;
   /** Triplanar: gamma applied to the texture (as Blender's GH_TriCoord material does). */
   gamma?: number | undefined;
@@ -112,12 +113,23 @@ const VERT = /* glsl */ `
   varying vec3 vLPos;
   varying vec3 vWNormal;
   uniform vec3 localOffset;
+  #if MODE == 5
+    uniform float time;
+    varying vec2 vUv;
+  #endif
   void main() {
     mat4 m = modelMatrix;
     #ifdef USE_INSTANCING
       m = m * instanceMatrix;
     #endif
     vec4 wp = m * vec4(position, 1.0);
+    #if MODE == 5
+      // glTF flips v; the textures are loaded the normal way up.
+      vUv = vec2(uv.x, 1.0 - uv.y);
+      // A little wind: the top of each card moves most (grass tips, the outside of a leaf tuft).
+      float sway = sin(time * 1.7 + wp.x * 0.31 + wp.z * 0.23) + 0.5 * sin(time * 2.9 + wp.z * 0.7);
+      wp.xz += vec2(0.035, 0.02) * sway * clamp(uv.y, 0.0, 1.0);
+    #endif
     vWPos = wp.xyz;
     vLPos = wp.xyz - localOffset;
     vWNormal = normalize(mat3(m) * normal);
@@ -144,6 +156,9 @@ const FRAG = /* glsl */ `
   varying vec3 vWPos;
   varying vec3 vLPos;
   varying vec3 vWNormal;
+  #if MODE == 5
+    varying vec2 vUv;
+  #endif
 
   float hash(vec3 p) { return fract(sin(dot(floor(p), vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 
@@ -162,6 +177,11 @@ const FRAG = /* glsl */ `
       // Terrain: color baked from above, looked up by position.
       vec2 uv = vec2((vLPos.x - tb.x) / (tb.y - tb.x), (-vLPos.z - tb.z) / (tb.w - tb.z));
       base = texture2D(map, uv).rgb;
+    #elif MODE == 5
+      // Foliage cards (leaf tufts, grass, flowers): painted texture with a cut-out edge, × the tone.
+      vec4 t = texture2D(map, vUv);
+      if (t.a < 0.5) discard;
+      base = t.rgb * tint;
     #endif
     if (vary > 0.0) base *= 1.0 - vary + 2.0 * vary * hash(vLPos * 0.6);
 

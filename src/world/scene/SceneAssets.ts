@@ -11,8 +11,11 @@ import type { SceneDef } from '../../data/types';
 
 /** How one Blender material looks in the game (materials.json, exported from Blender). */
 export interface BlenderMaterial {
-  /** tri = triplanar texture, flat = color, emit = glows, terrain = baked map, water, outline. */
-  kind: 'tri' | 'flat' | 'emit' | 'terrain' | 'water' | 'outline';
+  /**
+   * tri = triplanar texture, flat = color, emit = glows, terrain = baked map, water, outline,
+   * foliage = cut-out cards (leaf tufts, grass, flowers): UV texture with alpha × `tint`.
+   */
+  kind: 'tri' | 'flat' | 'emit' | 'terrain' | 'water' | 'outline' | 'foliage';
   /** Linear RGB (Blender values). */
   color?: [number, number, number];
   tex?: string;
