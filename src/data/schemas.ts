@@ -1365,8 +1365,49 @@ export const dayNightFileSchema = z.strictObject({
   }),
 });
 
+/**
+ * Actions the player can bind to a key or mouse button (`src/core/Bindings.ts` turns these into
+ * the mapping). `down` only matters while flying in debug mode.
+ */
+export const CONTROL_ACTIONS = [
+  'moveForward',
+  'moveBack',
+  'moveLeft',
+  'moveRight',
+  'attack',
+  'heavy',
+  'dash',
+  'interact',
+  'potion',
+  'bag',
+  'lock',
+  'lockSwitch',
+  'confirm',
+  'down',
+] as const;
+export type ControlAction = (typeof CONTROL_ACTIONS)[number];
+
+/** A `KeyboardEvent.code` (KeyW, Space, ArrowUp, ...) or a mouse button (Mouse0 - Mouse4). */
+const bindingCode = z
+  .string()
+  .check(z.regex(/^(Mouse[0-4]|[A-Za-z][A-Za-z0-9]{0,23})$/, 'not a key code or Mouse0-Mouse4'));
+
+export const controlsFileSchema = z.strictObject({
+  /** Every action once, in the order Settings shows them in, with 1 or 2 default bindings. */
+  actions: atLeast(
+    z.array(
+      z.strictObject({
+        id: z.enum(CONTROL_ACTIONS),
+        keys: z.array(bindingCode).check(z.minLength(1), z.maxLength(2)),
+        debugOnly: optional(z.boolean()),
+      }),
+    ),
+  ),
+});
+
 export const dataSchemas = {
   zones: zonesFileSchema,
+  controls: controlsFileSchema,
   npcs: npcsFileSchema,
   player: playerFileSchema,
   monsters: monstersFileSchema,

@@ -93,5 +93,28 @@ describe('language files in public/lang', () => {
       for (const [key, text] of strings)
         expect({ key, text: text.trim() }).not.toEqual({ key, text: '' });
     });
+
+    /**
+     * Fase 3.6: every key of the game itself can be changed in Settings, so no text may name
+     * one; a hint uses {keyDash} and friends instead. Exempt: the names under `key.`, the debug
+     * keys (F3, F4, F6), and the intro and cutscene panels, which always continue on Space or
+     * Enter because they are not part of the action mapping.
+     */
+    it(`${language}.json names no key of its own (use {keyDash} and friends)`, () => {
+      const exempt = new Set([
+        'cheats.debugViewNote',
+        'intro.tapToContinue',
+        'cutscene.tapToContinue',
+      ]);
+      // Case sensitive, so "with a newer version" is not read as the key "A".
+      const singleKey = /\b(?:press(?:ing)?|druk op|toets|key) [A-Z]\b/;
+      const namedKey =
+        /\b(?:WASD|Tab|Spatie|Space(?:bar)?|linkermuisknop|rechtermuisknop|left mouse|right mouse|middle mouse|middelste muisknop)\b/i;
+      for (const [key, text] of strings) {
+        if (key.startsWith('key.') || exempt.has(key)) continue;
+        const names = singleKey.test(text) || namedKey.test(text);
+        expect({ key, names }).toEqual({ key, names: false });
+      }
+    });
   }
 });

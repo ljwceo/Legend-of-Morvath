@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 8;
+export const SAVE_VERSION = 9;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -27,6 +27,11 @@ export const saveDataSchema = z.object({
     /** How fast dragging turns the camera, as a fraction (0.3 = 30%). */
     cameraSensitivity: z.number().check(z.minimum(0.05), z.maximum(2)),
     debug: z.boolean(),
+    /**
+     * Your own keys and mouse buttons (Settings -> Controls): action id -> codes. Empty means
+     * the defaults from controls.json; unknown actions and codes are skipped on loading.
+     */
+    keybindings: z.record(z.string(), z.array(z.string())),
   }),
   /** Null until the character creator is finished (New Game). */
   character: z.nullable(
@@ -112,6 +117,7 @@ export function createNewSave(language: Language, now: Date = new Date()): SaveD
       volume: 0.8,
       cameraSensitivity: DEFAULT_CAMERA_SENSITIVITY,
       debug: false,
+      keybindings: {},
     },
     character: null,
     progress: freshProgress(),
@@ -164,6 +170,11 @@ export const migrations: Readonly<Record<number, Migration>> = {
   7: (save) => {
     const character = save.character as Record<string, unknown> | null | undefined;
     return { ...save, version: 8, character: character ? { ...character, spells: [] } : null };
+  },
+  // v9 (fase 3.6): your own keys and mouse buttons; everyone starts on the defaults.
+  8: (save) => {
+    const settings = (save.settings ?? {}) as Record<string, unknown>;
+    return { ...save, version: 9, settings: { ...settings, keybindings: {} } };
   },
 };
 

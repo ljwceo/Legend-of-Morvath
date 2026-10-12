@@ -10,6 +10,7 @@ import type { StateId } from '../scenes/flow';
 import type { DayNightService } from '../services/DayNightService';
 import type { SeasonService } from '../services/SeasonService';
 import type { Overlays } from '../ui/Overlays';
+import type { Bindings } from './Bindings';
 import type { GameEventBus } from './events';
 import type { GameLoop } from './GameLoop';
 
@@ -23,6 +24,8 @@ export interface GameContext {
   readonly loop: GameLoop;
   readonly i18n: I18n;
   readonly saves: SaveManager;
+  /** Which key or mouse button does what (Settings -> Controls); filled by the Boot scene. */
+  readonly bindings: Bindings;
   readonly debug: DebugOverlay;
   /** Graphics preset (Low / Mid / High): benchmark, auto-downgrade, renderer settings. */
   readonly quality: QualityManager;

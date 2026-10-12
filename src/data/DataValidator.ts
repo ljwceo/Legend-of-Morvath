@@ -1,7 +1,7 @@
 import type { z } from 'zod/mini';
 import { boxContains, emptyBox, pointInShape, shapeBounds } from '../world/Shapes';
 import { DEFAULT_CAMERA_SENSITIVITY } from '../save/SaveData';
-import { dataFileNames, dataSchemas, type DataFileName } from './schemas';
+import { CONTROL_ACTIONS, dataFileNames, dataSchemas, type DataFileName } from './schemas';
 import type { GameData, Shape, Zone } from './types';
 
 export interface ValidationIssue {
@@ -102,6 +102,7 @@ class CrossChecker {
     this.checkQuests();
     this.checkSpells();
     this.checkSkills();
+    this.checkControls();
     this.checkCombos();
     this.checkCutscenes();
     this.checkDayNight();
@@ -1000,6 +1001,32 @@ class CrossChecker {
       }
     });
     s.skills.forEach((skill, i) => this.ref('branch', f, `skills[${i}].branch`, skill.branch));
+  }
+
+  /**
+   * controls.json: every action exactly once (otherwise it cannot be bound in Settings), no
+   * code bound twice (a key does one thing), and a name in the language files.
+   */
+  private checkControls(): void {
+    const f = 'controls';
+    const seen = new Set<string>();
+    const codes = new Map<string, string>();
+    this.data.controls.actions.forEach((action, i) => {
+      const p = `actions[${i}]`;
+      if (seen.has(action.id)) this.issue(f, `${p}.id`, `duplicate action "${action.id}"`);
+      seen.add(action.id);
+      this.text(f, `${p}.id`, `controls.action.${action.id}`);
+      action.keys.forEach((code, k) => {
+        const other = codes.get(code);
+        if (other !== undefined) {
+          this.issue(f, `${p}.keys[${k}]`, `"${code}" is also bound to "${other}"`);
+        }
+        codes.set(code, action.id);
+      });
+    });
+    for (const action of CONTROL_ACTIONS) {
+      if (!seen.has(action)) this.issue(f, 'actions', `action "${action}" is missing`);
+    }
   }
 
   private checkCombos(): void {

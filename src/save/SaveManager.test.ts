@@ -192,6 +192,21 @@ describe('migrate', () => {
     expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
   });
 
+  it('upgrades a version 8 save: the default keys; the other settings stay', () => {
+    const current = sampleSave();
+    const settings: Record<string, unknown> = { ...current.settings, volume: 0.4 };
+    delete settings.keybindings;
+    const v8 = { ...current, version: 8, settings };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v8));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.settings.keybindings).toEqual({});
+    expect(result.save.settings.volume).toBe(0.4);
+  });
+
   it('upgrades a version 6 save: outside every instance; position stays', () => {
     const current = sampleSave();
     const world: Record<string, unknown> = { ...current.world };

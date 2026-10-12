@@ -90,7 +90,8 @@ export class HUD {
     this.banner = part('ui-hud-banner');
     this.message = part('ui-hud-message');
 
-    this.interactKey = el('span', { className: 'ui-hud-interact-key', text: 'E' });
+    // The key is set from the bindings (Settings -> Controls), so it shows what you really press.
+    this.interactKey = el('span', { className: 'ui-hud-interact-key' });
     this.interactLabel = el('span', { className: 'ui-hud-interact-label' });
     const interactButton = el(
       'button',
@@ -223,6 +224,11 @@ export class HUD {
     this.blackoutValue = value;
     this.blackout.style.opacity = value.toFixed(3);
     this.blackout.classList.toggle('ui-hud-blackout-on', value > 0);
+  }
+
+  /** The key shown in the interaction icon ("E" by default, or whatever is bound to it). */
+  setInteractKey(label: string): void {
+    if (this.interactKey.textContent !== label) this.interactKey.textContent = label;
   }
 
   setGold(amount: number): void {

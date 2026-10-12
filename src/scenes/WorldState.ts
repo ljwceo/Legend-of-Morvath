@@ -140,6 +140,7 @@ import { type NpcWorld, Npcs } from '../systems/Npcs';
 import { CheatPanel } from '../ui/CheatPanel';
 import { Dialog } from '../ui/Dialog';
 import { HUD } from '../ui/HUD';
+import { keyLabel } from '../ui/keyLabels';
 import { StructureLabels } from '../ui/StructureLabels';
 import { el } from '../ui/dom';
 import { bagPanel } from '../ui/menus/BagPanel';
@@ -493,13 +494,17 @@ export class WorldState implements GameState, InstanceHost {
     ctx.ui.append(this.surface);
     const camera = data.player.camera;
     const controls = data.player.controls;
-    this.input = new Input(this.surface, {
-      joystickRadiusPx: controls.joystickRadiusPx,
-      joystickDeadZone: controls.joystickDeadZone,
-      rotateRadiansPerPixelMouse: camera.rotateRadiansPerPixelMouse,
-      rotateRadiansPerPixelTouch: camera.rotateRadiansPerPixelTouch,
-      zoomStepPerWheelNotch: camera.zoomStepPerWheelNotch,
-    });
+    this.input = new Input(
+      this.surface,
+      {
+        joystickRadiusPx: controls.joystickRadiusPx,
+        joystickDeadZone: controls.joystickDeadZone,
+        rotateRadiansPerPixelMouse: camera.rotateRadiansPerPixelMouse,
+        rotateRadiansPerPixelTouch: camera.rotateRadiansPerPixelTouch,
+        zoomStepPerWheelNotch: camera.zoomStepPerWheelNotch,
+      },
+      this.ctx.bindings,
+    );
     this.input.attach();
     // Escape releases the mouse (the browser does that itself); treat it like pausing.
     // While talking, Escape just ends the conversation.
@@ -525,6 +530,7 @@ export class WorldState implements GameState, InstanceHost {
     this.gateBlocked = false;
     if (this.labels) ctx.ui.append(this.labels.root);
     this.hud = new HUD(data.player.hud, data.player.lowHpThreshold, () => this.interact());
+    this.hud.setInteractKey(this.interactKeyLabel());
     ctx.ui.append(this.hud.root);
     this.dialog = new Dialog((key) => ctx.i18n.t(key));
     ctx.ui.append(this.dialog.root);
@@ -620,8 +626,11 @@ export class WorldState implements GameState, InstanceHost {
         if (this.lookHint) this.lookHint.textContent = ctx.i18n.t('controls.clickToLook');
         this.cheatPanel?.updateTexts();
         this.dialog?.updateTexts();
+        this.hud?.setInteractKey(this.interactKeyLabel());
         this.iconLabelFor = null;
       }),
+      // Other keys (Settings -> Controls): the icon above an NPC shows the new key at once.
+      ctx.events.on('settingsChanged', () => this.hud?.setInteractKey(this.interactKeyLabel())),
       // A new graphics preset changes view distance, chunk rings and shadows right away.
       ctx.events.on('qualityChanged', () => this.applyPreset()),
       ctx.events.on('qualityAutoChosen', ({ level, reason }) => {
@@ -1356,6 +1365,12 @@ export class WorldState implements GameState, InstanceHost {
     hud.setBar('hp', c.maxHp > 0 ? c.hp / c.maxHp : 0);
     hud.setBar('mana', c.maxMana > 0 ? c.mana / c.maxMana : 0);
     hud.rules.setHpFraction(c.maxHp > 0 ? c.hp / c.maxHp : 1);
+  }
+
+  /** The key in the interaction icon: what the player bound to "talk and use" (E by default). */
+  private interactKeyLabel(): string {
+    const codes = this.ctx.bindings.codesFor('interact');
+    return codes.length === 0 ? '—' : keyLabel(codes[0] as string, (key) => this.ctx.i18n.t(key));
   }
 
   private touchLabels(): TouchLabels {
