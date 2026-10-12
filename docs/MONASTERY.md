@@ -12,9 +12,45 @@
 > niet selecteerbaar): pas het klooster aan in `Monastery_Building.blend`, dan komt het vanzelf mee. Bij exporteren van de
 > tuin moet `MON_Reference` worden overgeslagen, anders gaat het klooster dubbel mee. Het oude
 > gecombineerde bestand is `Monastery_backup_before_split.blend`; oudere backups heten `Monastery_backup_before_*.blend`.
-> Scripts: `tools/blender/monastery/` (de tekstblokken staan in beide bestanden). Staat nog **niet** in Greyhaven.
+> Scripts: `tools/blender/monastery/` (de tekstblokken staan in beide bestanden). **Staat in Greyhaven** sinds 2026-10-12 (zie "In Greyhaven").
 
 ![Alleen het klooster (Monastery_Building.blend)](monastery/building_only.png)
+
+## In Greyhaven (2026-10-12)
+
+Het klooster en de tuin staan in `C:\Users\Bo\Documents\Morvath\Greyhaven\Greyhaven.blend`, collectie
+`Greyhaven/GH_Monastery_New`, als **gelinkte collection instances** (`GH_MonasteryNew_*`) uit `assets/Monastery_Building.blend`
+en `assets/Monastery_Garden.blend`. Aanpassen doe je dus in die twee bestanden; Greyhaven neemt het vanzelf over.
+
+- **Plek:** waar het oude klooster stond, tussen de rivier en de haven. Oorsprong Blender (−38; −80; 9), **90° met de klok
+  mee gedraaid**: kerkportaal naar het noorden (de weg langs de rivier), tuin naar het oosten en zuiden. Omrekenen:
+  wereld = (−38 + y, −80 − x, 9 + z) voor een klooster-lokaal punt (x, y, z).
+- **Stad groter:** de zuidelijke stadsmuur tussen toren 18 en de zuidpoort liep door de tuin. Toren 17, muur `17_*` en
+  `16_2…16_9`, het oude klooster (`GH_Monastery_*`) en 25 bomen staan nu in `GH_Monastery_Replaced` (uitgeschakeld, net
+  als `GH_Forge_Replaced`). Muur `16_2` is teruggezet en sluit aan op de tuinmuur; aan de westkant staat toren 18 tegen
+  het klooster. Het klooster en de tuinmuur vormen zo het zuidelijke stuk van de stad.
+- **Terrein:** onder het klooster vlak op 8,96, onder de tuin 7,75 (de tuin heeft z'n eigen grond met vijver), 9 m zachte
+  overgang; in het zuidwesten is daardoor een stukje kust aangevuld met een strandje. Backup ervoor:
+  `Greyhaven_backup_before_monastery.blend`.
+
+| Punt | Blender (Greyhaven) | Game-wereld (x, y, z) |
+|---|---|---|
+| Bed van de speler (`MON_Spawn_PlayerBed`) | (−33,4; −91,65; 9,12) | (−1798,4; 9,12; 91,65) |
+| Brother Ansel (`MON_NPC_BrotherAnsel`) | (−45,0; −98,6; 9,12) | (−1810,0; 9,12; 98,6) |
+| Kerkportaal, ingang (`MON_Zone_Door`) | (−22,5; −66,1; 9,36) | (−1787,5; 9,36; 66,1) |
+| Binnen bij het portaal (`MON_Zone_Spawn`) | (−22,5; −69,8; 9,13) | (−1787,5; 9,13; 69,8) |
+| Buiten voor het portaal (`MON_Zone_ExitTo`) | (−22,5; −65,0; 9,0) | (−1787,5; 9,0; 65,0) |
+| Oostdeur, hal (`MON_GardenGate_FromMonastery`) | (−38,0; −101,0; 9,12) | (−1803,0; 9,12; 101,0) |
+
+(Omrekening Blender → game zoals bij het oude spawnpunt: x − 1765, y = hoogte, z = −y.)
+
+![Klooster in Greyhaven](monastery/in_greyhaven.png)
+![Bovenaanzicht](monastery/in_greyhaven_top.png)
+
+**Nog te doen (Greyhaven-chat):** bij export de instances echt maken (Object → Apply → Make Instances Real, of de
+exporter laten volgen) en `MON_Reference` overslaan; spawnpunt, checkpoint en NPC's in `zones.json`/`npcs.json` naar de
+nieuwe plekken; de `safeZones`-polygoon van de stadsmuur; en voor de zones (open vraag over eigen zones) in Greyhaven
+alleen een lichte buitenkant tonen.
 
 ## Opbouw (zoals een echt middeleeuws klooster, naar het St. Gall-plan)
 
