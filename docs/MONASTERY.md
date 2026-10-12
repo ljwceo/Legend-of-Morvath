@@ -175,6 +175,20 @@ vierkantjes getekend worden.
 ![Eik](monastery/oak_clusters.png)
 ![Wilg](monastery/willow_clusters.png)
 
+## Gras in Genshin-stijl (2026-10-12)
+
+Het gazon heeft nu **graspollen** zoals in Genshin: `GH_Monastery_GrassPatch_A` (laag, 8 kaartjes) en `_B` (hoger,
+7 kaartjes), elk ~1,4 m breed. Op de kaartjes staat het plaatje `T_MON_GrassTuft` (brede, zachte sprietjes met alpha).
+- **Normals recht omhoog:** het gras wordt belicht als de grond zelf, en de onderkant van de sprietjes heeft precies de
+  grondkleur, dus het gras loopt naadloos over in de grond.
+- **1.446 pollen** als instances (`GH_Grass_MON_####` in `MON_Garden_GrassInstances`), alleen op het gras: niet op paden,
+  water, bedden of muren (ray cast). ~43.000 vertices samen.
+- Wiegen in de wind met shape keys (lus van 4 s). In de game is wind in de shader beter (open vraag 9), en gras alleen
+  dichtbij de speler tekenen scheelt veel.
+- De oude losse grassprietjes in `MON_Garden_Flowers` zijn weggehaald. Backup: `Monastery_backup_before_grass.blend`.
+
+![Gras](monastery/grass_meadow.png)
+
 ## Markers (collectie `MON_Markers`)
 
 `MON_Spawn_PlayerBed`, `MON_NPC_BrotherAnsel`, `MON_Door_Cloister_Outside`, `MON_Door_East_Outside`,
