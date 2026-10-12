@@ -196,6 +196,25 @@ describe('validateGameData catches broken data', () => {
     expect(messages(raw)).toContainEqual(expect.stringContaining('unknown condition "moonIsBlue"'));
   });
 
+  it('checks the lock-on ranges and that the Arcane Shard stays free', () => {
+    const raw = freshData();
+    raw.player.lockOn.breakRange = raw.player.lockOn.range - 1;
+    raw.player.lockOn.range = raw.player.staff.shard.range + 5;
+    raw.player.staff.shard.manaCost = 3;
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('may not break inside the range'));
+    expect(found).toContainEqual(expect.stringContaining('an Arcane Shard cannot reach'));
+    expect(found).toContainEqual(expect.stringContaining('costs no mana'));
+  });
+
+  it('reports an element without a spell (a crystal of it would be useless)', () => {
+    const raw = freshData();
+    raw.spells.spells = raw.spells.spells.filter(
+      (spell: { element: string }) => spell.element !== 'wind',
+    );
+    expect(messages(raw)).toContainEqual(expect.stringContaining('no spell uses element "wind"'));
+  });
+
   it('checks gear weight, stats and the load tiers', () => {
     const raw = freshData();
     delete raw.items.items.find((i: { id: string }) => i.id === 'iron_helm').weight;

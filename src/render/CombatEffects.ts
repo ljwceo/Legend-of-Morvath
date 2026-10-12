@@ -1,6 +1,7 @@
 import {
   BufferAttribute,
   BufferGeometry,
+  Color,
   ConeGeometry,
   CylinderGeometry,
   DynamicDrawUsage,
@@ -12,6 +13,8 @@ import {
   Mesh,
   DoubleSide,
   Quaternion,
+  SphereGeometry,
+  TorusGeometry,
   Vector3,
 } from 'three';
 import type { Enemy } from '../entities/Enemy';
@@ -19,6 +22,7 @@ import { colored } from '../entities/StructureFactory';
 import type { Arena } from '../systems/BossAI';
 import { currentSpecial } from '../systems/EnemyAI';
 import type { Projectile } from '../systems/Projectiles';
+import type { Shot } from '../systems/Shots';
 import { palette } from './palette';
 
 /** Warnings on screen at the same time (more are simply not drawn). */
@@ -41,6 +45,16 @@ const ARENA_SEGMENTS = 160;
 const ARENA_LIFT = 0.35;
 /** Pieces along a ground strip (the Dash Strike line follows the ground this finely). */
 const STRIP_SEGMENTS = 24;
+
+/** Shots glow a little through things and are drawn a bit longer than wide. */
+const SHOT_OPACITY = 0.9;
+const SHOT_STRETCH = 1.8;
+const SHOT_AXIS = new Vector3(0, 1, 0);
+/** The lock-on ring: size (m), how see-through it is and how fast it turns (rad/s). */
+const LOCK_RING_RADIUS = 0.42;
+const LOCK_RING_THICKNESS = 0.055;
+const LOCK_RING_OPACITY = 0.85;
+const LOCK_RING_TURN_SPEED = 1.2;
 
 /** A flat disc (or ring band from `inner` to 1) as a grid whose heights are set every frame. */
 class GroundDisc {
@@ -355,5 +369,130 @@ export class ProjectileRenderer {
     this.mesh.geometry.dispose();
     (this.mesh.material as MeshLambertMaterial).dispose();
     this.mesh.dispose();
+  }
+}
+
+/** Shots of the player in flight: one InstancedMesh for the whole pool, colored per element. */
+export class ShotRenderer {
+  private readonly mesh: InstancedMesh;
+  private readonly matrix = new Matrix4();
+  private readonly position = new Vector3();
+  private readonly rotation = new Quaternion();
+  private readonly size = new Vector3();
+  private readonly colors = new Map<string, Color>();
+
+  constructor(
+    private readonly shots: readonly Shot[],
+    root: Group,
+    private readonly colorOf: (element: string) => number,
+  ) {
+    this.mesh = new InstancedMesh(
+      // A small ball; its radius is scaled to the shot's own radius.
+      new SphereGeometry(1, 10, 8),
+      new MeshBasicMaterial({ transparent: true, opacity: SHOT_OPACITY, depthWrite: false }),
+      shots.length,
+    );
+    this.mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+    this.mesh.count = 0;
+    this.mesh.visible = false;
+    this.mesh.frustumCulled = false;
+    this.mesh.matrixAutoUpdate = false;
+    this.mesh.name = 'shots';
+    // Gives the mesh its instanceColor buffer (set per shot in update).
+    this.mesh.setColorAt(0, this.colorFor(''));
+    root.add(this.mesh);
+  }
+
+  update(alpha: number): void {
+    const mesh = this.mesh;
+    let count = 0;
+    for (let i = 0; i < this.shots.length; i++) {
+      const shot = this.shots[i] as Shot;
+      if (!shot.active) continue;
+      this.position.set(shot.drawX(alpha), shot.drawY(alpha), shot.drawZ(alpha));
+      this.rotation.setFromAxisAngle(SHOT_AXIS, shot.heading);
+      // A little longer along its flight, so it reads as a shot and not as a bubble.
+      this.size.set(shot.radius, shot.radius, shot.radius * SHOT_STRETCH);
+      this.matrix.compose(this.position, this.rotation, this.size);
+      mesh.setMatrixAt(count, this.matrix);
+      mesh.setColorAt(count, this.colorFor(shot.element));
+      count++;
+    }
+    mesh.count = count;
+    mesh.visible = count > 0;
+    if (count === 0) return;
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  }
+
+  dispose(): void {
+    this.mesh.removeFromParent();
+    this.mesh.geometry.dispose();
+    (this.mesh.material as MeshBasicMaterial).dispose();
+    this.mesh.dispose();
+  }
+
+  /** The color of an element (made once per element, so nothing is allocated per frame). */
+  private colorFor(element: string): Color {
+    let color = this.colors.get(element);
+    if (!color) {
+      color = new Color(this.colorOf(element));
+      this.colors.set(element, color);
+    }
+    return color;
+  }
+}
+
+/**
+ * The lock-on mark: a ring above the locked enemy that always faces the camera and turns
+ * slowly, so you can see at a glance who your shots are curving towards.
+ */
+export class LockOnMarker {
+  private readonly mesh: Mesh;
+  private readonly towards = new Vector3();
+
+  constructor(root: Group) {
+    this.mesh = new Mesh(
+      new TorusGeometry(LOCK_RING_RADIUS, LOCK_RING_THICKNESS, 8, 24),
+      new MeshBasicMaterial({
+        color: palette.zonlicht,
+        transparent: true,
+        opacity: LOCK_RING_OPACITY,
+        depthWrite: false,
+      }),
+    );
+    this.mesh.visible = false;
+    this.mesh.name = 'lockOn';
+    root.add(this.mesh);
+  }
+
+  /**
+   * Puts the ring above (x, y, z), facing the camera at (camX, camY, camZ) in the same
+   * coordinates; `time` (s) turns it.
+   */
+  show(
+    x: number,
+    y: number,
+    z: number,
+    camX: number,
+    camY: number,
+    camZ: number,
+    time: number,
+  ): void {
+    this.mesh.position.set(x, y, z);
+    this.towards.set(camX, camY, camZ);
+    this.mesh.lookAt(this.towards);
+    this.mesh.rotateZ(time * LOCK_RING_TURN_SPEED);
+    this.mesh.visible = true;
+  }
+
+  hide(): void {
+    this.mesh.visible = false;
+  }
+
+  dispose(): void {
+    this.mesh.removeFromParent();
+    this.mesh.geometry.dispose();
+    (this.mesh.material as MeshBasicMaterial).dispose();
   }
 }

@@ -605,6 +605,16 @@ class CrossChecker {
     between('camera.distance', cam.distance, cam.minDistance, cam.maxDistance);
     const s = cam.sensitivity;
     between('camera.sensitivity', DEFAULT_CAMERA_SENSITIVITY, s.min, s.max);
+    const lock = player.lockOn;
+    if (lock.breakRange < lock.range) {
+      this.issue(f, 'lockOn.breakRange', 'the lock may not break inside the range it is made in');
+    }
+    if (lock.range > player.staff.shard.range) {
+      this.issue(f, 'lockOn.range', 'you could lock on to an enemy an Arcane Shard cannot reach');
+    }
+    if (player.staff.shard.manaCost > 0) {
+      this.issue(f, 'staff.shard.manaCost', 'the Arcane Shard costs no mana (concept)');
+    }
   }
 
   private checkMonsters(): void {
@@ -955,6 +965,12 @@ class CrossChecker {
     this.data.spells.spells.forEach((spell, i) =>
       this.ref('element', f, `spells[${i}].element`, spell.element),
     );
+    // Every element needs a spell: a mage's crystal decides his element (Crystal Ceremony).
+    this.data.spells.elements.forEach((element, i) => {
+      if (!this.data.spells.spells.some((spell) => spell.element === element.id)) {
+        this.issue(f, `elements[${i}].id`, `no spell uses element "${element.id}"`);
+      }
+    });
   }
 
   private checkSkills(): void {

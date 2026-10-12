@@ -585,6 +585,53 @@ export const playerFileSchema = z.strictObject({
     /** Attacks turn you towards the nearest enemy within this range and angle. */
     aimAssist: z.strictObject({ range: max(nonNegative, 20), arcDegrees: range(0, 360) }),
   }),
+  /**
+   * Fighting with a staff (a mage): the Arcane Shard costs no mana and is the basic attack;
+   * spells come from spells.json. Shots fly (speed, range), so they can miss.
+   */
+  staff: z.strictObject({
+    shard: z.strictObject({
+      damage: positive,
+      damagePerLevel: nonNegative,
+      manaCost: nonNegative,
+      maxPerSecond: max(positive, 10),
+      /** The staff lights up this long before the shard leaves it. */
+      windupSeconds: max(nonNegative, 5),
+      speed: max(positive, 100),
+      /** How far a shard flies before it fizzles out (m). */
+      range: max(positive, 100),
+      /** Half the thickness of the shot for hit tests (m). */
+      radius: max(positive, 5),
+      /** How fast a shot may curve towards a locked target (0 = never curves). */
+      homingDegreesPerSecond: max(nonNegative, 720),
+    }),
+    /** After a spell you cannot attack for this long (s). */
+    castRecoverySeconds: max(nonNegative, 5),
+    /** Walking speed factor while a shard or spell is on its way out. */
+    castMoveFactor: fraction,
+    /** A press while the staff is not ready is remembered this long (s), then done. */
+    inputBufferSeconds: max(nonNegative, 2),
+    /** Shots leave the staff this high (m) above the feet. */
+    shotHeight: max(nonNegative, 5),
+    /** Without lock-on, shots aim at the nearest enemy within this range and angle. */
+    aimAssist: z.strictObject({ range: max(nonNegative, 100), arcDegrees: range(0, 360) }),
+  }),
+  /**
+   * Lock-on (middle mouse button, Tab or the button on a phone): the camera keeps the target in
+   * view and shots curve towards it. The same numbers on every graphics preset.
+   */
+  lockOn: z.strictObject({
+    /** Enemies within this distance (m) can be locked on to. */
+    range: max(positive, 200),
+    /** The lock breaks beyond this distance (m); must be at least `range`. */
+    breakRange: max(positive, 300),
+    /** Picking a target only looks this wide around where the camera looks. */
+    pickArcDegrees: range(1, 360),
+    /** Looking further than this away from the target breaks the lock. */
+    maxOffViewDegrees: range(1, 180),
+    /** How fast the camera turns along to keep the target in view. */
+    cameraFollowDegreesPerSecond: max(nonNegative, 1440),
+  }),
   combat: z.strictObject({
     /** You count as "in a fight" until this long after the last hit given or taken. */
     lingerSeconds: max(positive, 60),
@@ -1059,6 +1106,14 @@ export const spellsFileSchema = z.strictObject({
       range: max(positive, 100),
       usesPerLevel: posInt,
       perLevel: z.record(z.string(), z.number()),
+      /** Pulling the spell together takes this long (s) before it leaves the staff. */
+      windupSeconds: max(nonNegative, 5),
+      /** How fast the shot flies (m/s): `range` / `speed` is its travel time. */
+      speed: max(positive, 100),
+      /** Half the thickness of the shot for hit tests (m). */
+      radius: max(positive, 5),
+      /** How fast the shot may curve towards a locked target (0 = never curves). */
+      homingDegreesPerSecond: max(nonNegative, 720),
     }),
   ),
 });

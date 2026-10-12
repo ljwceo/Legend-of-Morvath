@@ -7,9 +7,9 @@
 | | |
 |---|---|
 | **Huidige fase** | Fase 3 – Je pad, Entrance Exam en gear (plan goedgekeurd 2026-10-10) |
-| **Status** | Stap 3.0 t/m 3.4 klaar. PR #34 (Blender-Greyhaven, één vijandsysteem, stap 3.3 instances) is gemerged in `main`. Stap 3.4 (*Your Resolve*: je pad kiezen bij een leraar) gebouwd. Fase 2 en het Blender-Greyhaven wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
-| **Volgende stap** | Bo/Lucas: de teksten van de drie leraren lezen en meten op pc/iPhone; daarna 3.5 (vechten met een staf + lock-on) |
-| **Laatste sessie** | 2026-10-12: stap 3.4 (*Your Resolve*) gemerged; daarvoor (Blender) het Monastery als eigen asset met kloostertuin |
+| **Status** | Stap 3.0 t/m 3.5 klaar. Stap 3.5 (vechten met een staf: Arcane Shard, spreuken en lock-on) gebouwd; testen kan nu via het cheatmenu (Geven → Staf, Spreuk). Fase 2, het Blender-Greyhaven en de teksten van de leraren wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
+| **Volgende stap** | Bo/Lucas: staf-gevecht en lock-on spelen (voelt de richthulp goed? zie de cheats onder "Richthulp"); daarna 3.6 (Entrance Exams, Crystal Ceremony en de stadspoort) |
+| **Laatste sessie** | 2026-10-12: stap 3.5 (staf + lock-on); daarvoor stap 3.4 (*Your Resolve*) gemerged en in Blender het Monastery met kloostertuin |
 
 ### Open vragen
 
@@ -22,6 +22,8 @@
 | 4 | Moet `player.glb` ook in de open wereld gebruikt worden? | Nu alleen in Greyhaven; in de open wereld nog het placeholder-poppetje |
 | 6 | Past het nieuwe Monastery (met tuin, samen ±100 × 70 m) op de kliffen aan de westkust van Greyhaven? Het oude placeholder-klooster is ±31 × 32 m | Nog niet geplaatst; in de Greyhaven-chat bekijken (plek, draaien, eventueel kleiner). Zie `docs/MONASTERY.md` |
 | 7 | Kweekbare bedden in de kloostertuin (`MON_FarmPlot_1…6`): hoe moet farming werken (zaad, groeitijd, oogst, seizoenen)? | Alleen de bedden + markers staan in Blender; nog geen spelregels of code |
+| 8 | Komt mana vanzelf terug? Nu alleen door rusten, een drankje of een level omhoog. Een mage die leeg is, heeft alleen nog de Arcane Shard (die is gratis) | Voorstel: zo laten; zeg het als mana buiten gevecht langzaam moet bijvullen (één regel in `player.json` → `regen`) |
+| 9 | Schoten vliegen dwars door een vijand die je niet kunt raken (Treewarden in de elfenstad, een baas die ontwijkt); bij het zwaard krijg je dan wel een melding of een "geblokkeerd"-effect | Voorstel: zo laten (je schiet erlangs); zeg het als een schot op zo'n vijand ook moet melden dat hij beschermd is |
 
 ---
 
@@ -481,6 +483,16 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
   - Getest: 392 tests (o.a. voorwaarde `path`, één leraar per pad, leraar vraagt alleen na Sultan en zolang je geen pad hebt, pad maar één keer, quest klaar bij een keuze en niet bij alleen praten, dialoog van Brink na de keuze, validator). Headless Chromium (pc 1100×760): Sir Garrick (EN) op het trainingsveld, Wizard Sam (NL) in de kelder en Master Brink (EN) in de toren: Nee → Ja → "Nee, nog niet" (standaard) → geen pad; opnieuw met muisklik Ja → "Ja, zeker" → pad in de save, quest klaar, leraar zegt de nieuwe zin. Geen fouten.
   - Tijdelijke namen (alleen in data): Sir Garrick, Master Brink's Tower, Wizard Sam's Cellar. Nieuw: geen. **Alle zinnen van de leraren zijn een voorstel**, zeg het als ze anders moeten.
 
+- 3.5 Vechten met een staf + lock-on (2026-10-12):
+  - **Welk wapen je draagt bepaalt hoe je vecht** (`weapon.kind` in `items.json`): met een zwaard sla je (fase 2), met een staf schiet je. Links = **Arcane Shard** (geen mana, 8 schade +2 per level, 2 per seconde, 18 m), rechts = je **spreuk** (mana, eigen cooldown). Op de telefoon heten die knoppen dan Shard en Spreuk; er is een lock-knop bij gekomen.
+  - **Vijf spreuken, één per element** (`spells.json`, namen en getallen zijn een **voorstel**): Fireball (vuur, 20 schade, 10 mana), Water Bolt (water, 16/8), Thorn Shot (natuur, 14/7), Wind Slice (wind, 12/6, snel en ver) en Shadow Bolt (duister, 22/12). Elke spreuk heeft een reisafstand: het schot vliegt echt (snelheid, bereik), dus je kunt missen. De **krachtcurve** van je pad telt mee: duister begint op ×1,3 en wordt zwakker, licht groeit naar ×1,3.
+  - **Lock-on** (middelste muisknop, Tab, of de knop op de telefoon): vergrendelt de vijand die het dichtst bij het midden van je scherm staat (binnen 18 m), zet er een ring boven, houdt hem met de camera in beeld en laat je schoten naar hem toe krommen. Nog eens drukken laat los. Werkt ook met het zwaard: je slagen draaien dan naar je doel.
+  - **Missen** kan op twee manieren, zoals het plan vroeg: een vijand die **aanvalt** stapt opzij (je schot krommt niet meer mee) en **te ver wegkijken** (meer dan 80°) verbreekt de lock. Verder stoppen bomen, muren en heuvels een schot, en voorbij zijn bereik dooft het uit.
+  - **Cheatmenu**: "Geven → Staf" geeft je meteen een staf, "Spreuk (staf)" kiest welke spreuk je draagt, en onder **Richthulp** staan drie vermenigvuldigers (richtkegel, lock-on bereik, hoe hard schoten krommen) om de getallen uit te proberen. Een staf krijg je in het spel zelf pas in stap 3.6 (Crystal Ceremony).
+  - **Save versie 8**: `character.spells` (de spreuken die je kent). Oude saves krijgen een lege lijst.
+  - Getest: 430 tests (staf-getallen, mana, cooldowns, krommen en missen, lock-on kiezen en verbreken, fps-onafhankelijkheid, save-migratie, validator), lint, opmaak, typecheck, build. Headless Chromium (software-rendering, dus traag; fps zegt niets): staf + Fireball via het cheatmenu, naar het trainingsveld, lock-on op een trainingspop (de ring verschijnt), zes Shards raken elk voor 8, een Fireball voor 20, mana 50 → 40, wegkijken verbreekt de lock. Geen fouten.
+  - Tijdelijke namen (alleen in data): **Water Bolt, Thorn Shot, Wind Slice, Shadow Bolt** (nieuw, net als Arcane Shard en Fireball nog niet definitief).
+
 - Extra taak (2026-10-12, opdracht van Bo, in Blender): **Monastery als eigen asset + kloostertuin** (`Monastery.blend` naast `Forge.blend`; uitleg in `docs/MONASTERY.md`, scripts in `tools/blender/monastery/`)
   - Klooster naar een echt middeleeuws plan: kerk met apsis, roosvenster en klokkentoren, kloostergang met bogen, oost-, zuid- en westvleugel. Daken met 4 leivormen + 2 nokpannen, muren met 3 stenen + 2 funderingsstenen, echte ramen en deuren.
   - Oostvleugel van binnen: hal + 6 kamers (Dormitory, Infirmary, Warming Room, Chapter House, Scriptorium, Brother Ansel's Cell), plankenvloer, plafond 6,5 m. Markers voor spawn (bed), Brother Ansel, deuren en kamers.
@@ -656,6 +668,11 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 | 2026-10-11 | Je kiest je pad **direct na Sultan** (level 3), niet pas vanaf level 5 | Concept: Your Resolve na Sultan, de Entrance Exam brengt je naar level 5. De oude voorwaarde `readyToChoosePath` (level 5) is vervangen door `canChoosePath` |
 | 2026-10-11 | Bij "Weet je het zeker?" staat **"Nee, nog niet"** voorgeselecteerd | Je pad geldt voor de rest van het spel; wie op E blijft drukken, kiest zo nooit per ongeluk |
 | 2026-10-11 | Smidse = rood huis met schoorsteen, aambeeld en vuur ten zuiden van de markt; Golden Kettle = rood huis oost van de markt; Alchemy Lab = leien huis met ronde toren | Uit het model af te lezen (vuur + aambeeld). De andere twee zijn een keuze: zeg het als het andersom moet |
+| 2026-10-12 | De Arcane Shard kost **geen mana** (en ook geen energie), maar vuurt maar 2× per seconde | Concept: de Shard is je basisaanval als mage; zonder mana sta je nooit helemaal stil. De validator bewaakt dat hij gratis blijft |
+| 2026-10-12 | Lock-on is een **schakelaar** (nog eens drukken = loslaten), nog geen doorschakelen naar het volgende doel | Minste knoppen; doelen wisselen kan er later bij als het nodig blijkt |
+| 2026-10-12 | Een schot krommt alleen naar een vergrendeld doel, en laat dat doel los zodra de vijand aanvalt | Zo kun je echt missen (plan 3.5), en aanvallen van de vijand zijn je straf, niet een gratis treffer |
+| 2026-10-12 | Een druk op de staf-knop wordt 0,5 s onthouden (zwaard: 0,3 s) | Een Shard-cyclus duurt 0,5 s; met 0,3 s verdween een klik op een spreuk soms helemaal (gemerkt in de headless test) |
+| 2026-10-12 | Rakingstest van een schot kijkt naar het hele stukje dat het die stap vloog | Anders springt een snel schot over een kleine vijand heen, en vlak naast een vijand staan miste |
 
 ## Sessielog
 
@@ -697,4 +714,5 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - PR #34 bleek al gemerged; PROGRESS bijgewerkt. Stap 3.4 gebouwd: main quest *Your Resolve* (keuzeknoppen in de dialoog, drie leraren met Ja/Nee en nog één keer bevestigen, pad in de save, quest klaar, cheats). 392 tests, headless Chromium (EN en NL, alle drie de leraren) zonder fouten. Tijdelijke namen: geen nieuwe. Volgende stap: 3.5 (staf + lock-on).
 
 ### 2026-10-12
+- Stap 3.5 gebouwd: vechten met een staf (Arcane Shard + 5 spreuken met reisafstand), lock-on met ring en camera die het doel vasthoudt, missen bij een aanval of te ver wegkijken, richthulp-cheats, staf en spreuk uit het cheatmenu. Save versie 8. 430 tests, headless Chromium zonder fouten. Open: mana-regen en schoten op beschermde vijanden (open vragen 8 en 9), fps meten op de pc.
 - Blender (Bo + Claude): Monastery.blend gebouwd (klooster, daken, stenen, ramen/deuren, binnenkant oostvleugel met 6 kamers) en de kloostertuin met vijver, koi en kweekbare bedden. Alleen docs en Blender-scripts in de repo; geen game-code veranderd. Tijdelijke namen: Monastery Garden, Moonbell.

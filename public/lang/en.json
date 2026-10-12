@@ -207,7 +207,8 @@
     "pack": "Open {name}'s pack",
     "packInCombat": "Not now, you are in a fight.",
     "packTooHeavy": "{name} can't carry that much.",
-    "packWorn": "Take it off first."
+    "packWorn": "Take it off first.",
+    "noMana": "Not enough mana."
   },
   "dialog": {
     "next": "Continue",
@@ -552,7 +553,10 @@
     "clickToLook": "Click to look around · Esc for the menu",
     "attack": "Attack",
     "heavy": "Heavy",
-    "potion": "Drink potion"
+    "potion": "Drink potion",
+    "shard": "Shard",
+    "spell": "Spell",
+    "lock": "Lock-on"
   },
   "cheats": {
     "debugView": "Debug overlay",
@@ -610,7 +614,16 @@
     "path_none": "None",
     "path_sword": "Sword",
     "path_light": "Light",
-    "path_dark": "Dark"
+    "path_dark": "Dark",
+    "grantStaff": "Staff",
+    "spell": "Spell (staff)",
+    "spellNone": "None",
+    "spellNote": "The right button casts this spell. You get a staff with it.",
+    "aim": "Aim help",
+    "aimNote": "Multipliers on the numbers in player.json, to find what feels right.",
+    "aimAssist": "Aim cone",
+    "lockRange": "Lock-on range",
+    "homing": "Shots curve"
   },
   "bag": {
     "title": "Bag",

@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 7;
+export const SAVE_VERSION = 8;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -44,6 +44,12 @@ export const saveDataSchema = z.object({
       equipment: z.record(z.string(), id),
       /** What your pack animal (Biscuit) carries; not usable until you take it out. */
       pack: z.array(z.object({ item: id, count: z.int().check(z.positive()) })),
+      /**
+       * Spells you know (spells.json ids), in the order they were learned. A staff can hold as
+       * many as its `spellSlots`; the first one is the spell the right button casts.
+       * A mage gets his first one from his crystal (Crystal Ceremony, step 3.6).
+       */
+      spells: z.array(id),
     }),
   ),
   /** Level, XP and how much HP / mana is left (null = full, e.g. a fresh game). */
@@ -153,6 +159,11 @@ export const migrations: Readonly<Record<number, Migration>> = {
   6: (save) => {
     const world = (save.world ?? {}) as Record<string, unknown>;
     return { ...save, version: 7, world: { ...world, instance: null } };
+  },
+  // v8 (step 3.5): the spells you know; nobody had a staff yet.
+  7: (save) => {
+    const character = save.character as Record<string, unknown> | null | undefined;
+    return { ...save, version: 8, character: character ? { ...character, spells: [] } : null };
   },
 };
 
