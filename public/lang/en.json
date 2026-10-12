@@ -19,6 +19,9 @@
     "off": "Off",
     "auto": "Auto"
   },
+  "rotate": {
+    "text": "Turn your device: Legend of Morvath is played lying down."
+  },
   "boot": {
     "loading": "Loading… {percent}%",
     "error": "Something went wrong while loading. Please reload the page.",

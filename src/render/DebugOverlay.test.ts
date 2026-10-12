@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEBUG_VIEWS,
+  defaultDebugView,
   type DebugView,
   nextDebugView,
   showsSceneLines,
@@ -8,6 +9,14 @@ import {
 } from './DebugOverlay';
 
 describe('debug overlay views', () => {
+  it('starts small on a phone lying down, big on a monitor', () => {
+    // A phone lying down is about 390 px tall: the big view would cover the whole game.
+    expect(defaultDebugView(390)).toBe('small');
+    expect(defaultDebugView(430)).toBe('small');
+    expect(defaultDebugView(760)).toBe('large');
+    expect(defaultDebugView(1080)).toBe('large');
+  });
+
   it('F3 cycles large → normal → small → mini → hidden → large', () => {
     let view: DebugView = 'large';
     const seen: DebugView[] = [view];

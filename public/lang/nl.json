@@ -19,6 +19,9 @@
     "off": "Uit",
     "auto": "Auto"
   },
+  "rotate": {
+    "text": "Draai je telefoon: Legend of Morvath speel je liggend."
+  },
   "boot": {
     "loading": "Laden… {percent}%",
     "error": "Er ging iets mis bij het laden. Herlaad de pagina.",

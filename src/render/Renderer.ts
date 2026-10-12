@@ -137,7 +137,12 @@ export class Renderer {
     return this.container.clientHeight || window.innerHeight;
   }
 
-  private readonly resize = (): void => {
+  /**
+   * Measures the container and resizes the canvas and the camera. The window resize event
+   * calls it, and so does the Stage when the playing field itself changed shape (turning the
+   * device, black bars on a very wide screen).
+   */
+  readonly resize = (): void => {
     const width = this.container.clientWidth || window.innerWidth;
     const height = this.container.clientHeight || window.innerHeight;
     this.three.setSize(width, height, false);

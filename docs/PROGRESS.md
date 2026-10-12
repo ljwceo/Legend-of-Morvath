@@ -9,7 +9,11 @@
 | **Huidige fase** | Fase 3.7 – Stats en builds (puntensysteem) |
 | **Status** | **Fase 3.7 gebouwd (2026-10-12):** levels groeien niet meer vanzelf. Je verdeelt **20 punten** in de character creator (nieuwe tweede stap) en krijgt **1 punt per level**; tien stats met zachte grenzen in `stats.json`, een statusvenster op een eigen instelbare toets (standaard **P**, ook in het pauzemenu), save versie 10. Daarvoor: fase 3.6 (buttonmapping + lock-on) en stap 3.0 t/m 3.5 klaar. Fase 2, het Blender-Greyhaven en de teksten van de leraren wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
 | **Volgende stap** | **Fase 3.8 – Entrance Exams, je pad en de stadspoort** in een nieuwe chat (prompt hieronder). Bo/Lucas: 3.7 spelen — voelen de tien stats goed, en is Defense sterk genoeg? (zie open vraag 14) |
-| **Laatste sessie** | 2026-10-12: nieuw klooster + tuin speelbaar in Greyhaven; daarvoor fase 3.7 gebouwd (stats en builds, puntensysteem) |
+| **Laatste sessie** | 2026-10-12: liggend spelen op de telefoon (speelveld, knoppen, debug, panelen); daarvoor het klooster in Greyhaven en fase 3.7 (stats en builds) |
+
+### Liggend spelen op de telefoon (Bo, 2026-10-12)
+
+Na het spelen op de telefoon: de game speel je **alleen liggend**. Het beeld houdt een verhouding tussen 4:3 en 21:9 en wordt nooit uitgerekt; staat je telefoon rechtop, dan zegt het spel "Draai je telefoon" en wacht het tot je draait. Verder: **knoppen van ongeveer 1,5 cm**, het **debugvenster** begint klein op een telefoon en je tikt erop om hem kleiner te maken of weg te halen (er is geen F3), en **panelen** (tas, status, cheats) passen voortaan op het scherm, scrollen en vervagen onderaan zodat je ziet dat er meer is. Details in `docs/ARCHITECTURE.md` -> *Liggend spelen en de telefoon*.
 
 ### Open vragen
 

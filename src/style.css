@@ -6,7 +6,8 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: var(--gh-bg);
+  /* Outside the playing field: black, so the bars never draw attention. */
+  background: #000;
   /* Prevent iOS rubber-band scrolling, text selection and tap highlight over the game. */
   overscroll-behavior: none;
   touch-action: none;
@@ -16,9 +17,20 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/*
+ * The playing field (src/ui/Stage.ts): always lying down and never stretched. The stage keeps
+ * the aspect ratio between 4:3 and 21:9 and centres it; what is left over stays black. The
+ * canvas, the HUD, the debug overlay and the cheat panel all live inside this box, so none of
+ * them has to know about the bars.
+ */
 #app {
   position: fixed;
-  inset: 0;
+  left: var(--stage-left, 0px);
+  top: var(--stage-top, 0px);
+  width: var(--stage-width, 100%);
+  height: var(--stage-height, 100%);
+  overflow: hidden;
+  background: var(--gh-bg);
 }
 
 #app canvas {
@@ -28,9 +40,13 @@ body {
 }
 
 .debug-overlay {
-  position: fixed;
+  position: absolute;
   top: max(8px, env(safe-area-inset-top));
   left: max(8px, env(safe-area-inset-left));
+  /* Never wider or taller than the playing field, and it scrolls instead of running off it. */
+  max-width: calc(100% - 16px);
+  max-height: calc(100% - 16px);
+  overflow: auto;
   margin: 0;
   padding: 6px 8px;
   font:
@@ -41,8 +57,9 @@ body {
   background: color-mix(in srgb, var(--gh-nachtinkt) 80%, transparent);
   border: 1px solid var(--gh-koper);
   border-radius: 4px;
-  pointer-events: none;
-  white-space: pre;
+  pointer-events: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   z-index: 100;
 }
 
