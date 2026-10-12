@@ -32,7 +32,7 @@ def willow(seed=90, n_strands=78):
     cen = sum((Vector(e) for e in ends), Vector()) / len(ends)
     for e in ends:
         C.cluster(Vector(e) + Vector((0, 0, 0.25)), 0.55, 34, 0.13, up=0.9)
-    for k in range(14):
+    for k in range(9):
         e = Vector(random.choice(ends)); c = e.lerp(cen, 0.3) + Vector((0, 0, 0.35))
         tube(G, "GH_Monastery_Bark", [(e, 0.04), (e.lerp(c, 0.5) + Vector((0, 0, 0.1)), 0.025), (c, 0.014)], seg=4)
         C.cluster(c, 1.15, 75, 0.15, up=0.9, flat=0.6)
@@ -41,13 +41,26 @@ def willow(seed=90, n_strands=78):
     # hanging strands of leaves all round the crown
     sway = {}                                    # vertex index -> (offset A, offset B)
     L_, M_, D_ = (G.mi(m) for m in WIL)
-    for s in range(n_strands):
-        a = 2 * math.pi * s / n_strands + random.uniform(-0.05, 0.05)
-        rr = random.uniform(1.3, 2.6)
-        out = Vector((math.cos(a), math.sin(a), 0))
-        att = Vector((cen.x, cen.y, 0)) + out * rr
-        att.z = crown_top - 0.5 - (rr - 1.3) * 0.55 + random.uniform(-0.2, 0.1)
-        L = random.uniform(2.0, att.z - 0.5)
+    # arching branches: from every branch end thin boughs arch out and down; the strands hang FROM these boughs
+    hooks = []                                   # (attach point, outward direction)
+    C2 = Crown(inner=1.3, outer=0.8)             # leaves along the top of the boughs
+    for e in ends:
+        e = Vector(e); base_a = math.atan2(e.y - cen.y, e.x - cen.x)
+        for m in range(3):
+            a = base_a + random.uniform(-0.9, 0.9)
+            out = Vector((math.cos(a), math.sin(a), 0)); reach = random.uniform(1.0, 1.7)
+            pts = [e, e + out * reach * 0.35 + Vector((0, 0, 0.35)), e + out * reach * 0.7 + Vector((0, 0, 0.25)), e + out * reach + Vector((0, 0, -0.15))]
+            tube(G, "GH_Monastery_Bark", [(pts[0], 0.045), (pts[1], 0.035), (pts[2], 0.025), (pts[3], 0.016)], seg=4)
+            for k in range(n_strands // (len(ends) * 3) + 1):
+                u = random.uniform(0.25, 1.0); seg = min(int(u * 3), 2); f = u * 3 - seg
+                hooks.append((pts[seg].lerp(pts[seg + 1], f), out))
+            for pp in (pts[1], pts[2], pts[3]):
+                C2.cluster(pp + Vector((0, 0, 0.12)), 0.4, 11, 0.14, up=0.9, flat=0.6)
+    C2.emit(G, WIL, "leaf")
+    random.shuffle(hooks)
+    for att, out in hooks[:n_strands]:
+        att = att.copy()
+        L = random.uniform(1.8, max(2.0, att.z - 0.5))
         dirA = (Vector((1, 0.3, 0)) * 0.6 + Vector((random.uniform(-1, 1), random.uniform(-1, 1), 0))).normalized()
         dirB = Vector((-dirA.y, dirA.x, 0)); amp = 0.28 * L / 2.8 * random.uniform(0.8, 1.2)
         nc = int(L / 0.1)
