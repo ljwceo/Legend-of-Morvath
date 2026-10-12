@@ -698,3 +698,4 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 
 ### 2026-10-12
 - Blender (Bo + Claude): Monastery.blend gebouwd (klooster, daken, stenen, ramen/deuren, binnenkant oostvleugel met 6 kamers) en de kloostertuin met vijver, koi en kweekbare bedden. Alleen docs en Blender-scripts in de repo; geen game-code veranderd. Tijdelijke namen: Monastery Garden, Moonbell.
+- Blender (Bo + Claude, middag): losse tuinmodellen (7 bomen, 3 rotsen, 3 fruitsoorten, 5 gewassen × 3 groeistadia, vogelverschrikker) in `MON_GardenPieces`; de tuin gebruikt nu instances daarvan. Koi voor nu weggehaald.
