@@ -22,6 +22,7 @@
 | 4 | Moet `player.glb` ook in de open wereld gebruikt worden? | Nu alleen in Greyhaven; in de open wereld nog het placeholder-poppetje |
 | 6 | Past het nieuwe Monastery (met tuin, samen ±100 × 70 m) op de kliffen aan de westkust van Greyhaven? Het oude placeholder-klooster is ±31 × 32 m | Nog niet geplaatst; in de Greyhaven-chat bekijken (plek, draaien, eventueel kleiner). Zie `docs/MONASTERY.md` |
 | 7 | Kweekbare bedden in de kloostertuin (`MON_FarmPlot_1…6`): hoe moet farming werken (zaad, groeitijd, oogst, seizoenen)? | Alleen de bedden + markers staan in Blender; nog geen spelregels of code |
+| 8 | Vallende sakura-blaadjes zijn een Blender-animatie via collection instances. Gaat die mee met de glTF-export, of laat de game de blaadjes zelf vallen? | Nog testen bij het inbouwen in Greyhaven |
 
 ---
 
@@ -699,3 +700,4 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 ### 2026-10-12
 - Blender (Bo + Claude): Monastery.blend gebouwd (klooster, daken, stenen, ramen/deuren, binnenkant oostvleugel met 6 kamers) en de kloostertuin met vijver, koi en kweekbare bedden. Alleen docs en Blender-scripts in de repo; geen game-code veranderd. Tijdelijke namen: Monastery Garden, Moonbell.
 - Blender (Bo + Claude, middag): losse tuinmodellen (7 bomen, 3 rotsen, 3 fruitsoorten, 5 gewassen × 3 groeistadia, vogelverschrikker) in `MON_GardenPieces`; de tuin gebruikt nu instances daarvan. Koi voor nu weggehaald.
+- Blender (middag): sakura's met doorkijkbare kroon (takken + bloesemtrosjes) en vallende blaadjes (lus van 10 s).
