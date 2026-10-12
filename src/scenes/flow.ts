@@ -64,7 +64,7 @@ export function placeAtStart(save: SaveData, data: GameData): void {
   if (!zone || !spawn) throw new Error(`Start point ${start.zone}/${start.spawnPoint} not found`);
   save.world.zone = zone.id;
   // The ground height is found when the world is built (from above in a Blender-built zone).
-  save.world.position = { x: spawn.x, y: zone.scene ? 10_000 : 0, z: spawn.z };
+  save.world.position = { x: spawn.x, y: spawn.y ?? (zone.scene ? 10_000 : 0), z: spawn.z };
   save.world.heading = ((spawn.headingDegrees ?? 0) * Math.PI) / 180;
   save.world.checkpoint = zone.checkpoint?.id ?? null;
 }

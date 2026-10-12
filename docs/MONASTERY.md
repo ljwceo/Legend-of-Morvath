@@ -59,10 +59,17 @@ en `safeZones` aanpassen, anders groeien er bomen binnen de muur).
 ![Nieuwe zuidmuur](monastery/south_wall.png)
 ![Bovenaanzicht](monastery/south_wall_top.png)
 
-**Nog te doen (Greyhaven-chat):** bij export de instances echt maken (Object → Apply → Make Instances Real, of de
-exporter laten volgen) en `MON_Reference` overslaan; spawnpunt, checkpoint en NPC's in `zones.json`/`npcs.json` naar de
-nieuwe plekken; de `safeZones`-polygoon van de stadsmuur; en voor de zones (open vraag over eigen zones) in Greyhaven
-alleen een lichte buitenkant tonen.
+**In het spel (2026-10-12):** de export (`tools/blender/export_web.py`, kopie in `web_export/` op Bo's pc) maakt de
+`GH_MonasteryNew_*`-instances echt, laat vallende blaadjes en vuurvliegjes weg (animatie) en haalt de bevel van dakpannen
+en muurstenen af (5× minder driehoeken). Dakpannen en muurstenen heten `NC_M_*` en tellen niet mee voor botsingen (de
+muren en daken eronder wel). Bladeren, gras en bloemen krijgen materiaalsoort `foliage` (PNG met alpha × tint), de vijver
+`water`, plaatjes `tri`. Spawn `monastery_bed` en checkpoint staan naast het bed op vloerhoogte `y: 9.12` (zonder `y`
+zou je van boven vallen en op het dak landen). Brother Ansel (−1810; 98,6), Pringle (−1795,5; 94), Rose (−1803; 116)
+bij de moestuin, plot `garden_plot` (−1806; 121). Het klooster + tuin zijn samen ±1,5 mln driehoeken in de stad: meet de
+fps op de pc. Nog niet: het klooster als eigen zone (open vraag 11) en de vijver met diepte.
+
+![In het spel: de tuin](monastery/in_game_garden.png)
+![In het spel: moestuin met Rose ('s avonds)](monastery/in_game_moestuin.png)
 
 ## Opbouw (zoals een echt middeleeuws klooster, naar het St. Gall-plan)
 

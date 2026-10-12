@@ -6,6 +6,8 @@ export interface CheckpointDef {
   kind: string;
   zoneId: string;
   x: number;
+  /** Floor height to wake up on (under a roof), if set. */
+  y?: number | undefined;
   z: number;
   radius: number;
 }
@@ -15,7 +17,17 @@ export function checkpointsOf(zones: readonly Zone[]): CheckpointDef[] {
   const list: CheckpointDef[] = [];
   for (const zone of zones) {
     const c = zone.checkpoint;
-    if (c) list.push({ id: c.id, kind: c.kind, zoneId: zone.id, x: c.x, z: c.z, radius: c.radius });
+    if (c) {
+      list.push({
+        id: c.id,
+        kind: c.kind,
+        zoneId: zone.id,
+        x: c.x,
+        y: c.y,
+        z: c.z,
+        radius: c.radius,
+      });
+    }
   }
   return list;
 }

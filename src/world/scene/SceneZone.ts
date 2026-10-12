@@ -182,10 +182,18 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
         // the sea, which decides "under water".
         seaLevel = Math.min(seaLevel, new Box3().setFromObject(source).min.y);
       }
+      // Other water (the monastery pond) is see-through too: drawn after the rest, walked through.
+      if (blender?.kind === 'water') mesh.renderOrder = 2;
       this.group.add(mesh);
       if (name === def.lanternMaterial) this.collectLanterns(source, name, filter);
-      const glowing = blender?.kind === 'emit';
-      if (name !== def.waterMaterial && !noCollision.has(name) && !glowing) solid.push(mesh);
+      // Glowing bits and foliage cards (leaves, grass, flowers) are walked through; "NC_" parts
+      // (roof tiles, wall stones) sit on walls and roofs that already block.
+      const passable =
+        blender?.kind === 'emit' ||
+        blender?.kind === 'foliage' ||
+        blender?.kind === 'water' ||
+        source.name.startsWith('NC_');
+      if (name !== def.waterMaterial && !noCollision.has(name) && !passable) solid.push(mesh);
     }
     this.waterY = (Number.isFinite(seaLevel) ? seaLevel : 0) + this.offset.y;
 
@@ -531,6 +539,15 @@ export function buildMaterial(
     });
   }
   if (d.kind === 'water') return createToonMaterial(shared, { mode: 'water', side: DoubleSide });
+  if (d.kind === 'foliage') {
+    // Cards are seen from both sides; their normals point outwards (round tree crowns).
+    return createToonMaterial(shared, {
+      mode: 'foliage',
+      map: assets.textures.get(d.tex ?? '') ?? null,
+      tint: rgb(d.tint),
+      side: DoubleSide,
+    });
+  }
   const base = override ? new Color(color(override)) : rgb(d.color);
   const vary = override ? VARY_IVY : VARIED.test(name) ? VARY_PLANTS : VARY_DEFAULT;
   return createToonMaterial(shared, { mode: 'lit', color: base, vary, window, side });

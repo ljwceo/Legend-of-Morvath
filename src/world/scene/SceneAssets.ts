@@ -6,13 +6,17 @@ import {
   ClampToEdgeWrapping,
   SRGBColorSpace,
 } from 'three';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { type GLTF, GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { SceneDef } from '../../data/types';
 
 /** How one Blender material looks in the game (materials.json, exported from Blender). */
 export interface BlenderMaterial {
-  /** tri = triplanar texture, flat = color, emit = glows, terrain = baked map, water, outline. */
-  kind: 'tri' | 'flat' | 'emit' | 'terrain' | 'water' | 'outline';
+  /**
+   * tri = triplanar texture, flat = color, emit = glows, terrain = baked map, water, outline,
+   * foliage = cut-out cards (leaf tufts, grass, flowers): UV texture with alpha × `tint`.
+   */
+  kind: 'tri' | 'flat' | 'emit' | 'terrain' | 'water' | 'outline' | 'foliage';
   /** Linear RGB (Blender values). */
   color?: [number, number, number];
   tex?: string;
@@ -67,6 +71,10 @@ export async function loadSceneAssets(
   const info = (await infoResponse.json()) as BlenderSceneInfo;
 
   const loader = new GLTFLoader();
+  // The city is Draco-compressed (a much smaller download). three's loader brings its own
+  // decoder files (emitted by Vite, fetched only when a compressed model is read).
+  const draco = new DRACOLoader();
+  loader.setDRACOLoader(draco);
   const parse = async (path: string, key: 'world' | 'player'): Promise<GLTF> => {
     const bytes = await fetchBytes(url(path), (fraction) => {
       parts[key] = fraction;
@@ -96,7 +104,7 @@ export async function loadSceneAssets(
     parse(def.model, 'world'),
     parse(def.player, 'player'),
     loadTextures,
-  ]);
+  ]).finally(() => draco.dispose());
   // The terrain map is not repeated (it covers the land once); the others tile.
   for (const [name, texture] of textures) {
     const terrain = Object.values(info.materials).some(
