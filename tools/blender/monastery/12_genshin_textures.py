@@ -242,3 +242,30 @@ def gravel(size=512, seed=81, n=1900):
         shade = np.where((q > 0.8)[..., None], shade * 0.82, shade)                        # dark rim
         rgb = np.where(ins[..., None], shade, rgb)
     return rgb.astype(np.float32)
+
+
+def bark(size=512, seed=91, sakura=False):
+    """Bark as a light/dark multiplier (around 1.0), tileable. Oak: vertical grooves and plates.
+    Sakura: smoother bark with horizontal lenticel stripes (like a real cherry)."""
+    random.seed(seed)
+    yy, xx = np.mgrid[0:size, 0:size].astype(np.float32)
+    n = fbm(size, 8, 3, seed); n2 = fbm(size, 24, 2, seed + 4)
+    if not sakura:
+        warp = n * 3.0
+        g = np.abs(np.sin((xx / size * 14 + warp) * math.pi))           # vertical grooves (u varies, v constant)
+        val = 0.62 + 0.38 * np.clip(g * 1.4, 0, 1) + 0.1 * (n2 - 0.5)
+        val = np.where(g < 0.2, 0.38 + 0.1 * n2, val)                   # dark cracks
+        for k in range(40):                                              # a few horizontal breaks between plates
+            y = random.uniform(0, size); x0 = random.uniform(0, size); L = random.uniform(15, 40)
+            m = (np.abs(((yy - y + size / 2) % size) - size / 2) < 1.2) & (np.abs(((xx - x0 + size / 2) % size) - size / 2) < L / 2)
+            val = np.where(m, 0.42, val)
+    else:
+        val = 0.86 + 0.2 * (n - 0.5) + 0.08 * (n2 - 0.5)
+        for k in range(260):                                             # lenticels: short horizontal dashes
+            y = random.uniform(0, size); x0 = random.uniform(0, size); L = random.uniform(6, 22); th = random.uniform(1.0, 2.2)
+            m = (np.abs(((yy - y + size / 2) % size) - size / 2) < th) & (np.abs(((xx - x0 + size / 2) % size) - size / 2) < L / 2)
+            val = np.where(m, random.choice((0.42, 0.5, 1.0)), val)
+        band = np.abs(np.sin((yy / size * 6 + n * 0.6) * math.pi))      # soft rings
+        val = val * (0.96 + 0.06 * band)
+    v = np.clip(val, 0, 1.0).astype(np.float32)
+    return np.dstack([v, v, v])

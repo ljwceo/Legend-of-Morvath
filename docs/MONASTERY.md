@@ -308,6 +308,16 @@ Script `23_gravel_path.py`, backup `Monastery_backup_before_gravel.blend`.
 
 ![Grindpad](monastery/gravel_path.png)
 
+## Schors (2026-10-12, Bo)
+
+De stammen en takken hebben een klein geschilderd schorsplaatje dat de bestaande schorskleur lichter/donkerder maakt:
+`T_MON_Bark` (eik, appel, wilg: verticale groeven en barstjes) op `GH_Monastery_Bark`, en `T_MON_BarkSakura` (gladde bast
+met horizontale streepjes, zoals een echte kers) op `GH_Monastery_Bark_Sakura`. Box-projectie in object-ruimte (past op
+de triplanar-modus van de game), tegel van 0,9 m. Script `24_bark.py`.
+
+![Eik](monastery/bark_oak.png)
+![Sakura](monastery/bark_sakura.png)
+
 ## Markers (collectie `MON_Markers`)
 
 `MON_Spawn_PlayerBed`, `MON_NPC_BrotherAnsel`, `MON_Door_Cloister_Outside`, `MON_Door_East_Outside`,

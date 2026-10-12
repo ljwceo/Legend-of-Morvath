@@ -30,6 +30,7 @@ de maten en lijsten daarvan staan in de tekstblokken in het .blend.
 | `21_interiors_props.py` | Inrichting: kerkbanken + altaar, tafels + haard eetzaal, voorraad/gasten westvleugel, toren | `MON_interiors_props` |
 | `22_extra_stones.py` | Extra stenen: dikkere stenen, keien, mosstenen, hoekstenen, stenen rond ramen | `MON_extra_stones` |
 | `23_gravel_path.py` | Tuinpaden als grindpad: grindplaatje (2 m tegel), randstenen in muursteen-kleuren, losse steentjes | `MON_gravel_path` |
+| `24_bark.py` | Schorsplaatje op de bomen: eik/appel/wilg groeven, sakura horizontale streepjes (vermenigvuldigt de kleur) | `MON_bark` |
 | – | Vorm van de tuin, vijver, beekjes | `MON_garden_layout` |
 
 Gebruik in Blender: open het script in de Scripting-tab en voer het uit, of
