@@ -1,25 +1,83 @@
 {
   "elements": [
-    { "id": "water", "name": "Water", "color": "magieblauw" },
-    { "id": "fire", "name": "Fire", "color": "lantaarnamber" },
-    { "id": "nature", "name": "Nature", "color": "mosgroen" },
-    { "id": "wind", "name": "Wind", "color": "sneeuw" },
-    { "id": "dark", "name": "Dark", "color": "schemerviolet" }
+    {
+      "id": "water",
+      "name": "Water",
+      "color": "magieblauw"
+    },
+    {
+      "id": "fire",
+      "name": "Fire",
+      "color": "lantaarnamber"
+    },
+    {
+      "id": "nature",
+      "name": "Nature",
+      "color": "mosgroen"
+    },
+    {
+      "id": "wind",
+      "name": "Wind",
+      "color": "sneeuw"
+    },
+    {
+      "id": "dark",
+      "name": "Dark",
+      "color": "schemerviolet"
+    }
   ],
   "powerCurves": {
     "light": [
-      { "fromLevel": 1, "toLevel": 10, "factor": 1.0 },
-      { "fromLevel": 11, "toLevel": 20, "factor": 1.1 },
-      { "fromLevel": 21, "toLevel": 30, "factor": 1.2 },
-      { "fromLevel": 31, "toLevel": 50, "factor": 1.3 }
+      {
+        "fromLevel": 1,
+        "toLevel": 10,
+        "factor": 1.0
+      },
+      {
+        "fromLevel": 11,
+        "toLevel": 20,
+        "factor": 1.1
+      },
+      {
+        "fromLevel": 21,
+        "toLevel": 30,
+        "factor": 1.2
+      },
+      {
+        "fromLevel": 31,
+        "toLevel": 50,
+        "factor": 1.3
+      }
     ],
     "dark": [
-      { "fromLevel": 1, "toLevel": 10, "factor": 1.3 },
-      { "fromLevel": 11, "toLevel": 20, "factor": 1.15 },
-      { "fromLevel": 21, "toLevel": 30, "factor": 1.05 },
-      { "fromLevel": 31, "toLevel": 50, "factor": 1.0 }
+      {
+        "fromLevel": 1,
+        "toLevel": 10,
+        "factor": 1.3
+      },
+      {
+        "fromLevel": 11,
+        "toLevel": 20,
+        "factor": 1.15
+      },
+      {
+        "fromLevel": 21,
+        "toLevel": 30,
+        "factor": 1.05
+      },
+      {
+        "fromLevel": 31,
+        "toLevel": 50,
+        "factor": 1.0
+      }
     ],
-    "sword": [{ "fromLevel": 1, "toLevel": 50, "factor": 1.15 }]
+    "sword": [
+      {
+        "fromLevel": 1,
+        "toLevel": 50,
+        "factor": 1.15
+      }
+    ]
   },
   "maxSpellSlots": 3,
   "spells": [
@@ -32,7 +90,116 @@
       "damage": 20,
       "range": 15,
       "usesPerLevel": 50,
-      "perLevel": { "damage": 4 }
+      "perLevel": {
+        "damage": 4
+      },
+      "windupSeconds": 0.45,
+      "speed": 16,
+      "radius": 0.45,
+      "homingDegreesPerSecond": 120,
+      "charge": {
+        "maxSeconds": 4,
+        "damageFactor": 2.5,
+        "manaFactor": 3,
+        "radiusFactor": 1.8,
+        "speedFactor": 1.25
+      }
+    },
+    {
+      "id": "water_bolt",
+      "name": "Water Bolt",
+      "element": "water",
+      "manaCost": 8,
+      "cooldownSeconds": 1.2,
+      "damage": 16,
+      "range": 18,
+      "usesPerLevel": 50,
+      "perLevel": {
+        "damage": 3
+      },
+      "windupSeconds": 0.35,
+      "speed": 20,
+      "radius": 0.35,
+      "homingDegreesPerSecond": 150,
+      "charge": {
+        "maxSeconds": 4,
+        "damageFactor": 2.5,
+        "manaFactor": 3,
+        "radiusFactor": 1.8,
+        "speedFactor": 1.25
+      }
+    },
+    {
+      "id": "thorn_shot",
+      "name": "Thorn Shot",
+      "element": "nature",
+      "manaCost": 7,
+      "cooldownSeconds": 1.0,
+      "damage": 14,
+      "range": 14,
+      "usesPerLevel": 50,
+      "perLevel": {
+        "damage": 3
+      },
+      "windupSeconds": 0.3,
+      "speed": 18,
+      "radius": 0.3,
+      "homingDegreesPerSecond": 90,
+      "charge": {
+        "maxSeconds": 4,
+        "damageFactor": 2.5,
+        "manaFactor": 3,
+        "radiusFactor": 1.8,
+        "speedFactor": 1.25
+      }
+    },
+    {
+      "id": "wind_slice",
+      "name": "Wind Slice",
+      "element": "wind",
+      "manaCost": 6,
+      "cooldownSeconds": 0.8,
+      "damage": 12,
+      "range": 20,
+      "usesPerLevel": 50,
+      "perLevel": {
+        "damage": 2
+      },
+      "windupSeconds": 0.25,
+      "speed": 26,
+      "radius": 0.3,
+      "homingDegreesPerSecond": 200,
+      "charge": {
+        "maxSeconds": 4,
+        "damageFactor": 2.5,
+        "manaFactor": 3,
+        "radiusFactor": 1.8,
+        "speedFactor": 1.25
+      }
+    },
+    {
+      "id": "shadow_bolt",
+      "name": "Shadow Bolt",
+      "element": "dark",
+      "manaCost": 12,
+      "cooldownSeconds": 1.6,
+      "damage": 22,
+      "range": 16,
+      "usesPerLevel": 50,
+      "perLevel": {
+        "damage": 4
+      },
+      "windupSeconds": 0.5,
+      "speed": 18,
+      "radius": 0.45,
+      "homingDegreesPerSecond": 110,
+      "charge": {
+        "maxSeconds": 4,
+        "damageFactor": 2.5,
+        "manaFactor": 3,
+        "radiusFactor": 1.8,
+        "speedFactor": 1.25
+      }
     }
   ]
 }

@@ -2,6 +2,7 @@ import { Random } from '../core/Random';
 import type { MonsterDef } from '../data/types';
 import { angleDelta } from '../systems/Movement';
 import type { SwordTarget } from '../systems/Combat';
+import type { ShotTarget } from '../systems/Shots';
 import type { BossState } from '../systems/BossAI';
 
 /** Default body radius (m) when monsters.json gives none. */
@@ -28,7 +29,7 @@ export type EnemyAttackKind = 'normal' | 'special';
  * allocated while playing. Position and heading are interpolated between fixed steps like the
  * player's.
  */
-export class Enemy implements SwordTarget {
+export class Enemy implements SwordTarget, ShotTarget {
   x: number;
   y = 0;
   z: number;
@@ -111,6 +112,14 @@ export class Enemy implements SwordTarget {
 
   get hittable(): boolean {
     return this.alive && !this.safe && !this.guarded;
+  }
+
+  /**
+   * Stepping aside right now: a shot of the player no longer curves towards it, so attacking
+   * monsters are harder to hit (it does not dodge while recovering, so that is your opening).
+   */
+  get dodging(): boolean {
+    return this.mode === 'windup' || this.mode === 'strike';
   }
 
   /** Busy attacking (windup, strike or recovery). */

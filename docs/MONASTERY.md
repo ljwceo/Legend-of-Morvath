@@ -165,7 +165,7 @@ kaartje staat een **geschilderd trosje** blaadjes of bloesem met een doorzichtig
 
 Alle bomen in de tuin samen: van ±650.000 naar ±140.000 vertices.
 
-**Nodig in de game** (open vraag 9): de toon-shader heeft nog geen bladmodus. Die moet het plaatje lezen, pixels met lage
+**Nodig in de game** (open vraag 12): de toon-shader heeft nog geen bladmodus. Die moet het plaatje lezen, pixels met lage
 alpha weggooien (`discard`), de custom normals gebruiken en (liefst) wind in de vertex-shader doen. De web-export moet
 UV's, normals en het plaatje meenemen (materiaal-eigenschap `mon_foliage`). Tot dan zouden de kaartjes als volle
 vierkantjes getekend worden.
@@ -183,7 +183,7 @@ Het gazon heeft nu **graspollen** zoals in Genshin: `GH_Monastery_GrassPatch_A` 
   grondkleur, dus het gras loopt naadloos over in de grond.
 - **1.446 pollen** als instances (`GH_Grass_MON_####` in `MON_Garden_GrassInstances`), alleen op het gras: niet op paden,
   water, bedden of muren (ray cast). ~43.000 vertices samen.
-- Wiegen in de wind met shape keys (lus van 4 s). In de game is wind in de shader beter (open vraag 9), en gras alleen
+- Wiegen in de wind met shape keys (lus van 4 s). In de game is wind in de shader beter (open vraag 12), en gras alleen
   dichtbij de speler tekenen scheelt veel.
 - De oude losse grassprietjes in `MON_Garden_Flowers` zijn weggehaald. Backup: `Monastery_backup_before_grass.blend`.
 

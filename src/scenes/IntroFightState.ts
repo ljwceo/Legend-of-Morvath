@@ -517,9 +517,12 @@ export class IntroFightState implements GameState {
         heavy: t('controls.heavy'),
         dash: t('controls.dash'),
         potion: t('controls.potion'),
+        lock: t('controls.lock'),
       },
       controls.joystickRadiusPx,
     );
+    // Nothing to lock on to in the intro fight (you cannot win it anyway).
+    this.touch.setLockVisible(false);
     this.root.insertBefore(this.touch.root, skip);
     this.damageNumbers = new DamageNumbers();
     this.root.insertBefore(this.damageNumbers.root, this.subtitle);

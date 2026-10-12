@@ -1,9 +1,26 @@
 {
   "rarities": [
-    { "id": "common", "color": "steengrijs", "glowPx": 0 },
-    { "id": "rare", "color": "magieblauw", "glowPx": 14 },
-    { "id": "epic", "color": "spreukviolet", "glowPx": 18 },
-    { "id": "legendary", "color": "zonlicht", "glowColor": "lantaarnamber", "glowPx": 22 }
+    {
+      "id": "common",
+      "color": "steengrijs",
+      "glowPx": 0
+    },
+    {
+      "id": "rare",
+      "color": "magieblauw",
+      "glowPx": 14
+    },
+    {
+      "id": "epic",
+      "color": "spreukviolet",
+      "glowPx": 18
+    },
+    {
+      "id": "legendary",
+      "color": "zonlicht",
+      "glowColor": "lantaarnamber",
+      "glowPx": 22
+    }
   ],
   "crystalSizes": ["small", "medium", "large", "grand"],
   "items": [
@@ -23,7 +40,10 @@
       "tradeable": true,
       "weight": 4,
       "description": "item.old_sword.desc",
-      "weapon": { "kind": "sword", "damageBonus": 0 }
+      "weapon": {
+        "kind": "sword",
+        "damageBonus": 0
+      }
     },
     {
       "id": "honed_old_sword",
@@ -33,7 +53,10 @@
       "tradeable": true,
       "weight": 4,
       "description": "item.honed_old_sword.desc",
-      "weapon": { "kind": "sword", "damageBonus": 3 }
+      "weapon": {
+        "kind": "sword",
+        "damageBonus": 3
+      }
     },
     {
       "id": "travel_mantle",
@@ -54,8 +77,13 @@
       "tradeable": true,
       "weight": 8,
       "description": "item.goblin_cleaver.desc",
-      "weapon": { "kind": "sword", "damageBonus": 6 },
-      "stats": { "damagePercent": 5 }
+      "weapon": {
+        "kind": "sword",
+        "damageBonus": 6
+      },
+      "stats": {
+        "damagePercent": 5
+      }
     },
     {
       "id": "chiefs_greatblade",
@@ -65,8 +93,14 @@
       "tradeable": true,
       "weight": 14,
       "description": "item.chiefs_greatblade.desc",
-      "weapon": { "kind": "sword", "damageBonus": 10 },
-      "stats": { "damagePercent": 10, "hp": 10 }
+      "weapon": {
+        "kind": "sword",
+        "damageBonus": 10
+      },
+      "stats": {
+        "damagePercent": 10,
+        "hp": 10
+      }
     },
     {
       "id": "straw_hat",
@@ -77,7 +111,9 @@
       "tradeable": true,
       "weight": 0.5,
       "description": "item.straw_hat.desc",
-      "stats": { "hp": 5 }
+      "stats": {
+        "hp": 5
+      }
     },
     {
       "id": "leather_cap",
@@ -88,7 +124,10 @@
       "tradeable": true,
       "weight": 1.5,
       "description": "item.leather_cap.desc",
-      "stats": { "hp": 10, "damageReductionPercent": 2 }
+      "stats": {
+        "hp": 10,
+        "damageReductionPercent": 2
+      }
     },
     {
       "id": "iron_helm",
@@ -99,7 +138,10 @@
       "tradeable": true,
       "weight": 6,
       "description": "item.iron_helm.desc",
-      "stats": { "hp": 25, "damageReductionPercent": 6 }
+      "stats": {
+        "hp": 25,
+        "damageReductionPercent": 6
+      }
     },
     {
       "id": "padded_mantle",
@@ -110,7 +152,10 @@
       "tradeable": true,
       "weight": 3,
       "description": "item.padded_mantle.desc",
-      "stats": { "hp": 15, "damageReductionPercent": 4 }
+      "stats": {
+        "hp": 15,
+        "damageReductionPercent": 4
+      }
     },
     {
       "id": "ironweave_mantle",
@@ -121,7 +166,10 @@
       "tradeable": true,
       "weight": 9,
       "description": "item.ironweave_mantle.desc",
-      "stats": { "hp": 40, "damageReductionPercent": 10 }
+      "stats": {
+        "hp": 40,
+        "damageReductionPercent": 10
+      }
     },
     {
       "id": "copper_amulet",
@@ -132,7 +180,9 @@
       "tradeable": true,
       "weight": 0.3,
       "description": "item.copper_amulet.desc",
-      "stats": { "mana": 10 }
+      "stats": {
+        "mana": 10
+      }
     },
     {
       "id": "goblin_tooth_necklace",
@@ -143,7 +193,9 @@
       "tradeable": true,
       "weight": 0.4,
       "description": "item.goblin_tooth_necklace.desc",
-      "stats": { "damagePercent": 5 }
+      "stats": {
+        "damagePercent": 5
+      }
     },
     {
       "id": "brass_ring",
@@ -154,7 +206,9 @@
       "tradeable": true,
       "weight": 0.1,
       "description": "item.brass_ring.desc",
-      "stats": { "hp": 5 }
+      "stats": {
+        "hp": 5
+      }
     },
     {
       "id": "swift_ring",
@@ -165,7 +219,9 @@
       "tradeable": true,
       "weight": 0.1,
       "description": "item.swift_ring.desc",
-      "stats": { "moveSpeedPercent": 3 }
+      "stats": {
+        "moveSpeedPercent": 3
+      }
     },
     {
       "id": "chiefs_signet",
@@ -176,7 +232,10 @@
       "tradeable": true,
       "weight": 0.2,
       "description": "item.chiefs_signet.desc",
-      "stats": { "damagePercent": 8, "hp": 10 }
+      "stats": {
+        "damagePercent": 8,
+        "hp": 10
+      }
     },
     {
       "id": "heartwood_ring",
@@ -187,7 +246,11 @@
       "tradeable": true,
       "weight": 0.1,
       "description": "item.heartwood_ring.desc",
-      "stats": { "hp": 30, "damagePercent": 10, "moveSpeedPercent": 3 }
+      "stats": {
+        "hp": 30,
+        "damagePercent": 10,
+        "moveSpeedPercent": 3
+      }
     },
     {
       "id": "mage_staff",
@@ -197,7 +260,12 @@
       "tradeable": true,
       "weight": 3,
       "description": "item.mage_staff.desc",
-      "weapon": { "kind": "staff", "damageBonus": 0, "spellSlots": 1, "maxCrystalSize": "small" }
+      "weapon": {
+        "kind": "staff",
+        "damageBonus": 0,
+        "spellSlots": 1,
+        "maxCrystalSize": "small"
+      }
     },
     {
       "id": "wizard_crystal",
@@ -206,7 +274,10 @@
       "rarity": "rare",
       "tradeable": true,
       "description": "item.wizard_crystal.desc",
-      "crystal": { "elements": ["water", "fire", "nature", "wind"], "size": "small" }
+      "crystal": {
+        "elements": ["water", "fire", "nature", "wind"],
+        "size": "small"
+      }
     },
     {
       "id": "dark_crystal",
@@ -215,7 +286,10 @@
       "rarity": "rare",
       "tradeable": true,
       "description": "item.dark_crystal.desc",
-      "crystal": { "elements": ["dark"], "size": "small" }
+      "crystal": {
+        "elements": ["dark"],
+        "size": "small"
+      }
     },
     {
       "id": "health_potion",
@@ -224,7 +298,9 @@
       "rarity": "common",
       "tradeable": true,
       "description": "item.health_potion.desc",
-      "potion": { "hp": 50 }
+      "potion": {
+        "hpPercent": 50
+      }
     },
     {
       "id": "greater_health_potion",
@@ -233,7 +309,31 @@
       "rarity": "rare",
       "tradeable": true,
       "description": "item.greater_health_potion.desc",
-      "potion": { "hp": 120 }
+      "potion": {
+        "hpPercent": 100
+      }
+    },
+    {
+      "id": "mana_potion",
+      "name": "Mana Potion",
+      "type": "potion",
+      "rarity": "common",
+      "tradeable": true,
+      "description": "item.mana_potion.desc",
+      "potion": {
+        "manaPercent": 30
+      }
+    },
+    {
+      "id": "greater_mana_potion",
+      "name": "Greater Mana Potion",
+      "type": "potion",
+      "rarity": "rare",
+      "tradeable": true,
+      "description": "item.greater_mana_potion.desc",
+      "potion": {
+        "manaPercent": 60
+      }
     },
     {
       "id": "recipe_greater_health_potion",
@@ -258,7 +358,13 @@
       "tradeable": true,
       "description": "item.herb_seeds.desc"
     },
-    { "id": "wood", "name": "Wood", "type": "resource", "rarity": "common", "tradeable": true },
+    {
+      "id": "wood",
+      "name": "Wood",
+      "type": "resource",
+      "rarity": "common",
+      "tradeable": true
+    },
     {
       "id": "iron_ore",
       "name": "Iron Ore",

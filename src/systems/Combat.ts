@@ -273,6 +273,15 @@ export function regenOutOfCombat(c: CombatState, hpPerSecond: number, dt: number
 }
 
 /**
+ * Mana trickles back very slowly, in a fight as well (player.json `regen.manaPerSecond`):
+ * a mage who is empty can still use the Arcane Shard, and potions are the quick way back.
+ */
+export function regenMana(c: CombatState, manaPerSecond: number, dt: number): void {
+  if (c.mana >= c.maxMana) return;
+  c.mana = Math.min(c.maxMana, c.mana + manaPerSecond * dt);
+}
+
+/**
  * Aim assist: the heading towards the nearest hittable target within `range` and `halfArc`
  * of `heading`, or `heading` itself when there is none.
  */

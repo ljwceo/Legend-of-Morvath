@@ -64,6 +64,15 @@ export class Player {
     root.rotation.y = this.prevHeading + angleDelta(this.prevHeading, this.state.heading) * alpha;
   }
 
+  /**
+   * Draws the staff: raised while a shot is being gathered (`gathering` 0–1, see
+   * StaffState.progress), otherwise held at the side. Not interpolated, like a swing.
+   */
+  showStaff(gathering: number): void {
+    if (gathering > 0) this.model.setSwordPose('windup', gathering);
+    else this.model.setSwordPose('rest', 0);
+  }
+
   /** Draws the sword where the swing is (not interpolated: a swing is short and fast). */
   showSword(sword: SwordConfig): void {
     const c = this.combat;

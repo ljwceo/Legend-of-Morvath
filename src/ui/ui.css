@@ -475,6 +475,20 @@
   bottom: calc(var(--button-bottom) + 96px);
 }
 
+/* Lock-on: left of the heavy hit; it stays lit while a target is locked. */
+.ui-lock-button {
+  width: 52px;
+  height: 52px;
+  font-size: 12px;
+  right: calc(var(--button-right) + 176px);
+  bottom: calc(var(--button-bottom) + 10px);
+}
+
+.ui-touch-button-active {
+  background: color-mix(in srgb, var(--gh-ornamentgoud) 40%, transparent);
+  border-color: var(--gh-ornamentgoud);
+}
+
 /* Drink potion: a small flask with the number of potions; hidden without potions. */
 .ui-potion-button {
   width: 52px;

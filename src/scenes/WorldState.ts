@@ -59,6 +59,7 @@ import {
   type CombatState,
   damageTaken,
   inSwingArc,
+  regenMana,
   regenOutOfCombat,
   type SwordConfig,
   type SwordInput,
@@ -67,6 +68,26 @@ import {
   swordConfig,
 } from '../systems/Combat';
 import { Enemies, type EnemiesWorld } from '../systems/Enemies';
+import {
+  followLockedTarget,
+  headingTo,
+  lockBroken,
+  type LockOnConfig,
+  lockOnConfig,
+  pickLockTarget,
+} from '../systems/LockOn';
+import { type Shot, type ShotWorld, Shots } from '../systems/Shots';
+import {
+  powerFactor,
+  SHARD_ID,
+  type ShotConfig,
+  type StaffConfig,
+  staffConfig,
+  type StaffInput,
+  type StaffResult,
+  StaffState,
+  stepStaff,
+} from '../systems/StaffCombat';
 import {
   carriedWeight,
   dropMissingEquipment,
@@ -98,7 +119,13 @@ import { keepInArena } from '../systems/BossAI';
 import { BossEncounter } from './BossEncounter';
 import { ARROW_HEIGHT, Projectiles, type ProjectileWorld } from '../systems/Projectiles';
 import { EnemyRenderer } from '../render/EnemyRenderer';
-import { ProjectileRenderer, WarningRenderer } from '../render/CombatEffects';
+import {
+  ChargeOrb,
+  LockOnMarker,
+  ProjectileRenderer,
+  ShotRenderer,
+  WarningRenderer,
+} from '../render/CombatEffects';
 import { DamageNumbers } from '../ui/DamageNumbers';
 import { type Bounds, CollisionWorld } from '../systems/Collision';
 import {
@@ -122,7 +149,7 @@ import { QuestTexts } from '../ui/questText';
 import type { ChecklistRow, DialogOptions } from '../ui/Dialog';
 import { pausePanel } from '../ui/menus/PausePanel';
 import type { Panel } from '../ui/Overlays';
-import { TouchControls } from '../ui/TouchControls';
+import { type TouchLabels, TouchControls } from '../ui/TouchControls';
 import { Checkpoints, checkpointsOf } from '../world/Checkpoints';
 import { ChunkDebug } from '../world/ChunkDebug';
 import type { ConditionContext } from '../world/Conditions';
@@ -180,6 +207,11 @@ const BLOB_OPACITY = 0.28;
 const SUN_DISTANCE = 150;
 /** No attack this step (while a dash finishes). */
 const NO_SWORD_INPUT: SwordInput = { fast: false, heavy: false };
+const NO_STAFF_INPUT: StaffInput = { shard: false, spell: false };
+/** The lock-on ring hangs this far (m) above the enemy's head. */
+const LOCK_RING_ABOVE_HEAD = 0.45;
+/** The charge orb floats this far (m) in front of the player. */
+const ORB_AHEAD = 0.55;
 /** Seconds over which fog and sky change color after entering another zone. */
 const FOG_SHARPNESS = 1.5;
 /** The text on the interaction icon per kind of NPC ("Talk to Marco", "Pet Pringle"). */
@@ -321,6 +353,24 @@ export class WorldState implements GameState, InstanceHost {
   private time = 0;
   private damageNumbers: DamageNumbers | null = null;
   private sword: SwordConfig | null = null;
+  /** Staff numbers (Arcane Shard and the spells), null until the world is built. */
+  private staff: StaffConfig | null = null;
+  private lockCfg: LockOnConfig | null = null;
+  /** What the equipped weapon is: a sword swings, a staff shoots. */
+  private weaponKind: 'sword' | 'staff' = 'sword';
+  /** The spell the right button casts (the first one you know), or null without one. */
+  private spell: ShotConfig | null = null;
+  /** The power curve factor of your path at your level (light grows, dark shrinks). */
+  private spellPower = 1;
+  /** The player's shots in flight (Arcane Shard and spells). */
+  private shots: Shots | null = null;
+  private shotRenderer: ShotRenderer | null = null;
+  private shotWorld: ShotWorld | null = null;
+  /** The enemy you are locked on to (lock-on), or null. */
+  private locked: Enemy | null = null;
+  private lockMarker: LockOnMarker | null = null;
+  /** The growing ball of magic while a spell is being charged. */
+  private chargeOrb: ChargeOrb | null = null;
   /** Whether the HUD currently shows the fight bars (changes only on transitions). */
   private hudInCombat = false;
   private dialog: Dialog | null = null;
@@ -382,6 +432,17 @@ export class WorldState implements GameState, InstanceHost {
   private readonly command: MoveCommand = { x: 0, z: 0, dash: false };
   private readonly swordInput: SwordInput = { fast: false, heavy: false };
   private readonly swordResult: SwordResult = { landed: 'none', damage: 0, combo: false };
+  private readonly staffState = new StaffState();
+  private readonly staffInput: StaffInput = { shard: false, spell: false };
+  private readonly staffResult: StaffResult = { fired: 'none', shot: null, damage: 0, charge: 0 };
+  /** player.json lock-on numbers with the debug aim-help multipliers applied (reused). */
+  private readonly lockNow: LockOnConfig = {
+    range: 0,
+    breakRange: 0,
+    pickHalfArc: 0,
+    maxOffView: 0,
+    cameraFollowRadians: 0,
+  };
   private readonly look: LookDelta = { yaw: 0, pitch: 0, zoom: 1 };
   private readonly enemyTarget: EnemyTarget = { x: 0, z: 0, radius: 0.4, hostile: true };
   private readonly followTarget: FollowTarget = {
@@ -514,6 +575,10 @@ export class WorldState implements GameState, InstanceHost {
           this.encounter?.forceStart('sultan');
         },
         skipBoss: () => this.skipSultan(),
+        spells: () =>
+          this.ctx.data?.spells.spells.map((spell) => ({ id: spell.id, name: spell.name })) ?? [],
+        spell: () => this.ctx.session?.character?.spells[0] ?? null,
+        setSpell: (spellId) => this.setSpell(spellId),
         path: () => this.ctx.session?.path ?? null,
         setPath: (path) => {
           const session = this.ctx.session;
@@ -679,21 +744,27 @@ export class WorldState implements GameState, InstanceHost {
       input.consumePressed('heavy');
       input.consumePressed('potion');
       input.consumePressed('bag');
+      input.consumePressed('lock');
       if (input.consumePressed('confirm') || next || dash) this.dialog.advance();
       // Answers ("Yes" / "No"): W/S, A/D, arrows or the joystick move the highlight, one step
       // per push.
       const axis = this.choiceAxisNow();
       if (axis !== 0 && axis !== this.choiceAxis) this.dialog.moveSelection(axis);
       this.choiceAxis = axis;
-      this.swordInput.fast = false;
-      this.swordInput.heavy = false;
+      this.clearAttackInput();
     } else {
       input.consumePressed('confirm');
       // Interaction: E (or tapping the icon): talk to / pet an NPC, or rest at a checkpoint.
       if (input.consumePressed('interact')) this.interact();
-      // Fast hit: left mouse button or the attack button (held = keeps attacking).
-      this.swordInput.fast = input.consumePressed('attack') || input.isPressed('attack');
-      this.swordInput.heavy = input.consumePressed('heavy');
+      // Lock-on: middle mouse button, Tab or the button on a phone (pressing again lets go).
+      if (input.consumePressed('lock')) this.toggleLock();
+      // Left = fast hit / Arcane Shard, right = heavy hit / spell (held = keeps attacking).
+      const left = input.consumePressed('attack') || input.isPressed('attack');
+      const right = input.consumePressed('heavy') || input.isPressed('heavy');
+      this.swordInput.fast = left;
+      this.swordInput.heavy = right;
+      this.staffInput.shard = left;
+      this.staffInput.spell = right;
       if (input.consumePressed('potion')) this.drink(null);
       if (input.consumePressed('bag')) {
         this.openBag();
@@ -706,8 +777,8 @@ export class WorldState implements GameState, InstanceHost {
       this.command.x = 0;
       this.command.z = 0;
       input.consumePressed('dash');
-      this.swordInput.fast = false;
-      this.swordInput.heavy = false;
+      input.consumePressed('lock');
+      this.clearAttackInput();
       this.stepDeath(dt);
     }
 
@@ -732,7 +803,7 @@ export class WorldState implements GameState, InstanceHost {
     } else {
       this.command.dash = input.consumePressed('dash');
       if (this.command.dash && !movement.canDash) this.sayTooHeavy();
-      this.stepSwordAndMove(dt);
+      this.stepAttackAndMove(dt);
       // You cannot walk through people (or Treewardens, or monsters).
       if (this.npcs?.pushOut(s, movement.radius)) this.resolveCircle(s, movement.radius);
       if (this.enemies?.pushOut(s, movement.radius)) this.resolveCircle(s, movement.radius);
@@ -765,16 +836,32 @@ export class WorldState implements GameState, InstanceHost {
     this.spawnWorld.testAreas = this.ctx.debug.isEnabled;
     this.enemies?.stepSpawning(dt, s.x, s.z, this.spawnWorld);
     this.updateEnemies(dt);
+    this.updateShots(dt);
+    this.updateLock();
     this.encounter?.step(dt);
     this.updateCombatHud();
     this.hud?.rules.setEnergyFraction(s.energy / movement.maxEnergy);
     this.hud?.setBar('energy', s.energy / movement.maxEnergy);
   }
 
+  /** Nothing pressed this step (talking, dying, a menu open). */
+  private clearAttackInput(): void {
+    this.swordInput.fast = false;
+    this.swordInput.heavy = false;
+    this.staffInput.shard = false;
+    this.staffInput.spell = false;
+  }
+
+  /** Fighting and walking for one step: with a sword you swing, with a staff you shoot. */
+  private stepAttackAndMove(dt: number): void {
+    if (this.weaponKind === 'staff') this.stepStaffAndMove(dt);
+    else this.stepSwordAndMove(dt);
+  }
+
   /**
    * The sword and walking for one step. While a heavy hit winds up you walk slowly and cannot
-   * dash. Starting an attack turns you towards the nearest enemy in front (aim assist). A hit
-   * that lands damages every enemy in the swing arc.
+   * dash. Starting an attack turns you towards the nearest enemy in front (aim assist), or
+   * towards your locked target. A hit that lands damages every enemy in the swing arc.
    */
   private stepSwordAndMove(dt: number): void {
     const { player, movement, mover, sword, enemies } = this;
@@ -785,16 +872,7 @@ export class WorldState implements GameState, InstanceHost {
     const input = this.swordInput;
     const wants = input.fast || input.heavy || c.bufferedFast > 0 || c.bufferedHeavy > 0;
     const starting = wants && c.attackCooldown <= 0 && c.heavyWindup <= 0;
-    if (starting && enemies && s.dashTime <= 0) {
-      s.heading = assistedHeading(
-        s.x,
-        s.z,
-        s.heading,
-        enemies.shown,
-        sword.aimRange,
-        sword.aimHalfArc,
-      );
-    }
+    if (starting && s.dashTime <= 0) this.aim(sword.aimRange, sword.aimHalfArc);
     // A dash in progress finishes first; attacks wait for it.
     const result =
       s.dashTime > 0
@@ -808,7 +886,163 @@ export class WorldState implements GameState, InstanceHost {
       this.baseWalkSpeed * this.cheats.speed * (windingUp ? sword.heavyMoveFactor : 1);
     stepMovement(s, this.command, movement, dt, mover);
     regenOutOfCombat(c, data.player.regen.hpPerSecondOutOfCombat, dt);
+    regenMana(c, data.player.regen.manaPerSecond, dt);
   }
+
+  /**
+   * The staff and walking for one step (a mage). The Arcane Shard (left) costs no mana, a spell
+   * (right) costs mana and has its own cooldown; while the staff gathers a shot you walk slowly
+   * and cannot dash. The shot leaves towards your locked target, or towards the nearest enemy
+   * in front (aim assist), and then flies on its own (see Shots), so it can miss.
+   */
+  private stepStaffAndMove(dt: number): void {
+    const { player, movement, mover, staff } = this;
+    const data = this.ctx.data;
+    if (!player || !movement || !mover || !staff || !data) return;
+    const s = player.state;
+    const c = player.combat;
+    // A dash in progress finishes first; shots wait for it.
+    const input = s.dashTime > 0 ? NO_STAFF_INPUT : this.staffInput;
+    const state = this.staffState;
+    const wants = input.shard || input.spell || state.bufferedShard > 0 || state.bufferedSpell > 0;
+    const aiming = state.casting || (wants && state.cooldown <= 0);
+    if (aiming && s.dashTime <= 0) this.aim(staff.aimRange, staff.aimHalfArc);
+    const result = stepStaff(
+      state,
+      c,
+      input,
+      staff,
+      this.spell,
+      this.spellPower,
+      dt,
+      this.staffResult,
+    );
+    if (result.shot) this.fireShot(result.shot, result.damage, result.charge);
+    if (state.noMana) this.sayNoMana();
+
+    const casting = state.casting;
+    // Charging counts as fighting, so you can see your mana while it drains.
+    if (casting) c.sinceCombat = 0;
+    if (casting) this.command.dash = false;
+    movement.walkSpeed =
+      this.baseWalkSpeed * this.cheats.speed * (casting ? staff.castMoveFactor : 1);
+    stepMovement(s, this.command, movement, dt, mover);
+    regenOutOfCombat(c, data.player.regen.hpPerSecondOutOfCombat, dt);
+    regenMana(c, data.player.regen.manaPerSecond, dt);
+  }
+
+  /**
+   * Turns the player towards what they are attacking: the locked target, or else the nearest
+   * enemy within `range` and the aim arc in front of them. In debug mode the cheat menu's aim
+   * help scales the arc and range (gameplay itself is the same on every graphics preset).
+   */
+  private aim(range: number, halfArc: number): void {
+    const s = this.player?.state;
+    if (!s) return;
+    const locked = this.locked;
+    if (locked?.hittable) {
+      s.heading = headingTo(s.x, s.z, locked.x, locked.z, s.heading);
+      return;
+    }
+    const enemies = this.enemies;
+    const scale = this.cheats.aimAssist;
+    if (!enemies || scale <= 0) return;
+    s.heading = assistedHeading(s.x, s.z, s.heading, enemies.shown, range * scale, halfArc * scale);
+  }
+
+  /** A shot leaves the staff: it flies by itself from here on (Shots). */
+  private fireShot(shot: ShotConfig, damage: number, charge: number): void {
+    const { player, shots, staff } = this;
+    if (!player || !shots || !staff) return;
+    const s = player.state;
+    const locked = this.locked;
+    const fired = shots.fire(
+      shot,
+      s.x,
+      s.y + staff.shotHeight,
+      s.z,
+      s.heading,
+      damage,
+      locked?.hittable ? locked : null,
+      charge,
+    );
+    // Debug: the cheat menu can make shots curve harder or not at all.
+    fired.homingRadians = shot.homingRadians * this.cheats.homing;
+    // Shooting counts as fighting, so the bars show (HUD rules from the concept).
+    player.combat.sinceCombat = 0;
+  }
+
+  /** "Not enough mana." (not more often than every few seconds). */
+  private sayNoMana(): void {
+    if (this.protectedMessageTimer > 0) return;
+    this.protectedMessageTimer = PROTECTED_MESSAGE_SECONDS;
+    this.hud?.showMessage(this.ctx.i18n.t('hud.noMana'));
+  }
+
+  /** Lock-on numbers from player.json with the debug aim help applied (a reused object). */
+  private lockConfig(): LockOnConfig | null {
+    const cfg = this.lockCfg;
+    if (!cfg) return null;
+    const scale = this.cheats.lockRange;
+    const now = this.lockNow;
+    now.range = cfg.range * scale;
+    now.breakRange = cfg.breakRange * scale;
+    now.pickHalfArc = cfg.pickHalfArc;
+    now.maxOffView = cfg.maxOffView;
+    now.cameraFollowRadians = cfg.cameraFollowRadians;
+    return now;
+  }
+
+  /**
+   * Lock-on: locks on to the enemy nearest the middle of the screen, or lets the current one
+   * go when you press again. The camera then keeps the target in view and shots curve towards
+   * it; it works with the sword too (your swings turn towards the target).
+   */
+  private toggleLock(): void {
+    const { player, enemies, rig } = this;
+    const cfg = this.lockConfig();
+    if (!player || !enemies || !rig || !cfg) return;
+    if (this.locked) {
+      this.locked = null;
+      return;
+    }
+    this.locked = pickLockTarget(player.state.x, player.state.z, rig.orbit.yaw, enemies.shown, cfg);
+  }
+
+  /** The lock breaks by itself when the target dies, walks away or you look away from it. */
+  private updateLock(): void {
+    const locked = this.locked;
+    const s = this.player?.state;
+    const cfg = this.lockConfig();
+    const yaw = this.rig?.orbit.yaw;
+    if (!locked || !s || !cfg || yaw === undefined) return;
+    if (lockBroken(locked, s.x, s.z, yaw, cfg)) this.locked = null;
+  }
+
+  /** The player's shots fly on; each hit takes HP off and shows a number. */
+  private updateShots(dt: number): void {
+    const { shots, enemies, shotWorld } = this;
+    if (!shots || !enemies || !shotWorld) return;
+    shots.step(dt, enemies.shown, shotWorld, this.onShotHit);
+  }
+
+  /** A shot of the player hits a monster. */
+  private readonly onShotHit = (target: unknown, shot: Shot): void => {
+    const { enemies, enemyRenderer, player } = this;
+    const e = target as Enemy;
+    if (!enemies || !player || !e.hittable) return;
+    const defeated = enemies.hit(e, shot.damage);
+    const top = e.y + (enemyRenderer?.heightOf(e) ?? 1.5);
+    this.damageNumbers?.spawn(
+      e.x,
+      top,
+      e.z,
+      shot.damage,
+      shot.id === SHARD_ID ? 'normal' : 'heavy',
+    );
+    player.combat.sinceCombat = 0;
+    if (defeated) this.defeated(e, top);
+  };
 
   /** Applies a landed swing to every enemy in its arc, with damage numbers. */
   private landHit(result: SwordResult): void {
@@ -942,6 +1176,9 @@ export class WorldState implements GameState, InstanceHost {
     if (!player || !session || !data) return;
     enemies?.resetAll();
     this.projectiles?.clear();
+    this.shots?.clear();
+    this.staffState.reset();
+    this.locked = null;
     this.placePlayer(this.respawn.x, this.respawn.z);
     const c = player.combat;
     c.hp = c.maxHp;
@@ -1121,13 +1358,15 @@ export class WorldState implements GameState, InstanceHost {
     hud.rules.setHpFraction(c.maxHp > 0 ? c.hp / c.maxHp : 1);
   }
 
-  private touchLabels(): { attack: string; heavy: string; dash: string; potion: string } {
+  private touchLabels(): TouchLabels {
     const t = this.ctx.i18n;
+    const staff = this.weaponKind === 'staff';
     return {
-      attack: t.t('controls.attack'),
-      heavy: t.t('controls.heavy'),
+      attack: staff ? t.t('controls.shard') : t.t('controls.attack'),
+      heavy: staff ? t.t('controls.spell') : t.t('controls.heavy'),
       dash: t.t('controls.dash'),
       potion: t.t('controls.potion'),
+      lock: t.t('controls.lock'),
     };
   }
 
@@ -1365,6 +1604,7 @@ export class WorldState implements GameState, InstanceHost {
   /** The path changed (chosen, or a cheat): conditions, quests, markers and the save follow. */
   private pathChanged(path: PlayerPath | null): void {
     this.conditionContext.path = path;
+    this.applyGear(false);
     if (path) this.recordQuest('path', path, 1);
     this.refreshNpcPresence();
     this.refreshQuestMarkers();
@@ -1604,7 +1844,9 @@ export class WorldState implements GameState, InstanceHost {
     dropMissingEquipment(character.equipment, character.inventory);
     const stats = gearStats(character.equipment, this.items, this.gearStatsOut);
     const weapon = character.equipment.weapon;
-    c.weaponBonus = (weapon && this.items.get(weapon)?.weapon?.damageBonus) || 0;
+    const def = weapon ? this.items.get(weapon) : undefined;
+    c.weaponBonus = def?.weapon?.damageBonus ?? 0;
+    this.applyWeapon(def);
     c.gearHp = stats.hp;
     c.gearMana = stats.mana;
     c.damageFactor = 1 + stats.damagePercent / 100;
@@ -1637,6 +1879,36 @@ export class WorldState implements GameState, InstanceHost {
       );
     }
     this.loadTierId = tier.id;
+  }
+
+  /**
+   * The equipped weapon decides how you fight: a sword swings, a staff shoots the Arcane Shard
+   * and the spell it can hold (`spellSlots`). The spell is the first one you know (your crystal
+   * gives you one in the Crystal Ceremony, step 3.6); your path's power curve scales it.
+   */
+  private applyWeapon(def: ItemDef | undefined): void {
+    const session = this.ctx.session;
+    const data = this.ctx.data;
+    const kind = def?.weapon?.kind === 'staff' ? 'staff' : 'sword';
+    if (kind !== this.weaponKind) {
+      this.weaponKind = kind;
+      this.staffState.reset();
+      this.clearAttackInput();
+      this.touch?.setLabels(this.touchLabels());
+    }
+    const slots = def?.weapon?.spellSlots ?? 0;
+    const known = session?.character?.spells ?? [];
+    const carried = kind === 'staff' && slots > 0 ? known[0] : undefined;
+    this.spell = (carried && this.staff?.spells.get(carried)) || null;
+    this.spellPower = data
+      ? powerFactor(data.spells.powerCurves, session?.path ?? null, this.conditionContext.level)
+      : 1;
+  }
+
+  /** The color of a shot: its element's color from spells.json (the Shard has none of its own). */
+  private shotColor(element: string, data: GameData): number {
+    const found = data.spells.elements.find((entry) => entry.id === element);
+    return resolveColorToken(found?.color ?? 'magieblauw');
   }
 
   /** Gold diamonds above NPCs with a new quest, blue ones above NPCs to hand a quest in. */
@@ -1777,7 +2049,8 @@ export class WorldState implements GameState, InstanceHost {
     worldRoot.position.set(-origin.x, 0, -origin.z);
 
     player.syncModel(a);
-    if (this.sword) player.showSword(this.sword);
+    if (this.weaponKind === 'staff') player.showStaff(this.staffState.progress);
+    else if (this.sword) player.showSword(this.sword);
     this.npcRenderer?.update(a, this.ctx.data?.npcs.settings.petHopSeconds ?? 1);
     this.npcRenderer?.updateMarkers(a, this.time);
     if (!waiting) this.time += frameSeconds;
@@ -1785,6 +2058,8 @@ export class WorldState implements GameState, InstanceHost {
     if (this.enemies) this.warningRenderer?.update(this.enemies.shown, a);
     this.warningRenderer?.setArena(this.encounter?.arena ?? null);
     this.projectileRenderer?.update(a);
+    this.shotRenderer?.update(a);
+    this.updateChargeOrb(a);
     input.consumeLook(this.look);
     const look = this.look;
     const turning = input.turningCamera || look.yaw !== 0 || look.pitch !== 0;
@@ -1800,6 +2075,7 @@ export class WorldState implements GameState, InstanceHost {
       turning,
       this.ctx.session?.settings.cameraSensitivity ?? 1,
     );
+    this.followLock(waiting ? 0 : frameSeconds, a);
     this.applyCamera();
     this.updateLighting(this.paused ? 0 : frameSeconds);
     this.updateSun(root.position.x - origin.x, root.position.y, root.position.z - origin.z);
@@ -1809,6 +2085,7 @@ export class WorldState implements GameState, InstanceHost {
     this.sky?.position.copy(rig.camera.position);
     if (sceneZone) this.updateLamps(s.x, s.y, s.z, origin.x, origin.z);
     this.touch?.update();
+    this.touch?.setLocked(this.locked !== null);
     this.updateLookHint(input);
     this.updateFog(scene, frameSeconds);
     this.updateInteraction(rig.camera, origin.x, origin.z, input.usedTouch || this.coarsePointer);
@@ -1833,6 +2110,67 @@ export class WorldState implements GameState, InstanceHost {
       window.innerHeight,
     );
     this.ctx.renderer.render(scene, rig.camera);
+  }
+
+  /** The ball of magic in front of the staff while a spell is being charged. */
+  private updateChargeOrb(alpha: number): void {
+    const { player, staff, chargeOrb } = this;
+    const state = this.staffState;
+    const spell = this.spell;
+    if (!chargeOrb) return;
+    if (!player || !staff || !spell || state.pending !== 'spell') {
+      chargeOrb.hide();
+      return;
+    }
+    const x = player.interpolatedX(alpha);
+    const y = player.interpolatedY(alpha);
+    const z = player.interpolatedZ(alpha);
+    const heading = player.state.heading;
+    chargeOrb.show(
+      x + Math.sin(heading) * ORB_AHEAD,
+      y + staff.shotHeight,
+      z + Math.cos(heading) * ORB_AHEAD,
+      state.chargeFraction,
+      this.shotColor(spell.element, this.ctx.data as GameData),
+      this.time,
+    );
+  }
+
+  /**
+   * Lock-on while drawing: the camera turns along to keep the target in view (per second, so
+   * 60 and 120 fps follow equally fast) and the ring is drawn above the target's head.
+   */
+  private followLock(seconds: number, alpha: number): void {
+    const { rig, player, lockMarker, enemyRenderer, origin } = this;
+    const locked = this.locked;
+    const cfg = this.lockConfig();
+    if (!rig || !player) return;
+    if (!locked || !cfg) {
+      lockMarker?.hide();
+      return;
+    }
+    if (seconds > 0) {
+      rig.orbit.yaw = followLockedTarget(
+        rig.orbit.yaw,
+        player.state.x,
+        player.state.z,
+        locked,
+        cfg,
+        seconds,
+      );
+    }
+    const height = enemyRenderer?.heightOf(locked) ?? 1.5;
+    // The ring lives in the world (shifted by the floating origin); so does the camera here.
+    const camera = rig.camera.position;
+    lockMarker?.show(
+      locked.drawX(alpha),
+      locked.drawY(alpha) + height + LOCK_RING_ABOVE_HEAD,
+      locked.drawZ(alpha),
+      camera.x + (origin?.x ?? 0),
+      camera.y,
+      camera.z + (origin?.z ?? 0),
+      this.time,
+    );
   }
 
   /** Places the camera: kept above the terrain and in front of walls (open world or BVH). */
@@ -2351,6 +2689,10 @@ export class WorldState implements GameState, InstanceHost {
     rig.orbit.snap(player.state.x, player.state.y, player.state.z, heading ?? rig.orbit.yaw);
     this.dialog?.close();
     this.damageNumbers?.clear();
+    // Shots in flight and your locked target belong to where you came from.
+    this.shots?.clear();
+    this.staffState.reset();
+    this.locked = null;
     if (this.npcWorld) {
       const s = player.state;
       this.npcs?.snapCompanions(s.x, s.z, s.heading, this.npcWorld);
@@ -2388,9 +2730,15 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /** Debug: XP, gold or potions for testing levels, dying and drinking. */
-  private grant(kind: 'xp' | 'gold' | 'potions' | 'slimeGel' | 'gear' | 'packAnimal'): void {
+  private grant(
+    kind: 'xp' | 'gold' | 'potions' | 'slimeGel' | 'gear' | 'packAnimal' | 'staff',
+  ): void {
     if (kind === 'packAnimal') {
       this.grantPackAnimal();
+      return;
+    }
+    if (kind === 'staff') {
+      this.grantStaff();
       return;
     }
     if (kind === 'gear') {
@@ -2424,6 +2772,35 @@ export class WorldState implements GameState, InstanceHost {
       if (objective.type === 'talk') this.recordQuest('talk', objective.npc, 1, undefined, true);
     }
     this.completeQuest(quest);
+  }
+
+  /**
+   * Debug: a staff in your hands right away, so staff fighting can be tested before the
+   * Crystal Ceremony (step 3.6). Data-driven: the first staff in items.json, no name in code.
+   */
+  private grantStaff(): void {
+    const bag = this.ctx.session?.character?.inventory ?? [];
+    for (const def of this.items.values()) {
+      if (def.weapon?.kind !== 'staff') continue;
+      if (countItem(bag, def.id) === 0) this.gainItem(def.id, 1);
+      this.equipItem(def.id);
+      this.applyGear(false);
+      this.updatePlayerGear();
+      return;
+    }
+  }
+
+  /**
+   * Debug: the spell the staff carries (one of spells.json), or none. Gives a staff as well, so
+   * there is something to cast it with.
+   */
+  private setSpell(spellId: string | null): void {
+    const character = this.ctx.session?.character;
+    if (!character) return;
+    character.spells = spellId ? [spellId] : [];
+    if (spellId) this.grantStaff();
+    this.applyGear(false);
+    this.ctx.persist();
   }
 
   /** Debug: counts Sultan as defeated without the fight (to test Your Resolve quickly). */
@@ -2544,6 +2921,10 @@ export class WorldState implements GameState, InstanceHost {
     player.state.energy = data.player.base.energy;
     player.state.sinceEnergySpent = data.player.regen.energyDelaySeconds;
     this.sword = swordConfig(data.player);
+    this.staff = staffConfig(data.player, data.spells);
+    this.lockCfg = lockOnConfig(data.player);
+    this.staffState.reset();
+    this.locked = null;
     const combat = player.combat;
     combat.lingerSeconds = this.sword.combatLingerSeconds;
     // Level, HP and mana from the save (null = full).
@@ -2619,6 +3000,13 @@ export class WorldState implements GameState, InstanceHost {
     const projectiles = new Projectiles();
     this.projectiles = projectiles;
     this.projectileRenderer = new ProjectileRenderer(projectiles.list, worldRoot);
+    const shots = new Shots();
+    this.shots = shots;
+    this.shotRenderer = new ShotRenderer(shots.list, worldRoot, (element) =>
+      this.shotColor(element, data),
+    );
+    this.lockMarker = new LockOnMarker(worldRoot);
+    this.chargeOrb = new ChargeOrb(worldRoot);
     const enemies = this.enemies;
     this.enemiesWorld = {
       mover: this.mover as Mover,
@@ -2648,6 +3036,8 @@ export class WorldState implements GameState, InstanceHost {
         return probe.x !== x || probe.z !== z;
       },
     };
+    // Shots of the player stop at the same walls and hills as arrows.
+    this.shotWorld = this.projectileWorld;
 
     this.rig = new CameraRig(data.player.camera, viewDistance);
     this.rig.orbit.snap(player.state.x, player.state.y, player.state.z, player.state.heading);
@@ -2878,6 +3268,18 @@ export class WorldState implements GameState, InstanceHost {
     this.projectileRenderer?.dispose();
     this.projectileRenderer = null;
     this.projectiles = null;
+    this.shotRenderer?.dispose();
+    this.shotRenderer = null;
+    this.lockMarker?.dispose();
+    this.lockMarker = null;
+    this.chargeOrb?.dispose();
+    this.chargeOrb = null;
+    this.shots = null;
+    this.shotWorld = null;
+    this.locked = null;
+    this.staff = null;
+    this.lockCfg = null;
+    this.spell = null;
     this.enemies = null;
     this.enemiesWorld = null;
     this.projectileWorld = null;
@@ -2978,7 +3380,7 @@ export class WorldState implements GameState, InstanceHost {
       `hp ${Math.ceil(c.hp)}/${c.maxHp} · mana ${Math.round(c.mana)} · lvl ${c.level} ` +
         `(${this.ctx.session?.progress.xp ?? 0} xp) · gold ${this.ctx.session?.character?.gold ?? 0} · ` +
         `${this.deathTimer !== NOT_DYING ? 'dying · ' : ''}` +
-        `${c.heavyWindup > 0 ? 'heavy windup' : c.swing} · combo ${c.comboCount} · ` +
+        `${this.weaponKind === 'staff' ? this.staffDebug() : this.swordDebug(c)} · ` +
         `${c.inCombat ? 'in fight' : 'calm'}`,
     );
     const m = this.movement;
@@ -3008,6 +3410,30 @@ export class WorldState implements GameState, InstanceHost {
       `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'} · F6 = cheat menu`,
     );
   };
+
+  /** Debug: what the sword is doing. */
+  private swordDebug(c: CombatState): string {
+    return `${c.heavyWindup > 0 ? 'heavy windup' : c.swing} · combo ${c.comboCount}`;
+  }
+
+  /** Debug: the staff, its spell, the shots in flight and the locked target. */
+  private staffDebug(): string {
+    const state = this.staffState;
+    const spell = this.spell?.id ?? 'no spell';
+    const charge =
+      state.pending === 'spell' && state.chargeFraction > 0
+        ? ` ${Math.round(state.chargeFraction * 100)}%`
+        : '';
+    const busy = state.casting ? `casting ${state.pending}${charge}` : 'staff ready';
+    const cooldown = state.spellCooldown > 0 ? ` (${state.spellCooldown.toFixed(1)} s)` : '';
+    const shots = this.shots?.activeCount ?? 0;
+    const lock = this.locked ? `lock ${this.locked.def.id}` : 'no lock';
+    const aim =
+      this.cheats.aimAssist !== 1 || this.cheats.lockRange !== 1 || this.cheats.homing !== 1
+        ? ` · aim ×${this.cheats.aimAssist} lock ×${this.cheats.lockRange} curve ×${this.cheats.homing}`
+        : '';
+    return `${busy} · ${spell}${cooldown} · ×${this.spellPower.toFixed(2)} · shots ${shots} · ${lock}${aim}`;
+  }
 
   /** Debug: phase, time left, clock speed, lighting setting and night monsters. */
   private dayNightLine(): string {

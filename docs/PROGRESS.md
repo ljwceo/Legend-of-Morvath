@@ -7,9 +7,9 @@
 | | |
 |---|---|
 | **Huidige fase** | Fase 3 – Je pad, Entrance Exam en gear (plan goedgekeurd 2026-10-10) |
-| **Status** | Stap 3.0 t/m 3.4 klaar. PR #34 (Blender-Greyhaven, één vijandsysteem, stap 3.3 instances) is gemerged in `main`. Stap 3.4 (*Your Resolve*: je pad kiezen bij een leraar) gebouwd. Fase 2 en het Blender-Greyhaven wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
-| **Volgende stap** | Bo/Lucas: de teksten van de drie leraren lezen en meten op pc/iPhone; daarna 3.5 (vechten met een staf + lock-on) |
-| **Laatste sessie** | 2026-10-12: stap 3.4 (*Your Resolve*) gemerged; daarvoor (Blender) het Monastery als eigen asset met kloostertuin |
+| **Status** | Stap 3.0 t/m 3.5 klaar. Stap 3.5 (vechten met een staf: Arcane Shard, spreuken met opladen en lock-on) gebouwd, plus trage mana-regen en drankjes op percentage; testen kan via het cheatmenu (Geven → Staf, Spreuk). Fase 2, het Blender-Greyhaven en de teksten van de leraren wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
+| **Volgende stap** | Bo/Lucas: staf-gevecht en lock-on spelen (voelt de richthulp goed? zie de cheats onder "Richthulp"); daarna 3.6 (Entrance Exams, Crystal Ceremony en de stadspoort) |
+| **Laatste sessie** | 2026-10-12: stap 3.5 (staf + lock-on); daarvoor stap 3.4 (*Your Resolve*) gemerged en in Blender het Monastery met kloostertuin |
 
 ### Open vragen
 
@@ -22,8 +22,11 @@
 | 4 | Moet `player.glb` ook in de open wereld gebruikt worden? | Nu alleen in Greyhaven; in de open wereld nog het placeholder-poppetje |
 | 6 | Past het nieuwe Monastery (met tuin, samen ±100 × 70 m) op de kliffen aan de westkust van Greyhaven? Het oude placeholder-klooster is ±31 × 32 m | Nog niet geplaatst; in de Greyhaven-chat bekijken (plek, draaien, eventueel kleiner). Zie `docs/MONASTERY.md` |
 | 7 | Kweekbare bedden in de kloostertuin (`MON_FarmPlot_1…6`): hoe moet farming werken (zaad, groeitijd, oogst, seizoenen)? | Alleen de bedden + markers staan in Blender; nog geen spelregels of code |
-| 8 | Vallende sakura-blaadjes zijn een Blender-animatie via collection instances. Gaat die mee met de glTF-export, of laat de game de blaadjes zelf vallen? | Nog testen bij het inbouwen in Greyhaven |
-| 9 | Bomen in de kloostertuin gebruiken nu Genshin-achtige trosjes-kaartjes (plaatje met alpha + bol-normals, `GH_Monastery_Foliage_*`). De game-shader heeft daar nog geen modus voor | Nodig: bladmodus in `ToonMaterial` (plaatje, `discard` op alpha, custom normals, wind; geldt ook voor het gras `GH_Grass_MON_*`) en de export moet UV/normals/plaatje meenemen. Zie `docs/MONASTERY.md` |
+| 8 | Hoe snel komt mana terug? | **Beantwoord (Bo, 2026-10-12)**: heel langzaam vanzelf (nu 0,4 per seconde, ook in een gevecht) en verder met drankjes. Getal in `player.json` → `regen.manaPerSecond`; zeg het als het sneller of trager moet |
+| 9 | Schoten vliegen dwars door een vijand die je niet kunt raken (Treewarden in de elfenstad, een baas die ontwijkt); bij het zwaard krijg je dan wel een melding of een "geblokkeerd"-effect | Voorstel: zo laten (je schiet erlangs); zeg het als een schot op zo'n vijand ook moet melden dat hij beschermd is |
+| 10 | De Q-knop (snel drinken) pakt alleen health potions (`player.json` → `potions.quickOrder`). Mana potions drink je uit de tas | Voorstel: zo laten, of een tweede knop/regel ("pak een mana potion als je HP vol is") |
+| 11 | Vallende sakura-blaadjes zijn een Blender-animatie via collection instances. Gaat die mee met de glTF-export, of laat de game de blaadjes zelf vallen? | Nog testen bij het inbouwen in Greyhaven |
+| 12 | Bomen in de kloostertuin gebruiken nu Genshin-achtige trosjes-kaartjes (plaatje met alpha + bol-normals, `GH_Monastery_Foliage_*`). De game-shader heeft daar nog geen modus voor | Nodig: bladmodus in `ToonMaterial` (plaatje, `discard` op alpha, custom normals, wind; geldt ook voor het gras `GH_Grass_MON_*`) en de export moet UV/normals/plaatje meenemen. Zie `docs/MONASTERY.md` |
 
 ---
 
@@ -483,6 +486,24 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
   - Getest: 392 tests (o.a. voorwaarde `path`, één leraar per pad, leraar vraagt alleen na Sultan en zolang je geen pad hebt, pad maar één keer, quest klaar bij een keuze en niet bij alleen praten, dialoog van Brink na de keuze, validator). Headless Chromium (pc 1100×760): Sir Garrick (EN) op het trainingsveld, Wizard Sam (NL) in de kelder en Master Brink (EN) in de toren: Nee → Ja → "Nee, nog niet" (standaard) → geen pad; opnieuw met muisklik Ja → "Ja, zeker" → pad in de save, quest klaar, leraar zegt de nieuwe zin. Geen fouten.
   - Tijdelijke namen (alleen in data): Sir Garrick, Master Brink's Tower, Wizard Sam's Cellar. Nieuw: geen. **Alle zinnen van de leraren zijn een voorstel**, zeg het als ze anders moeten.
 
+- 3.5 Vechten met een staf + lock-on (2026-10-12):
+  - **Welk wapen je draagt bepaalt hoe je vecht** (`weapon.kind` in `items.json`): met een zwaard sla je (fase 2), met een staf schiet je. Links = **Arcane Shard** (geen mana, 8 schade +2 per level, 2 per seconde, 18 m), rechts = je **spreuk** (mana, eigen cooldown). Op de telefoon heten die knoppen dan Shard en Spreuk; er is een lock-knop bij gekomen.
+  - **Vijf spreuken, één per element** (`spells.json`, namen en getallen zijn een **voorstel**): Fireball (vuur, 20 schade, 10 mana), Water Bolt (water, 16/8), Thorn Shot (natuur, 14/7), Wind Slice (wind, 12/6, snel en ver) en Shadow Bolt (duister, 22/12). Elke spreuk heeft een reisafstand: het schot vliegt echt (snelheid, bereik), dus je kunt missen. De **krachtcurve** van je pad telt mee: duister begint op ×1,3 en wordt zwakker, licht groeit naar ×1,3.
+  - **Lock-on** (middelste muisknop, Tab, of de knop op de telefoon): vergrendelt de vijand die het dichtst bij het midden van je scherm staat (binnen 18 m), zet er een ring boven, houdt hem met de camera in beeld en laat je schoten naar hem toe krommen. Nog eens drukken laat los. Werkt ook met het zwaard: je slagen draaien dan naar je doel.
+  - **Missen** kan op twee manieren, zoals het plan vroeg: een vijand die **aanvalt** stapt opzij (je schot krommt niet meer mee) en **te ver wegkijken** (meer dan 80°) verbreekt de lock. Verder stoppen bomen, muren en heuvels een schot, en voorbij zijn bereik dooft het uit.
+  - **Cheatmenu**: "Geven → Staf" geeft je meteen een staf, "Spreuk (staf)" kiest welke spreuk je draagt, en onder **Richthulp** staan drie vermenigvuldigers (richtkegel, lock-on bereik, hoe hard schoten krommen) om de getallen uit te proberen. Een staf krijg je in het spel zelf pas in stap 3.6 (Crystal Ceremony).
+  - **Save versie 8**: `character.spells` (de spreuken die je kent). Oude saves krijgen een lege lijst.
+  - Getest: 430 tests (staf-getallen, mana, cooldowns, krommen en missen, lock-on kiezen en verbreken, fps-onafhankelijkheid, save-migratie, validator), lint, opmaak, typecheck, build. Headless Chromium (software-rendering, dus traag; fps zegt niets): staf + Fireball via het cheatmenu, naar het trainingsveld, lock-on op een trainingspop (de ring verschijnt), zes Shards raken elk voor 8, een Fireball voor 20, mana 50 → 40, wegkijken verbreekt de lock. Geen fouten.
+  - Tijdelijke namen (alleen in data): **Water Bolt, Thorn Shot, Wind Slice, Shadow Bolt** (nieuw, net als Arcane Shard en Fireball nog niet definitief).
+
+- 3.5b Spreuken opladen, mana-regen en drankjes op percentage (2026-10-12, verzoek van Bo):
+  - **Opladen**: houd de castknop vast en de spreuk laadt op tot **4 seconden**. Een tik = een ongeladen schot; loslaten vuurt met de lading die je hebt; bij een volle lading gaat hij vanzelf (en blijf je vasthouden, dan laadt de volgende meteen door). Een volle lading: **×2,5 schade, ×3 mana, ×1,8 zo groot, ×1,25 zo snel** (alle getallen per spreuk in `spells.json` → `charge`, en een **voorstel**).
+  - De mana wordt **pas betaald als het schot vertrekt**, en de lading gaat nooit hoger dan je mana kan betalen: lang vasthouden met weinig mana geeft gewoon de grootste versie die je kunt betalen.
+  - Tijdens het laden loop je langzamer en kun je niet dashen, en groeit er een bal magie in de kleur van je element vóór je staf. Op de pc houd je de rechtermuisknop vast (muisknoppen blijven nu ingedrukt staan terwijl de muis gevangen is), op de telefoon de Spreuk-knop.
+  - **Mana komt heel langzaam vanzelf terug**: 0,4 per seconde, ook in een gevecht (`player.json` → `regen.manaPerSecond`). Een lege mage kan altijd nog de gratis Arcane Shard gebruiken.
+  - **Drankjes werken op percentage** en groeien dus mee met je balken: Health Potion 50% HP, Greater Health Potion 100%, en nieuw: **Mana Potion 30%** en **Greater Mana Potion 60%** (te koop bij Marco voor 12 en 45 gold). Vaste aantallen (`potion.hp` / `potion.mana`) kunnen nog steeds in de data.
+  - Getest: 442 tests (opladen, betalen bij vertrek, lading begrenzen op je mana, grotere en snellere schoten, mana-regen, drankjes op percentage), lint, opmaak, typecheck, build. Headless Chromium: ongeladen Fireball 20 schade voor 10 mana, opgeladen schoten duidelijk harder en duurder, mana liep zichtbaar langzaam vol. Geen fouten.
+
 - Extra taak (2026-10-12, opdracht van Bo, in Blender): **Monastery als eigen asset + kloostertuin** (`Monastery.blend` naast `Forge.blend`; uitleg in `docs/MONASTERY.md`, scripts in `tools/blender/monastery/`)
   - Klooster naar een echt middeleeuws plan: kerk met apsis, roosvenster en klokkentoren, kloostergang met bogen, oost-, zuid- en westvleugel. Daken met 4 leivormen + 2 nokpannen, muren met 3 stenen + 2 funderingsstenen, echte ramen en deuren.
   - Oostvleugel van binnen: hal + 6 kamers (Dormitory, Infirmary, Warming Room, Chapter House, Scriptorium, Brother Ansel's Cell), plankenvloer, plafond 6,5 m. Markers voor spawn (bed), Brother Ansel, deuren en kamers.
@@ -658,6 +679,16 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 | 2026-10-11 | Je kiest je pad **direct na Sultan** (level 3), niet pas vanaf level 5 | Concept: Your Resolve na Sultan, de Entrance Exam brengt je naar level 5. De oude voorwaarde `readyToChoosePath` (level 5) is vervangen door `canChoosePath` |
 | 2026-10-11 | Bij "Weet je het zeker?" staat **"Nee, nog niet"** voorgeselecteerd | Je pad geldt voor de rest van het spel; wie op E blijft drukken, kiest zo nooit per ongeluk |
 | 2026-10-11 | Smidse = rood huis met schoorsteen, aambeeld en vuur ten zuiden van de markt; Golden Kettle = rood huis oost van de markt; Alchemy Lab = leien huis met ronde toren | Uit het model af te lezen (vuur + aambeeld). De andere twee zijn een keuze: zeg het als het andersom moet |
+| 2026-10-12 | De Arcane Shard kost **geen mana** (en ook geen energie), maar vuurt maar 2× per seconde | Concept: de Shard is je basisaanval als mage; zonder mana sta je nooit helemaal stil. De validator bewaakt dat hij gratis blijft |
+| 2026-10-12 | Lock-on is een **schakelaar** (nog eens drukken = loslaten), nog geen doorschakelen naar het volgende doel | Minste knoppen; doelen wisselen kan er later bij als het nodig blijkt |
+| 2026-10-12 | Een schot krommt alleen naar een vergrendeld doel, en laat dat doel los zodra de vijand aanvalt | Zo kun je echt missen (plan 3.5), en aanvallen van de vijand zijn je straf, niet een gratis treffer |
+| 2026-10-12 | Een druk op de staf-knop wordt 0,5 s onthouden (zwaard: 0,3 s) | Een Shard-cyclus duurt 0,5 s; met 0,3 s verdween een klik op een spreuk soms helemaal (gemerkt in de headless test) |
+| 2026-10-12 | Rakingstest van een schot kijkt naar het hele stukje dat het die stap vloog | Anders springt een snel schot over een kleine vijand heen, en vlak naast een vijand staan miste |
+| 2026-10-12 | Spreuken laden op door de knop vast te houden (max 4 s); de Arcane Shard niet | Verzoek van Bo. De Shard blijft je snelle, gratis schot; het verschil tussen tikken en vasthouden is het keuzemoment |
+| 2026-10-12 | Bij een volle lading vertrekt het schot vanzelf | Anders kun je eindeloos "geladen" rondlopen, en een verloren knop-loslaten (venster weg, telefoon) zou de staf vastzetten |
+| 2026-10-12 | Mana wordt pas betaald als het schot vertrekt, en de lading wordt begrensd op wat je kunt betalen | Bij het begin weet je de prijs nog niet. Zo is lang vasthouden met weinig mana nooit weggegooid |
+| 2026-10-12 | Drankjes werken op percentage van je maximum (health 50% / 100%, mana 30% / 60%) | Verzoek van Bo: zo blijft één drankje evenveel waard als je balken groeien. Vaste aantallen blijven mogelijk in de data |
+| 2026-10-12 | Mana vult ook tijdens een gevecht langzaam bij (0,4/s), HP nog steeds alleen buiten gevecht | Verzoek van Bo ("heel traag"). Anders sta je in een lang gevecht droog zonder drankjes |
 
 ## Sessielog
 
@@ -699,11 +730,13 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - PR #34 bleek al gemerged; PROGRESS bijgewerkt. Stap 3.4 gebouwd: main quest *Your Resolve* (keuzeknoppen in de dialoog, drie leraren met Ja/Nee en nog één keer bevestigen, pad in de save, quest klaar, cheats). 392 tests, headless Chromium (EN en NL, alle drie de leraren) zonder fouten. Tijdelijke namen: geen nieuwe. Volgende stap: 3.5 (staf + lock-on).
 
 ### 2026-10-12
+- Stap 3.5 gebouwd: vechten met een staf (Arcane Shard + 5 spreuken met reisafstand), lock-on met ring en camera die het doel vasthoudt, missen bij een aanval of te ver wegkijken, richthulp-cheats, staf en spreuk uit het cheatmenu. Save versie 8. 430 tests, headless Chromium zonder fouten. Open: mana-regen en schoten op beschermde vijanden (open vragen 8 en 9), fps meten op de pc.
+- Daarna (verzoek van Bo in dezelfde PR): spreuken opladen (tik = ongeladen, 4 s vasthouden = groter, sterker, sneller en duurder), mana die heel langzaam vanzelf terugkomt, en drankjes op percentage met twee nieuwe mana-drankjes bij Marco. 442 tests, headless Chromium zonder fouten.
 - Blender (Bo + Claude): Monastery.blend gebouwd (klooster, daken, stenen, ramen/deuren, binnenkant oostvleugel met 6 kamers) en de kloostertuin met vijver, koi en kweekbare bedden. Alleen docs en Blender-scripts in de repo; geen game-code veranderd. Tijdelijke namen: Monastery Garden, Moonbell.
 - Blender (Bo + Claude, middag): losse tuinmodellen (7 bomen, 3 rotsen, 3 fruitsoorten, 5 gewassen × 3 groeistadia, vogelverschrikker) in `MON_GardenPieces`; de tuin gebruikt nu instances daarvan. Koi voor nu weggehaald.
 - Blender (middag): sakura's met doorkijkbare kroon (takken + bloesemtrosjes) en vallende blaadjes (lus van 10 s).
 - Blender (avond): bomen in Genshin-stijl naar Bo's voorbeelden: sakura's, eiken en appelboom met een kroon van veel kleine blad-/bloesemkaartjes in lagen (licht boven, donker onder). Vallende blaadjes starten in de nieuwe kroon. Script `06_card_trees.py`.
 - Blender (avond): dennen voor nu uit de tuin (Bo bedenkt nog iets anders). Treurwilgen opnieuw in kaartjes-stijl met zwaaiende slierten en vuurvliegjes eromheen (`07_willow.py`).
 - Blender (avond): kronen met grote blaadjes binnen en kleine buiten; bladwolken en wilgenslierten hangen nu aan twijgjes (niets zweeft meer). Wilgenslierten hangen aan boogtakken die uit de takken groeien.
-- Blender (avond): alle tuinbomen omgebouwd naar de Genshin-techniek (grote kaartjes met geschilderde trosjes + alpha, bol-normals). Van ±650.000 naar ±140.000 vertices voor alle bomen. Scripts `08`–`10`, plaatjes in `tools/blender/monastery/textures/`. Open vraag 9 (bladmodus in de game).
+- Blender (avond): alle tuinbomen omgebouwd naar de Genshin-techniek (grote kaartjes met geschilderde trosjes + alpha, bol-normals). Van ±650.000 naar ±140.000 vertices voor alle bomen. Scripts `08`–`10`, plaatjes in `tools/blender/monastery/textures/`. Open vraag 12 (bladmodus in de game).
 - Blender (avond): gras in Genshin-stijl: 1.446 graspollen met een sprietjes-plaatje en normals omhoog (`11_grass.py`).

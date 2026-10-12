@@ -3,6 +3,10 @@ import type { Bounds } from './Collision';
 
 /** Speed multipliers offered in the cheat menu. */
 export const CHEAT_SPEEDS = [1, 2, 5, 10, 25] as const;
+/** Aim-help multipliers offered in the cheat menu (1 = the numbers from player.json). */
+export const CHEAT_AIM_SCALES = [0, 0.5, 1, 2] as const;
+/** Lock-on range multipliers offered in the cheat menu. */
+export const CHEAT_LOCK_SCALES = [0.5, 1, 1.5, 2] as const;
 /** Highest a flying player may go above the ground (m). */
 export const FLY_MAX_ABOVE_GROUND = 400;
 
@@ -17,9 +21,24 @@ export class Cheats {
   chunkLines = false;
   /** Off = monsters never notice or attack you (walk around in peace while testing). */
   monsters = true;
+  /**
+   * Aim help, as multipliers on the numbers in player.json (1 = as the game ships): how wide
+   * attacks and shots look for a target, how far you can lock on, and how fast shots curve
+   * towards a locked target. For finding the numbers that feel right (step 3.5).
+   */
+  aimAssist = 1;
+  lockRange = 1;
+  homing = 1;
 
   get active(): boolean {
-    return this.speed !== 1 || this.fly || !this.monsters;
+    return (
+      this.speed !== 1 ||
+      this.fly ||
+      !this.monsters ||
+      this.aimAssist !== 1 ||
+      this.lockRange !== 1 ||
+      this.homing !== 1
+    );
   }
 
   reset(): void {
@@ -27,6 +46,9 @@ export class Cheats {
     this.fly = false;
     this.chunkLines = false;
     this.monsters = true;
+    this.aimAssist = 1;
+    this.lockRange = 1;
+    this.homing = 1;
   }
 }
 

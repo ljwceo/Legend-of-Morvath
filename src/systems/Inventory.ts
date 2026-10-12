@@ -1,5 +1,5 @@
 import type { Random } from '../core/Random';
-import type { ItemDef, MonsterDef } from '../data/types';
+import type { ItemDef, MonsterDef, PotionDef } from '../data/types';
 import type { CombatState } from './Combat';
 
 /** One stack in the bag. */
@@ -63,6 +63,19 @@ export function rollDrops(def: MonsterDef, rng: Random, out: ItemStack[]): ItemS
 export type DrinkResult = 'drunk' | 'none' | 'full' | 'cooldown';
 
 /**
+ * How much HP a potion gives you: its flat amount plus its share of your maximum. Percentages
+ * keep up with your level, so one potion stays worth the same while your bars grow.
+ */
+export function potionHp(potion: PotionDef, maxHp: number): number {
+  return (potion.hp ?? 0) + ((potion.hpPercent ?? 0) / 100) * maxHp;
+}
+
+/** How much mana a potion gives you (see `potionHp`). */
+export function potionMana(potion: PotionDef, maxMana: number): number {
+  return (potion.mana ?? 0) + ((potion.manaPercent ?? 0) / 100) * maxMana;
+}
+
+/**
  * The drink key: the first potion from `order` that is in the bag. Fails when there is none,
  * HP and mana are already full, or the last potion was too recent. On success one potion
  * leaves the bag and HP / mana go up (never above the maximum); `healed` gets what was gained.
@@ -85,8 +98,8 @@ export function drinkPotion(
     }
   }
   if (!def?.potion) return 'none';
-  const hp = def.potion.hp ?? 0;
-  const mana = def.potion.mana ?? 0;
+  const hp = potionHp(def.potion, c.maxHp);
+  const mana = potionMana(def.potion, c.maxMana);
   const helps = (hp > 0 && c.hp < c.maxHp) || (mana > 0 && c.mana < c.maxMana);
   if (!helps) return 'full';
   if (cooldownLeft > 0) return 'cooldown';

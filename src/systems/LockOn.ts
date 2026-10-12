@@ -1,0 +1,121 @@
+import type { PlayerConfig } from '../data/types';
+import { angleDelta } from './Movement';
+
+const DEG = Math.PI / 180;
+
+/** What lock-on needs to know about a possible target. */
+export interface LockTarget {
+  readonly x: number;
+  readonly z: number;
+  readonly hittable: boolean;
+}
+
+/** player.json `lockOn`, ready for the fixed step (radians). */
+export interface LockOnConfig {
+  range: number;
+  breakRange: number;
+  /** Half the arc around the camera direction in which a target can be picked. */
+  pickHalfArc: number;
+  /** Looking further than this away from the target breaks the lock. */
+  maxOffView: number;
+  /** How fast the camera turns along to keep the target in view (radians per second). */
+  cameraFollowRadians: number;
+}
+
+export function lockOnConfig(player: PlayerConfig): LockOnConfig {
+  const cfg = player.lockOn;
+  return {
+    range: cfg.range,
+    breakRange: cfg.breakRange,
+    pickHalfArc: (cfg.pickArcDegrees / 2) * DEG,
+    maxOffView: cfg.maxOffViewDegrees * DEG,
+    cameraFollowRadians: cfg.cameraFollowDegreesPerSecond * DEG,
+  };
+}
+
+/**
+ * The target to lock on to: the one nearest to the middle of the screen, with distance as a
+ * tie-breaker (so a monster right in front of you wins from one far behind it). Only hittable
+ * targets within `range` and the pick arc around where the camera looks count.
+ * Returns null when there is nothing to lock on to. Allocation-free.
+ */
+export function pickLockTarget<T extends LockTarget>(
+  px: number,
+  pz: number,
+  viewYaw: number,
+  targets: readonly T[],
+  cfg: LockOnConfig,
+): T | null {
+  let best: T | null = null;
+  let bestScore = Infinity;
+  for (let i = 0; i < targets.length; i++) {
+    const target = targets[i] as T;
+    if (!target.hittable) continue;
+    const dx = target.x - px;
+    const dz = target.z - pz;
+    const distance = Math.sqrt(dx * dx + dz * dz);
+    if (distance > cfg.range || distance < 1e-6) continue;
+    const off = Math.abs(angleDelta(viewYaw, Math.atan2(dx, dz)));
+    if (off > cfg.pickHalfArc) continue;
+    // Both parts are fractions of what is allowed, so they weigh the same.
+    const score = off / cfg.pickHalfArc + distance / cfg.range;
+    if (score < bestScore) {
+      bestScore = score;
+      best = target;
+    }
+  }
+  return best;
+}
+
+/**
+ * Should the lock break? It does when the target cannot be hit any more (defeated, gone, safe
+ * in the elven city), when it is further away than `breakRange`, or when you look too far away
+ * from it (concept: looking away means missing).
+ */
+export function lockBroken(
+  target: LockTarget,
+  px: number,
+  pz: number,
+  viewYaw: number,
+  cfg: LockOnConfig,
+): boolean {
+  if (!target.hittable) return true;
+  const dx = target.x - px;
+  const dz = target.z - pz;
+  if (dx * dx + dz * dz > cfg.breakRange * cfg.breakRange) return true;
+  if (dx * dx + dz * dz < 1e-12) return false;
+  return Math.abs(angleDelta(viewYaw, Math.atan2(dx, dz))) > cfg.maxOffView;
+}
+
+/** The heading from the player to a target (what an attack or shot aims at). */
+export function headingTo(
+  px: number,
+  pz: number,
+  tx: number,
+  tz: number,
+  fallback: number,
+): number {
+  const dx = tx - px;
+  const dz = tz - pz;
+  if (dx * dx + dz * dz < 1e-12) return fallback;
+  return Math.atan2(dx, dz);
+}
+
+/**
+ * The camera yaw that keeps a locked target in view: turns `yaw` towards the target, at most
+ * `cfg.cameraFollowRadians` per second (per second, so 60 and 120 fps follow equally fast).
+ * The player can still turn the camera themselves; this only pulls it along.
+ */
+export function followLockedTarget(
+  yaw: number,
+  px: number,
+  pz: number,
+  target: LockTarget,
+  cfg: LockOnConfig,
+  seconds: number,
+): number {
+  const wanted = headingTo(px, pz, target.x, target.z, yaw);
+  const delta = angleDelta(yaw, wanted);
+  const most = cfg.cameraFollowRadians * seconds;
+  return angleDelta(0, yaw + Math.max(-most, Math.min(most, delta)));
+}

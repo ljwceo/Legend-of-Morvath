@@ -6,13 +6,14 @@ export interface TouchLabels {
   heavy: string;
   dash: string;
   potion: string;
+  lock: string;
 }
 
 /**
  * On-screen controls for touch screens: the joystick (drawn where the thumb went down, lower
- * left) and the attack, heavy-hit, dash and drink buttons (lower right; drink only while you
- * carry a potion, with the number on it). Both sit in fixed safe zones that the HUD must never
- * cover (see --joystick-zone-* and --button-zone-* in ui.css).
+ * left) and the attack, heavy-hit, dash, lock-on and drink buttons (lower right; drink only
+ * while you carry a potion, with the number on it). Both sit in fixed safe zones that the HUD
+ * must never cover (see --joystick-zone-* and --button-zone-* in ui.css).
  * The touch input itself is handled by Input; this class only draws it.
  */
 export class TouchControls {
@@ -23,7 +24,9 @@ export class TouchControls {
   private readonly attack: HTMLButtonElement;
   private readonly heavy: HTMLButtonElement;
   private readonly potion: HTMLButtonElement;
+  private readonly lock: HTMLButtonElement;
   private readonly potionCount: HTMLElement;
+  private lockedShown = false;
   private potionShown = -1;
   private shownJoystick = false;
   private shownButtons = false;
@@ -46,6 +49,7 @@ export class TouchControls {
     this.heavy = this.actionButton('ui-heavy-button', 'heavy');
     this.dash = this.actionButton('ui-dash-button', 'dash');
     this.potion = this.actionButton('ui-potion-button', 'potion');
+    this.lock = this.actionButton('ui-lock-button', 'lock');
     this.potionCount = el('span', { className: 'ui-potion-count' });
     this.potion.append(this.potionCount);
     this.setPotions(0);
@@ -58,6 +62,7 @@ export class TouchControls {
       this.heavy,
       this.dash,
       this.potion,
+      this.lock,
     );
     // Phones and tablets show the buttons from the start; other devices after the first touch.
     this.shownButtons = window.matchMedia('(pointer: coarse)').matches;
@@ -72,8 +77,22 @@ export class TouchControls {
     set(this.attack, labels.attack);
     set(this.heavy, labels.heavy);
     set(this.dash, labels.dash);
+    set(this.lock, labels.lock);
     // The drink button shows a flask and the count; the label is for screen readers.
     this.potion.setAttribute('aria-label', labels.potion);
+  }
+
+  /** Hides the lock-on button where there is nothing to lock on to (the intro fight). */
+  setLockVisible(visible: boolean): void {
+    this.lock.hidden = !visible;
+  }
+
+  /** Lights the lock-on button while you are locked on to an enemy. */
+  setLocked(locked: boolean): void {
+    if (locked === this.lockedShown) return;
+    this.lockedShown = locked;
+    this.lock.classList.toggle('ui-touch-button-active', locked);
+    this.lock.setAttribute('aria-pressed', String(locked));
   }
 
   /** Number of potions the drink key would use; the button hides at 0. */

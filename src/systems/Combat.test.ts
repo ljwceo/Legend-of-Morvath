@@ -9,6 +9,7 @@ import {
   fastHitDamage,
   heavyHitDamage,
   inSwingArc,
+  regenMana,
   regenOutOfCombat,
   type SwordInput,
   type SwordResult,
@@ -46,6 +47,20 @@ function run(
   }
   return hits;
 }
+
+describe('mana regen', () => {
+  it('trickles back very slowly, in a fight as well, and never above the maximum', () => {
+    const { c } = fresh();
+    c.mana = 0;
+    c.sinceCombat = 0;
+    const perSecond = player.regen.manaPerSecond;
+    for (let i = 0; i < 60; i++) regenMana(c, perSecond, DT);
+    expect(c.mana).toBeCloseTo(perSecond, 6);
+    c.mana = c.maxMana;
+    regenMana(c, perSecond, DT);
+    expect(c.mana).toBe(c.maxMana);
+  });
+});
 
 describe('sword numbers (concept)', () => {
   it('fast hit 10, every 3rd hit in a row +50 %, +2 per level', () => {

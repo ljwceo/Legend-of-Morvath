@@ -1,8 +1,9 @@
 /** Game actions, independent of key, button or (later) gamepad. */
 /** `down` only matters while flying (debug cheat): Shift or C. */
 /** `confirm`: Enter, or a left click while the mouse is captured (e.g. next dialogue line). */
+/** `lock`: lock-on, the middle mouse button or Tab (on a phone its own button). */
 export type Action =
-  'dash' | 'interact' | 'down' | 'confirm' | 'attack' | 'heavy' | 'potion' | 'bag';
+  'dash' | 'interact' | 'down' | 'confirm' | 'attack' | 'heavy' | 'potion' | 'bag' | 'lock';
 
 /** Turning and zoom gathered since the camera last read them. */
 export interface LookDelta {
@@ -43,6 +44,7 @@ const ACTION_KEYS: Readonly<Record<string, Action>> = {
   KeyQ: 'potion',
   KeyI: 'bag',
   KeyB: 'bag',
+  Tab: 'lock',
   Enter: 'confirm',
   NumpadEnter: 'confirm',
   ShiftLeft: 'down',
@@ -50,7 +52,15 @@ const ACTION_KEYS: Readonly<Record<string, Action>> = {
   KeyC: 'down',
 };
 /** Keys whose browser default (scrolling) must not happen during play. */
-const BLOCK_DEFAULT = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+const BLOCK_DEFAULT = new Set([
+  'Space',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  // Tab would move the focus out of the game (and show the browser's focus ring).
+  'Tab',
+]);
 /** Pixels per wheel "line" when the browser reports lines instead of pixels. */
 const WHEEL_LINE_PX = 40;
 const WHEEL_NOTCH_PX = 100;
@@ -69,7 +79,7 @@ const JOYSTICK_ZONE_TOP = 0.5;
  * here later without touching game code.
  *
  * - Keyboard: WASD / arrows to walk, Space to dash, E to interact, Enter to confirm, Q to drink
- *   a potion, I or B for the bag.
+ *   a potion, I or B for the bag, Tab to lock on to an enemy.
  * - Mouse (like Genshin Impact): click once to capture the mouse (pointer lock); from then on
  *   moving the mouse turns the camera without holding a button. Escape releases it (the browser
  *   does that itself). Without the lock, dragging with the right button also turns. Wheel zooms.
@@ -293,17 +303,21 @@ export class Input {
     const id = event.pointerId;
     if (event.pointerType === 'mouse') {
       if (this.pointerLocked) {
-        // A click is a single press; nothing stays held. Left = fast hit (and "next" in a
-        // conversation), right = heavy hit.
+        // Left = fast hit / Arcane Shard (and "next" in a conversation), right = heavy hit or
+        // spell. Both stay held while the button is down, so you can keep attacking and charge
+        // a spell; the middle button is a single press (lock-on).
         if (event.button === 0) {
           this.tap('confirm');
-          this.tap('attack');
+          this.press('attack');
         } else if (event.button === 2) {
-          this.tap('heavy');
+          this.press('heavy');
+        } else if (event.button === 1) {
+          this.tap('lock');
         }
         return;
       }
-      if (event.button === 0) this.requestPointerLock();
+      if (event.button === 1) this.tap('lock');
+      else if (event.button === 0) this.requestPointerLock();
       else if (event.button === 2 && this.lookPointer === null) {
         this.startLook(event, this.cfg.rotateRadiansPerPixelMouse);
       }
@@ -391,6 +405,12 @@ export class Input {
 
   private readonly onPointerUp = (event: PointerEvent): void => {
     const id = event.pointerId;
+    if (event.pointerType === 'mouse' && this.pointerLocked) {
+      // Letting go of the mouse stops attacking (and fires a charged spell).
+      if (event.button === 0) this.release('attack');
+      else if (event.button === 2) this.release('heavy');
+      return;
+    }
     if (id === this.joystickPointer) {
       this.joystickPointer = null;
       this.joystick.active = false;

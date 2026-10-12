@@ -207,7 +207,8 @@
     "pack": "Open de tas van {name}",
     "packInCombat": "Nu niet, je bent in een gevecht.",
     "packTooHeavy": "{name} kan niet zoveel dragen.",
-    "packWorn": "Doe het eerst uit."
+    "packWorn": "Doe het eerst uit.",
+    "noMana": "Niet genoeg mana."
   },
   "dialog": {
     "next": "Verder",
@@ -357,10 +358,16 @@
       "desc": "Kleverige gel die een slime achterlaat."
     },
     "health_potion": {
-      "desc": "Herstelt 50 HP."
+      "desc": "Vult 50% van je HP aan."
     },
     "greater_health_potion": {
-      "desc": "Herstelt 120 HP."
+      "desc": "Vult je HP helemaal aan."
+    },
+    "mana_potion": {
+      "desc": "Vult 30% van je mana aan."
+    },
+    "greater_mana_potion": {
+      "desc": "Vult 60% van je mana aan."
     },
     "honed_old_sword": {
       "desc": "Je oude zwaard, geslepen door Hilda. Elke slag doet 3 schade meer."
@@ -552,7 +559,10 @@
     "clickToLook": "Klik om rond te kijken · Esc voor het menu",
     "attack": "Slaan",
     "heavy": "Zwaar",
-    "potion": "Drankje drinken"
+    "potion": "Drankje drinken",
+    "shard": "Shard",
+    "spell": "Spreuk",
+    "lock": "Lock-on"
   },
   "cheats": {
     "debugView": "Debugvenster",
@@ -610,7 +620,16 @@
     "path_none": "Geen",
     "path_sword": "Zwaard",
     "path_light": "Licht",
-    "path_dark": "Duister"
+    "path_dark": "Duister",
+    "grantStaff": "Staf",
+    "spell": "Spreuk (staf)",
+    "spellNone": "Geen",
+    "spellNote": "De rechterknop spreekt deze spreuk uit. Je krijgt er een staf bij.",
+    "aim": "Richthulp",
+    "aimNote": "Vermenigvuldigers op de getallen in player.json, om te vinden wat goed voelt.",
+    "aimAssist": "Richtkegel",
+    "lockRange": "Lock-on bereik",
+    "homing": "Schoten krommen"
   },
   "bag": {
     "title": "Tas",

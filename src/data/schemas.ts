@@ -475,6 +475,8 @@ export const playerFileSchema = z.strictObject({
   xpToNextLevel: atLeast(z.array(posInt)),
   regen: z.strictObject({
     hpPerSecondOutOfCombat: nonNegative,
+    /** Mana comes back very slowly, in a fight as well; potions are the quick way. */
+    manaPerSecond: max(nonNegative, 100),
     energyPerSecond: positive,
     energyDelaySeconds: max(nonNegative, 10),
   }),
@@ -584,6 +586,53 @@ export const playerFileSchema = z.strictObject({
     heavyMoveFactor: fraction,
     /** Attacks turn you towards the nearest enemy within this range and angle. */
     aimAssist: z.strictObject({ range: max(nonNegative, 20), arcDegrees: range(0, 360) }),
+  }),
+  /**
+   * Fighting with a staff (a mage): the Arcane Shard costs no mana and is the basic attack;
+   * spells come from spells.json. Shots fly (speed, range), so they can miss.
+   */
+  staff: z.strictObject({
+    shard: z.strictObject({
+      damage: positive,
+      damagePerLevel: nonNegative,
+      manaCost: nonNegative,
+      maxPerSecond: max(positive, 10),
+      /** The staff lights up this long before the shard leaves it. */
+      windupSeconds: max(nonNegative, 5),
+      speed: max(positive, 100),
+      /** How far a shard flies before it fizzles out (m). */
+      range: max(positive, 100),
+      /** Half the thickness of the shot for hit tests (m). */
+      radius: max(positive, 5),
+      /** How fast a shot may curve towards a locked target (0 = never curves). */
+      homingDegreesPerSecond: max(nonNegative, 720),
+    }),
+    /** After a spell you cannot attack for this long (s). */
+    castRecoverySeconds: max(nonNegative, 5),
+    /** Walking speed factor while a shard or spell is on its way out. */
+    castMoveFactor: fraction,
+    /** A press while the staff is not ready is remembered this long (s), then done. */
+    inputBufferSeconds: max(nonNegative, 2),
+    /** Shots leave the staff this high (m) above the feet. */
+    shotHeight: max(nonNegative, 5),
+    /** Without lock-on, shots aim at the nearest enemy within this range and angle. */
+    aimAssist: z.strictObject({ range: max(nonNegative, 100), arcDegrees: range(0, 360) }),
+  }),
+  /**
+   * Lock-on (middle mouse button, Tab or the button on a phone): the camera keeps the target in
+   * view and shots curve towards it. The same numbers on every graphics preset.
+   */
+  lockOn: z.strictObject({
+    /** Enemies within this distance (m) can be locked on to. */
+    range: max(positive, 200),
+    /** The lock breaks beyond this distance (m); must be at least `range`. */
+    breakRange: max(positive, 300),
+    /** Picking a target only looks this wide around where the camera looks. */
+    pickArcDegrees: range(1, 360),
+    /** Looking further than this away from the target breaks the lock. */
+    maxOffViewDegrees: range(1, 180),
+    /** How fast the camera turns along to keep the target in view. */
+    cameraFollowDegreesPerSecond: max(nonNegative, 1440),
   }),
   combat: z.strictObject({
     /** You count as "in a fight" until this long after the last hit given or taken. */
@@ -829,11 +878,16 @@ const itemSchema = z.strictObject({
       moveSpeedPercent: optional(max(nonNegative, 100)),
     }),
   ),
-  /** What drinking it restores (potions only). */
+  /**
+   * What drinking it restores (potions only). The percentages are of your maximum, so a potion
+   * keeps up as your HP and mana bars grow with your level; `hp` and `mana` are flat amounts.
+   */
   potion: optional(
     z.strictObject({
       hp: optional(max(nonNegative, 100_000)),
       mana: optional(max(nonNegative, 100_000)),
+      hpPercent: optional(range(0, 100)),
+      manaPercent: optional(range(0, 100)),
     }),
   ),
 });
@@ -1059,6 +1113,27 @@ export const spellsFileSchema = z.strictObject({
       range: max(positive, 100),
       usesPerLevel: posInt,
       perLevel: z.record(z.string(), z.number()),
+      /** Pulling the spell together takes this long (s) before it leaves the staff. */
+      windupSeconds: max(nonNegative, 5),
+      /** How fast the shot flies (m/s): `range` / `speed` is its travel time. */
+      speed: max(positive, 100),
+      /** Half the thickness of the shot for hit tests (m). */
+      radius: max(positive, 5),
+      /** How fast the shot may curve towards a locked target (0 = never curves). */
+      homingDegreesPerSecond: max(nonNegative, 720),
+      /**
+       * Holding the cast button charges the spell. A tap fires it uncharged; holding it for
+       * `maxSeconds` fires the biggest version (and that also lets it go by itself). The
+       * factors say what a full charge does to the damage, the mana it costs, how big the
+       * shot is and how fast it flies.
+       */
+      charge: z.strictObject({
+        maxSeconds: max(positive, 30),
+        damageFactor: range(1, 20),
+        manaFactor: range(1, 20),
+        radiusFactor: range(1, 10),
+        speedFactor: range(1, 10),
+      }),
     }),
   ),
 });

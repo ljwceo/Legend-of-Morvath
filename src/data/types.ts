@@ -13,6 +13,7 @@ export type MonstersFile = GameData['monsters'];
 export type MonsterDef = MonstersFile['monsters'][number];
 export type ItemsFile = GameData['items'];
 export type ItemDef = ItemsFile['items'][number];
+export type PotionDef = NonNullable<ItemDef['potion']>;
 export type AppearanceFile = GameData['appearance'];
 export type QualityFile = GameData['quality'];
 export type QualityPreset = QualityFile['presets'][number];

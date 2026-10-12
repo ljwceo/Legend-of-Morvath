@@ -2,7 +2,7 @@ import type { GameContext } from '../core/GameContext';
 import type { Input } from '../core/Input';
 import { PLAYER_PATHS, type PlayerPath } from '../data/schemas';
 import { DEBUG_VIEWS } from '../render/DebugOverlay';
-import { CHEAT_SPEEDS, type Cheats } from '../systems/Cheats';
+import { CHEAT_AIM_SCALES, CHEAT_LOCK_SCALES, CHEAT_SPEEDS, type Cheats } from '../systems/Cheats';
 import { el } from './dom';
 
 export interface CheatPanelHandlers {
@@ -21,11 +21,17 @@ export interface CheatPanelHandlers {
    * Gives XP, gold, potions, Slime Gel, gear or the pack animal (testing levels, dying,
    * drinking, quests, load, Biscuit).
    */
-  grant(kind: 'xp' | 'gold' | 'potions' | 'slimeGel' | 'gear' | 'packAnimal'): void;
+  grant(kind: 'xp' | 'gold' | 'potions' | 'slimeGel' | 'gear' | 'packAnimal' | 'staff'): void;
   /** Starts the Sultan fight right away (no quests needed). */
   bossFight(): void;
   /** Counts Sultan as defeated without the fight (the teachers ask right away). */
   skipBoss(): void;
+  /** The spells from spells.json, for picking one to carry (step 3.5). */
+  spells(): readonly { id: string; name: string }[];
+  /** The spell the staff carries now, null = none. */
+  spell(): string | null;
+  /** Gives you that spell (with a staff if you have none), or takes it away. */
+  setSpell(spellId: string | null): void;
   /** The chosen path (Your Resolve), null = none yet. */
   path(): PlayerPath | null;
   /** Sets the path or clears it (the teachers ask again). */
@@ -39,7 +45,8 @@ const MEASURE_SECONDS = 20;
 
 /**
  * Debug-only cheat menu for quick testing: walk faster, fly through walls, teleport to a zone,
- * show chunk borders, give XP, gold or potions, pick the debug overlay size. Opens with F6 or the "Cheats" button (both
+ * show chunk borders, give XP, gold, potions or a staff, pick a spell, tune the aim help,
+ * pick the debug overlay size. Opens with F6 or the "Cheats" button (both
  * in debug mode, also when the overlay is hidden). It is a
  * small panel at the side, so the game keeps running behind it. While flying on a touch screen,
  * ▲ / ▼ buttons appear next to the dash button.
@@ -238,6 +245,66 @@ export class CheatPanel {
           chip(t('cheats.grantSlimeGel'), false, () => this.handlers.grant('slimeGel')),
           chip(t('cheats.grantGear'), false, () => this.handlers.grant('gear')),
           chip(t('cheats.grantPackAnimal'), false, () => this.handlers.grant('packAnimal')),
+          chip(t('cheats.grantStaff'), false, () => {
+            this.handlers.grant('staff');
+            this.rebuild();
+          }),
+        ),
+      ),
+      section(
+        t('cheats.spell'),
+        el(
+          'div',
+          { className: 'ui-chips' },
+          chip(t('cheats.spellNone'), this.handlers.spell() === null, () => {
+            this.handlers.setSpell(null);
+            this.rebuild();
+          }),
+          // Spell names stay English in both languages (CLAUDE.md §2.6).
+          ...this.handlers.spells().map((spell) =>
+            chip(spell.name, this.handlers.spell() === spell.id, () => {
+              this.handlers.setSpell(spell.id);
+              this.rebuild();
+            }),
+          ),
+        ),
+        el('p', { className: 'ui-note', text: t('cheats.spellNote') }),
+      ),
+      section(
+        t('cheats.aim'),
+        el('p', { className: 'ui-note', text: t('cheats.aimNote') }),
+        el('p', { className: 'ui-label', text: t('cheats.aimAssist') }),
+        el(
+          'div',
+          { className: 'ui-chips' },
+          ...CHEAT_AIM_SCALES.map((scale) =>
+            chip(`${scale}×`, cheats.aimAssist === scale, () => {
+              cheats.aimAssist = scale;
+              this.changed();
+            }),
+          ),
+        ),
+        el('p', { className: 'ui-label', text: t('cheats.lockRange') }),
+        el(
+          'div',
+          { className: 'ui-chips' },
+          ...CHEAT_LOCK_SCALES.map((scale) =>
+            chip(`${scale}×`, cheats.lockRange === scale, () => {
+              cheats.lockRange = scale;
+              this.changed();
+            }),
+          ),
+        ),
+        el('p', { className: 'ui-label', text: t('cheats.homing') }),
+        el(
+          'div',
+          { className: 'ui-chips' },
+          ...CHEAT_AIM_SCALES.map((scale) =>
+            chip(`${scale}×`, cheats.homing === scale, () => {
+              cheats.homing = scale;
+              this.changed();
+            }),
+          ),
         ),
       ),
       section(
