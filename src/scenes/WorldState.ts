@@ -3214,6 +3214,8 @@ export class WorldState implements GameState, InstanceHost {
     const progress = session?.progress;
     const level = Math.min(data.player.maxLevel, Math.max(1, progress?.level ?? 1));
     this.applyGearStats(combat);
+    // Your points decide the maxima too, so they come before HP and mana are filled.
+    this.applyStatEffects(combat);
     applyStats(combat, data.player, level);
     combat.hp = Math.min(combat.maxHp, progress?.hp ?? combat.maxHp);
     combat.mana = Math.min(combat.maxMana, progress?.mana ?? combat.maxMana);

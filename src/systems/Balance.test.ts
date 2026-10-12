@@ -14,6 +14,7 @@ import {
   applyStats,
   assistedHeading,
   CombatState,
+  damageTaken as damageTakenBy,
   inSwingArc,
   type SwordResult,
   stepSword,
@@ -27,6 +28,7 @@ import {
   computeStatEffects,
   emptyStatEffects,
   normalizeStatPoints,
+  pointBudget,
   presetPoints,
   type StatPoints,
 } from './Stats';
@@ -112,9 +114,11 @@ function fightSultan(bot: Bot, seed: number, maxSeconds = 400): FightResult {
     mover: free,
     heightAt: () => 0,
     hitPlayer: (_e, damage) => {
-      c.hp -= damage;
+      // Like the world does it: gear and Defense soften the hit first.
+      const taken = damageTakenBy(c, damage);
+      c.hp -= taken;
       hitsTaken++;
-      damageTaken += damage;
+      damageTaken += taken;
     },
     shoot: () => {},
     alert: () => {},
@@ -272,5 +276,76 @@ describe('balance: Sultan (beginner boss)', () => {
     expect(wins.length).toBeGreaterThanOrEqual(SEEDS.length - 2);
     const hpLeft = wins.reduce((a, r) => a + r.hpLeft, 0) / Math.max(1, wins.length);
     expect(hpLeft).toBeLessThan(80);
+  });
+});
+
+/**
+ * Extreme builds (fase 3.7): everything in one stat. The point of the check is that none of
+ * them breaks the fight — no build walks over Sultan, and no build is simply stuck.
+ */
+describe('balance: extreme builds against Sultan', () => {
+  const extreme = (statId: string, level = 3) =>
+    normalizeStatPoints(stats, { [statId]: pointBudget(stats, level) }, level);
+  const bot = (statId: string) => ({
+    level: 3,
+    weaponBonus: HONED_BONUS,
+    dodges: true,
+    reaction: 0.3,
+    points: extreme(statId),
+  });
+
+  it('all in Power hits hard but has nothing to take hits with', () => {
+    const results = SEEDS.map((seed) => fightSultan(bot('power'), seed));
+    console.log(`all Power, level 3: ${summary(results)}`);
+    const balanced = SEEDS.map((seed) =>
+      fightSultan(
+        {
+          level: 3,
+          weaponBonus: HONED_BONUS,
+          dodges: true,
+          reaction: 0.3,
+          points: build('sword_fighter', 3, { hp: 1, power: 1 }),
+        },
+        seed,
+      ),
+    );
+    const seconds = (list: FightResult[]) => {
+      const wins = list.filter((r) => r.won);
+      return wins.reduce((a, r) => a + r.seconds, 0) / Math.max(1, wins.length);
+    };
+    // Faster than a spread build, but never a walkover: the fight still takes half a minute.
+    expect(seconds(results)).toBeLessThan(seconds(balanced));
+    expect(seconds(results)).toBeGreaterThan(30);
+  });
+
+  it('all in HP survives everything but needs much longer', () => {
+    const results = SEEDS.map((seed) => fightSultan(bot('hp'), seed, 600));
+    console.log(`all HP, level 3: ${summary(results)}`);
+    // Still gets through — slowly — and keeps plenty of HP while doing it.
+    expect(results.filter((r) => r.won).length).toBeGreaterThanOrEqual(SEEDS.length - 1);
+    const wins = results.filter((r) => r.won);
+    expect(wins.reduce((a, r) => a + r.seconds, 0) / wins.length).toBeGreaterThan(90);
+  });
+
+  it('all in Defense takes clearly less damage', () => {
+    const results = SEEDS.map((seed) => fightSultan(bot('defense'), seed, 600));
+    console.log(`all Defense, level 3: ${summary(results)}`);
+    const plain = SEEDS.map((seed) => fightSultan(bot('luck'), seed, 600));
+    const damage = (list: FightResult[]) =>
+      list.reduce((a, r) => a + r.damageTaken, 0) / list.length;
+    expect(damage(results)).toBeLessThan(damage(plain));
+  });
+
+  it('a build with nothing spent is weak but not hopeless', () => {
+    const results = SEEDS.map((seed) =>
+      fightSultan(
+        { level: 3, weaponBonus: HONED_BONUS, dodges: true, reaction: 0.3, points: {} },
+        seed,
+        600,
+      ),
+    );
+    console.log(`nothing spent, level 3: ${summary(results)}`);
+    // It can be done, but you feel every missing point: this is the floor of the balance.
+    expect(results.some((r) => r.won)).toBe(true);
   });
 });
