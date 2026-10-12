@@ -13,6 +13,7 @@
 | Kerk | noord, x −12…14 | Middenschip + zijbeuken, ronde apsis (oost), poort + roosvenster (west), klokkentoren met spits (NW) |
 | Kloostergang | midden, 20 × 20 m | Overdekte gangen met rondbogen, binnentuin met kruidenbedden, waterput, lantaarns |
 | Oostvleugel | x 10…22, y −10…10 | **Van binnen speelbaar**: hal + 6 kamers (zie hieronder) |
+| Alle andere gebouwen | | Sinds 2026-10-12 ook van binnen te bezoeken (zie "Kerk, eetzaal, westvleugel en toren – binnen") |
 | Eetzaal (Refectory) | zuid, x −10,6…22 | Loopt door tot de oostmuur, zodat de hoek dicht is |
 | Westvleugel | west | Voorraad/gasten, grote poort naar buiten |
 | **Monastery Garden** | oost + achter de kerk | Vredige tuin met vijver, beekjes, moestuin (zie hieronder) |
@@ -45,6 +46,32 @@ tweede deur aan de oostkant gaat de tuin in.
 | Brother Ansel's Cell | bed, bureau, kist (`MON_NPC_BrotherAnsel`) |
 
 ![Dormitory](monastery/dormitory.png)
+
+## Kerk, eetzaal, westvleugel en toren – binnen (2026-10-12)
+
+Alle gebouwen zijn nu van binnen te bezoeken, net als de oostvleugel: muren 0,6 m, echte gaten voor ramen en deuren,
+houten plankenvloeren (3 houttinten, net als de oostvleugel) en balkenplafonds. Backup: `Monastery_backup_before_interiors2.blend`.
+
+| Gebouw | Binnen | Markers |
+|---|---|---|
+| Kerk | Middenschip met houten balkenplafond, 2 zijbeuken (5 bogen per kant), koorboog naar de apsis, verhoogd koor met altaar, kaarsen en lessenaar, 28 kerkbanken met middenpad, hangende lantaarns. Ramen, roosvenster en portaal zijn echte openingen | `MON_Room_Church`, `MON_Room_Sanctuary` |
+| Eetzaal (Refectory) | Lange zaal met 2 rijen lange tafels + banken, kommen en bekers, verhoogde tafel van de abt, haard met ketel onder de schoorsteen, voorleespreekstoel, rek met kommen. Deur naar de kloostergang en een keukendeur naar de westvleugel | `MON_Room_Refectory` |
+| Westvleugel | Poortdoorgang (buitenpoort → kloostergang) met zijdeuren. Beneden: voorraadkamer (vaten, kisten, zakken, planken) en gastenzaal (tafel, banken, haard). Trap naar boven: gastenslaapzaal (4 bedden + kisten) en graanzolder. 2 nieuwe deuren naar de kloostergang | `MON_Room_StoreRoom`, `MON_Room_GuestHall`, `MON_Room_GuestDormitory`, `MON_Room_Granary`, `MON_Room_GatePassage` |
+| Toren | Deur vanuit de noordbeuk van de kerk, houten wenteltrap langs de muren (74 treden) naar de klokkenvloer op 15 m, open klokkengaten aan 4 kanten | `MON_Room_TowerBase`, `MON_Room_Belfry` |
+
+## Extra stenen (2026-10-12)
+
+- **Nieuwe soorten en dikker:** in de bestaande muurstenen steekt ±22 % verder uit (3–8 cm extra), ±10 % is een **kei**
+  (bolle voorkant) en ±9 % is een **mossteen** (mos op de bovenrand), alleen onder 4,5 m.
+- **Hoekstenen (quoins):** grote lichte gehouwen stenen, om en om lang/kort, op alle buitenhoeken (234 lagen).
+- **Raamomlijstingen:** bij 36 ramen (kerk, eetzaal, westvleugel, torenspleten) zijstenen om en om, een boog van 7
+  stenen met een grotere sluitsteen, en een vensterbank. Kleur: `GH_Monastery_Stone_Dressed` / `_Dressed2`.
+- Object `MON_Stones_Extra` (±8.700 vertices). De stenen voor de 2 nieuwe deuren naar de kloostergang zijn weggehaald.
+
+![Kerk binnen](monastery/church_inside.png)
+![Eetzaal](monastery/refectory_inside.png)
+![Toren](monastery/tower_stairs.png)
+![Gehouwen stenen](monastery/dressed_stones.png)
 
 ## Monastery Garden
 

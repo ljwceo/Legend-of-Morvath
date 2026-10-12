@@ -743,4 +743,5 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - Blender (avond): Genshin-look voor de tuin: geschilderde grond + vijverbodem, gras in 3 tinten die de grond volgen, doorzichtig water met diepte, schuimrand en rimpels, 647 bloemenpollen, nieuwe houten boogbruggen en houtplaatje op bankjes/hekjes/moestuin (`12`–`16`). Open vraag 10.
 - Blender (avond): daken met kleurverloop: donker bij de nok, lichter naar de dakrand (`17_roof_gradient.py`).
 - Blender (avond): 62 bosjes in boom-techniek (9/11 kaartjes per bosje, `18_bushes.py`).
+- Blender (avond): kerk, eetzaal, westvleugel en toren van binnen gemaakt (houten vloeren, balkenplafonds, trappen, inrichting, markers `MON_Room_*`) en extra stenen (dikkere stenen, keien, mos, hoekstenen, raamomlijstingen). Scripts `19`–`22`.
 | 10 | Kloostertuin: water met diepte (`WaterDepth`), grond met plaatje + vijverbodem-mix (`BedMix`), houtplaatjes, gras- en bloemenpollen als instances (`GH_Grass_MON_*`, `GH_Flower_MON_*`, `GH_Bush_MON_*`) | Game: watermodus met diepte-alpha, terrein-mix, triplanar voor grond/hout, instancing zoals bij `GH_Tree*`. Zie `docs/MONASTERY.md` |
