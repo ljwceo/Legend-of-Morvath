@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { playerFileSchema, spellsFileSchema } from '../data/schemas';
 import type { PlayerConfig, SpellsFile } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
-import { applyLevel, CombatState } from './Combat';
+import { applyStats, CombatState } from './Combat';
 import {
   affordableCharge,
   chargedManaCost,
@@ -25,14 +25,19 @@ const fireball = cfg.spells.get('fireball') as ShotConfig;
 
 function fresh(level = 1): { state: StaffState; combat: CombatState } {
   const combat = new CombatState();
-  applyLevel(combat, player, level);
+  applyStats(combat, player, level);
   combat.hp = combat.maxHp;
   combat.mana = combat.maxMana;
   return { state: new StaffState(), combat };
 }
 
-const out = (): StaffResult => ({ fired: 'none', shot: null, damage: 0, charge: 0 });
-const press = (shard: boolean, spell = false): StaffInput => ({ shard, spell });
+const out = (): StaffResult => ({ fired: 'none', shot: null, damage: 0, charge: 0, crit: false });
+/** `critRoll` 1 never crits, so the damage in these tests is the plain damage. */
+const press = (shard: boolean, spell = false, critRoll = 1): StaffInput => ({
+  shard,
+  spell,
+  critRoll,
+});
 
 /** Runs `seconds` of steps with the same input; returns every shot that left the staff. */
 function run(
@@ -70,9 +75,10 @@ describe('Arcane Shard', () => {
     expect(fired).toHaveLength(player.staff.shard.maxPerSecond);
   });
 
-  it('does 8 damage at level 1 and +2 per level', () => {
-    expect(shotDamage(cfg.shard, 1)).toBe(8);
-    expect(shotDamage(cfg.shard, 5)).toBe(16);
+  it('does 8 damage with nothing spent and scales with Power, not with a level', () => {
+    expect(shotDamage(cfg.shard)).toBe(8);
+    // Power and Magic Power together, e.g. +25 %: the damage factor does it, never the level.
+    expect(shotDamage(cfg.shard, 1, 0, 1.25)).toBe(10);
   });
 });
 
@@ -204,6 +210,56 @@ describe('charging a spell', () => {
   });
 });
 
+describe('your stats at the staff (fase 3.7)', () => {
+  it('Magic Power makes spells hit harder and the Shard a little', () => {
+    const made = fresh();
+    made.combat.mana = 1000;
+    made.combat.spellFactor = 1.24;
+    // A tap (one step down, then let go) fires the spell uncharged.
+    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    const spell = run(made, 1, press(false));
+    expect(spell[0]?.damage).toBe(Math.round(fireball.damage * 1.24));
+    const shard = run(fresh(), 0.6, press(true));
+    expect(shard[0]?.damage).toBe(cfg.shard.damage);
+    const boosted = fresh();
+    boosted.combat.staffNormalFactor = 1.25;
+    expect(run(boosted, 0.6, press(true))[0]?.damage).toBe(Math.round(cfg.shard.damage * 1.25));
+  });
+
+  it('Luck turns a shot into a critical hit (1.5x), and only on a low roll', () => {
+    const lucky = fresh();
+    lucky.combat.critChance = 0.5;
+    lucky.combat.critFactor = 1.5;
+    const crit = run(lucky, 0.6, press(true, false, 0.1));
+    expect(crit[0]?.crit).toBe(true);
+    expect(crit[0]?.damage).toBe(Math.round(cfg.shard.damage * 1.5));
+    const plain = fresh();
+    plain.combat.critChance = 0.5;
+    const normal = run(plain, 0.6, press(true, false, 0.9));
+    expect(normal[0]?.crit).toBe(false);
+    expect(normal[0]?.damage).toBe(cfg.shard.damage);
+  });
+
+  it('Dexterity makes charging and casting faster, not stronger', () => {
+    const quick = fresh();
+    quick.combat.mana = 1000;
+    quick.combat.attackSpeedFactor = 2;
+    const max = fireball.charge?.maxSeconds ?? 0;
+    // At twice the speed a full charge is ready in half the time.
+    const fired = run(quick, max / 2 + 0.2, press(false, true));
+    expect(fired).toHaveLength(1);
+    expect(fired[0]?.charge).toBeCloseTo(1, 2);
+    expect(fired[0]?.damage).toBe(Math.round(fireball.damage * 2.5));
+  });
+
+  it('fires more Shards per second with Dexterity', () => {
+    const slow = run(fresh(), 2, press(true)).length;
+    const quick = fresh();
+    quick.combat.attackSpeedFactor = 2;
+    expect(run(quick, 2, press(true)).length).toBeGreaterThan(slow);
+  });
+});
+
 describe('power curves (light and dark)', () => {
   it('dark starts strong and gets weaker, light the other way round', () => {
     expect(powerFactor(spells.powerCurves, 'dark', 1)).toBeGreaterThan(
@@ -220,7 +276,7 @@ describe('power curves (light and dark)', () => {
   });
 
   it('multiplies the damage of a shot', () => {
-    expect(shotDamage(fireball, 1, 1.3)).toBe(Math.round(fireball.damage * 1.3));
+    expect(shotDamage(fireball, 1.3)).toBe(Math.round(fireball.damage * 1.3));
   });
 });
 

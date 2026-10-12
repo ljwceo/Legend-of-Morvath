@@ -6,12 +6,10 @@ const DEG = Math.PI / 180;
 export interface SwordConfig {
   fastDamage: number;
   fastEnergyCost: number;
-  fastDamagePerLevel: number;
   /** Seconds between two fast hits (1 / maxPerSecond). */
   fastInterval: number;
   heavyDamage: number;
   heavyEnergyCost: number;
-  heavyDamagePerLevel: number;
   heavyWindupSeconds: number;
   heavyRecoverySeconds: number;
   comboEveryNthHit: number;
@@ -35,11 +33,9 @@ export function swordConfig(player: PlayerConfig): SwordConfig {
   return {
     fastDamage: s.fastHit.damage,
     fastEnergyCost: s.fastHit.energyCost,
-    fastDamagePerLevel: s.fastHit.damagePerLevel,
     fastInterval: 1 / s.fastHit.maxPerSecond,
     heavyDamage: s.heavyHit.damage,
     heavyEnergyCost: s.heavyHit.energyCost,
-    heavyDamagePerLevel: s.heavyHit.damagePerLevel,
     heavyWindupSeconds: s.heavyHit.windupSeconds,
     heavyRecoverySeconds: s.heavyRecoverySeconds,
     comboEveryNthHit: s.comboEveryNthHit,
@@ -72,6 +68,24 @@ export class CombatState {
   gearMana = 0;
   damageFactor = 1;
   damageTakenFactor = 1;
+  /**
+   * Your stat points (fase 3.7): extra max HP and mana, and what Power, Magic Power,
+   * Dexterity and Luck make of your attacks. All 1 / 0 for a character without points,
+   * so the numbers in player.json are what a build with nothing spent does.
+   */
+  statHp = 0;
+  statMana = 0;
+  /** Sword swings (Power). */
+  normalFactor = 1;
+  /** The staff's Arcane Shard (Power plus a little Magic Power). */
+  staffNormalFactor = 1;
+  /** Spells (Magic Power). */
+  spellFactor = 1;
+  /** Swings, casts and charging are this much faster (Dexterity); 1 = as the data ships. */
+  attackSpeedFactor = 1;
+  /** Chance (0-1) that a hit is critical (Luck), and what a critical hit multiplies by. */
+  critChance = 0;
+  critFactor = 1.5;
   hp = 0;
   maxHp = 0;
   mana = 0;
@@ -101,29 +115,36 @@ export class CombatState {
   lingerSeconds = 4;
 }
 
-/** Sets HP, mana and their maxima for a level (level 1 = the base values). */
-export function applyLevel(c: CombatState, player: PlayerConfig, level: number): void {
+/**
+ * Sets the level and the maxima: the base from player.json plus your stat points plus worn
+ * gear. A level by itself no longer gives HP, mana or damage (fase 3.7); it only gives the
+ * point you spend yourself.
+ */
+export function applyStats(c: CombatState, player: PlayerConfig, level: number): void {
   c.level = level;
-  c.maxHp = player.base.hp + player.perLevel.hp * (level - 1) + c.gearHp;
-  c.maxMana = player.base.mana + player.perLevel.mana * (level - 1) + c.gearMana;
+  c.maxHp = Math.max(1, Math.round(player.base.hp + c.statHp + c.gearHp));
+  c.maxMana = Math.max(0, Math.round(player.base.mana + c.statMana + c.gearMana));
   c.hp = Math.min(c.hp, c.maxHp);
   c.mana = Math.min(c.mana, c.maxMana);
 }
 
-/** Damage of a fast hit; `comboIndex` is its place in the combo (1, 2, 3, ...). */
+/**
+ * Damage of a fast hit; `comboIndex` is its place in the combo (1, 2, 3, ...) and `factor`
+ * is everything that scales it (Power, worn gear).
+ */
 export function fastHitDamage(
   cfg: SwordConfig,
-  level: number,
   comboIndex: number,
   weaponBonus = 0,
+  factor = 1,
 ): number {
-  const base = cfg.fastDamage + cfg.fastDamagePerLevel * (level - 1) + weaponBonus;
+  const base = cfg.fastDamage + weaponBonus;
   const isComboHit = comboIndex > 0 && comboIndex % cfg.comboEveryNthHit === 0;
-  return Math.round(base * (isComboHit ? 1 + cfg.comboBonus : 1));
+  return Math.max(1, Math.round(base * factor * (isComboHit ? 1 + cfg.comboBonus : 1)));
 }
 
-export function heavyHitDamage(cfg: SwordConfig, level: number, weaponBonus = 0): number {
-  return cfg.heavyDamage + cfg.heavyDamagePerLevel * (level - 1) + weaponBonus;
+export function heavyHitDamage(cfg: SwordConfig, weaponBonus = 0, factor = 1): number {
+  return Math.max(1, Math.round((cfg.heavyDamage + weaponBonus) * factor));
 }
 
 /** Is a circle (tx, tz, radius) inside the swing arc of someone at (px, pz) facing `heading`? */
@@ -167,12 +188,19 @@ export interface SwordResult {
   damage: number;
   /** True for the bonus hit at the end of a combo. */
   combo: boolean;
+  /** True when Luck turned this hit into a critical one (1.5x by default). */
+  crit: boolean;
 }
 
 /** What the player pressed this step. */
 export interface SwordInput {
   fast: boolean;
   heavy: boolean;
+  /**
+   * A fresh random number (0-1) for this step, which decides a critical hit (Luck). The caller
+   * rolls it, so the simulation stays deterministic and testable; 1 never crits.
+   */
+  critRoll: number;
 }
 
 /** Energy is shared with the dash; Movement owns it. */
@@ -199,6 +227,9 @@ export function stepSword(
   out.landed = 'none';
   out.damage = 0;
   out.combo = false;
+  out.crit = false;
+  // Dexterity and (later) perks make every sword timing shorter.
+  const speed = c.attackSpeedFactor > 0 ? c.attackSpeedFactor : 1;
   c.attackCooldown = Math.max(0, c.attackCooldown - dt);
   c.sinceFastHit += dt;
   c.sinceCombat += dt;
@@ -221,11 +252,11 @@ export function stepSword(
     // The heavy hit lands now.
     c.heavyWindup = 0;
     c.swing = 'heavy';
-    c.swingTime = cfg.fastSwingSeconds;
-    c.attackCooldown = cfg.heavyRecoverySeconds;
+    c.swingTime = cfg.fastSwingSeconds / speed;
+    c.attackCooldown = cfg.heavyRecoverySeconds / speed;
     out.landed = 'heavy';
-    out.damage = Math.round(heavyHitDamage(cfg, c.level, c.weaponBonus) * c.damageFactor);
-    return out;
+    out.damage = heavyHitDamage(cfg, c.weaponBonus, c.damageFactor * c.normalFactor);
+    return critHit(c, input, out);
   }
   if (c.attackCooldown > 0) return out;
 
@@ -234,7 +265,7 @@ export function stepSword(
     c.bufferedFast = 0;
     energy.energy -= cfg.heavyEnergyCost;
     energy.sinceEnergySpent = 0;
-    c.heavyWindup = cfg.heavyWindupSeconds;
+    c.heavyWindup = cfg.heavyWindupSeconds / speed;
     c.swing = 'heavy';
     c.swingTime = 0;
     c.comboCount = 0;
@@ -248,14 +279,22 @@ export function stepSword(
     energy.sinceEnergySpent = 0;
     c.comboCount++;
     c.sinceFastHit = 0;
-    c.attackCooldown = cfg.fastInterval * (enough ? 1 : cfg.noEnergySlowdown);
+    c.attackCooldown = (cfg.fastInterval / speed) * (enough ? 1 : cfg.noEnergySlowdown);
     c.swing = 'fast';
-    c.swingTime = cfg.fastSwingSeconds;
+    c.swingTime = cfg.fastSwingSeconds / speed;
     out.landed = 'fast';
-    out.damage = Math.round(
-      fastHitDamage(cfg, c.level, c.comboCount, c.weaponBonus) * c.damageFactor,
-    );
+    out.damage = fastHitDamage(cfg, c.comboCount, c.weaponBonus, c.damageFactor * c.normalFactor);
     out.combo = c.comboCount % cfg.comboEveryNthHit === 0;
+    critHit(c, input, out);
+  }
+  return out;
+}
+
+/** Turns the hit that just landed into a critical one when the roll says so (Luck). */
+function critHit(c: CombatState, input: SwordInput, out: SwordResult): SwordResult {
+  if (out.damage > 0 && input.critRoll < c.critChance) {
+    out.crit = true;
+    out.damage = Math.max(1, Math.round(out.damage * c.critFactor));
   }
   return out;
 }

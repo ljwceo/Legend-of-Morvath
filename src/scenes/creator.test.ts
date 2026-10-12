@@ -12,6 +12,7 @@ import {
   sanitizeName,
   withBodyType,
 } from './creator';
+import { presetPoints, unspentPoints } from '../systems/Stats';
 
 const { data } = validateGameData(readAllData());
 if (!data) throw new Error('data invalid');
@@ -124,6 +125,23 @@ describe('createCharacter', () => {
     );
     expect(character.equipment).toEqual(data.player.start.equipment);
     expect(character.equipment).not.toBe(data.player.start.equipment);
+    const save = createNewSave('en');
+    save.character = character;
+    expect(saveDataSchema.safeParse(save).success).toBe(true);
+  });
+
+  it('starts with nothing spent when no points are given', () => {
+    const character = createCharacter('Lucas', appearance.defaults, data.player);
+    expect(character.stats).toEqual({});
+    expect(unspentPoints(data.stats, 1, character.stats)).toBe(data.stats.startPoints);
+  });
+
+  it('keeps the points you spread in the creator, as a copy', () => {
+    const points = presetPoints(data.stats, 'sword_fighter');
+    const character = createCharacter('Bo', appearance.defaults, data.player, points);
+    expect(character.stats).toEqual(points);
+    expect(character.stats).not.toBe(points);
+    expect(unspentPoints(data.stats, 1, character.stats)).toBe(0);
     const save = createNewSave('en');
     save.character = character;
     expect(saveDataSchema.safeParse(save).success).toBe(true);

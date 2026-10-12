@@ -41,9 +41,13 @@ export function carriedWeight(
   return Math.round(kg * 1000) / 1000;
 }
 
-/** How much you can carry at a level (later also from the skill tree). */
-export function maxLoad(cfg: PlayerConfig['load'], level: number): number {
-  return cfg.baseKg + cfg.perLevelKg * (level - 1);
+/**
+ * How much you can carry: the base from player.json plus whatever Strength adds (`extraKg`).
+ * `perLevelKg` is 0 since fase 3.7 (no automatic growth), but it stays in the data for
+ * balancing.
+ */
+export function maxLoad(cfg: PlayerConfig['load'], level: number, extraKg = 0): number {
+  return cfg.baseKg + cfg.perLevelKg * (level - 1) + extraKg;
 }
 
 /** The load tier for a weight: the first tier whose `maxRatio` is not exceeded (else the last). */

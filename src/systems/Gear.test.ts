@@ -21,7 +21,8 @@ const player = readPublicJson('data/player.json') as PlayerConfig;
 const itemsFile = readPublicJson('data/items.json') as ItemsFile;
 const items = new Map<string, ItemDef>(itemsFile.items.map((item) => [item.id, item]));
 const load = player.load;
-const tierAt = (kg: number, level = 1): string => loadTier(load, kg, maxLoad(load, level)).id;
+const tierAt = (kg: number, level = 1, strengthKg = 0): string =>
+  loadTier(load, kg, maxLoad(load, level, strengthKg)).id;
 
 describe('equip load (like Elden Ring)', () => {
   it('counts weapons and armor, worn or spare; resources and potions weigh nothing', () => {
@@ -51,9 +52,12 @@ describe('equip load (like Elden Ring)', () => {
     expect(tierAt(30.1)).toBe('overloaded');
   });
 
-  it('carries more at a higher level', () => {
-    expect(maxLoad(load, 5)).toBeGreaterThan(maxLoad(load, 1));
-    expect(tierAt(30.1, 5)).toBe('heavy');
+  it('carries more with Strength, not with a level (fase 3.7)', () => {
+    expect(maxLoad(load, 5)).toBe(maxLoad(load, 1));
+    // Strength: 2 kg per point, so 5 points is 10 kg more.
+    expect(maxLoad(load, 1, 10)).toBe(maxLoad(load, 1) + 10);
+    expect(tierAt(30.1)).toBe('overloaded');
+    expect(tierAt(30.1, 1, 10)).toBe('heavy');
   });
 });
 

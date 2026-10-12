@@ -22,6 +22,8 @@ export interface GameEvents {
   monsterDefeated: { monsterId: string };
   xpGained: { amount: number };
   levelUp: { level: number };
+  /** Points were spent in the status window (fase 3.7); quests can listen later. */
+  statsSpent: { level: number };
   /** Items (or gold, as item "gold") went into the bag: loot, rewards, purchases. */
   itemsGained: { itemId: string; count: number };
   potionDrunk: { itemId: string };

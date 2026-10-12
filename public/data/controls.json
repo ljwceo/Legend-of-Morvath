@@ -1,18 +1,65 @@
 {
   "actions": [
-    { "id": "moveForward", "keys": ["KeyW", "ArrowUp"] },
-    { "id": "moveBack", "keys": ["KeyS", "ArrowDown"] },
-    { "id": "moveLeft", "keys": ["KeyA", "ArrowLeft"] },
-    { "id": "moveRight", "keys": ["KeyD", "ArrowRight"] },
-    { "id": "attack", "keys": ["Mouse0"] },
-    { "id": "heavy", "keys": ["Mouse2"] },
-    { "id": "dash", "keys": ["Space"] },
-    { "id": "interact", "keys": ["KeyE"] },
-    { "id": "potion", "keys": ["KeyQ"] },
-    { "id": "bag", "keys": ["KeyI", "KeyB"] },
-    { "id": "lock", "keys": ["Tab", "Mouse1"] },
-    { "id": "lockSwitch", "keys": ["KeyX"] },
-    { "id": "confirm", "keys": ["Enter", "NumpadEnter"] },
-    { "id": "down", "keys": ["ShiftLeft", "KeyC"], "debugOnly": true }
+    {
+      "id": "moveForward",
+      "keys": ["KeyW", "ArrowUp"]
+    },
+    {
+      "id": "moveBack",
+      "keys": ["KeyS", "ArrowDown"]
+    },
+    {
+      "id": "moveLeft",
+      "keys": ["KeyA", "ArrowLeft"]
+    },
+    {
+      "id": "moveRight",
+      "keys": ["KeyD", "ArrowRight"]
+    },
+    {
+      "id": "attack",
+      "keys": ["Mouse0"]
+    },
+    {
+      "id": "heavy",
+      "keys": ["Mouse2"]
+    },
+    {
+      "id": "dash",
+      "keys": ["Space"]
+    },
+    {
+      "id": "interact",
+      "keys": ["KeyE"]
+    },
+    {
+      "id": "potion",
+      "keys": ["KeyQ"]
+    },
+    {
+      "id": "bag",
+      "keys": ["KeyI", "KeyB"]
+    },
+    {
+      "id": "status",
+      "keys": ["KeyP"]
+    },
+    {
+      "id": "lock",
+      "keys": ["Tab", "Mouse1"]
+    },
+    {
+      "id": "lockSwitch",
+      "keys": ["KeyX"]
+    },
+    {
+      "id": "confirm",
+      "keys": ["Enter", "NumpadEnter"]
+    },
+    {
+      "id": "down",
+      "keys": ["ShiftLeft", "KeyC"],
+      "debugOnly": true
+    }
   ]
 }

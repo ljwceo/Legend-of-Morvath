@@ -83,7 +83,55 @@
     "nameEmpty": "Kies eerst een naam.",
     "back": "Terug",
     "dragToTurn": "Sleep om te draaien",
-    "startItems": "Startspullen: {weapon} en {mantle} in je mantelkleur."
+    "startItems": "Startspullen: {weapon} en {mantle} in je mantelkleur.",
+    "next": "Verder: je stats",
+    "backToLooks": "Terug naar je uiterlijk"
+  },
+  "stats": {
+    "title": "Je stats",
+    "hint": "Verdeel je punten. Elk level krijg je er één bij, en hier kun je alles nog veranderen voordat je begint.",
+    "pointsLeft": "{n} punten over",
+    "pointsLeftOne": "1 punt over",
+    "pointsNone": "Alle punten zijn verdeeld.",
+    "spend": "Een punt in {stat} stoppen",
+    "refund": "Een punt uit {stat} terugnemen",
+    "random": "Willekeurig",
+    "clear": "Opnieuw beginnen",
+    "suggestions": "Voorstellen",
+    "softCap": "Boven {n} punten levert een punt minder op.",
+    "desc": {
+      "hp": "Meer maximale HP.",
+      "defense": "Je krijgt minder schade.",
+      "strength": "Je kunt meer dragen.",
+      "power": "Je normale aanvallen doen meer schade, met een zwaard en met een staf.",
+      "mana": "Meer maximale mana.",
+      "magic_power": "Spreuken doen meer schade, en je normale staf-aanval een beetje.",
+      "regen": "Energie komt sneller terug. Een mage krijgt ook mana terug, een zwaardvechter wat health.",
+      "dexterity": "Je slaat, cast en laadt sneller op.",
+      "faith": "Drankjes genezen je meer.",
+      "luck": "Meer kans op een kritieke treffer."
+    },
+    "summary": {
+      "title": "Wat je daarmee krijgt",
+      "hp": "HP {n}",
+      "mana": "Mana {n}",
+      "energy": "Energie {n}",
+      "sword": "Zwaard {fast} / {combo} / {heavy}",
+      "shard": "Arcane Shard {n}",
+      "spell": "Spreuken +{n}%",
+      "damageTaken": "Schade die je krijgt −{n}%",
+      "carry": "Dragen {n} kg",
+      "crit": "Kritiek {n}% ({factor}×)",
+      "attackSpeed": "Aanvalssnelheid +{n}%",
+      "regen": "Regen {hp} HP/s · {mana} mana/s · {energy} energie/s",
+      "potion": "Drankjes +{n}%"
+    }
+  },
+  "status": {
+    "title": "Status",
+    "inCombat": "Niet terwijl je vecht.",
+    "fromGear": "Van je gear",
+    "noGear": "Nog niets."
   },
   "appearance": {
     "body": {
@@ -210,7 +258,10 @@
     "packInCombat": "Nu niet, je bent in een gevecht.",
     "packTooHeavy": "{name} kan niet zoveel dragen.",
     "packWorn": "Doe het eerst uit.",
-    "noMana": "Niet genoeg mana."
+    "noMana": "Niet genoeg mana.",
+    "statPoint": "Je hebt een statpunt. Open je statusvenster met {keyStatus}.",
+    "statPoints": "Je hebt {n} statpunten. Open je statusvenster met {keyStatus}.",
+    "statsReturned": "Levels groeien niet meer vanzelf: je {n} punten mag je zelf verdelen ({keyStatus})."
   },
   "dialog": {
     "next": "Verder",
@@ -586,7 +637,8 @@
       "lock": "Lock-on",
       "lockSwitch": "Volgend doel",
       "confirm": "Bevestigen",
-      "down": "Omlaag vliegen (debug)"
+      "down": "Omlaag vliegen (debug)",
+      "status": "Statusvenster"
     }
   },
   "key": {

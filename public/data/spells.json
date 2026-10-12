@@ -90,9 +90,6 @@
       "damage": 20,
       "range": 15,
       "usesPerLevel": 50,
-      "perLevel": {
-        "damage": 4
-      },
       "windupSeconds": 0.45,
       "speed": 16,
       "radius": 0.45,
@@ -114,9 +111,6 @@
       "damage": 16,
       "range": 18,
       "usesPerLevel": 50,
-      "perLevel": {
-        "damage": 3
-      },
       "windupSeconds": 0.35,
       "speed": 20,
       "radius": 0.35,
@@ -138,9 +132,6 @@
       "damage": 14,
       "range": 14,
       "usesPerLevel": 50,
-      "perLevel": {
-        "damage": 3
-      },
       "windupSeconds": 0.3,
       "speed": 18,
       "radius": 0.3,
@@ -162,9 +153,6 @@
       "damage": 12,
       "range": 20,
       "usesPerLevel": 50,
-      "perLevel": {
-        "damage": 2
-      },
       "windupSeconds": 0.25,
       "speed": 26,
       "radius": 0.3,
@@ -186,9 +174,6 @@
       "damage": 22,
       "range": 16,
       "usesPerLevel": 50,
-      "perLevel": {
-        "damage": 4
-      },
       "windupSeconds": 0.5,
       "speed": 18,
       "radius": 0.45,

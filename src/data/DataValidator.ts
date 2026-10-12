@@ -93,6 +93,7 @@ class CrossChecker {
     this.checkZones();
     this.checkNpcs();
     this.checkPlayer();
+    this.checkStats();
     this.checkMonsters();
     this.checkItems();
     this.checkAppearance();
@@ -274,6 +275,8 @@ class CrossChecker {
     );
     this.unique('role', 'npcs', 'roles', d.npcs.roles);
     this.unique('npc', 'npcs', 'npcs', d.npcs.npcs);
+    this.unique('stat', 'stats', 'stats', d.stats.stats);
+    this.unique('statPreset', 'stats', 'presets', d.stats.presets);
     this.unique('monster', 'monsters', 'monsters', d.monsters.monsters);
     this.unique('rarity', 'items', 'rarities', d.items.rarities);
     this.unique('item', 'items', 'items', d.items.items);
@@ -289,7 +292,6 @@ class CrossChecker {
     this.unique('quest', 'quests', 'quests', d.quests.quests);
     this.unique('element', 'spells', 'elements', d.spells.elements);
     this.unique('spell', 'spells', 'spells', d.spells.spells);
-    this.unique('coreStat', 'skills', 'core.stats', d.skills.core.stats);
     this.unique('branch', 'skills', 'branches', d.skills.branches);
     this.unique('skill', 'skills', 'skills', d.skills.skills);
     this.unique('perk', 'skills', 'perks', d.skills.perks);
@@ -623,6 +625,61 @@ class CrossChecker {
     if (player.staff.shard.manaCost > 0) {
       this.issue(f, 'staff.shard.manaCost', 'the Arcane Shard costs no mana (concept)');
     }
+  }
+
+  /**
+   * The ten stats (fase 3.7): soft caps in order, a cap only lowers what the stat already
+   * gives, and every suggested spread in the creator spends exactly the start points.
+   */
+  private checkStats(): void {
+    const f = 'stats';
+    const s = this.data.stats;
+    s.stats.forEach((def, i) => {
+      // Every stat needs an explanation in the language files (the creator shows it).
+      this.text(f, `stats[${i}].id`, `stats.desc.${def.id}`);
+      if (Object.keys(def.effects).length === 0) {
+        this.issue(f, `stats[${i}].effects`, `stat "${def.id}" does nothing`);
+      }
+      def.softCaps.forEach((cap, j) => {
+        const before = def.softCaps[j - 1]?.fromPoints;
+        if (before !== undefined && cap.fromPoints <= before) {
+          this.issue(f, `stats[${i}].softCaps[${j}].fromPoints`, 'soft caps must go up');
+        }
+        if (cap.fromPoints > s.maxPointsPerStat) {
+          this.issue(
+            f,
+            `stats[${i}].softCaps[${j}].fromPoints`,
+            `beyond maxPointsPerStat (${s.maxPointsPerStat}), so it never applies`,
+          );
+        }
+        for (const key of Object.keys(cap.effects)) {
+          if (!(key in def.effects)) {
+            this.issue(
+              f,
+              `stats[${i}].softCaps[${j}].effects.${key}`,
+              `stat "${def.id}" has no base "${key}" to cap`,
+            );
+          }
+        }
+      });
+    });
+    s.presets.forEach((preset, i) => {
+      let total = 0;
+      for (const [statId, points] of Object.entries(preset.points)) {
+        this.ref('stat', f, `presets[${i}].points.${statId}`, statId);
+        if (points > s.maxPointsPerStat) {
+          this.issue(f, `presets[${i}].points.${statId}`, 'more than maxPointsPerStat');
+        }
+        total += points;
+      }
+      if (total !== s.startPoints) {
+        this.issue(
+          f,
+          `presets[${i}].points`,
+          `spends ${total} points, not startPoints (${s.startPoints})`,
+        );
+      }
+    });
   }
 
   private checkMonsters(): void {
@@ -988,10 +1045,6 @@ class CrossChecker {
   private checkSkills(): void {
     const f = 'skills';
     const s = this.data.skills;
-    s.core.opposites.forEach((pair, i) => {
-      this.ref('coreStat', f, `core.opposites[${i}].a`, pair.a);
-      this.ref('coreStat', f, `core.opposites[${i}].b`, pair.b);
-    });
     s.branches.forEach((branch, i) => {
       this.ref('element', f, `branches[${i}].element`, branch.element);
       if ((branch.requires === 'element') !== (branch.element !== undefined)) {

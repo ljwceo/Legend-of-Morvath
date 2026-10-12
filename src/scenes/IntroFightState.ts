@@ -25,7 +25,7 @@ import { Player } from '../entities/Player';
 import { CameraRig } from '../render/CameraRig';
 import { palette, resolveColorToken } from '../render/palette';
 import {
-  applyLevel,
+  applyStats,
   inSwingArc,
   type SwordConfig,
   type SwordInput,
@@ -143,8 +143,13 @@ export class IntroFightState implements GameState {
   private readonly moveInput = { x: 0, y: 0 };
   private readonly moveWorld = { x: 0, z: 0 };
   private readonly command: MoveCommand = { x: 0, z: 0, dash: false };
-  private readonly swordInput: SwordInput = { fast: false, heavy: false };
-  private readonly swordResult: SwordResult = { landed: 'none', damage: 0, combo: false };
+  private readonly swordInput: SwordInput = { fast: false, heavy: false, critRoll: 1 };
+  private readonly swordResult: SwordResult = {
+    landed: 'none',
+    damage: 0,
+    combo: false,
+    crit: false,
+  };
   private readonly look: LookDelta = { yaw: 0, pitch: 0, zoom: 1 };
   private readonly handPoint = new Vector3();
 
@@ -624,7 +629,7 @@ export class IntroFightState implements GameState {
     player.state.energy = data.player.base.energy;
     this.sword = swordConfig(data.player);
     player.combat.lingerSeconds = this.sword.combatLingerSeconds;
-    applyLevel(player.combat, data.player, 1);
+    applyStats(player.combat, data.player, 1);
     player.combat.hp = player.combat.maxHp;
     scene.add(player.model.root);
     this.player = player;

@@ -104,13 +104,15 @@ export function randomAppearance(data: AppearanceFile, random: Random): Appearan
 }
 
 /**
- * The finished character for the save: name, look, and the start gold, items and equipment
- * from player.json (an old sword and a travel mantle; the mantle takes the chosen color).
+ * The finished character for the save: name, look, the points you spread over the ten stats,
+ * and the start gold, items and equipment from player.json (an old sword and a travel mantle;
+ * the mantle takes the chosen color).
  */
 export function createCharacter(
   name: string,
   appearance: Appearance,
   player: PlayerConfig,
+  stats: Readonly<Record<string, number>> = {},
 ): SaveCharacter {
   const start = player.start;
   return {
@@ -120,6 +122,7 @@ export function createCharacter(
     inventory: start.items.map((entry) => ({ ...entry })),
     equipment: { ...start.equipment },
     pack: [],
+    stats: { ...stats },
     spells: [],
   };
 }

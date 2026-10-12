@@ -6,10 +6,10 @@
 
 | | |
 |---|---|
-| **Huidige fase** | Fase 3.6 – Buttonmapping en lock-on (Elden Ring-stijl) |
-| **Status** | **Fase 3.6 gebouwd (2026-10-12):** elke toets en muisknop is in te stellen (Settings → Besturing, save versie 9) en lock-on werkt als Elden Ring (wit puntje op de vijand, alleen op wie je ziet, lock breekt als er iets tussen de camera en de vijand komt, doel wisselen op een eigen knop). Daarvoor: stap 3.0 t/m 3.5 klaar. Stap 3.5 (vechten met een staf: Arcane Shard, spreuken met opladen en lock-on) gebouwd, plus trage mana-regen en drankjes op percentage; testen kan via het cheatmenu (Geven → Staf, Spreuk). Fase 2, het Blender-Greyhaven en de teksten van de leraren wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
-| **Volgende stap** | **Fase 3.7 – Stats en builds** in een nieuwe chat (prompt hieronder). Bo/Lucas: 3.6 spelen — voelen het puntje, het zicht-breken en de toetsen goed? |
-| **Laatste sessie** | 2026-10-12: fase 3 opgesplitst in 3.6 t/m 3.10 én fase 3.6 gebouwd (buttonmapping + lock-on) |
+| **Huidige fase** | Fase 3.7 – Stats en builds (puntensysteem) |
+| **Status** | **Fase 3.7 gebouwd (2026-10-12):** levels groeien niet meer vanzelf. Je verdeelt **20 punten** in de character creator (nieuwe tweede stap) en krijgt **1 punt per level**; tien stats met zachte grenzen in `stats.json`, een statusvenster op een eigen instelbare toets (standaard **P**, ook in het pauzemenu), save versie 10. Daarvoor: fase 3.6 (buttonmapping + lock-on) en stap 3.0 t/m 3.5 klaar. Fase 2, het Blender-Greyhaven en de teksten van de leraren wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
+| **Volgende stap** | **Fase 3.8 – Entrance Exams, je pad en de stadspoort** in een nieuwe chat (prompt hieronder). Bo/Lucas: 3.7 spelen — voelen de tien stats goed, en is Defense sterk genoeg? (zie open vraag 14) |
+| **Laatste sessie** | 2026-10-12: fase 3.7 gebouwd (stats en builds, puntensysteem) |
 
 ### Open vragen
 
@@ -26,6 +26,7 @@
 | 9 | Schoten vliegen dwars door een vijand die je niet kunt raken (Treewarden in de elfenstad, een baas die ontwijkt); bij het zwaard krijg je dan wel een melding of een "geblokkeerd"-effect | Voorstel: zo laten (je schiet erlangs); zeg het als een schot op zo'n vijand ook moet melden dat hij beschermd is |
 | 10 | De Q-knop (snel drinken) pakt alleen health potions (`player.json` → `potions.quickOrder`). Mana potions drink je uit de tas | Voorstel: zo laten, of een tweede knop/regel ("pak een mana potion als je HP vol is") |
 | 11 | Vallende sakura-blaadjes zijn een Blender-animatie via collection instances. Gaat die mee met de glTF-export, of laat de game de blaadjes zelf vallen? | Nog testen bij het inbouwen in Greyhaven |
+| 14 | **Defense is veel zwakker dan HP.** 22 punten in HP geeft +170 HP (ruim 4× zoveel leven), 22 punten in Defense maar −11% schade. In de balans-test wint "alles in HP" 8/8 en "alles in Defense" 3/8, net als niets besteed | Zo gelaten: dit zijn jouw getallen (−0,5%, boven 35 punten −0,2%, plafond 60% samen met gear), dus Defense is bedoeld als steunstat die pas met gear meetelt. Zeg het als een punt Defense meer moet doen; het is één regel in `stats.json` |
 | 13 | Zit het lock-on-puntje op het midden van de **vijand** of vast in het **midden van je scherm**? | Voorstel en nu afgesproken: op het midden van de vijand (de camera houdt hem toch vast, dus het zit in de praktijk vlak bij het schermmidden). Eén regel anders als Bo een vast vizier wil |
 | 12 | Bomen in de kloostertuin gebruiken nu Genshin-achtige trosjes-kaartjes (plaatje met alpha + bol-normals, `GH_Monastery_Foliage_*`). De game-shader heeft daar nog geen modus voor | Nodig: bladmodus in `ToonMaterial` (plaatje, `discard` op alpha, custom normals, wind; geldt ook voor het gras `GH_Grass_MON_*`) en de export moet UV/normals/plaatje meenemen. Zie `docs/MONASTERY.md` |
 
@@ -37,8 +38,8 @@ Fase 3 bleek te groot voor één reeks, en Bo voegde drie wensen toe (buttonmapp
 
 | Fase | Wat | Was eerst |
 |---|---|---|
-| **3.6** | Buttonmapping (elke knop zelf instellen) + lock-on als Elden Ring | nieuw |
-| **3.7** | Stats en builds: 20 startpunten, 1 punt per level, tien stats | nieuw |
+| **3.6** | Buttonmapping (elke knop zelf instellen) + lock-on als Elden Ring | nieuw (gebouwd 2026-10-12) |
+| **3.7** | Stats en builds: 20 startpunten, 1 punt per level, tien stats | nieuw (**gebouwd 2026-10-12**) |
 | **3.8** | Entrance Exams (9 quests), pad-effecten + Crystal Ceremony, stadspoort open | oude stap 3.6 |
 | **3.9** | Eieren bij mini-bosses + je build opnieuw verdelen bij Sultan | nieuw |
 | **3.10** | Afronden fase 3: balans, Meet 20 s, geheugen, documentatie | oude stap 3.7 |
@@ -593,6 +594,35 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
   - **Doel wisselen** op een eigen, instelbare knop (standaard X): de volgende vijand die je kunt zien, met je huidige doel eruit gelaten. Zonder lock doet hij hetzelfde als de lock-knop.
   - **Cheatmenu → Richthulp** heeft er **Zicht-tolerantie** (0× / 1× / 2× / 5×) bij; 0× is messcherp. De debugregel **`lock`** laat zien op wie je vergrendeld bent, hoe ver, of de camera hem ziet (en hoe lang niet), en zonder lock hoeveel vijanden binnen bereik staan en hoeveel daarvan achter iets staan.
 - **Getest:** 475 tests (mapping, een toets afpakken, de oude toets laat echt los, save 8 → 9, toetslabels per taal, `{key}`-teksten, zicht-tolerantie in seconden gelijk op 60 en 120 fps, markergrootte, validator), lint, opmaak, typecheck en build. Headless Chromium (pc 1100×760, NL): in Settings → Besturing vooruit op T gezet (W doet daarna niets meer, ↑ nog wel), E naar F (het icoontje boven de NPC toont F), een bezette toets afgepakt met melding, F3 geweigerd, Backspace leeg, middelste muisknop gebonden, Terug naar standaard; in het spel bij het slime-erf lock op een slime (puntje 7 px, "in sight"), X wisselt naar de volgende slime, weglopen voorbij 24 m laat los. Geen fouten in de console.
+- **Tijdelijke namen:** geen nieuwe.
+- **Nog niet gemeten:** fps op de pc en de iPhone (zoals heel fase 2 en 3 nog).
+
+### Fase 3.7 – Stats en builds (puntensysteem)
+**Status:** gebouwd op 2026-10-12; wacht op spelen door Bo en Lucas.
+**Gebouwd:**
+- **Levels groeien niet meer vanzelf.** De automatische +10 HP / +5 mana en de schade per level zijn weg (`player.json` → `perLevel`, `sword.*.damagePerLevel`, `staff.shard.damagePerLevel`, en ook `spells.json` → `perLevel`). De oude `core`-statpunten van `skills.json` zijn vervallen; de skill tree van fase 4 gaat alleen nog over skills en perks. **Gold koopt nooit stats of punten.**
+- **Tien stats in `public/data/stats.json`** (alles data, dus altijd bij te schaven):
+
+  | Stat | Eén punt | Zachte grens |
+  |---|---|---|
+  | HP | +8 max HP | boven 20 punten +5 |
+  | Defense | −0,5% schade die je krijgt | boven 35 punten −0,2%, plafond 60% (met gear) |
+  | Strength | +2 kg draaglast | boven 20 punten +1 kg |
+  | Power | +3% schade van normale aanvallen (zwaard én staf) | boven 25 punten +1,5% |
+  | Mana | +4 max mana | boven 20 punten +2 |
+  | Magic Power | +4% spreuken, +1% normale staf-aanval | boven 25 punten de helft |
+  | Regen | +4% energie; **mage** +0,03 mana/s, **zwaardvechter** +0,05 HP/s | boven 20 punten de helft |
+  | Dexterity | +1% aanvalssnelheid (slaan, casten, opladen) | boven 25 punten +0,5% |
+  | Faith | +3% genezing uit drankjes | boven 20 punten +1,5% |
+  | Luck | +0,8% kritieke kans (**crit = altijd 1,5×**) | boven 25 punten +0,4% |
+
+- **20 punten in de character creator**, als tweede stap na je uiterlijk: vrij verdelen met − en +, drie voorstellen (Sword Fighter, Light Mage, Dark Mage), Willekeurig en Opnieuw beginnen, met een samenvatting die live meeloopt (HP, mana, energie, zwaard- en Arcane-Shard-schade, schade die je krijgt, draaglast, kritiek, regen). Het poppetje blijft ernaast draaien.
+- **1 punt per level**, alleen uit XP, met een melding in beeld. **Statusvenster** op de nieuwe actie `status` (standaard **P**, in Settings → Besturing te wijzigen) en in het pauzemenu, zodat het ook op de telefoon kan: level en XP, punten die je nog hebt, de tien stats en wat je gear erbovenop doet. Besteden kan altijd **behalve in een gevecht**; een besteed punt blijft besteed (fase 3.9 laat Sultan dat terugdraaien voor een ei).
+- **Basis opnieuw geijkt:** `base.hp` 52 en `base.mana` 30, fast hit 9 en heavy 22 — dat is wat je hebt met **niets besteed**. Een voorstel uit de creator brengt een level-1 personage terug op de getallen uit het concept (100 HP, 50 mana, fast hit 10; de combo-slag is 16 in plaats van 15). `load.perLevelKg` staat op 0 omdat Strength het gewicht draagt.
+- **Save versie 10:** `character.stats`. Wat je nog mag besteden staat er niet in (dat volgt uit je level), dus de twee kunnen nooit uit elkaar lopen. Een oude save houdt level, pad, gear en quests en krijgt al zijn punten terug met een melding.
+- **Balans gemeten** (`Balance.test.ts`, 8 gevechten per build tegen Sultan): gewone speler 8/8 in 79 s, trage reacties 7/8 in 117 s, button masher 0/8 — net als voor fase 3.7. Extreem: alles in Power 6/8 in 55 s (hard maar breekbaar), alles in HP 8/8 in 95 s (taai en traag), alles in Defense 3/8, niets besteed 3/8. Geen build walst erover heen en geen build loopt vast. De nagebootste speler telt nu ook schadevermindering mee, net als de wereld.
+- **Getest:** 520 tests (zachte grenzen, effecten per pad, puntentelling, verdeling normaliseren, besteden in de wereld, preview tegen de echte gevechtscode, kritieke treffers, Dexterity op zwaard en staf, Strength op draaglast, Faith op drankjes, save 9 → 10, validator), lint, opmaak, typecheck en build. Headless Chromium (pc 1100×760, NL): taal → nieuw spel → creator stap 2 (voorstel Sword Fighter geeft HP 100, zwaard 10/16/25, dragen 34 kg; alles in HP geeft 212 HP), intro overslaan, in de wereld **P** opent het statusvenster met dezelfde getallen, min staat uit (besteed blijft besteed) en plus staat uit zonder punten. Geen fouten in de console.
+- **Gevonden en meteen opgelost:** je begon met 55/100 HP in plaats van vol, omdat de maxima werden gevuld vóórdat de punten meetelden.
 - **Tijdelijke namen:** geen nieuwe.
 - **Nog niet gemeten:** fps op de pc en de iPhone (zoals heel fase 2 en 3 nog).
 

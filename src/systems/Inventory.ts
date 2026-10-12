@@ -79,6 +79,7 @@ export function potionMana(potion: PotionDef, maxMana: number): number {
  * The drink key: the first potion from `order` that is in the bag. Fails when there is none,
  * HP and mana are already full, or the last potion was too recent. On success one potion
  * leaves the bag and HP / mana go up (never above the maximum); `healed` gets what was gained.
+ * `healFactor` is what Faith adds (1 = exactly what the item says).
  */
 export function drinkPotion(
   bag: ItemStack[],
@@ -87,6 +88,7 @@ export function drinkPotion(
   c: CombatState,
   cooldownLeft: number,
   healed: { item: string; hp: number; mana: number },
+  healFactor = 1,
 ): DrinkResult {
   let def: ItemDef | undefined;
   for (let i = 0; i < order.length; i++) {
@@ -98,8 +100,9 @@ export function drinkPotion(
     }
   }
   if (!def?.potion) return 'none';
-  const hp = potionHp(def.potion, c.maxHp);
-  const mana = potionMana(def.potion, c.maxMana);
+  // Faith makes a potion heal more (fase 3.7); 1 = as the item says.
+  const hp = potionHp(def.potion, c.maxHp) * healFactor;
+  const mana = potionMana(def.potion, c.maxMana) * healFactor;
   const helps = (hp > 0 && c.hp < c.maxHp) || (mana > 0 && c.mana < c.maxMana);
   if (!helps) return 'full';
   if (cooldownLeft > 0) return 'cooldown';

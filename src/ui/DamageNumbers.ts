@@ -7,9 +7,9 @@ const POOL_SIZE = 24;
 const LIFE_SECONDS = 0.9;
 const RISE_METERS = 0.9;
 
-/** Hits (normal, combo, heavy, on the player) and other floating texts (healing, XP, loot). */
+/** Hits (normal, combo, heavy, critical, on the player) and other texts (healing, XP, loot). */
 export type DamageKind =
-  'normal' | 'combo' | 'heavy' | 'player' | 'heal' | 'xp' | 'loot' | 'dodged';
+  'normal' | 'combo' | 'heavy' | 'crit' | 'player' | 'heal' | 'xp' | 'loot' | 'dodged';
 
 interface Slot {
   element: HTMLElement;
