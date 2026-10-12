@@ -25,6 +25,10 @@ de maten en lijsten daarvan staan in de tekstblokken in het .blend.
 | `16_genshin_bridges_wood.py` | Nieuwe houten boogbruggen + houtplaatje op bankjes, hekjes, moestuin | `MON_genshin_bridges` |
 | `17_roof_gradient.py` | Daken: donkere leien bovenaan bij de nok, naar de dakrand toe lichter (5 tinten) | `MON_roof_gradient` |
 | `18_bushes.py` | Bosjes in boom-techniek: 9 of 11 grote bladkaartjes (18/22 driehoeken), bol-normals | `MON_bushes` |
+| `19_interiors_hollow.py` | Kerk, eetzaal, westvleugel en toren hol maken (muren 0,6 m) met gaten voor deuren, ramen, bogen (EXACT booleans) | `MON_interiors_hollow` |
+| `20_interiors_floors_stairs.py` | Plankenvloeren, balkenplafonds, verdieping + trap westvleugel, wenteltrap + klokkenvloer toren | `MON_interiors_build` |
+| `21_interiors_props.py` | Inrichting: kerkbanken + altaar, tafels + haard eetzaal, voorraad/gasten westvleugel, toren | `MON_interiors_props` |
+| `22_extra_stones.py` | Extra stenen: dikkere stenen, keien, mosstenen, hoekstenen, stenen rond ramen | `MON_extra_stones` |
 | – | Vorm van de tuin, vijver, beekjes | `MON_garden_layout` |
 
 Gebruik in Blender: open het script in de Scripting-tab en voer het uit, of
