@@ -13,6 +13,7 @@ de maten en lijsten daarvan staan in de tekstblokken in het .blend.
 | `04_wall_stones.py` | Stenen A–C (en funderingsstenen D/E) op de muren | `MON_wall_stones` |
 | `05_garden_pieces.py` | Losse tuinmodellen: bomen, rotsen, fruit, gewassen (3 groeistadia), vogelverschrikker | `MON_garden_pieces` |
 | `06_card_trees.py` | Bomen in Genshin-stijl: kroon van veel losse blad-/bloesemkaartjes (sakura's, eiken, appelboom) | `MON_card_trees` |
+| `07_willow.py` | Treurwilg in kaartjes-stijl met zwaaiende slierten (shape keys) en vuurvliegjes | `MON_willow` |
 | – | Vorm van de tuin, vijver, beekjes | `MON_garden_layout` |
 
 Gebruik in Blender: open het script in de Scripting-tab en voer het uit, of
