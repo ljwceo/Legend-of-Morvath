@@ -644,6 +644,19 @@
       "status": "Statusvenster"
     }
   },
+  "touch": {
+    "title": "Knoppen op het scherm",
+    "open": "Verplaatsen en groter maken…",
+    "size": "Grootte van de knoppen",
+    "side": "Kanten",
+    "sideRight": "Lopen met mijn linkerduim",
+    "sideLeft": "Lopen met mijn rechterduim",
+    "walkHalf": "Lopen",
+    "buttonHalf": "Knoppen",
+    "drag": "Sleep de knoppen waar je ze wil. Ze blijven aan hun eigen kant van de streep.",
+    "reset": "Terug naar standaard",
+    "done": "Klaar"
+  },
   "key": {
     "mouse0": "Linkermuisknop",
     "mouse1": "Middelste muisknop",

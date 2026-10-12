@@ -210,6 +210,21 @@ describe('migrate', () => {
     expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
   });
 
+  it('upgrades a version 10 save: the default on-screen buttons; the other settings stay', () => {
+    const current = sampleSave();
+    const settings: Record<string, unknown> = { ...current.settings, volume: 0.4 };
+    delete settings.touchControls;
+    const v10 = { ...current, version: 10, settings };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v10));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.settings.touchControls).toEqual({ size: 1, mirrored: false, layout: {} });
+    expect(result.save.settings.volume).toBe(0.4);
+  });
+
   it('upgrades a version 8 save: the default keys; the other settings stay', () => {
     const current = sampleSave();
     const settings: Record<string, unknown> = { ...current.settings, volume: 0.4 };

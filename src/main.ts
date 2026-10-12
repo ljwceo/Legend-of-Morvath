@@ -18,6 +18,7 @@ import { IntroState } from './scenes/IntroState';
 import { LanguageSelectState } from './scenes/LanguageSelectState';
 import { TitleState } from './scenes/TitleState';
 import { el } from './ui/dom';
+import { keepScrollOnFocus } from './ui/scroll';
 import { Overlays } from './ui/Overlays';
 import { Stage } from './ui/Stage';
 import './style.css';
@@ -33,6 +34,8 @@ const events = createEventBus();
 const renderer = new Renderer(container);
 const ui = el('div', { className: 'ui-layer' });
 container.append(ui);
+// Tapping a button never drags a panel back to the top (see keepScrollOnFocus).
+keepScrollOnFocus(ui);
 
 const states = new StateMachine<StateId>((from, to) => events.emit('stateChanged', { from, to }));
 
@@ -102,7 +105,7 @@ const ctx: GameContext = {
   perfText: () =>
     perf.running ? `measuring… ${Math.ceil(perf.remaining)} s` : perfLine || 'not measured yet',
   ui,
-  overlays: new Overlays(ui, events),
+  overlays: new Overlays(ui, events, i18n),
   params,
   data: null,
   seasons: null,

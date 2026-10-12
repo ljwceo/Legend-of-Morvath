@@ -164,6 +164,7 @@ import {
 import { statusPanel } from '../ui/menus/StatusPanel';
 import type { Panel } from '../ui/Overlays';
 import { type TouchLabels, TouchControls } from '../ui/TouchControls';
+import { readTouchSettings } from '../ui/TouchLayout';
 import { Checkpoints, checkpointsOf } from '../world/Checkpoints';
 import { ChunkDebug } from '../world/ChunkDebug';
 import type { ConditionContext } from '../world/Conditions';
@@ -536,6 +537,8 @@ export class WorldState implements GameState, InstanceHost {
       {
         joystickRadiusPx: controls.joystickRadiusPx,
         joystickDeadZone: controls.joystickDeadZone,
+        joystickZoneWidth: controls.touch.dividerFraction,
+        joystickZoneTop: controls.touch.joystickZoneTopFraction,
         rotateRadiansPerPixelMouse: camera.rotateRadiansPerPixelMouse,
         rotateRadiansPerPixelTouch: camera.rotateRadiansPerPixelTouch,
         zoomStepPerWheelNotch: camera.zoomStepPerWheelNotch,
@@ -549,7 +552,13 @@ export class WorldState implements GameState, InstanceHost {
       if (this.dialog?.isOpen) this.dialog.close();
       else this.pause();
     };
-    this.touch = new TouchControls(this.input, this.touchLabels(), controls.joystickRadiusPx);
+    this.touch = new TouchControls(
+      this.input,
+      this.touchLabels(),
+      controls.joystickRadiusPx,
+      controls.touch,
+    );
+    this.touch.setSettings(readTouchSettings(session.settings, controls.touch));
     ctx.ui.append(this.touch.root);
 
     this.travelling = false;
@@ -672,7 +681,13 @@ export class WorldState implements GameState, InstanceHost {
         this.iconLabelFor = null;
       }),
       // Other keys (Settings -> Controls): the icon above an NPC shows the new key at once.
-      ctx.events.on('settingsChanged', () => this.hud?.setInteractKey(this.interactKeyLabel())),
+      ctx.events.on('settingsChanged', () => {
+        this.hud?.setInteractKey(this.interactKeyLabel());
+        const touch = this.ctx.data?.player.controls.touch;
+        if (touch && this.touch) {
+          this.touch.setSettings(readTouchSettings(this.ctx.session?.settings, touch));
+        }
+      }),
       // A new graphics preset changes view distance, chunk rings and shadows right away.
       ctx.events.on('qualityChanged', () => this.applyPreset()),
       ctx.events.on('qualityAutoChosen', ({ level, reason }) => {

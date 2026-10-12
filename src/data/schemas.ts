@@ -487,6 +487,13 @@ export const npcsFileSchema = z.strictObject({
 
 // ---------------------------------------------------------------- player.json
 
+/**
+ * The buttons you can see and move on a touch screen (the walking joystick appears wherever
+ * your thumb goes down, so it is not one of them). Order = the order the editor lists them in.
+ */
+export const TOUCH_BUTTONS = ['attack', 'heavy', 'dash', 'potion', 'lock'] as const;
+export type TouchButtonId = (typeof TOUCH_BUTTONS)[number];
+
 export const playerFileSchema = z.strictObject({
   base: z.strictObject({ hp: positive, mana: nonNegative, energy: positive }),
   maxLevel: level,
@@ -571,6 +578,34 @@ export const playerFileSchema = z.strictObject({
     joystickRadiusPx: max(positive, 300),
     /** Joystick input below this fraction counts as standing still. */
     joystickDeadZone: fraction,
+    /** The on-screen buttons on a phone: where they start and how far you may change them. */
+    touch: z.strictObject({
+      /** Range of the button size slider (1 = the 1.5 cm default from the style guide). */
+      sizeMin: range(0.3, 1),
+      sizeMax: range(1, 3),
+      /**
+       * The screen is split here: the walking thumb on one side, the buttons on the other, so
+       * one can never end up on top of the other. Fraction of the width, measured from the
+       * joystick's side. Keep in sync with --joystick-zone-width in ui.css.
+       */
+      dividerFraction: range(0.2, 0.8),
+      /** The joystick only appears below this part of the height; above it you turn the camera. */
+      joystickZoneTopFraction: fraction,
+      /**
+       * Where each button starts, as a fraction of the playing field (the centre of the
+       * button). Always written for a right-handed layout; "swap sides" mirrors it.
+       */
+      buttons: atLeast(
+        z.array(
+          z.strictObject({
+            id: z.enum(TOUCH_BUTTONS),
+            x: fraction,
+            y: fraction,
+          }),
+        ),
+        5,
+      ),
+    }),
   }),
   sword: z.strictObject({
     fastHit: z.strictObject({

@@ -18,6 +18,13 @@ export interface InputConfig {
   rotateRadiansPerPixelMouse: number;
   rotateRadiansPerPixelTouch: number;
   zoomStepPerWheelNotch: number;
+  /**
+   * The walking half: a thumb going down in this fraction of the width, below
+   * `joystickZoneTop` of the height, moves the joystick. Comes from
+   * player.json (`controls.touch`); keep in sync with --joystick-zone-* in ui.css.
+   */
+  joystickZoneWidth: number;
+  joystickZoneTop: number;
 }
 
 /** Joystick state for drawing it (TouchControls) and for movement. */
@@ -49,14 +56,6 @@ const WHEEL_LINE_PX = 40;
 const WHEEL_NOTCH_PX = 100;
 
 /**
- * The joystick appears where a thumb goes down in this part of the screen: the left
- * `JOYSTICK_ZONE_WIDTH` of the width and below `JOYSTICK_ZONE_TOP` of the height.
- * Touches elsewhere turn the camera. Keep in sync with --joystick-zone-* in ui.css.
- */
-const JOYSTICK_ZONE_WIDTH = 0.45;
-const JOYSTICK_ZONE_TOP = 0.5;
-
-/**
  * One input layer for keyboard, mouse and touch. The game asks for actions and a move vector
  * (`getMoveVector`, `isPressed`, `consumePressed`), never for keys, so a gamepad can be added
  * here later without touching game code.
@@ -66,13 +65,16 @@ const JOYSTICK_ZONE_TOP = 0.5;
  * - Mouse (like Genshin Impact): click once to capture the mouse (pointer lock); from then on
  *   moving the mouse turns the camera without holding a button. Escape releases it (the browser
  *   does that itself). Without the lock, dragging with the right button also turns. Wheel zooms.
- * - Touch: a joystick appears where the thumb goes down in the lower left; one finger elsewhere
- *   turns the camera; two fingers pinch to zoom. The dash button (TouchControls) calls `press`.
+ * - Touch: a joystick appears where the thumb goes down in the walking half (lower left, or
+ *   lower right for a left-handed player); one finger elsewhere turns the camera; two fingers
+ *   pinch to zoom. The on-screen buttons (TouchControls) call `press`.
  */
 export class Input {
   readonly joystick: JoystickState = { active: false, originX: 0, originY: 0, knobX: 0, knobY: 0 };
   /** True once any touch was seen (shows the touch buttons). */
   usedTouch = false;
+  /** True for a left-handed layout: the walking half is on the right (Settings). */
+  private mirrored = false;
   /** Called when the mouse lock ends without the game asking (the player pressed Escape). */
   onPointerLockLost: (() => void) | null = null;
 
@@ -298,9 +300,7 @@ export class Input {
     }
 
     this.usedTouch = true;
-    const inJoystickZone =
-      event.clientX < window.innerWidth * JOYSTICK_ZONE_WIDTH &&
-      event.clientY > window.innerHeight * JOYSTICK_ZONE_TOP;
+    const inJoystickZone = this.inJoystickZone(event.clientX, event.clientY);
     if (this.joystickPointer === null && inJoystickZone) {
       this.joystickPointer = id;
       const j = this.joystick;
@@ -320,6 +320,25 @@ export class Input {
       this.capture(event);
     }
   };
+
+  /** Switches the walking half to the other side (Settings -> Buttons on the screen). */
+  setMirrored(mirrored: boolean): void {
+    this.mirrored = mirrored;
+  }
+
+  /**
+   * True where a thumb going down walks instead of turning the camera: the walking half of the
+   * playing field (not the window: a wide monitor has black bars), below the middle.
+   */
+  private inJoystickZone(clientX: number, clientY: number): boolean {
+    const box = this.surface.getBoundingClientRect();
+    const width = box.width || 1;
+    const height = box.height || 1;
+    const x = (clientX - box.left) / width;
+    const y = (clientY - box.top) / height;
+    if (y <= this.cfg.joystickZoneTop) return false;
+    return this.mirrored ? x > 1 - this.cfg.joystickZoneWidth : x < this.cfg.joystickZoneWidth;
+  }
 
   private startLook(event: PointerEvent, radiansPerPixel: number): void {
     this.lookPointer = event.pointerId;

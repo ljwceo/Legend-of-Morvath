@@ -96,7 +96,40 @@
   },
   "controls": {
     "joystickRadiusPx": 56,
-    "joystickDeadZone": 0.12
+    "joystickDeadZone": 0.12,
+    "touch": {
+      "sizeMin": 0.7,
+      "sizeMax": 1.6,
+      "dividerFraction": 0.45,
+      "joystickZoneTopFraction": 0.5,
+      "buttons": [
+        {
+          "id": "attack",
+          "x": 0.912,
+          "y": 0.79
+        },
+        {
+          "id": "heavy",
+          "x": 0.795,
+          "y": 0.8
+        },
+        {
+          "id": "dash",
+          "x": 0.912,
+          "y": 0.536
+        },
+        {
+          "id": "potion",
+          "x": 0.795,
+          "y": 0.536
+        },
+        {
+          "id": "lock",
+          "x": 0.684,
+          "y": 0.8
+        }
+      ]
+    }
   },
   "sword": {
     "fastHit": {

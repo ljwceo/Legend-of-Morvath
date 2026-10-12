@@ -392,16 +392,17 @@
 }
 
 /*
- * Safe zones for touch controls. The joystick appears where the thumb goes down in the lower
- * left (left 45% of the width, lower half — keep in sync with Input.ts); the action
- * buttons sit in the lower right. HUD elements must stay out of both zones.
+ * Safe zones for touch controls. The joystick appears where the thumb goes down in the walking
+ * half (by default the left 45% of the width, lower half — the numbers come from
+ * player.json -> controls.touch); the action buttons sit on the other half, where the player
+ * dragged them. HUD elements must stay out of both zones.
  */
 :root {
   --joystick-zone-width: 45vw;
   --joystick-zone-top: 50vh;
   --button-zone-width: 300px;
   --button-zone-height: 220px;
-  /* Corner the action buttons are placed from (the attack button sits right in it). */
+  /* Corner the default button layout is measured from (the debug fly buttons still use it). */
   --button-right: max(28px, calc(env(safe-area-inset-right) + 12px));
   --button-bottom: max(36px, calc(env(safe-area-inset-bottom) + 16px));
   /*
@@ -496,31 +497,11 @@
   background: color-mix(in srgb, var(--gh-lantaarnamber) 45%, transparent);
 }
 
-/* Attack (biggest, in the corner), heavy hit to its left, dash above it, drink potion diagonally. */
-.ui-attack-button {
-  width: var(--touch-size-big);
-  height: var(--touch-size-big);
-  right: var(--button-right);
-  bottom: var(--button-bottom);
-}
-
-.ui-heavy-button {
-  right: calc(var(--button-right) + var(--touch-size-big) + var(--touch-gap));
-  bottom: var(--button-bottom);
-}
-
-.ui-dash-button {
-  right: calc(var(--button-right) + (var(--touch-size-big) - var(--touch-size)) / 2);
-  bottom: calc(var(--button-bottom) + var(--touch-size-big) + var(--touch-gap));
-}
-
-/* Lock-on: left of the heavy hit; it stays lit while a target is locked. */
-.ui-lock-button {
-  right: calc(
-    var(--button-right) + var(--touch-size-big) + var(--touch-size) + var(--touch-gap) * 2
-  );
-  bottom: var(--button-bottom);
-}
+/*
+ * Where each button sits (and how big it is) comes from TouchControls: the player drags them
+ * where they want and sets one size for all of them (Settings -> Buttons on the screen).
+ * The classes below are only about how they look.
+ */
 
 .ui-touch-button-active {
   background: color-mix(in srgb, var(--gh-ornamentgoud) 40%, transparent);
@@ -528,11 +509,6 @@
 }
 
 /* Drink potion: a flask with the number of potions; hidden without potions. */
-.ui-potion-button {
-  right: calc(var(--button-right) + var(--touch-size-big) + var(--touch-gap));
-  bottom: calc(var(--button-bottom) + var(--touch-size-big) + var(--touch-gap));
-}
-
 .ui-potion-button::before {
   content: '';
   position: absolute;
@@ -2098,4 +2074,146 @@
 #app:has(.ui-overlay) .ui-bag-button,
 #app:has(.ui-overlay) .ui-cheats-button {
   display: none;
+}
+
+/* ------------------------------------------- close button in the corner (2026-10-12) */
+
+/*
+ * Every panel can be closed from the top left corner. On a phone lying down a long panel (the
+ * bag) runs past the bottom edge, so its own Close button can be out of reach; this one never
+ * is (Bo, 2026-10-12).
+ */
+.ui-overlay-close {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  width: var(--touch-size);
+  height: var(--touch-size);
+  font: 700 22px var(--gh-font-stats);
+  color: var(--gh-tekst);
+  background: color-mix(in srgb, var(--gh-panel) 85%, transparent);
+  border: 1px solid var(--gh-koper);
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 60;
+}
+
+.ui-overlay-close:active {
+  background: color-mix(in srgb, var(--gh-lantaarnamber) 45%, transparent);
+}
+
+/* ------------------------------------------- buttons on the screen (2026-10-12) */
+
+/*
+ * The editor for the on-screen buttons (like Brawl Stars): drag the buttons where you want
+ * them, one size slider for all of them, and a divider that keeps the walking thumb and the
+ * buttons apart.
+ */
+.ui-touch-editor {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+/* The editor uses the whole playing field, so what you drag is exactly where it ends up. */
+.ui-overlay:has(.ui-touch-editor) {
+  padding: 0;
+  background: color-mix(in srgb, var(--gh-nachtinkt) 45%, transparent);
+}
+
+/* The real buttons would be drawn under the ones you are dragging. */
+#app:has(.ui-touch-editor) .ui-touch-controls {
+  display: none;
+}
+
+.ui-touch-editor-divider {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-left: 2px dashed color-mix(in srgb, var(--gh-ornamentgoud) 60%, transparent);
+  pointer-events: none;
+}
+
+/* Says which half is which, in the middle of each half. */
+.ui-touch-editor-side {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  padding: 4px 10px;
+  font: 600 13px var(--gh-font-stats);
+  color: var(--gh-tekst-zacht);
+  background: color-mix(in srgb, var(--gh-nachtinkt) 55%, transparent);
+  border-radius: 999px;
+  pointer-events: none;
+  text-align: center;
+}
+
+/* A draggable copy of a button; it lights up while you drag it. */
+.ui-touch-ghost {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  font: 600 14px var(--gh-font-tekst);
+  color: var(--gh-tekst);
+  text-align: center;
+  background: color-mix(in srgb, var(--gh-panel) 70%, transparent);
+  border: 2px solid color-mix(in srgb, var(--gh-ornamentgoud) 70%, transparent);
+  border-radius: 50%;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.ui-touch-ghost-dragging {
+  background: color-mix(in srgb, var(--gh-lantaarnamber) 45%, transparent);
+  border-color: var(--gh-ornamentgoud);
+  cursor: grabbing;
+}
+
+/* The bar with the slider, the swap switch and Done; at the top, out of the thumbs' way. */
+.ui-touch-editor-bar {
+  position: absolute;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px 14px;
+  width: min(640px, calc(100% - 24px));
+  padding: 10px 14px;
+  box-sizing: border-box;
+  background: color-mix(in srgb, var(--gh-panel) 92%, transparent);
+  border: 1px solid var(--gh-koper);
+  border-radius: 8px;
+}
+
+.ui-touch-editor-bar .ui-label {
+  margin: 0;
+}
+
+.ui-touch-editor-bar .ui-slider {
+  width: 160px;
+}
+
+.ui-touch-editor-bar .ui-button {
+  min-height: 40px;
+  padding: 0 14px;
+}
+
+.ui-touch-editor-hint {
+  position: absolute;
+  left: 50%;
+  bottom: max(10px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 6px 12px;
+  background: color-mix(in srgb, var(--gh-nachtinkt) 55%, transparent);
+  border-radius: 999px;
+  pointer-events: none;
 }

@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 10;
+export const SAVE_VERSION = 11;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -32,6 +32,22 @@ export const saveDataSchema = z.object({
      * the defaults from controls.json; unknown actions and codes are skipped on loading.
      */
     keybindings: z.record(z.string(), z.array(z.string())),
+    /**
+     * The on-screen buttons on a phone (Settings -> Buttons on the screen): their size, a
+     * left-handed layout and the places the player dragged them to. An empty layout means the
+     * default places from player.json; unknown button ids are skipped on loading.
+     */
+    touchControls: z.strictObject({
+      size: z.number().check(z.minimum(0.3), z.maximum(3)),
+      mirrored: z.boolean(),
+      layout: z.record(
+        z.string(),
+        z.strictObject({
+          x: z.number().check(z.minimum(0), z.maximum(1)),
+          y: z.number().check(z.minimum(0), z.maximum(1)),
+        }),
+      ),
+    }),
   }),
   /** Null until the character creator is finished (New Game). */
   character: z.nullable(
@@ -124,6 +140,7 @@ export function createNewSave(language: Language, now: Date = new Date()): SaveD
       cameraSensitivity: DEFAULT_CAMERA_SENSITIVITY,
       debug: false,
       keybindings: {},
+      touchControls: { size: 1, mirrored: false, layout: {} },
     },
     character: null,
     progress: freshProgress(),
@@ -188,6 +205,16 @@ export const migrations: Readonly<Record<number, Migration>> = {
   9: (save) => {
     const character = save.character as Record<string, unknown> | null | undefined;
     return { ...save, version: 10, character: character ? { ...character, stats: {} } : null };
+  },
+  // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged
+  // them). Everyone starts on the default size and the default places.
+  10: (save) => {
+    const settings = (save.settings ?? {}) as Record<string, unknown>;
+    return {
+      ...save,
+      version: 11,
+      settings: { ...settings, touchControls: { size: 1, mirrored: false, layout: {} } },
+    };
   },
 };
 

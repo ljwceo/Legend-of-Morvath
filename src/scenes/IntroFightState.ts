@@ -45,6 +45,7 @@ import {
 import { DamageNumbers } from '../ui/DamageNumbers';
 import { button, el } from '../ui/dom';
 import { TouchControls } from '../ui/TouchControls';
+import { readTouchSettings } from '../ui/TouchLayout';
 import type { PointXZ } from '../world/Colliders';
 import { normalizeAppearance } from './creator';
 
@@ -512,6 +513,8 @@ export class IntroFightState implements GameState {
       {
         joystickRadiusPx: controls.joystickRadiusPx,
         joystickDeadZone: controls.joystickDeadZone,
+        joystickZoneWidth: controls.touch.dividerFraction,
+        joystickZoneTop: controls.touch.joystickZoneTopFraction,
         rotateRadiansPerPixelMouse: camera.rotateRadiansPerPixelMouse,
         rotateRadiansPerPixelTouch: camera.rotateRadiansPerPixelTouch,
         zoomStepPerWheelNotch: camera.zoomStepPerWheelNotch,
@@ -529,7 +532,9 @@ export class IntroFightState implements GameState {
         lock: t('controls.lock'),
       },
       controls.joystickRadiusPx,
+      controls.touch,
     );
+    this.touch.setSettings(readTouchSettings(this.ctx.session?.settings, controls.touch));
     // Nothing to lock on to in the intro fight (you cannot win it anyway).
     this.touch.setLockVisible(false);
     this.root.insertBefore(this.touch.root, skip);
