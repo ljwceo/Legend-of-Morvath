@@ -1,10 +1,68 @@
 # Monastery of Greyhaven – Blender-asset
 
-> Gebouwd in Blender met Claude op 2026-10-12. Bestand: `C:\Users\Bo\Documents\Morvath\Greyhaven\assets\Monastery.blend`
-> (backups: `Monastery_backup_before_tiles`, `_before_interior`, `_before_garden`). Scripts: `tools/blender/monastery/`.
-> Staat nog **niet** in Greyhaven: dat gebeurt (zoals bij de smidse) in de aparte Greyhaven-chat.
+> Gebouwd in Blender met Claude op 2026-10-12. **Sinds 2026-10-12 (avond) in twee bestanden**, zodat alles los aangepast kan worden:
+>
+> | Bestand | Wat erin zit | Zone |
+> |---|---|---|
+> | `C:\Users\Bo\Documents\Morvath\Greyhaven\assets\Monastery_Building.blend` | Het klooster: kerk, toren, kloostergang met binnentuin, oost-/zuid-/westvleugel, **alle binnenkanten**, daken, muurstenen, markers voor het kerkportaal (`MON_Zone_*`), de kloosterkant van de oostdeur (`MON_GardenGate_FromMonastery`, `_SpawnInMonastery`), kamers, spawn-bed, Brother Ansel | klooster |
+> | `C:\Users\Bo\Documents\Morvath\Greyhaven\assets\Monastery_Garden.blend` | De Monastery Garden: grond, vijver, beekjes, bruggen, paden, bomen, gras, bloemen, bosjes, moestuin, tuinmuur (`MON_Stones_GardenWall`), losse tuinmodellen (`MON_GardenPieces`), vallende blaadjes, vuurvliegjes, markers `MON_FarmPlot_*` en de tuinkant van de oostdeur (`MON_GardenGate_SpawnInGarden`, `_FromGarden`) | tuin |
+>
+> Beide gebruiken dezelfde coördinaten (klooster-lokaal, +Y = noord), dus ze passen precies op elkaar.
+> In `Monastery_Garden.blend` staat het klooster als **gelinkte referentie** (`REF_Building_*` in `MON_Reference`,
+> niet selecteerbaar): pas het klooster aan in `Monastery_Building.blend`, dan komt het vanzelf mee. Bij exporteren van de
+> tuin moet `MON_Reference` worden overgeslagen, anders gaat het klooster dubbel mee. Het oude
+> gecombineerde bestand is `Monastery_backup_before_split.blend`; oudere backups heten `Monastery_backup_before_*.blend`.
+> Scripts: `tools/blender/monastery/` (de tekstblokken staan in beide bestanden). **Staat in Greyhaven** sinds 2026-10-12 (zie "In Greyhaven").
 
-![Klooster en tuin](monastery/garden_overview.png)
+![Alleen het klooster (Monastery_Building.blend)](monastery/building_only.png)
+
+## In Greyhaven (2026-10-12)
+
+Het klooster en de tuin staan in `C:\Users\Bo\Documents\Morvath\Greyhaven\Greyhaven.blend`, collectie
+`Greyhaven/GH_Monastery_New`, als **gelinkte collection instances** (`GH_MonasteryNew_*`) uit `assets/Monastery_Building.blend`
+en `assets/Monastery_Garden.blend`. Aanpassen doe je dus in die twee bestanden; Greyhaven neemt het vanzelf over.
+
+- **Plek:** waar het oude klooster stond, tussen de rivier en de haven. Oorsprong Blender (−38; −80; 9), **90° met de klok
+  mee gedraaid**: kerkportaal naar het noorden (de weg langs de rivier), tuin naar het oosten en zuiden. Omrekenen:
+  wereld = (−38 + y, −80 − x, 9 + z) voor een klooster-lokaal punt (x, y, z).
+- **Stad groter:** de zuidelijke stadsmuur tussen toren 18 en de zuidpoort liep door de tuin. Toren 17, muur `17_*` en
+  `16_2…16_9`, het oude klooster (`GH_Monastery_*`) en 25 bomen staan nu in `GH_Monastery_Replaced` (uitgeschakeld, net
+  als `GH_Forge_Replaced`). Muur `16_2` is teruggezet en sluit aan op de tuinmuur; aan de westkant staat toren 18 tegen
+  het klooster. Het klooster en de tuinmuur vormen zo het zuidelijke stuk van de stad.
+- **Terrein:** onder het klooster vlak op 8,96, onder de tuin 7,75 (de tuin heeft z'n eigen grond met vijver), 9 m zachte
+  overgang; in het zuidwesten is daardoor een stukje kust aangevuld met een strandje. Backup ervoor:
+  `Greyhaven_backup_before_monastery.blend`.
+
+| Punt | Blender (Greyhaven) | Game-wereld (x, y, z) |
+|---|---|---|
+| Bed van de speler (`MON_Spawn_PlayerBed`) | (−33,4; −91,65; 9,12) | (−1798,4; 9,12; 91,65) |
+| Brother Ansel (`MON_NPC_BrotherAnsel`) | (−45,0; −98,6; 9,12) | (−1810,0; 9,12; 98,6) |
+| Kerkportaal, ingang (`MON_Zone_Door`) | (−22,5; −66,1; 9,36) | (−1787,5; 9,36; 66,1) |
+| Binnen bij het portaal (`MON_Zone_Spawn`) | (−22,5; −69,8; 9,13) | (−1787,5; 9,13; 69,8) |
+| Buiten voor het portaal (`MON_Zone_ExitTo`) | (−22,5; −65,0; 9,0) | (−1787,5; 9,0; 65,0) |
+| Oostdeur, hal (`MON_GardenGate_FromMonastery`) | (−38,0; −101,0; 9,12) | (−1803,0; 9,12; 101,0) |
+
+(Omrekening Blender → game zoals bij het oude spawnpunt: x − 1765, y = hoogte, z = −y.)
+
+![Klooster in Greyhaven](monastery/in_greyhaven.png)
+![Bovenaanzicht](monastery/in_greyhaven_top.png)
+
+**Nieuwe zuidmuur (Bo, 2026-10-12):** de stad is naar het zuiden groter gemaakt volgens Bo's tekening. De nieuwe
+stadsmuur (collectie `GH_CityWall_South_New`: 65 muurstukken `GH_CityWall_19_*` met looppad en 10 nieuwe torens
+`GH_CityTower_19…28`, zelfde stijl als de bestaande muur) loopt vanaf de haven langs de westkust, onder het klooster en de
+tuin langs de zuidkust en dan schuin naar het noordoosten tot **toren 13**. Toren 18 zit erin opgenomen. De oude zuidmuur
+die nu binnen de stad zou staan (muur 13–16, torens 14 en 15 en de ongebruikte zuidpoort) staat in `GH_SouthWall_Replaced`
+(uit). Backup: `Greyhaven_backup_before_southwall.blend`. Let op: de weg vanaf de brug naar de oude zuidpoort houdt nu
+in het weiland op, en het weiland met de akkers in het zuidoosten hoort nu bij de stad (in de game: `areas`/`noScatter`
+en `safeZones` aanpassen, anders groeien er bomen binnen de muur).
+
+![Nieuwe zuidmuur](monastery/south_wall.png)
+![Bovenaanzicht](monastery/south_wall_top.png)
+
+**Nog te doen (Greyhaven-chat):** bij export de instances echt maken (Object → Apply → Make Instances Real, of de
+exporter laten volgen) en `MON_Reference` overslaan; spawnpunt, checkpoint en NPC's in `zones.json`/`npcs.json` naar de
+nieuwe plekken; de `safeZones`-polygoon van de stadsmuur; en voor de zones (open vraag over eigen zones) in Greyhaven
+alleen een lichte buitenkant tonen.
 
 ## Opbouw (zoals een echt middeleeuws klooster, naar het St. Gall-plan)
 
@@ -13,6 +71,7 @@
 | Kerk | noord, x −12…14 | Middenschip + zijbeuken, ronde apsis (oost), poort + roosvenster (west), klokkentoren met spits (NW) |
 | Kloostergang | midden, 20 × 20 m | Overdekte gangen met rondbogen, binnentuin met kruidenbedden, waterput, lantaarns |
 | Oostvleugel | x 10…22, y −10…10 | **Van binnen speelbaar**: hal + 6 kamers (zie hieronder) |
+| Alle andere gebouwen | | Sinds 2026-10-12 ook van binnen te bezoeken (zie "Kerk, eetzaal, westvleugel en toren – binnen") |
 | Eetzaal (Refectory) | zuid, x −10,6…22 | Loopt door tot de oostmuur, zodat de hoek dicht is |
 | Westvleugel | west | Voorraad/gasten, grote poort naar buiten |
 | **Monastery Garden** | oost + achter de kerk | Vredige tuin met vijver, beekjes, moestuin (zie hieronder) |
@@ -25,6 +84,8 @@
   smalle, lagere achterkant van de volgende, dus de naden lopen strak over.
 - **Muurstenen:** A, B, C (gewone muur) en de grote funderingsstenen D, E in de onderste 1,2 m. Alleen de zichtbare
   voorkant van een steen is gemodelleerd (8 vertices), rond ramen en deuren wordt ruimte gelaten.
+- **Kleurverloop (2026-10-12, Bo):** bovenaan bij de nok de donkerste leien, naar de dakrand toe steeds lichter, in 5 tinten
+  (`RoofTile_Darkest`, `_Dark`, `_Slate`, `_Blue`, `_Light`) met een beetje variatie. Script `17_roof_gradient.py`.
 - Ramen: stenen boog, vensterbank, houten kozijn, glas in lood (warm gloeiend). Deuren: planken, ijzeren banden, ringgreep.
 
 ## Oostvleugel – binnen
@@ -43,6 +104,32 @@ tweede deur aan de oostkant gaat de tuin in.
 | Brother Ansel's Cell | bed, bureau, kist (`MON_NPC_BrotherAnsel`) |
 
 ![Dormitory](monastery/dormitory.png)
+
+## Kerk, eetzaal, westvleugel en toren – binnen (2026-10-12)
+
+Alle gebouwen zijn nu van binnen te bezoeken, net als de oostvleugel: muren 0,6 m, echte gaten voor ramen en deuren,
+houten plankenvloeren (3 houttinten, net als de oostvleugel) en balkenplafonds. Backup: `Monastery_backup_before_interiors2.blend`.
+
+| Gebouw | Binnen | Markers |
+|---|---|---|
+| Kerk | Middenschip met houten balkenplafond, 2 zijbeuken (5 bogen per kant), koorboog naar de apsis, verhoogd koor met altaar, kaarsen en lessenaar, 28 kerkbanken met middenpad, hangende lantaarns. Ramen, roosvenster en portaal zijn echte openingen | `MON_Room_Church`, `MON_Room_Sanctuary` |
+| Eetzaal (Refectory) | Lange zaal met 2 rijen lange tafels + banken, kommen en bekers, verhoogde tafel van de abt, haard met ketel onder de schoorsteen, voorleespreekstoel, rek met kommen. Deur naar de kloostergang en een keukendeur naar de westvleugel | `MON_Room_Refectory` |
+| Westvleugel | Gang achter de (dichte) westpoort met zijdeuren naar beide kamers. Beneden: voorraadkamer (vaten, kisten, zakken, planken) en gastenzaal (tafel, banken, haard). Trap naar boven: gastenslaapzaal (4 bedden + kisten) en graanzolder. 2 nieuwe deuren naar de kloostergang | `MON_Room_StoreRoom`, `MON_Room_GuestHall`, `MON_Room_GuestDormitory`, `MON_Room_Granary`, `MON_Room_GatePassage` |
+| Toren | Deur vanuit de noordbeuk van de kerk, houten wenteltrap langs de muren (74 treden) naar de klokkenvloer op 15 m, open klokkengaten aan 4 kanten | `MON_Room_TowerBase`, `MON_Room_Belfry` |
+
+## Extra stenen (2026-10-12)
+
+- **Nieuwe soorten en dikker:** in de bestaande muurstenen steekt ±22 % verder uit (3–8 cm extra), ±10 % is een **kei**
+  (bolle voorkant) en ±9 % is een **mossteen** (mos op de bovenrand), alleen onder 4,5 m.
+- **Hoekstenen (quoins):** grote lichte gehouwen stenen, om en om lang/kort, op alle buitenhoeken (234 lagen).
+- **Raamomlijstingen:** bij 36 ramen (kerk, eetzaal, westvleugel, torenspleten) zijstenen om en om, een boog van 7
+  stenen met een grotere sluitsteen, en een vensterbank. Kleur: `GH_Monastery_Stone_Dressed` / `_Dressed2`.
+- Object `MON_Stones_Extra` (±8.700 vertices). De stenen voor de 2 nieuwe deuren naar de kloostergang zijn weggehaald.
+
+![Kerk binnen](monastery/church_inside.png)
+![Eetzaal](monastery/refectory_inside.png)
+![Toren](monastery/tower_stairs.png)
+![Gehouwen stenen](monastery/dressed_stones.png)
 
 ## Monastery Garden
 
@@ -188,6 +275,120 @@ Het gazon heeft nu **graspollen** zoals in Genshin: `GH_Monastery_GrassPatch_A` 
 - De oude losse grassprietjes in `MON_Garden_Flowers` zijn weggehaald. Backup: `Monastery_backup_before_grass.blend`.
 
 ![Gras](monastery/grass_meadow.png)
+
+## Genshin-look voor grond, water, bloemen en hout (2026-10-12)
+
+Backup ervoor: `Monastery_backup_before_genshin_ground.blend`. Alle plaatjes staan in `assets/textures/`, zitten ín
+het .blend en een kopie staat in `tools/blender/monastery/textures/`. Kleuren in de scripts zijn lineair (net als de
+RGB-nodes); bij het opslaan worden ze naar sRGB omgerekend.
+
+- **Grond:** `GH_Monastery_Grass` heeft nu het geschilderde plaatje `T_MON_GroundGrass` (tegel van 16 m): zachte vlekken
+  in 3 groentinten, penseelstreekjes en een paar mini-bloemetjes. Onder water gaat de grond vloeiend over in
+  `T_MON_PondBed` (zand, kiezels, mos; tegel 4 m) via de kleur-attribuut `BedMix`. De oevers zijn gladgestreken.
+- **Gras:** 6 graspollen (`GrassPatch_A/B_<Deep|Mid|Light>`), elke pol pakt de tint van de grond eronder, zodat gras en
+  grond in elkaar overlopen. Pollen die over een pad/water/bed zouden steken zijn kleiner gemaakt of weggehaald
+  (rechte onderrand gaf trapjes). Nu 1.156 pollen. De collectie staat verborgen in de viewport (sneller); in render/export telt ze mee.
+- **Water** (`GH_Monastery_Water`, eigen materiaal; `GH_Water` van Greyhaven is niet veranderd): per punt de diepte tot
+  de bodem (`WaterDepth`, 0 = oever, 1 = 0,75 m diep). Ondiep helder turquoise en doorzichtig (je ziet de kiezels), diep
+  donkerblauw, smalle schuimrand langs de oever, zachte rimpels (`T_MON_WaterRipple`) die langzaam drijven. De rand van
+  het water ligt nu een halve meter onder de oever, zodat de oeverlijn ontstaat waar water en grond elkaar raken.
+- **Bloemen:** de oude gemodelleerde bloemen (±42.000 vertices) zijn vervangen door 647 bloemenpollen
+  (`GH_Monastery_FlowerPatch_<Daisy|Buttercup|Pink|Lavender|Moonbell>`, ±10.000 vertices samen) op dezelfde plekken
+  en in dezelfde kleur. Ze steken boven het gras uit en wiegen mee.
+- **Bruggen:** twee nieuwe houten boogbruggen: losse planken (iets scheef, met kiertjes), gebogen draagbalken, palen met
+  dopjes, boven- en middenleuning, stenen voeten. Houtplaatje `T_MON_WoodPlanks` met de nerf in de lengte van elk stuk
+  (`GH_Monastery_WoodTex_Plank/Beam`). Bankjes, hekjes, moestuinbakken en de vogelverschrikker hebben hetzelfde hout via
+  box-projectie (`GH_Monastery_WoodTex_BoxLight/BoxDark`, zoals de triplanar-modus van de game).
+
+**Voor de game** (open vraag 9 + 10): grond en hout passen op de bestaande triplanar-modus (`tex` + schaal). Nieuw nodig:
+water met diepte-kleur/doorzichtigheid uit `WaterDepth` (nu vaste alpha 0,88), de grond-mix met `BedMix`, de
+bladmodus voor gras/bloemen, en `GH_Grass_MON_*` / `GH_Flower_MON_*` als instances tekenen (zoals `GH_Tree*`).
+
+![Brug west](monastery/bridge_west.png)
+![Brug oost](monastery/bridge_east.png)
+![Vijver](monastery/pond_genshin.png)
+![Moestuin](monastery/vegetable_garden_genshin.png)
+![Bloemen](monastery/meadow_flowers.png)
+
+## Bosjes (2026-10-12)
+
+De 62 bosjes zijn nu net als de boomkronen gemaakt: `GH_Monastery_Bush_A` (9 kaartjes = 18 driehoeken) en `_B` (11 kaartjes
+= 22 driehoeken, voor de hogere), met het bladtrosje-plaatje en bol-normals. Als instances `GH_Bush_MON_###` in
+`MON_Garden_BushInstances`, op dezelfde plekken en in dezelfde grootte, nu op het maaiveld. Samen ±1.250 driehoeken
+(was 1.240, maar nu veel voller). Script `18_bushes.py`, backup `Monastery_backup_before_bushes.blend`.
+
+![Bosjes](monastery/bushes.png)
+
+## Ingang: het klooster als eigen zone (2026-10-12, idee van Bo)
+
+Het **kerkportaal** (`MON_Church_Portal_Frame`, westkant van de kerk) is de in- en uitgang van het klooster. Loop je
+daar in Greyhaven tegenaan, dan laadt de game het klooster als **eigen zone** (dit bestand, met alle detail) en wordt
+alles daarbuiten niet getekend: meer fps, en het klooster mag dan veel detail hebben. Hetzelfde komt later voor de
+**Academy** (eigen Blender-bestand met meer detail).
+
+| Marker | Wat |
+|---|---|
+| `MON_Zone_Door` | Cirkel (r 1,3 m) vóór het portaal, op de trap: hier stap je in vanuit Greyhaven |
+| `MON_Zone_Spawn` | Waar je binnen verschijnt: net achter het portaal, kijkend naar het oosten (het middenschip in) |
+| `MON_Zone_Exit` | Cirkel (r 1,0 m) binnen bij het portaal: terug naar Greyhaven |
+| `MON_Zone_ExitTo` | Waar je in Greyhaven terugkomt: op de trap vóór het portaal, kijkend naar het westen |
+
+- De game heeft dit al half: `instances` in `zones.json` (Master Brink's Tower, Wizard Sam's Cellar) met `door`,
+  `spawn` en `exit`, maar die tekenen een **stuk van `greyhaven.glb`**. Nieuw nodig: een instance die een **eigen .glb**
+  laadt (bijv. `scene.model: "zones/monastery/monastery.glb"`) en Greyhaven zolang uitzet. Open vraag 11.
+- In Greyhaven zelf komt dan alleen een simpele buitenkant van het klooster (weinig vertices), zonder binnenkant.
+- De kloostertuin en de kloostergang liggen in dit bestand, dus die horen bij de klooster-zone. Over de tuinmuur heen zie
+  je dan alleen lucht/mist (of later een simpele achtergrond).
+- De westpoort (`MON_Gate_*`) is **decoratie** (Bo, 2026-10-12): de poortdeur gaat niet open en de doorgang is direct
+  erachter dicht (`MON_WestRange_GatePlug`). De rest van de doorgang is nu een gang tussen voorraadkamer en gastenzaal.
+
+**Portaaldeur half open (Bo, 2026-10-12):** `MON_Church_Portal_Door` is nu een dubbele deur: de linkerhelft (zuidkant)
+staat 62° open naar buiten op het trapje, de rechterhelft is dicht. IJzeren banden en de ring zitten op beide helften.
+De oude dichte deur is bewaard als mesh `MON_Church_Portal_Door_Closed`.
+
+![Portaal half open](monastery/portal_half_open.png)
+
+Door de open deur kijk je de kerk in (vloer, banken, ramen, altaar met kaarsen): het portaalkozijn
+(`MON_Church_Portal_Frame`) was nog een dichte plaat en is nu een echte stenen omlijsting.
+**Voor de game:** in Greyhaven is de binnenkant niet geladen (eigen zone). Om daar toch naar binnen te kunnen kijken
+heeft de Greyhaven-versie van het klooster een simpel 'kijkje' achter de deur nodig, bijvoorbeeld de eerste meters van
+het middenschip (vloer + een paar banken) of een geschilderd achtergrondvlak.
+
+![Kijkje naar binnen](monastery/portal_look_inside.png)
+
+### Drie zones, twee overgangen (2026-10-12, Bo)
+
+| Overgang | Tussen | Markers |
+|---|---|---|
+| **Kerkportaal** (`MON_Church_Portal_Frame`) | Greyhaven ↔ klooster | `MON_Zone_Door`, `MON_Zone_Spawn`, `MON_Zone_Exit`, `MON_Zone_ExitTo` |
+| **Oostdeur** (`MON_EastRange_Door_East`) | klooster ↔ Monastery Garden | `MON_GardenGate_FromMonastery` (cirkel in de hal), `MON_GardenGate_SpawnInGarden` (net buiten, kijkt naar het oosten), `MON_GardenGate_FromGarden` (cirkel buiten bij de deur), `MON_GardenGate_SpawnInMonastery` (in de hal, kijkt naar het westen) |
+
+- **Klooster-zone:** de gebouwen met binnenkant + de kloostergang met binnentuin.
+- **Garden-zone:** de Monastery Garden (vijver, moestuin, bomen, gras, bloemen) binnen de tuinmuur.
+- Alle markers hebben de eigenschappen `gate`, `role` en een `note`. Voor de game: als je de tuin in gaat, hoeven de
+  binnenkanten niet getekend te worden en andersom. Of het één bestand blijft (en de game per zone een deel tekent,
+  zoals bij de instances) of twee aparte .glb's wordt, is aan de game-kant (open vraag 11).
+
+## Grindpaden (2026-10-12, Bo)
+
+`MON_Garden_Paths` is nu een grindpad: het geschilderde plaatje `T_MON_Gravel` (tegel van 2 m: zand met heel veel
+steentjes, elk met een lichte kant, donkere rand en schaduwtje, zodat het plat pad diepte lijkt te hebben), materiaal
+`GH_Monastery_GravelTex`. Langs beide randen liggen **719 platte randstenen** in de kleuren van de muurstenen (deels
+mos), iets in de grond gezakt, en op het pad liggen **481 losse steentjes** (object `MON_Garden_PathStones`,
+±9.600 vertices). De rand is bepaald op een raster van 10 cm, omdat het pad uit losse overlappende stukken bestaat.
+Script `23_gravel_path.py`, backup `Monastery_backup_before_gravel.blend`.
+
+![Grindpad](monastery/gravel_path.png)
+
+## Schors (2026-10-12, Bo)
+
+De stammen en takken hebben een klein geschilderd schorsplaatje dat de bestaande schorskleur lichter/donkerder maakt:
+`T_MON_Bark` (eik, appel, wilg: verticale groeven en barstjes) op `GH_Monastery_Bark`, en `T_MON_BarkSakura` (gladde bast
+met horizontale streepjes, zoals een echte kers) op `GH_Monastery_Bark_Sakura`. Box-projectie in object-ruimte (past op
+de triplanar-modus van de game), tegel van 0,9 m. Script `24_bark.py`.
+
+![Eik](monastery/bark_oak.png)
+![Sakura](monastery/bark_sakura.png)
 
 ## Markers (collectie `MON_Markers`)
 
