@@ -140,6 +140,55 @@ blaadjes erop; de slierten hangen aan die boogtakken, dus alles zit aan de boom 
 
 ![Wilg met boogtakken](monastery/willow_twigs.png)
 
+## Bomen in Genshin-techniek (2026-10-12, huidige versie)
+
+Bo vroeg dezelfde techniek als Genshin Impact. Elke kroon bestaat nu uit **een paar honderd grote kaartjes**, en op elk
+kaartje staat een **geschilderd trosje** blaadjes of bloesem met een doorzichtige rand (alpha cut-out):
+
+- **Plaatjes** (`T_MON_LeafCluster`, `T_MON_BlossomCluster`, `T_MON_WillowCluster`, `T_MON_WillowStrand`): grijze
+  schildering + alpha, 512 px (sliert 128 × 1024). De kleur komt uit het materiaal (licht / midden / donker), dus één
+  plaatje werkt voor alle tinten. Ze staan in `assets/textures/` naast het .blend, zitten ook ín het .blend (packed) en
+  er staat een kopie in `tools/blender/monastery/textures/`.
+- **Materialen** `GH_Monastery_Foliage_<Leaf|Blossom|Willow|WillowStrand>_<Light|Mid|Deep>`: GH_Toon met plaatje × kleur
+  en een doorzichtige rand. Eigenschap `mon_foliage` = naam van het plaatje (voor de export).
+- **Bol-normals:** de normals van de kaartjes wijzen naar buiten vanaf het midden van de kroon, zodat de hele kroon
+  belicht wordt als één zachte bol (zoals Genshin), niet als losse vlakjes.
+- Grote kaartjes binnenin, kleinere aan de rand; elke bladwolk hangt aan een twijgje; wilgenslierten zijn lange linten
+  met het slierten-plaatje, hangen aan boogtakken en zwaaien nog (shape keys).
+
+| Model | Vertices (was) |
+|---|---|
+| `Tree_Sakura_A` / `_B` | ~4.300 / ~4.100 (25.600 / 24.600) |
+| `Tree_Oak_A` / `_B` | ~2.300 / ~2.700 (10.400 / 12.100) |
+| `Tree_Apple` | ~2.400 (8.000) |
+| `Tree_Willow` | ~4.900 (23.400) |
+
+Alle bomen in de tuin samen: van ±650.000 naar ±140.000 vertices.
+
+**Nodig in de game** (open vraag 12): de toon-shader heeft nog geen bladmodus. Die moet het plaatje lezen, pixels met lage
+alpha weggooien (`discard`), de custom normals gebruiken en (liefst) wind in de vertex-shader doen. De web-export moet
+UV's, normals en het plaatje meenemen (materiaal-eigenschap `mon_foliage`). Tot dan zouden de kaartjes als volle
+vierkantjes getekend worden.
+
+![Tuin met trosjes-bomen](monastery/garden_cluster_trees.png)
+![Sakura's](monastery/sakura_clusters.png)
+![Eik](monastery/oak_clusters.png)
+![Wilg](monastery/willow_clusters.png)
+
+## Gras in Genshin-stijl (2026-10-12)
+
+Het gazon heeft nu **graspollen** zoals in Genshin: `GH_Monastery_GrassPatch_A` (laag, 8 kaartjes) en `_B` (hoger,
+7 kaartjes), elk ~1,4 m breed. Op de kaartjes staat het plaatje `T_MON_GrassTuft` (brede, zachte sprietjes met alpha).
+- **Normals recht omhoog:** het gras wordt belicht als de grond zelf, en de onderkant van de sprietjes heeft precies de
+  grondkleur, dus het gras loopt naadloos over in de grond.
+- **1.446 pollen** als instances (`GH_Grass_MON_####` in `MON_Garden_GrassInstances`), alleen op het gras: niet op paden,
+  water, bedden of muren (ray cast). ~43.000 vertices samen.
+- Wiegen in de wind met shape keys (lus van 4 s). In de game is wind in de shader beter (open vraag 12), en gras alleen
+  dichtbij de speler tekenen scheelt veel.
+- De oude losse grassprietjes in `MON_Garden_Flowers` zijn weggehaald. Backup: `Monastery_backup_before_grass.blend`.
+
+![Gras](monastery/grass_meadow.png)
+
 ## Markers (collectie `MON_Markers`)
 
 `MON_Spawn_PlayerBed`, `MON_NPC_BrotherAnsel`, `MON_Door_Cloister_Outside`, `MON_Door_East_Outside`,

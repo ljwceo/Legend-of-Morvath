@@ -14,6 +14,10 @@ de maten en lijsten daarvan staan in de tekstblokken in het .blend.
 | `05_garden_pieces.py` | Losse tuinmodellen: bomen, rotsen, fruit, gewassen (3 groeistadia), vogelverschrikker | `MON_garden_pieces` |
 | `06_card_trees.py` | Bomen in Genshin-stijl: kroon van veel losse blad-/bloesemkaartjes (sakura's, eiken, appelboom) | `MON_card_trees` |
 | `07_willow.py` | Treurwilg in kaartjes-stijl met zwaaiende slierten (shape keys) en vuurvliegjes | `MON_willow` |
+| `08_foliage_textures.py` | Tekent de trosjes-plaatjes (blad, bloesem, wilgensliert) met alpha; kopie in `textures/` | `MON_foliage_tex` |
+| `09_foliage_materials.py` | Toon-materialen plaatje × kleur met doorzichtige rand (`GH_Monastery_Foliage_*`) | `MON_foliage_mats` |
+| `10_cluster_trees.py` | **Huidige bomen** in Genshin-techniek: grote trosjes-kaartjes + bol-normals (vervangt 06/07 voor de kroon) | `MON_cluster_trees` |
+| `11_grass.py` | Gras in Genshin-stijl: graspollen van kaartjes met een sprietjes-plaatje, normals omhoog, gestrooid over het gazon | `MON_grass` |
 | – | Vorm van de tuin, vijver, beekjes | `MON_garden_layout` |
 
 Gebruik in Blender: open het script in de Scripting-tab en voer het uit, of
