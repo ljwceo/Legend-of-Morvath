@@ -290,6 +290,14 @@ De oude dichte deur is bewaard als mesh `MON_Church_Portal_Door_Closed`.
 
 ![Portaal half open](monastery/portal_half_open.png)
 
+Door de open deur kijk je de kerk in (vloer, banken, ramen, altaar met kaarsen): het portaalkozijn
+(`MON_Church_Portal_Frame`) was nog een dichte plaat en is nu een echte stenen omlijsting.
+**Voor de game:** in Greyhaven is de binnenkant niet geladen (eigen zone). Om daar toch naar binnen te kunnen kijken
+heeft de Greyhaven-versie van het klooster een simpel 'kijkje' achter de deur nodig, bijvoorbeeld de eerste meters van
+het middenschip (vloer + een paar banken) of een geschilderd achtergrondvlak.
+
+![Kijkje naar binnen](monastery/portal_look_inside.png)
+
 ### Drie zones, twee overgangen (2026-10-12, Bo)
 
 | Overgang | Tussen | Markers |
