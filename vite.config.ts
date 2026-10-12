@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 
-// Keep the standalone PerfTest reachable at /journey-gaym/experiments/perftest/
+// Keep the standalone PerfTest reachable at /Legend-of-Morvath/experiments/perftest/
 // after the Pages deploy switched to GitHub Actions (only dist/ is published).
 function copyPerfTest(): Plugin {
   return {
@@ -33,8 +33,8 @@ export default defineConfig({
   define: {
     __BUILD_ID__: JSON.stringify(process.env.GITHUB_SHA?.slice(0, 12) ?? String(Date.now())),
   },
-  // GitHub Pages serves the project at https://ljwceo.github.io/journey-gaym/
-  base: '/journey-gaym/',
+  // GitHub Pages serves the project at https://ljwceo.github.io/Legend-of-Morvath/
+  base: '/Legend-of-Morvath/',
   build: {
     target: 'es2022',
     sourcemap: true,
