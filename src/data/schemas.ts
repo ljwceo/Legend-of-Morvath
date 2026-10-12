@@ -1156,6 +1156,80 @@ export const spellsFileSchema = z.strictObject({
   ),
 });
 
+// ---------------------------------------------------------------- stats.json
+
+/**
+ * A per-point value that depends on your path (Regen gives a mage mana and a sword fighter
+ * health): one number per path, where `none` counts until a path is chosen. A plain number
+ * means "the same on every path".
+ */
+const pathValueSchema = z.union([
+  z.number(),
+  z.strictObject({
+    none: optional(z.number()),
+    sword: optional(z.number()),
+    light: optional(z.number()),
+    dark: optional(z.number()),
+  }),
+]);
+
+/**
+ * What one point in a stat gives. Every key is optional; a stat only names what it changes.
+ * Percentages are added up and applied as a factor (3 = +3%); `damageTakenPercent` is negative
+ * for less damage taken.
+ */
+const statEffectsSchema = z.strictObject({
+  maxHp: optional(z.number()),
+  maxMana: optional(z.number()),
+  /** Extra equip load in kg (Strength). */
+  carryKg: optional(z.number()),
+  damageTakenPercent: optional(z.number()),
+  /** Normal attacks: sword swings and the staff's Arcane Shard (Power). */
+  normalAttackPercent: optional(z.number()),
+  /** Only the staff's normal attack, on top of `normalAttackPercent` (Magic Power). */
+  staffNormalPercent: optional(z.number()),
+  spellPercent: optional(z.number()),
+  /** Faster swings, casts and charging (Dexterity). */
+  attackSpeedPercent: optional(z.number()),
+  energyRegenPercent: optional(z.number()),
+  manaRegenPerSecond: optional(pathValueSchema),
+  hpRegenPerSecond: optional(pathValueSchema),
+  /** Potions heal more (Faith). */
+  potionPercent: optional(z.number()),
+  critChancePercent: optional(z.number()),
+});
+
+/**
+ * The ten stats you spend points on (fase 3.7). You start with `startPoints` in the character
+ * creator and every level gives `pointsPerLevel`; there is no automatic growth any more.
+ * A stat's `softCaps` lower what one point gives from that number of points on (Elden Ring).
+ */
+export const statsFileSchema = z.strictObject({
+  startPoints: nonNegInt,
+  pointsPerLevel: nonNegInt,
+  maxPointsPerStat: posInt,
+  /** A critical hit does this much of the normal damage (concept: always 1.5×). */
+  crit: z.strictObject({ damageFactor: range(1, 5) }),
+  /** Hard ceilings on the totals (stats and gear together), so nothing becomes unbeatable. */
+  caps: z.strictObject({
+    damageTakenPercent: range(0, 95),
+    critChancePercent: range(0, 100),
+    attackSpeedPercent: range(0, 300),
+  }),
+  stats: atLeast(
+    z.array(
+      z.strictObject({
+        id,
+        name,
+        effects: statEffectsSchema,
+        softCaps: z.array(z.strictObject({ fromPoints: posInt, effects: statEffectsSchema })),
+      }),
+    ),
+  ),
+  /** Suggested spreads in the character creator; each one spends exactly `startPoints`. */
+  presets: atLeast(z.array(z.strictObject({ id, name, points: z.record(z.string(), nonNegInt) }))),
+});
+
 // ---------------------------------------------------------------- skills.json
 
 export const skillsFileSchema = z.strictObject({
@@ -1428,6 +1502,7 @@ export const dataSchemas = {
   controls: controlsFileSchema,
   npcs: npcsFileSchema,
   player: playerFileSchema,
+  stats: statsFileSchema,
   monsters: monstersFileSchema,
   items: itemsFileSchema,
   appearance: appearanceFileSchema,

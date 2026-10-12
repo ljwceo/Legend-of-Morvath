@@ -1,0 +1,115 @@
+{
+  "startPoints": 20,
+  "pointsPerLevel": 1,
+  "maxPointsPerStat": 99,
+  "crit": {
+    "damageFactor": 1.5
+  },
+  "caps": {
+    "damageTakenPercent": 60,
+    "critChancePercent": 50,
+    "attackSpeedPercent": 50
+  },
+  "stats": [
+    {
+      "id": "hp",
+      "name": "HP",
+      "effects": { "maxHp": 8 },
+      "softCaps": [{ "fromPoints": 20, "effects": { "maxHp": 5 } }]
+    },
+    {
+      "id": "defense",
+      "name": "Defense",
+      "effects": { "damageTakenPercent": -0.5 },
+      "softCaps": [{ "fromPoints": 35, "effects": { "damageTakenPercent": -0.2 } }]
+    },
+    {
+      "id": "strength",
+      "name": "Strength",
+      "effects": { "carryKg": 2 },
+      "softCaps": [{ "fromPoints": 20, "effects": { "carryKg": 1 } }]
+    },
+    {
+      "id": "power",
+      "name": "Power",
+      "effects": { "normalAttackPercent": 3 },
+      "softCaps": [{ "fromPoints": 25, "effects": { "normalAttackPercent": 1.5 } }]
+    },
+    {
+      "id": "mana",
+      "name": "Mana",
+      "effects": { "maxMana": 4 },
+      "softCaps": [{ "fromPoints": 20, "effects": { "maxMana": 2 } }]
+    },
+    {
+      "id": "magic_power",
+      "name": "Magic Power",
+      "effects": { "spellPercent": 4, "staffNormalPercent": 1 },
+      "softCaps": [
+        { "fromPoints": 25, "effects": { "spellPercent": 2, "staffNormalPercent": 0.5 } }
+      ]
+    },
+    {
+      "id": "regen",
+      "name": "Regen",
+      "effects": {
+        "energyRegenPercent": 4,
+        "manaRegenPerSecond": { "none": 0.015, "sword": 0, "light": 0.03, "dark": 0.03 },
+        "hpRegenPerSecond": { "none": 0.025, "sword": 0.05, "light": 0, "dark": 0 }
+      },
+      "softCaps": [
+        {
+          "fromPoints": 20,
+          "effects": {
+            "energyRegenPercent": 2,
+            "manaRegenPerSecond": { "none": 0.008, "sword": 0, "light": 0.015, "dark": 0.015 },
+            "hpRegenPerSecond": { "none": 0.012, "sword": 0.025, "light": 0, "dark": 0 }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dexterity",
+      "name": "Dexterity",
+      "effects": { "attackSpeedPercent": 1 },
+      "softCaps": [{ "fromPoints": 25, "effects": { "attackSpeedPercent": 0.5 } }]
+    },
+    {
+      "id": "faith",
+      "name": "Faith",
+      "effects": { "potionPercent": 3 },
+      "softCaps": [{ "fromPoints": 20, "effects": { "potionPercent": 1.5 } }]
+    },
+    {
+      "id": "luck",
+      "name": "Luck",
+      "effects": { "critChancePercent": 0.8 },
+      "softCaps": [{ "fromPoints": 25, "effects": { "critChancePercent": 0.4 } }]
+    }
+  ],
+  "presets": [
+    {
+      "id": "sword_fighter",
+      "name": "Sword Fighter",
+      "points": { "hp": 6, "defense": 3, "strength": 2, "power": 5, "regen": 2, "dexterity": 2 }
+    },
+    {
+      "id": "light_mage",
+      "name": "Light Mage",
+      "points": { "hp": 3, "defense": 1, "mana": 5, "magic_power": 6, "regen": 3, "faith": 2 }
+    },
+    {
+      "id": "dark_mage",
+      "name": "Dark Mage",
+      "points": {
+        "hp": 3,
+        "strength": 1,
+        "power": 1,
+        "mana": 4,
+        "magic_power": 7,
+        "regen": 2,
+        "luck": 2
+      }
+    }
+  ]
+}
