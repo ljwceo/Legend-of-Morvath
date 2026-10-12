@@ -213,3 +213,32 @@ def build_genshin_textures():
     save_rgb("T_MON_WoodPlanks", wood_planks())
     np.save(os.path.join(TEXDIR, "T_MON_GroundGrass_bands.npy"), n)
     return n
+
+
+def gravel(size=512, seed=81, n=1900):
+    """Painted gravel (tileable, 2 m tile): sandy base, many small pebbles with light top-left, dark rim and a soft
+    shadow to the bottom-right, so the flat path looks deep and bumpy."""
+    random.seed(seed)
+    base_n = fbm(size, 6, 3, seed)
+    sand = np.array((0.42, 0.38, 0.31)); dirt = np.array((0.32, 0.29, 0.24))
+    rgb = (sand[None, None] * (1 - base_n[..., None]) * 1.0 + dirt[None, None] * base_n[..., None]).astype(np.float32)
+    yy, xx = np.mgrid[0:size, 0:size].astype(np.float32)
+    cols = [(0.62, 0.60, 0.56), (0.50, 0.48, 0.46), (0.68, 0.63, 0.55), (0.42, 0.40, 0.37), (0.58, 0.52, 0.42), (0.48, 0.50, 0.53)]
+    peb = []
+    for k in range(n):
+        cx, cy = random.uniform(0, size), random.uniform(0, size); rx = random.uniform(3.5, 9.5); ry = rx * random.uniform(0.6, 0.95)
+        peb.append((cx, cy, rx, ry, random.uniform(0, math.pi), np.array(random.choice(cols)) * random.uniform(0.92, 1.06)))
+    # shadows first (offset to bottom-right), then the pebbles on top
+    for cx, cy, rx, ry, ang, col in peb:
+        dx = (xx - cx - 2.2 + size / 2) % size - size / 2; dy = (yy - cy - 2.2 + size / 2) % size - size / 2
+        ca, sa = math.cos(ang), math.sin(ang); q = ((dx * ca + dy * sa) / (rx * 1.15)) ** 2 + ((-dx * sa + dy * ca) / (ry * 1.15)) ** 2
+        rgb = np.where((q < 1)[..., None], rgb * 0.6, rgb)
+    for cx, cy, rx, ry, ang, col in peb:
+        dx = (xx - cx + size / 2) % size - size / 2; dy = (yy - cy + size / 2) % size - size / 2
+        ca, sa = math.cos(ang), math.sin(ang); u_ = (dx * ca + dy * sa) / rx; v_ = (-dx * sa + dy * ca) / ry; q = u_ * u_ + v_ * v_
+        ins = q < 1
+        light = np.clip(1.08 - 0.22 * ((dx + dy) / (rx + ry)) - 0.12 * q, 0.75, 1.15)   # lit from the top-left
+        shade = col[None, None] * light[..., None]
+        shade = np.where((q > 0.8)[..., None], shade * 0.82, shade)                        # dark rim
+        rgb = np.where(ins[..., None], shade, rgb)
+    return rgb.astype(np.float32)
