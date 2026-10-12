@@ -15,7 +15,6 @@ export interface ShotConfig {
   /** Element id from spells.json (empty for the Arcane Shard, which has no element). */
   element: string;
   damage: number;
-  damagePerLevel: number;
   manaCost: number;
   /** The staff gathers the shot this long before it leaves. */
   windupSeconds: number;
@@ -46,6 +45,12 @@ export interface ChargeConfig {
 /** 1× at no charge, `factor` at a full charge, in a straight line between them. */
 export function chargeScale(factor: number, charge: number): number {
   return 1 + (factor - 1) * Math.min(1, Math.max(0, charge));
+}
+
+/** How long a full charge takes for this player (Dexterity makes charging faster). */
+export function chargeSeconds(shot: ShotConfig, attackSpeedFactor = 1): number {
+  if (!shot.charge) return 0;
+  return shot.charge.maxSeconds / (attackSpeedFactor > 0 ? attackSpeedFactor : 1);
 }
 
 /** What a spell costs at this charge (0–1). */
@@ -83,7 +88,6 @@ function shotFromSpell(spell: SpellsFile['spells'][number]): ShotConfig {
     id: spell.id,
     element: spell.element,
     damage: spell.damage,
-    damagePerLevel: spell.perLevel.damage ?? 0,
     manaCost: spell.manaCost,
     windupSeconds: spell.windupSeconds,
     cooldownSeconds: spell.cooldownSeconds,
@@ -105,7 +109,6 @@ export function staffConfig(player: PlayerConfig, spells: SpellsFile): StaffConf
       id: SHARD_ID,
       element: '',
       damage: shard.damage,
-      damagePerLevel: shard.damagePerLevel,
       manaCost: shard.manaCost,
       windupSeconds: shard.windupSeconds,
       // maxPerSecond counts the whole cycle, so the wind-up is part of it.
@@ -147,18 +150,18 @@ export function powerFactor(
 }
 
 /**
- * Damage of one shot at a level, with the path's power curve, the staff's bonus and how far
- * the spell was charged (0–1).
+ * Damage of one shot: the shot's own damage and the staff's bonus, scaled by the path's power
+ * curve, by everything that boosts it (`damageFactor`: Power or Magic Power plus worn gear)
+ * and by how far the spell was charged (0–1). A level by itself adds nothing (fase 3.7).
  */
 export function shotDamage(
   shot: ShotConfig,
-  level: number,
   power = 1,
   weaponBonus = 0,
   damageFactor = 1,
   charge = 0,
 ): number {
-  const base = shot.damage + shot.damagePerLevel * (level - 1) + weaponBonus;
+  const base = shot.damage + weaponBonus;
   const charged = shot.charge ? chargeScale(shot.charge.damageFactor, charge) : 1;
   return Math.max(1, Math.round(base * power * damageFactor * charged));
 }
@@ -223,6 +226,8 @@ export class StaffState {
 export interface StaffInput {
   shard: boolean;
   spell: boolean;
+  /** A fresh random number (0-1) that decides a critical hit (Luck); 1 never crits. */
+  critRoll: number;
 }
 
 /** What the staff fired this step. */
@@ -233,6 +238,8 @@ export interface StaffResult {
   damage: number;
   /** How far it was charged (0–1); always 0 for the Arcane Shard. */
   charge: number;
+  /** True when Luck turned this shot into a critical one. */
+  crit: boolean;
 }
 
 /**
@@ -245,6 +252,7 @@ function release(
   cfg: StaffConfig,
   spell: ShotConfig | null,
   power: number,
+  critRoll: number,
   out: StaffResult,
 ): StaffResult {
   const kind = state.pending;
@@ -258,20 +266,24 @@ function release(
   out.fired = kind;
   if (!shot) return out;
   // Never more charge than your mana can pay for, so a long hold is never wasted.
-  const wanted = shot.charge ? Math.min(1, held / shot.charge.maxSeconds) : 0;
+  const wanted = shot.charge
+    ? Math.min(1, held / chargeSeconds(shot, combat.attackSpeedFactor))
+    : 0;
   const charge = Math.min(wanted, affordableCharge(shot, combat.mana));
   combat.mana = Math.max(0, combat.mana - chargedManaCost(shot, charge));
   out.shot = shot;
   out.charge = charge;
-  out.damage = shotDamage(
-    shot,
-    combat.level,
-    power,
-    combat.weaponBonus,
-    combat.damageFactor,
-    charge,
-  );
-  state.cooldown = kind === 'spell' ? cfg.recoverySeconds : shot.cooldownSeconds;
+  // The Arcane Shard is a normal attack (Power), a spell is magic (Magic Power).
+  const factor =
+    combat.damageFactor * (kind === 'spell' ? combat.spellFactor : combat.staffNormalFactor);
+  out.damage = shotDamage(shot, power, combat.weaponBonus, factor, charge);
+  if (critRoll < combat.critChance) {
+    out.crit = true;
+    out.damage = Math.max(1, Math.round(out.damage * combat.critFactor));
+  }
+  // Dexterity shortens the staff's own rhythm; a spell's cooldown is the spell's, not yours.
+  const speed = combat.attackSpeedFactor > 0 ? combat.attackSpeedFactor : 1;
+  state.cooldown = (kind === 'spell' ? cfg.recoverySeconds : shot.cooldownSeconds) / speed;
   if (kind === 'spell') state.spellCooldown = shot.cooldownSeconds;
   return out;
 }
@@ -296,7 +308,10 @@ export function stepStaff(
   out.shot = null;
   out.damage = 0;
   out.charge = 0;
+  out.crit = false;
   state.noMana = false;
+  // Dexterity and (later) perks make casting and charging faster.
+  const speed = combat.attackSpeedFactor > 0 ? combat.attackSpeedFactor : 1;
   state.cooldown = Math.max(0, state.cooldown - dt);
   state.spellCooldown = Math.max(0, state.spellCooldown - dt);
   combat.sinceCombat += dt;
@@ -309,7 +324,7 @@ export function stepStaff(
     state.windup = Math.max(0, state.windup - dt);
     const charging = state.pending === 'spell' && spell?.charge;
     if (charging) {
-      const max = (spell as ShotConfig).charge?.maxSeconds ?? 0;
+      const max = chargeSeconds(spell as ShotConfig, speed);
       // Keep charging while the button stays down; letting go (or a full charge) fires it.
       if (state.holding && input.spell) state.charge = Math.min(max, state.charge + dt);
       else state.holding = false;
@@ -317,10 +332,10 @@ export function stepStaff(
       const full = state.charge >= max;
       if (state.windup > 0) return out;
       if (state.holding && !full) return out;
-      return release(state, combat, cfg, spell, power, out);
+      return release(state, combat, cfg, spell, power, input.critRoll, out);
     }
     if (state.windup > 0) return out;
-    return release(state, combat, cfg, spell, power, out);
+    return release(state, combat, cfg, spell, power, input.critRoll, out);
   }
   if (state.cooldown > 0) return out;
 
@@ -334,13 +349,13 @@ export function stepStaff(
         // Mana is paid when the shot leaves, because charging makes it cost more.
         state.bufferedShard = 0;
         state.pending = 'spell';
-        state.windup = state.windupTotal = spell.windupSeconds;
+        state.windup = state.windupTotal = spell.windupSeconds / speed;
         state.charge = 0;
         state.chargeFraction = 0;
         // A press that is only remembered (buffered) is a tap: it fires uncharged.
         state.holding = input.spell;
         if (state.windup <= 0 && !state.holding) {
-          return release(state, combat, cfg, spell, power, out);
+          return release(state, combat, cfg, spell, power, input.critRoll, out);
         }
         return out;
       }
@@ -357,8 +372,8 @@ export function stepStaff(
     state.holding = false;
     state.charge = 0;
     state.chargeFraction = 0;
-    state.windup = state.windupTotal = cfg.shard.windupSeconds;
-    if (state.windup <= 0) return release(state, combat, cfg, spell, power, out);
+    state.windup = state.windupTotal = cfg.shard.windupSeconds / speed;
+    if (state.windup <= 0) return release(state, combat, cfg, spell, power, input.critRoll, out);
   }
   return out;
 }

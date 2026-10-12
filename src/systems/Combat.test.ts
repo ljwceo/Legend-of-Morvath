@@ -3,7 +3,7 @@ import { playerFileSchema } from '../data/schemas';
 import type { PlayerConfig } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
 import {
-  applyLevel,
+  applyStats,
   assistedHeading,
   CombatState,
   fastHitDamage,
@@ -24,13 +24,18 @@ const cfg = swordConfig(player);
 function fresh(): { c: CombatState; energy: { energy: number; sinceEnergySpent: number } } {
   const c = new CombatState();
   c.lingerSeconds = cfg.combatLingerSeconds;
-  applyLevel(c, player, 1);
+  applyStats(c, player, 1);
   c.hp = c.maxHp;
   return { c, energy: { energy: player.base.energy, sinceEnergySpent: 0 } };
 }
 
-const out = (): SwordResult => ({ landed: 'none', damage: 0, combo: false });
-const press = (fast: boolean, heavy = false): SwordInput => ({ fast, heavy });
+const out = (): SwordResult => ({ landed: 'none', damage: 0, combo: false, crit: false });
+/** `critRoll` 1 never crits, so the damage in these tests is the plain damage. */
+const press = (fast: boolean, heavy = false, critRoll = 1): SwordInput => ({
+  fast,
+  heavy,
+  critRoll,
+});
 
 /** Runs `seconds` of steps with the given input each step; returns every landed hit. */
 function run(
@@ -62,33 +67,71 @@ describe('mana regen', () => {
   });
 });
 
-describe('sword numbers (concept)', () => {
-  it('fast hit 10, every 3rd hit in a row +50 %, +2 per level', () => {
-    expect(fastHitDamage(cfg, 1, 1)).toBe(10);
-    expect(fastHitDamage(cfg, 1, 2)).toBe(10);
-    expect(fastHitDamage(cfg, 1, 3)).toBe(15);
-    expect(fastHitDamage(cfg, 1, 6)).toBe(15);
-    expect(fastHitDamage(cfg, 8, 1)).toBe(24);
+describe('sword numbers (the point system of fase 3.7)', () => {
+  it('fast hit 9 with nothing spent, and every 3rd hit in a row +50 %', () => {
+    expect(fastHitDamage(cfg, 1)).toBe(9);
+    expect(fastHitDamage(cfg, 2)).toBe(9);
+    expect(fastHitDamage(cfg, 3)).toBe(14);
+    expect(fastHitDamage(cfg, 6)).toBe(14);
   });
 
-  it('heavy hit 25, +5 per level', () => {
-    expect(heavyHitDamage(cfg, 1)).toBe(25);
-    expect(heavyHitDamage(cfg, 3)).toBe(35);
+  it('heavy hit 22 with nothing spent', () => {
+    expect(heavyHitDamage(cfg)).toBe(22);
+  });
+
+  it('scales with Power (and worn gear), not with your level', () => {
+    // A suggested sword build spends 5 points in Power: +15 %.
+    expect(fastHitDamage(cfg, 1, 0, 1.15)).toBe(10);
+    expect(heavyHitDamage(cfg, 0, 1.15)).toBe(25);
+    // The level itself no longer adds anything.
+    const { c } = fresh();
+    applyStats(c, player, 8);
+    expect(fastHitDamage(cfg, 1, c.weaponBonus, c.damageFactor * c.normalFactor)).toBe(9);
   });
 
   it('a better weapon adds its bonus to every hit (combo bonus included)', () => {
-    expect(fastHitDamage(cfg, 1, 1, 3)).toBe(13);
-    expect(fastHitDamage(cfg, 1, 3, 3)).toBe(20);
-    expect(heavyHitDamage(cfg, 1, 3)).toBe(28);
+    expect(fastHitDamage(cfg, 1, 3)).toBe(12);
+    expect(fastHitDamage(cfg, 3, 3)).toBe(18);
+    expect(heavyHitDamage(cfg, 3)).toBe(25);
   });
 
-  it('level sets HP and mana (+10 / +5 per level)', () => {
+  it('a critical hit does 1.5x (Luck), and only when the roll says so', () => {
+    const { c, energy } = fresh();
+    c.critChance = 0.5;
+    c.critFactor = 1.5;
+    const result = out();
+    stepSword(c, energy, press(true, false, 0.9), cfg, DT, result);
+    expect(result.crit).toBe(false);
+    expect(result.damage).toBe(9);
+    const { c: c2, energy: e2 } = fresh();
+    c2.critChance = 0.5;
+    stepSword(c2, e2, press(true, false, 0.1), cfg, DT, result);
+    expect(result.crit).toBe(true);
+    expect(result.damage).toBe(14);
+  });
+
+  it('HP and mana come from the base plus your points and gear, never from a level', () => {
     const { c } = fresh();
-    expect(c.maxHp).toBe(100);
-    expect(c.maxMana).toBe(50);
-    applyLevel(c, player, 8);
-    expect(c.maxHp).toBe(170);
-    expect(c.maxMana).toBe(85);
+    expect(c.maxHp).toBe(player.base.hp);
+    expect(c.maxMana).toBe(player.base.mana);
+    applyStats(c, player, 8);
+    expect(c.maxHp).toBe(player.base.hp);
+    c.statHp = 48;
+    c.statMana = 20;
+    c.gearHp = 10;
+    applyStats(c, player, 8);
+    expect(c.maxHp).toBe(player.base.hp + 58);
+    expect(c.maxMana).toBe(player.base.mana + 20);
+  });
+
+  it('Dexterity makes swinging faster without changing the damage', () => {
+    const { c, energy } = fresh();
+    c.attackSpeedFactor = 2;
+    const result = out();
+    energy.energy = 1000;
+    stepSword(c, energy, press(true), cfg, DT, result);
+    expect(result.damage).toBe(9);
+    expect(c.attackCooldown).toBeCloseTo(cfg.fastInterval / 2);
   });
 });
 
@@ -97,7 +140,7 @@ describe('stepSword', () => {
     const state = fresh();
     const hits = run(state, 1, press(true));
     expect(hits.length).toBe(3);
-    expect(hits.map((h) => h.damage)).toEqual([10, 10, 15]);
+    expect(hits.map((h) => h.damage)).toEqual([9, 9, 14]);
     expect(hits[2]?.combo).toBe(true);
     expect(state.energy.energy).toBe(70);
   });
@@ -118,7 +161,7 @@ describe('stepSword', () => {
     run(state, 0.4, press(true));
     run(state, cfg.comboWindowSeconds + 0.1, press(false));
     const [hit] = run(state, DT, press(true));
-    expect(hit?.damage).toBe(10);
+    expect(hit?.damage).toBe(9);
     expect(state.c.comboCount).toBe(1);
   });
 
@@ -131,7 +174,7 @@ describe('stepSword', () => {
     const hits = run(state, cfg.heavyWindupSeconds, press(true));
     expect(hits).toHaveLength(1);
     expect(hits[0]?.landed).toBe('heavy');
-    expect(hits[0]?.damage).toBe(25);
+    expect(hits[0]?.damage).toBe(22);
     // During recovery nothing else starts.
     expect(run(state, cfg.heavyRecoverySeconds - 2 * DT, press(true))).toHaveLength(0);
   });

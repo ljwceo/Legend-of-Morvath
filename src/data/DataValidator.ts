@@ -292,7 +292,6 @@ class CrossChecker {
     this.unique('quest', 'quests', 'quests', d.quests.quests);
     this.unique('element', 'spells', 'elements', d.spells.elements);
     this.unique('spell', 'spells', 'spells', d.spells.spells);
-    this.unique('coreStat', 'skills', 'core.stats', d.skills.core.stats);
     this.unique('branch', 'skills', 'branches', d.skills.branches);
     this.unique('skill', 'skills', 'skills', d.skills.skills);
     this.unique('perk', 'skills', 'perks', d.skills.perks);
@@ -1041,10 +1040,6 @@ class CrossChecker {
   private checkSkills(): void {
     const f = 'skills';
     const s = this.data.skills;
-    s.core.opposites.forEach((pair, i) => {
-      this.ref('coreStat', f, `core.opposites[${i}].a`, pair.a);
-      this.ref('coreStat', f, `core.opposites[${i}].b`, pair.b);
-    });
     s.branches.forEach((branch, i) => {
       this.ref('element', f, `branches[${i}].element`, branch.element);
       if ((branch.requires === 'element') !== (branch.element !== undefined)) {

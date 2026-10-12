@@ -54,7 +54,7 @@ import { NpcRenderer } from '../render/NpcRenderer';
 import { colorTokens, palette, resolveColorToken } from '../render/palette';
 import { Cheats, stepFlying } from '../systems/Cheats';
 import {
-  applyLevel,
+  applyStats,
   assistedHeading,
   type CombatState,
   damageTaken,
@@ -151,6 +151,12 @@ import { type BuyResult, shopPanel } from '../ui/menus/ShopPanel';
 import { QuestTexts } from '../ui/questText';
 import type { ChecklistRow, DialogOptions } from '../ui/Dialog';
 import { pausePanel } from '../ui/menus/PausePanel';
+import {
+  applyStatsToCombat,
+  computeStatEffects,
+  emptyStatEffects,
+  type StatEffects,
+} from '../systems/Stats';
 import type { Panel } from '../ui/Overlays';
 import { type TouchLabels, TouchControls } from '../ui/TouchControls';
 import { Checkpoints, checkpointsOf } from '../world/Checkpoints';
@@ -209,8 +215,8 @@ const BLOB_OPACITY = 0.28;
 /** The shadow camera sits this far (m) from the player towards the sun. */
 const SUN_DISTANCE = 150;
 /** No attack this step (while a dash finishes). */
-const NO_SWORD_INPUT: SwordInput = { fast: false, heavy: false };
-const NO_STAFF_INPUT: StaffInput = { shard: false, spell: false };
+const NO_SWORD_INPUT: SwordInput = { fast: false, heavy: false, critRoll: 1 };
+const NO_STAFF_INPUT: StaffInput = { shard: false, spell: false, critRoll: 1 };
 /**
  * Line of sight for lock-on in the open world: this many samples of the terrain along the line,
  * and a hill only blocks when it rises this far (m) above it (so a bumpy field is no wall).
@@ -353,6 +359,10 @@ export class WorldState implements GameState, InstanceHost {
   private potionCooldown = 0;
   /** Rolls loot; a new seed every time the world is entered. */
   private lootRng = new Random(1);
+  /** Rolls critical hits (Luck); a new seed every time the world is entered. */
+  private critRng = new Random(2);
+  /** What your stat points add up to (fase 3.7); refreshed by `applyGear`. */
+  private readonly statEffects: StatEffects = emptyStatEffects();
   private items: ReadonlyMap<string, ItemDef> = new Map();
   /** Seconds until "protected here" may show again. */
   private protectedMessageTimer = 0;
@@ -441,11 +451,22 @@ export class WorldState implements GameState, InstanceHost {
   private readonly moveInput = { x: 0, y: 0 };
   private readonly moveWorld = { x: 0, z: 0 };
   private readonly command: MoveCommand = { x: 0, z: 0, dash: false };
-  private readonly swordInput: SwordInput = { fast: false, heavy: false };
-  private readonly swordResult: SwordResult = { landed: 'none', damage: 0, combo: false };
+  private readonly swordInput: SwordInput = { fast: false, heavy: false, critRoll: 1 };
+  private readonly swordResult: SwordResult = {
+    landed: 'none',
+    damage: 0,
+    combo: false,
+    crit: false,
+  };
   private readonly staffState = new StaffState();
-  private readonly staffInput: StaffInput = { shard: false, spell: false };
-  private readonly staffResult: StaffResult = { fired: 'none', shot: null, damage: 0, charge: 0 };
+  private readonly staffInput: StaffInput = { shard: false, spell: false, critRoll: 1 };
+  private readonly staffResult: StaffResult = {
+    fired: 'none',
+    shot: null,
+    damage: 0,
+    charge: 0,
+    crit: false,
+  };
   /** player.json lock-on numbers with the debug aim-help multipliers applied (reused). */
   private readonly lockNow: LockOnConfig = {
     range: 0,
@@ -552,6 +573,7 @@ export class WorldState implements GameState, InstanceHost {
     this.deathTimer = NOT_DYING;
     this.potionCooldown = 0;
     this.lootRng = new Random((Date.now() >>> 0) ^ 0x5eed);
+    this.critRng = new Random((Date.now() >>> 0) ^ 0xc817);
     this.quests = new QuestBook(data.quests.quests, session.quests);
     this.questTexts = new QuestTexts(data, t);
     this.conditionContext.completedQuests = this.quests.completed;
@@ -877,6 +899,10 @@ export class WorldState implements GameState, InstanceHost {
 
   /** Fighting and walking for one step: with a sword you swing, with a staff you shoot. */
   private stepAttackAndMove(dt: number): void {
+    // One fresh roll per step decides whether a hit that lands is critical (Luck).
+    const roll = this.critRng.next();
+    this.swordInput.critRoll = roll;
+    this.staffInput.critRoll = roll;
     if (this.weaponKind === 'staff') this.stepStaffAndMove(dt);
     else this.stepSwordAndMove(dt);
   }
@@ -908,8 +934,7 @@ export class WorldState implements GameState, InstanceHost {
     movement.walkSpeed =
       this.baseWalkSpeed * this.cheats.speed * (windingUp ? sword.heavyMoveFactor : 1);
     stepMovement(s, this.command, movement, dt, mover);
-    regenOutOfCombat(c, data.player.regen.hpPerSecondOutOfCombat, dt);
-    regenMana(c, data.player.regen.manaPerSecond, dt);
+    this.stepRegen(c, dt);
   }
 
   /**
@@ -940,7 +965,7 @@ export class WorldState implements GameState, InstanceHost {
       dt,
       this.staffResult,
     );
-    if (result.shot) this.fireShot(result.shot, result.damage, result.charge);
+    if (result.shot) this.fireShot(result.shot, result.damage, result.charge, result.crit);
     if (state.noMana) this.sayNoMana();
 
     const casting = state.casting;
@@ -950,8 +975,20 @@ export class WorldState implements GameState, InstanceHost {
     movement.walkSpeed =
       this.baseWalkSpeed * this.cheats.speed * (casting ? staff.castMoveFactor : 1);
     stepMovement(s, this.command, movement, dt, mover);
-    regenOutOfCombat(c, data.player.regen.hpPerSecondOutOfCombat, dt);
-    regenMana(c, data.player.regen.manaPerSecond, dt);
+    this.stepRegen(c, dt);
+  }
+
+  /**
+   * HP, mana and energy coming back for one step. The base numbers are in player.json; the
+   * Regen stat adds to them, and what it adds depends on your path (a mage gets mana, a sword
+   * fighter health). Energy regen is in the movement config (see `applyGear`).
+   */
+  private stepRegen(c: CombatState, dt: number): void {
+    const regen = this.ctx.data?.player.regen;
+    if (!regen) return;
+    const e = this.statEffects;
+    regenOutOfCombat(c, regen.hpPerSecondOutOfCombat + e.hpRegenPerSecond, dt);
+    regenMana(c, regen.manaPerSecond + e.manaRegenPerSecond, dt);
   }
 
   /**
@@ -974,7 +1011,7 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /** A shot leaves the staff: it flies by itself from here on (Shots). */
-  private fireShot(shot: ShotConfig, damage: number, charge: number): void {
+  private fireShot(shot: ShotConfig, damage: number, charge: number, crit = false): void {
     const { player, shots, staff } = this;
     if (!player || !shots || !staff) return;
     const s = player.state;
@@ -988,6 +1025,7 @@ export class WorldState implements GameState, InstanceHost {
       damage,
       locked?.hittable ? locked : null,
       charge,
+      crit,
     );
     // Debug: the cheat menu can make shots curve harder or not at all.
     fired.homingRadians = shot.homingRadians * this.cheats.homing;
@@ -1170,7 +1208,7 @@ export class WorldState implements GameState, InstanceHost {
       top,
       e.z,
       shot.damage,
-      shot.id === SHARD_ID ? 'normal' : 'heavy',
+      shot.crit ? 'crit' : shot.id === SHARD_ID ? 'normal' : 'heavy',
     );
     player.combat.sinceCombat = 0;
     if (defeated) this.defeated(e, top);
@@ -1196,7 +1234,13 @@ export class WorldState implements GameState, InstanceHost {
       const defeated = enemies.hit(e, result.damage);
       hitAny = true;
       const top = e.y + (enemyRenderer?.heightOf(e) ?? 1.5);
-      const kind = result.landed === 'heavy' ? 'heavy' : result.combo ? 'combo' : 'normal';
+      const kind = result.crit
+        ? 'crit'
+        : result.landed === 'heavy'
+          ? 'heavy'
+          : result.combo
+            ? 'combo'
+            : 'normal';
       this.damageNumbers?.spawn(e.x, top, e.z, result.damage, kind);
       if (defeated) this.defeated(e, top);
     }
@@ -1385,7 +1429,7 @@ export class WorldState implements GameState, InstanceHost {
     this.hud?.setXp(xpFraction(data.player, progress), levels > 0);
     if (levels <= 0) return;
     const c = player.combat;
-    applyLevel(c, data.player, progress.level);
+    applyStats(c, data.player, progress.level);
     if (data.player.levelUpRefill) {
       c.hp = c.maxHp;
       c.mana = c.maxMana;
@@ -1429,6 +1473,7 @@ export class WorldState implements GameState, InstanceHost {
       player.combat,
       this.potionCooldown,
       this.healed,
+      1 + this.statEffects.potionPercent / 100,
     );
     const t = this.ctx.i18n;
     if (result === 'drunk') {
@@ -1975,6 +2020,20 @@ export class WorldState implements GameState, InstanceHost {
     };
   }
 
+  /**
+   * Your stat points (fase 3.7) → max HP and mana, how hard your attacks hit, how fast you
+   * swing, your crit chance and your equip load. Called from `applyGear`, so it refreshes
+   * whenever points, gear, the path or a level change.
+   */
+  private applyStatEffects(c: CombatState): void {
+    const data = this.ctx.data;
+    const session = this.ctx.session;
+    if (!data) return;
+    const points = session?.character?.stats ?? {};
+    computeStatEffects(data.stats, points, session?.path ?? null, this.statEffects);
+    applyStatsToCombat(data.stats, this.statEffects, c, this.gearStatsOut.damageReductionPercent);
+  }
+
   /** Worn gear → extra max HP / mana and damage factors (no level or load changes). */
   private applyGearStats(c: CombatState): void {
     const character = this.ctx.session?.character;
@@ -1988,7 +2047,7 @@ export class WorldState implements GameState, InstanceHost {
     c.gearHp = stats.hp;
     c.gearMana = stats.mana;
     c.damageFactor = 1 + stats.damagePercent / 100;
-    c.damageTakenFactor = 1 - stats.damageReductionPercent / 100;
+    // How much damage reaches you is gear plus Defense: `applyStatEffects` sets it.
   }
 
   /**
@@ -2004,11 +2063,15 @@ export class WorldState implements GameState, InstanceHost {
     if (!data || !character || !player || !baseMovement || !movement) return;
     const c = player.combat;
     this.applyGearStats(c);
-    applyLevel(c, data.player, c.level);
+    this.applyStatEffects(c);
+    applyStats(c, data.player, c.level);
     this.carriedKg = carriedWeight(character.inventory, this.items);
-    this.maxLoadKg = maxLoad(data.player.load, c.level);
+    this.maxLoadKg = maxLoad(data.player.load, c.level, this.statEffects.carryKg);
     const tier = loadTier(data.player.load, this.carriedKg, this.maxLoadKg);
     loadedMovement(baseMovement, tier, this.gearStatsOut.moveSpeedPercent, movement);
+    // Regen: energy comes back faster (the HP and mana part is in `stepRegen`).
+    movement.energyPerSecond =
+      baseMovement.energyPerSecond * (1 + this.statEffects.energyRegenPercent / 100);
     this.baseWalkSpeed = movement.walkSpeed;
     if (this.cheats.speed !== 1) movement.walkSpeed = this.baseWalkSpeed * this.cheats.speed;
     if (announce && this.loadTierId !== '' && tier.id !== this.loadTierId) {
@@ -3076,7 +3139,7 @@ export class WorldState implements GameState, InstanceHost {
     const progress = session?.progress;
     const level = Math.min(data.player.maxLevel, Math.max(1, progress?.level ?? 1));
     this.applyGearStats(combat);
-    applyLevel(combat, data.player, level);
+    applyStats(combat, data.player, level);
     combat.hp = Math.min(combat.maxHp, progress?.hp ?? combat.maxHp);
     combat.mana = Math.min(combat.maxMana, progress?.mana ?? combat.maxMana);
     // Waking up with 0 HP would be dying again at once.

@@ -470,7 +470,6 @@ export const npcsFileSchema = z.strictObject({
 
 export const playerFileSchema = z.strictObject({
   base: z.strictObject({ hp: positive, mana: nonNegative, energy: positive }),
-  perLevel: z.strictObject({ hp: nonNegative, mana: nonNegative }),
   maxLevel: level,
   xpToNextLevel: atLeast(z.array(posInt)),
   regen: z.strictObject({
@@ -558,13 +557,11 @@ export const playerFileSchema = z.strictObject({
     fastHit: z.strictObject({
       damage: positive,
       energyCost: nonNegative,
-      damagePerLevel: nonNegative,
       maxPerSecond: max(positive, 10),
     }),
     heavyHit: z.strictObject({
       damage: positive,
       energyCost: nonNegative,
-      damagePerLevel: nonNegative,
       windupSeconds: max(nonNegative, 5),
     }),
     comboEveryNthHit: z.int().check(z.minimum(2)),
@@ -594,7 +591,6 @@ export const playerFileSchema = z.strictObject({
   staff: z.strictObject({
     shard: z.strictObject({
       damage: positive,
-      damagePerLevel: nonNegative,
       manaCost: nonNegative,
       maxPerSecond: max(positive, 10),
       /** The staff lights up this long before the shard leaves it. */
@@ -1130,7 +1126,6 @@ export const spellsFileSchema = z.strictObject({
       damage: nonNegative,
       range: max(positive, 100),
       usesPerLevel: posInt,
-      perLevel: z.record(z.string(), z.number()),
       /** Pulling the spell together takes this long (s) before it leaves the staff. */
       windupSeconds: max(nonNegative, 5),
       /** How fast the shot flies (m/s): `range` / `speed` is its travel time. */
@@ -1241,19 +1236,6 @@ export const skillsFileSchema = z.strictObject({
     firstPointLevel: level,
     tierUnlockPoints: z.record(z.string(), nonNegInt),
     classChoiceLevel: level,
-  }),
-  core: z.strictObject({
-    opposites: z.array(z.strictObject({ a: id, b: id, maxCombined: posInt })),
-    stats: z.array(
-      z.strictObject({
-        id,
-        name,
-        maxPoints: posInt,
-        stat: name,
-        perPoint: positive,
-        mageOnly: optional(z.boolean()),
-      }),
-    ),
   }),
   branches: z.array(
     z.strictObject({

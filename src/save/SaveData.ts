@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 9;
+export const SAVE_VERSION = 10;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -49,6 +49,12 @@ export const saveDataSchema = z.object({
       equipment: z.record(z.string(), id),
       /** What your pack animal (Biscuit) carries; not usable until you take it out. */
       pack: z.array(z.object({ item: id, count: z.int().check(z.positive()) })),
+      /**
+       * Points spent per stat (stats.json ids), the build you made in the character creator and
+       * add to on every level. What you may still spend is never stored: it follows from your
+       * level and what is spent here, so the two can never disagree.
+       */
+      stats: z.record(z.string(), z.int().check(z.nonnegative())),
       /**
        * Spells you know (spells.json ids), in the order they were learned. A staff can hold as
        * many as its `spellSlots`; the first one is the spell the right button casts.
@@ -175,6 +181,13 @@ export const migrations: Readonly<Record<number, Migration>> = {
   8: (save) => {
     const settings = (save.settings ?? {}) as Record<string, unknown>;
     return { ...save, version: 9, settings: { ...settings, keybindings: {} } };
+  },
+  // v10 (fase 3.7): stats you spend points on. The automatic growth per level is gone, so an
+  // older character starts with nothing spent and gets every point back to spend (the game
+  // says so once); its level, path, gear and quests stay exactly as they were.
+  9: (save) => {
+    const character = save.character as Record<string, unknown> | null | undefined;
+    return { ...save, version: 10, character: character ? { ...character, stats: {} } : null };
   },
 };
 

@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { monstersFileSchema, playerFileSchema, zonesFileSchema } from '../data/schemas';
-import type { MonstersFile, PlayerConfig } from '../data/types';
+import {
+  monstersFileSchema,
+  playerFileSchema,
+  statsFileSchema,
+  zonesFileSchema,
+} from '../data/schemas';
+import type { MonstersFile, PlayerConfig, StatsFile } from '../data/types';
 import type { Enemy } from '../entities/Enemy';
 import { readPublicJson } from '../test/loadPublic';
 import type { PointXZ } from '../world/Colliders';
 import { keepInArena } from './BossAI';
 import {
-  applyLevel,
+  applyStats,
   assistedHeading,
   CombatState,
   inSwingArc,
@@ -17,6 +22,14 @@ import {
 import { Enemies, type EnemiesWorld } from './Enemies';
 import type { EnemyTarget } from './EnemyAI';
 import { type MoveCommand, MoverState, movementConfig, stepMovement } from './Movement';
+import {
+  applyStatsToCombat,
+  computeStatEffects,
+  emptyStatEffects,
+  normalizeStatPoints,
+  presetPoints,
+  type StatPoints,
+} from './Stats';
 
 /**
  * Balance checks (step 2.7): a simulated player fights with the real sword, movement and boss
@@ -29,6 +42,7 @@ const DT = 1 / 60;
 const player = playerFileSchema.parse(readPublicJson('data/player.json')) as PlayerConfig;
 const monsters = monstersFileSchema.parse(readPublicJson('data/monsters.json')) as MonstersFile;
 const zones = zonesFileSchema.parse(readPublicJson('data/zones.json'));
+const stats = statsFileSchema.parse(readPublicJson('data/stats.json')) as StatsFile;
 const sword = swordConfig(player);
 const moveCfg = movementConfig(player);
 /** Hilda's honed sword (items.json) after the first day. */
@@ -48,6 +62,20 @@ interface Bot {
   reaction: number;
   level: number;
   weaponBonus: number;
+  /** The build: points spent per stat (fase 3.7). */
+  points: StatPoints;
+}
+
+/**
+ * A build at a level: one of the suggested spreads from stats.json plus where the points from
+ * levelling went. Anything that does not fit the budget is dropped (`normalizeStatPoints`).
+ */
+function build(presetId: string, level: number, extra: Readonly<StatPoints> = {}): StatPoints {
+  const points = presetPoints(stats, presetId, level);
+  for (const [statId, add] of Object.entries(extra)) {
+    points[statId] = (points[statId] ?? 0) + add;
+  }
+  return normalizeStatPoints(stats, points, level);
 }
 
 interface FightResult {
@@ -73,7 +101,8 @@ function fightSultan(bot: Bot, seed: number, maxSeconds = 400): FightResult {
   s.energy = moveCfg.maxEnergy;
   const c = new CombatState();
   c.hp = Infinity;
-  applyLevel(c, player, bot.level);
+  applyStatsToCombat(stats, computeStatEffects(stats, bot.points, 'sword', emptyStatEffects()), c);
+  applyStats(c, player, bot.level);
   c.hp = c.maxHp;
   c.weaponBonus = bot.weaponBonus;
   let hitsTaken = 0;
@@ -94,8 +123,8 @@ function fightSultan(bot: Bot, seed: number, maxSeconds = 400): FightResult {
   enemies.step(DT, target, world);
   enemies.startBoss(boss, s.heading + Math.PI);
   const cmd: MoveCommand = { x: 0, z: 0, dash: false };
-  const input = { fast: false, heavy: false };
-  const result: SwordResult = { landed: 'none', damage: 0, combo: false };
+  const input = { fast: false, heavy: false, critRoll: 1 };
+  const result: SwordResult = { landed: 'none', damage: 0, combo: false, crit: false };
   let warned = 0;
   let opened = 0;
   let side = 1;
@@ -159,7 +188,14 @@ function fightSultan(bot: Bot, seed: number, maxSeconds = 400): FightResult {
         sword.aimHalfArc,
       );
     }
-    stepSword(c, s, s.dashTime > 0 ? { fast: false, heavy: false } : input, sword, DT, result);
+    stepSword(
+      c,
+      s,
+      s.dashTime > 0 ? { fast: false, heavy: false, critRoll: 1 } : input,
+      sword,
+      DT,
+      result,
+    );
     if (result.landed !== 'none') {
       for (const e of enemies.shown) {
         if (
@@ -195,7 +231,12 @@ function summary(results: FightResult[]): string {
 }
 
 describe('balance: Sultan (beginner boss)', () => {
-  const level3 = { level: 3, weaponBonus: HONED_BONUS };
+  // Level 3 with Hilda's honed sword and a sword build: 20 start points plus 2 from levelling.
+  const level3 = {
+    level: 3,
+    weaponBonus: HONED_BONUS,
+    points: build('sword_fighter', 3, { hp: 1, power: 1 }),
+  };
 
   it('is beaten in one to two minutes by a player who dodges in time', () => {
     const results = SEEDS.map((seed) =>

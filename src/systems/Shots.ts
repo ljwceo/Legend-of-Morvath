@@ -42,6 +42,8 @@ export class Shot {
   target: ShotTarget | null = null;
   /** How far the spell was charged (0–1); 0 for the Arcane Shard. */
   charge = 0;
+  /** True when Luck made this shot a critical hit (the damage number shows it). */
+  crit = false;
   /** 'arcane_shard' or the spell's id (the renderer colours it by element). */
   id = '';
   element = '';
@@ -131,6 +133,7 @@ export class Shots {
     damage: number,
     target: ShotTarget | null,
     charge = 0,
+    crit = false,
   ): Shot {
     let slot = this.list[0] as Shot;
     for (let i = 0; i < this.list.length; i++) {
@@ -153,6 +156,7 @@ export class Shots {
     slot.homingRadians = cfg.homingRadians;
     slot.target = target;
     slot.charge = charge;
+    slot.crit = crit;
     slot.id = cfg.id;
     slot.element = cfg.element;
     // The range stays the same, so a charged shot gets there sooner.

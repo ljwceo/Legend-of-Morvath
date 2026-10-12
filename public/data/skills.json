@@ -1,93 +1,160 @@
 {
   "rules": {
-    "pointsPerLevel": { "mage": 2, "sword": 1 },
+    "pointsPerLevel": {
+      "mage": 2,
+      "sword": 1
+    },
     "firstPointLevel": 2,
-    "tierUnlockPoints": { "2": 5, "3": 10 },
+    "tierUnlockPoints": {
+      "2": 5,
+      "3": 10
+    },
     "classChoiceLevel": 15
   },
-  "core": {
-    "opposites": [
-      { "a": "health", "b": "speed", "maxCombined": 12 },
-      { "a": "resistance", "b": "critical", "maxCombined": 12 },
-      { "a": "power", "b": "health_regen", "maxCombined": 12 }
-    ],
-    "stats": [
-      { "id": "health", "name": "Health", "maxPoints": 10, "stat": "maxHpPercent", "perPoint": 5 },
-      {
-        "id": "speed",
-        "name": "Speed",
-        "maxPoints": 10,
-        "stat": "moveSpeedPercent",
-        "perPoint": 3
-      },
-      {
-        "id": "resistance",
-        "name": "Resistance",
-        "maxPoints": 10,
-        "stat": "damageTakenReductionPercent",
-        "perPoint": 2
-      },
-      {
-        "id": "critical",
-        "name": "Critical",
-        "maxPoints": 10,
-        "stat": "critChancePercent",
-        "perPoint": 2
-      },
-      { "id": "power", "name": "Power", "maxPoints": 10, "stat": "damagePercent", "perPoint": 3 },
-      {
-        "id": "health_regen",
-        "name": "Health Regen",
-        "maxPoints": 10,
-        "stat": "hpRegenPercentPerSecond",
-        "perPoint": 0.5
-      },
-      {
-        "id": "mana",
-        "name": "Mana",
-        "maxPoints": 10,
-        "stat": "maxManaPercent",
-        "perPoint": 5,
-        "mageOnly": true
-      },
-      {
-        "id": "mana_regen",
-        "name": "Mana Regen",
-        "maxPoints": 5,
-        "stat": "manaRegenPerSecond",
-        "perPoint": 0.5,
-        "mageOnly": true
-      }
-    ]
-  },
   "branches": [
-    { "id": "sword", "name": "Sword", "requires": "sword" },
-    { "id": "fire", "name": "Fire", "requires": "element", "element": "fire" },
-    { "id": "water", "name": "Water", "requires": "element", "element": "water" },
-    { "id": "wind", "name": "Wind", "requires": "element", "element": "wind" },
-    { "id": "nature", "name": "Nature", "requires": "element", "element": "nature" },
-    { "id": "dark", "name": "Dark", "requires": "element", "element": "dark" },
-    { "id": "crafting", "name": "Crafting", "requires": "none" },
-    { "id": "warrior", "name": "Warrior", "requires": "class" },
-    { "id": "berserker", "name": "Berserker", "requires": "class" }
+    {
+      "id": "sword",
+      "name": "Sword",
+      "requires": "sword"
+    },
+    {
+      "id": "fire",
+      "name": "Fire",
+      "requires": "element",
+      "element": "fire"
+    },
+    {
+      "id": "water",
+      "name": "Water",
+      "requires": "element",
+      "element": "water"
+    },
+    {
+      "id": "wind",
+      "name": "Wind",
+      "requires": "element",
+      "element": "wind"
+    },
+    {
+      "id": "nature",
+      "name": "Nature",
+      "requires": "element",
+      "element": "nature"
+    },
+    {
+      "id": "dark",
+      "name": "Dark",
+      "requires": "element",
+      "element": "dark"
+    },
+    {
+      "id": "crafting",
+      "name": "Crafting",
+      "requires": "none"
+    },
+    {
+      "id": "warrior",
+      "name": "Warrior",
+      "requires": "class"
+    },
+    {
+      "id": "berserker",
+      "name": "Berserker",
+      "requires": "class"
+    }
   ],
   "skills": [
-    { "id": "keen_edge", "name": "Keen Edge", "branch": "sword", "tier": 1, "maxPoints": 5 },
-    { "id": "whirlwind", "name": "Whirlwind", "branch": "sword", "tier": 2, "maxPoints": 5 },
-    { "id": "parry", "name": "Parry", "branch": "sword", "tier": 2, "maxPoints": 5 },
-    { "id": "bladestorm", "name": "Bladestorm", "branch": "sword", "tier": 3, "maxPoints": 1 },
-
-    { "id": "burn", "name": "Burn", "branch": "fire", "tier": 1, "maxPoints": 5 },
-    { "id": "sea_of_flames", "name": "Sea of Flames", "branch": "fire", "tier": 2, "maxPoints": 5 },
-    { "id": "phoenix_heart", "name": "Phoenix Heart", "branch": "fire", "tier": 2, "maxPoints": 5 },
-    { "id": "meteor", "name": "Meteor", "branch": "fire", "tier": 3, "maxPoints": 1 },
-
-    { "id": "chill", "name": "Chill", "branch": "water", "tier": 1, "maxPoints": 5 },
-    { "id": "ice_armor", "name": "Ice Armor", "branch": "water", "tier": 2, "maxPoints": 5 },
-    { "id": "freeze", "name": "Freeze", "branch": "water", "tier": 2, "maxPoints": 5 },
-    { "id": "blizzard", "name": "Blizzard", "branch": "water", "tier": 3, "maxPoints": 1 },
-
-    { "id": "static_charge", "name": "Static Charge", "branch": "wind", "tier": 1, "maxPoints": 5 },
+    {
+      "id": "keen_edge",
+      "name": "Keen Edge",
+      "branch": "sword",
+      "tier": 1,
+      "maxPoints": 5
+    },
+    {
+      "id": "whirlwind",
+      "name": "Whirlwind",
+      "branch": "sword",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "parry",
+      "name": "Parry",
+      "branch": "sword",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "bladestorm",
+      "name": "Bladestorm",
+      "branch": "sword",
+      "tier": 3,
+      "maxPoints": 1
+    },
+    {
+      "id": "burn",
+      "name": "Burn",
+      "branch": "fire",
+      "tier": 1,
+      "maxPoints": 5
+    },
+    {
+      "id": "sea_of_flames",
+      "name": "Sea of Flames",
+      "branch": "fire",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "phoenix_heart",
+      "name": "Phoenix Heart",
+      "branch": "fire",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "meteor",
+      "name": "Meteor",
+      "branch": "fire",
+      "tier": 3,
+      "maxPoints": 1
+    },
+    {
+      "id": "chill",
+      "name": "Chill",
+      "branch": "water",
+      "tier": 1,
+      "maxPoints": 5
+    },
+    {
+      "id": "ice_armor",
+      "name": "Ice Armor",
+      "branch": "water",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "freeze",
+      "name": "Freeze",
+      "branch": "water",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "blizzard",
+      "name": "Blizzard",
+      "branch": "water",
+      "tier": 3,
+      "maxPoints": 1
+    },
+    {
+      "id": "static_charge",
+      "name": "Static Charge",
+      "branch": "wind",
+      "tier": 1,
+      "maxPoints": 5
+    },
     {
       "id": "chain_lightning",
       "name": "Chain Lightning",
@@ -95,12 +162,41 @@
       "tier": 2,
       "maxPoints": 5
     },
-    { "id": "overcharge", "name": "Overcharge", "branch": "wind", "tier": 2, "maxPoints": 5 },
-    { "id": "thunderclap", "name": "Thunderclap", "branch": "wind", "tier": 3, "maxPoints": 1 },
-
-    { "id": "growth", "name": "Growth", "branch": "nature", "tier": 1, "maxPoints": 5 },
-    { "id": "thorns", "name": "Thorns", "branch": "nature", "tier": 2, "maxPoints": 5 },
-    { "id": "tree_of_life", "name": "Tree of Life", "branch": "nature", "tier": 2, "maxPoints": 5 },
+    {
+      "id": "overcharge",
+      "name": "Overcharge",
+      "branch": "wind",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "thunderclap",
+      "name": "Thunderclap",
+      "branch": "wind",
+      "tier": 3,
+      "maxPoints": 1
+    },
+    {
+      "id": "growth",
+      "name": "Growth",
+      "branch": "nature",
+      "tier": 1,
+      "maxPoints": 5
+    },
+    {
+      "id": "thorns",
+      "name": "Thorns",
+      "branch": "nature",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "tree_of_life",
+      "name": "Tree of Life",
+      "branch": "nature",
+      "tier": 2,
+      "maxPoints": 5
+    },
     {
       "id": "summon_forest_spirit",
       "name": "Summon Forest Spirit",
@@ -108,13 +204,41 @@
       "tier": 3,
       "maxPoints": 1
     },
-
-    { "id": "drain", "name": "Drain", "branch": "dark", "tier": 1, "maxPoints": 5 },
-    { "id": "curse", "name": "Curse", "branch": "dark", "tier": 2, "maxPoints": 5 },
-    { "id": "shadowstep", "name": "Shadowstep", "branch": "dark", "tier": 2, "maxPoints": 5 },
-    { "id": "eclipse", "name": "Eclipse", "branch": "dark", "tier": 3, "maxPoints": 1 },
-
-    { "id": "green_thumb", "name": "Green Thumb", "branch": "crafting", "tier": 1, "maxPoints": 5 },
+    {
+      "id": "drain",
+      "name": "Drain",
+      "branch": "dark",
+      "tier": 1,
+      "maxPoints": 5
+    },
+    {
+      "id": "curse",
+      "name": "Curse",
+      "branch": "dark",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "shadowstep",
+      "name": "Shadowstep",
+      "branch": "dark",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "eclipse",
+      "name": "Eclipse",
+      "branch": "dark",
+      "tier": 3,
+      "maxPoints": 1
+    },
+    {
+      "id": "green_thumb",
+      "name": "Green Thumb",
+      "branch": "crafting",
+      "tier": 1,
+      "maxPoints": 5
+    },
     {
       "id": "drying_master",
       "name": "Drying Master",
@@ -122,7 +246,13 @@
       "tier": 2,
       "maxPoints": 5
     },
-    { "id": "smiths_eye", "name": "Smith's Eye", "branch": "crafting", "tier": 2, "maxPoints": 5 },
+    {
+      "id": "smiths_eye",
+      "name": "Smith's Eye",
+      "branch": "crafting",
+      "tier": 2,
+      "maxPoints": 5
+    },
     {
       "id": "masters_touch",
       "name": "Master's Touch",
@@ -130,15 +260,55 @@
       "tier": 3,
       "maxPoints": 1
     },
-
-    { "id": "iron_skin", "name": "Iron Skin", "branch": "warrior", "tier": 1, "maxPoints": 5 },
-    { "id": "shield_bash", "name": "Shield Bash", "branch": "warrior", "tier": 2, "maxPoints": 5 },
-    { "id": "taunt", "name": "Taunt", "branch": "warrior", "tier": 2, "maxPoints": 5 },
-    { "id": "unbreakable", "name": "Unbreakable", "branch": "warrior", "tier": 3, "maxPoints": 1 },
-
-    { "id": "bloodlust", "name": "Bloodlust", "branch": "berserker", "tier": 1, "maxPoints": 5 },
-    { "id": "frenzy", "name": "Frenzy", "branch": "berserker", "tier": 2, "maxPoints": 5 },
-    { "id": "cleave", "name": "Cleave", "branch": "berserker", "tier": 2, "maxPoints": 5 },
+    {
+      "id": "iron_skin",
+      "name": "Iron Skin",
+      "branch": "warrior",
+      "tier": 1,
+      "maxPoints": 5
+    },
+    {
+      "id": "shield_bash",
+      "name": "Shield Bash",
+      "branch": "warrior",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "taunt",
+      "name": "Taunt",
+      "branch": "warrior",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "unbreakable",
+      "name": "Unbreakable",
+      "branch": "warrior",
+      "tier": 3,
+      "maxPoints": 1
+    },
+    {
+      "id": "bloodlust",
+      "name": "Bloodlust",
+      "branch": "berserker",
+      "tier": 1,
+      "maxPoints": 5
+    },
+    {
+      "id": "frenzy",
+      "name": "Frenzy",
+      "branch": "berserker",
+      "tier": 2,
+      "maxPoints": 5
+    },
+    {
+      "id": "cleave",
+      "name": "Cleave",
+      "branch": "berserker",
+      "tier": 2,
+      "maxPoints": 5
+    },
     {
       "id": "rage_of_the_ancients",
       "name": "Rage of the Ancients",
@@ -176,6 +346,11 @@
       "stat": "hpOnKillPercent",
       "value": 5
     },
-    { "id": "cats_paw", "name": "Cat's Paw", "stat": "moveSpeedPercent", "value": 5 }
+    {
+      "id": "cats_paw",
+      "name": "Cat's Paw",
+      "stat": "moveSpeedPercent",
+      "value": 5
+    }
   ]
 }

@@ -1,4 +1,5 @@
 import type { PlayerPath, StatDef, StatEffectsDef, StatsFile } from '../data/types';
+import type { CombatState } from './Combat';
 
 /**
  * Stats and builds (fase 3.7). You get `startPoints` in the character creator and one point per
@@ -196,4 +197,32 @@ export function randomStatPoints(
     left--;
   }
   return out;
+}
+
+/**
+ * Writes what your points do into the fighting state: the maxima, how hard your attacks hit,
+ * how fast you swing, your crit chance and how much damage reaches you (Defense together with
+ * worn gear, under the ceiling in stats.json). The world and the balance tests both use this,
+ * so a build means the same thing everywhere. `applyStats` then sets the actual maxima.
+ */
+export function applyStatsToCombat(
+  file: StatsFile,
+  effects: Readonly<StatEffects>,
+  c: CombatState,
+  gearReductionPercent = 0,
+): void {
+  c.statHp = effects.maxHp;
+  c.statMana = effects.maxMana;
+  c.normalFactor = 1 + effects.normalAttackPercent / 100;
+  c.staffNormalFactor = 1 + (effects.normalAttackPercent + effects.staffNormalPercent) / 100;
+  c.spellFactor = 1 + effects.spellPercent / 100;
+  c.attackSpeedFactor = 1 + effects.attackSpeedPercent / 100;
+  c.critChance = effects.critChancePercent / 100;
+  c.critFactor = file.crit.damageFactor;
+  // Defense is negative, so subtracting it adds to what gear already softens.
+  const reduction = Math.min(
+    file.caps.damageTakenPercent,
+    gearReductionPercent - effects.damageTakenPercent,
+  );
+  c.damageTakenFactor = 1 - reduction / 100;
 }

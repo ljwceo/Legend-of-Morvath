@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { playerFileSchema, spellsFileSchema } from '../data/schemas';
 import type { PlayerConfig, SpellsFile } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
-import { applyLevel, CombatState } from './Combat';
+import { applyStats, CombatState } from './Combat';
 import {
   affordableCharge,
   chargedManaCost,
@@ -25,14 +25,19 @@ const fireball = cfg.spells.get('fireball') as ShotConfig;
 
 function fresh(level = 1): { state: StaffState; combat: CombatState } {
   const combat = new CombatState();
-  applyLevel(combat, player, level);
+  applyStats(combat, player, level);
   combat.hp = combat.maxHp;
   combat.mana = combat.maxMana;
   return { state: new StaffState(), combat };
 }
 
-const out = (): StaffResult => ({ fired: 'none', shot: null, damage: 0, charge: 0 });
-const press = (shard: boolean, spell = false): StaffInput => ({ shard, spell });
+const out = (): StaffResult => ({ fired: 'none', shot: null, damage: 0, charge: 0, crit: false });
+/** `critRoll` 1 never crits, so the damage in these tests is the plain damage. */
+const press = (shard: boolean, spell = false, critRoll = 1): StaffInput => ({
+  shard,
+  spell,
+  critRoll,
+});
 
 /** Runs `seconds` of steps with the same input; returns every shot that left the staff. */
 function run(
@@ -70,9 +75,10 @@ describe('Arcane Shard', () => {
     expect(fired).toHaveLength(player.staff.shard.maxPerSecond);
   });
 
-  it('does 8 damage at level 1 and +2 per level', () => {
-    expect(shotDamage(cfg.shard, 1)).toBe(8);
-    expect(shotDamage(cfg.shard, 5)).toBe(16);
+  it('does 8 damage with nothing spent and scales with Power, not with a level', () => {
+    expect(shotDamage(cfg.shard)).toBe(8);
+    // Power and Magic Power together, e.g. +25 %: the damage factor does it, never the level.
+    expect(shotDamage(cfg.shard, 1, 0, 1.25)).toBe(10);
   });
 });
 
@@ -220,7 +226,7 @@ describe('power curves (light and dark)', () => {
   });
 
   it('multiplies the damage of a shot', () => {
-    expect(shotDamage(fireball, 1, 1.3)).toBe(Math.round(fireball.damage * 1.3));
+    expect(shotDamage(fireball, 1.3)).toBe(Math.round(fireball.damage * 1.3));
   });
 });
 

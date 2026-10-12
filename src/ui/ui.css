@@ -1140,6 +1140,15 @@
   color: var(--gh-lantaarnamber);
 }
 
+/* A critical hit (Luck, fase 3.7): the biggest number there is. */
+.ui-damage-crit {
+  font-size: 34px;
+  color: var(--gh-ornamentgoud);
+  text-shadow:
+    0 1px 2px var(--gh-nachtinkt),
+    0 0 10px var(--gh-lantaarnamber);
+}
+
 /* Damage you take (phase 2.3: monsters hit back). */
 .ui-hud-hurt {
   position: absolute;

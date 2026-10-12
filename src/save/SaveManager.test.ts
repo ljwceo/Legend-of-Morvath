@@ -38,6 +38,7 @@ function sampleSave() {
     inventory: [{ item: 'old_sword', count: 1 }],
     equipment: { weapon: 'old_sword' },
     pack: [],
+    stats: { hp: 6, power: 5 },
     spells: [],
   };
   save.world = {
@@ -189,6 +190,23 @@ describe('migrate', () => {
     if (result.status !== 'ok') return;
     expect(result.save.version).toBe(SAVE_VERSION);
     expect(result.save.character?.spells).toEqual([]);
+    expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
+  });
+
+  it('upgrades a version 9 save: nothing spent, so every point is yours to spend again', () => {
+    const current = sampleSave();
+    const character: Record<string, unknown> = { ...current.character };
+    delete character.stats;
+    const v9 = { ...current, version: 9, character, progress: { ...current.progress, level: 4 } };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v9));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.character?.stats).toEqual({});
+    // Level, path, gear and quests are untouched; the points come back as unspent.
+    expect(result.save.progress.level).toBe(4);
     expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
   });
 

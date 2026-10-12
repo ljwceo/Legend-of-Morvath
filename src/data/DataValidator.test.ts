@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { flattenStrings } from '../i18n/I18n';
 import { colorTokens } from '../render/palette';
+import { computeStatEffects, emptyStatEffects, presetPoints } from '../systems/Stats';
 import { readAllData, readPublicJson } from '../test/loadPublic';
 import { formatIssue, validateGameData } from './DataValidator';
 import type { DataFileName } from './schemas';
@@ -27,8 +28,17 @@ describe('validateGameData on the real data in public/data', () => {
 
   it('contains the player numbers from the concept', () => {
     const { data } = validateGameData(readAllData(), options);
-    expect(data?.player.base).toEqual({ hp: 100, mana: 50, energy: 100 });
-    expect(data?.player.perLevel).toEqual({ hp: 10, mana: 5 });
+    // Since fase 3.7 `base` is what you have with nothing spent; the suggested spreads in
+    // stats.json bring a level-1 character back to the concept numbers (100 HP, 50 mana).
+    expect(data?.player.base.energy).toBe(100);
+    const stats = data?.stats;
+    const effects = emptyStatEffects();
+    if (stats && data) {
+      computeStatEffects(stats, presetPoints(stats, 'sword_fighter'), 'sword', effects);
+      expect(data.player.base.hp + effects.maxHp).toBe(100);
+      computeStatEffects(stats, presetPoints(stats, 'light_mage'), 'light', effects);
+      expect(data.player.base.mana + effects.maxMana).toBe(50);
+    }
     expect(data?.player.xpToNextLevel).toEqual([100, 150, 220, 300, 400, 520, 660]);
     expect(data?.player.movement.walkSpeed).toBe(4);
     expect(data?.player.dash.energyCost).toBe(25);

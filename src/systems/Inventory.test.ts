@@ -3,7 +3,7 @@ import { Random } from '../core/Random';
 import { itemsFileSchema, monstersFileSchema, playerFileSchema } from '../data/schemas';
 import type { ItemDef, MonsterDef, PlayerConfig, PotionDef } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
-import { applyLevel, CombatState } from './Combat';
+import { applyStats, CombatState } from './Combat';
 import {
   addItem,
   countItem,
@@ -23,9 +23,15 @@ const monsters = monstersFileSchema.parse(readPublicJson('data/monsters.json')).
 const monster = (id: string): MonsterDef => monsters.find((m) => m.id === id) as MonsterDef;
 const order = player.potions.quickOrder;
 
+/**
+ * A hurt player with the points of a suggested sword build spent (100 max HP, like the
+ * concept), so these tests are about potions and not about the stats of fase 3.7.
+ */
 function hurt(hp: number): CombatState {
   const c = new CombatState();
-  applyLevel(c, player, 1);
+  c.statHp = 100 - player.base.hp;
+  c.statMana = 50 - player.base.mana;
+  applyStats(c, player, 1);
   c.hp = hp;
   c.mana = c.maxMana;
   return c;
@@ -121,14 +127,15 @@ describe('potions', () => {
     expect(c.hp).toBe(100);
   });
 
-  it('restores a share of your maximum, so it grows with your level', () => {
-    const low = new CombatState();
-    applyLevel(low, player, 1);
-    low.hp = 1;
+  it('restores a share of your maximum, so it grows with the points you spend', () => {
+    const low = hurt(1);
+    expect(low.maxHp).toBe(100);
     expect(potionHp(items.get('health_potion')?.potion as PotionDef, low.maxHp)).toBe(50);
 
-    const high = new CombatState();
-    applyLevel(high, player, 10);
+    // Someone who kept spending points in HP (and so has more to heal).
+    const high = hurt(1);
+    high.statHp = 190 - player.base.hp;
+    applyStats(high, player, 10);
     expect(high.maxHp).toBe(190);
     expect(potionHp(items.get('health_potion')?.potion as PotionDef, high.maxHp)).toBe(95);
     expect(potionMana(items.get('mana_potion')?.potion as PotionDef, high.maxMana)).toBeCloseTo(
