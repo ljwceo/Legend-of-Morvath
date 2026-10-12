@@ -644,6 +644,19 @@
       "status": "Status window"
     }
   },
+  "touch": {
+    "title": "Buttons on the screen",
+    "open": "Move and resize…",
+    "size": "Button size",
+    "side": "Sides",
+    "sideRight": "Walk with my left thumb",
+    "sideLeft": "Walk with my right thumb",
+    "walkHalf": "Walking",
+    "buttonHalf": "Buttons",
+    "drag": "Drag the buttons wherever you want them. They stay on their own side of the line.",
+    "reset": "Back to default",
+    "done": "Done"
+  },
   "key": {
     "mouse0": "Left mouse",
     "mouse1": "Middle mouse",

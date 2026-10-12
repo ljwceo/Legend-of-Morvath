@@ -13,6 +13,8 @@ export function confirmPanel(
   onNo?: () => void,
 ): Panel {
   return {
+    // A question is answered with Yes or No, so it has no corner close button.
+    closable: false,
     build: () => {
       const { t } = bindT(ctx);
       return el(

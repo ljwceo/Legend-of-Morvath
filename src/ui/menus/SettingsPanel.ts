@@ -5,11 +5,12 @@ import { button, el, segmented } from '../dom';
 import type { Panel } from '../Overlays';
 import { bindT, confirmPanel } from './ConfirmPanel';
 import { controlsPanel } from './ControlsPanel';
+import { touchLayoutPanel } from './TouchLayoutPanel';
 
 /**
  * Settings: language, graphics preset, frame rate cap, volume, camera sensitivity, controls
- * (own panel), debug mode and deleting the save (two confirmations). Every change is saved
- * immediately.
+ * (own panel), the on-screen buttons on a phone (own panel), debug mode and deleting the save
+ * (two confirmations). Every change is saved immediately.
  */
 export function settingsPanel(ctx: GameContext): Panel {
   const change = (apply: (settings: SaveSettings) => void): void => {
@@ -165,6 +166,10 @@ export function settingsPanel(ctx: GameContext): Panel {
         row(
           t('settings.controls'),
           button(t('settings.controlsOpen'), () => ctx.overlays.open(controlsPanel(ctx))),
+        ),
+        row(
+          t('touch.title'),
+          button(t('touch.open'), () => ctx.overlays.open(touchLayoutPanel(ctx))),
         ),
         el('p', { className: 'ui-note', text: t('settings.browserDataWarning') }),
         el(

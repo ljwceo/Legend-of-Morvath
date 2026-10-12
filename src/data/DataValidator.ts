@@ -1,8 +1,14 @@
 import type { z } from 'zod/mini';
 import { boxContains, emptyBox, pointInShape, shapeBounds } from '../world/Shapes';
 import { DEFAULT_CAMERA_SENSITIVITY } from '../save/SaveData';
-import { CONTROL_ACTIONS, dataFileNames, dataSchemas, type DataFileName } from './schemas';
-import type { GameData, Shape, Zone } from './types';
+import {
+  CONTROL_ACTIONS,
+  dataFileNames,
+  dataSchemas,
+  type DataFileName,
+  TOUCH_BUTTONS,
+} from './schemas';
+import type { GameData, PlayerConfig, Shape, Zone } from './types';
 
 export interface ValidationIssue {
   /** Data file name without extension, e.g. "npcs". */
@@ -624,6 +630,30 @@ class CrossChecker {
     }
     if (player.staff.shard.manaCost > 0) {
       this.issue(f, 'staff.shard.manaCost', 'the Arcane Shard costs no mana (concept)');
+    }
+    this.checkTouchButtons(f, player.controls.touch);
+  }
+
+  /**
+   * The on-screen buttons (2026-10-12): every button exactly once, a default place on the
+   * button side of the divider, and a size range that holds the default size of 1.
+   */
+  private checkTouchButtons(f: 'player', touch: PlayerConfig['controls']['touch']): void {
+    const seen = new Set<string>();
+    touch.buttons.forEach((entry, i) => {
+      const p = `controls.touch.buttons[${i}]`;
+      if (seen.has(entry.id)) this.issue(f, `${p}.id`, `duplicate button "${entry.id}"`);
+      seen.add(entry.id);
+      this.text(f, `${p}.id`, `controls.${entry.id}`);
+      if (entry.x <= touch.dividerFraction) {
+        this.issue(f, `${p}.x`, `"${entry.id}" starts in the walking half`);
+      }
+    });
+    for (const id of TOUCH_BUTTONS) {
+      if (!seen.has(id)) this.issue(f, 'controls.touch.buttons', `button "${id}" is missing`);
+    }
+    if (touch.sizeMin > 1 || touch.sizeMax < 1) {
+      this.issue(f, 'controls.touch', 'the size range must hold the default size (1)');
     }
   }
 

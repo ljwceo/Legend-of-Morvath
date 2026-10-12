@@ -1,5 +1,15 @@
 import type { Action, Input } from '../core/Input';
 import { el } from './dom';
+import {
+  clampSize,
+  placeButton,
+  pointToPixels,
+  type StageSize,
+  TOUCH_BUTTONS,
+  type TouchButtonId,
+  type TouchConfig,
+  type TouchControlSettings,
+} from './TouchLayout';
 
 export interface TouchLabels {
   attack: string;
@@ -9,34 +19,43 @@ export interface TouchLabels {
   lock: string;
 }
 
+/** Button sizes if the style sheet cannot be read (the test environment). */
+const FALLBACK_SIZE_PX = 82;
+const FALLBACK_BIG_PX = 92;
+
 /**
- * On-screen controls for touch screens: the joystick (drawn where the thumb went down, lower
- * left) and the attack, heavy-hit, dash, lock-on and drink buttons (lower right; drink only
- * while you carry a potion, with the number on it). Both sit in fixed safe zones that the HUD
- * must never cover (see --joystick-zone-* and --button-zone-* in ui.css).
- * The touch input itself is handled by Input; this class only draws it.
+ * On-screen controls for touch screens: the joystick (drawn where the thumb went down, on the
+ * walking half) and the attack, heavy-hit, dash, lock-on and drink buttons (drink only while
+ * you carry a potion, with the number on it).
+ *
+ * Every button can be dragged to where the player wants it and the whole set has one size
+ * (Settings -> Buttons on the screen, like Brawl Stars; Bo, 2026-10-12). The divider keeps the
+ * walking thumb and the buttons apart, and "swap sides" mirrors everything for a left-handed
+ * player. The rules live in TouchLayout; this class only draws it.
+ * The touch input itself is handled by Input.
  */
 export class TouchControls {
   readonly root: HTMLElement;
   private readonly base: HTMLElement;
   private readonly knob: HTMLElement;
-  private readonly dash: HTMLButtonElement;
-  private readonly attack: HTMLButtonElement;
-  private readonly heavy: HTMLButtonElement;
-  private readonly potion: HTMLButtonElement;
-  private readonly lock: HTMLButtonElement;
+  private readonly buttons: Record<TouchButtonId, HTMLButtonElement>;
   private readonly potionCount: HTMLElement;
+  private readonly basePx: number;
+  private readonly bigPx: number;
+  private settings: TouchControlSettings = { size: 1, mirrored: false, layout: {} };
   private lockedShown = false;
   private potionShown = -1;
   private shownJoystick = false;
   private shownButtons = false;
   private knobX = Number.NaN;
   private knobY = Number.NaN;
+  private laidOut: StageSize = { width: 0, height: 0 };
 
   constructor(
     private readonly input: Input,
     labels: TouchLabels,
     private readonly radiusPx: number,
+    private readonly cfg: TouchConfig,
   ) {
     this.knob = el('div', { className: 'ui-joystick-knob' });
     this.base = el(
@@ -45,28 +64,62 @@ export class TouchControls {
       this.knob,
     );
     this.base.style.width = this.base.style.height = `${radiusPx * 2}px`;
-    this.attack = this.actionButton('ui-attack-button', 'attack');
-    this.heavy = this.actionButton('ui-heavy-button', 'heavy');
-    this.dash = this.actionButton('ui-dash-button', 'dash');
-    this.potion = this.actionButton('ui-potion-button', 'potion');
-    this.lock = this.actionButton('ui-lock-button', 'lock');
+    this.buttons = {
+      attack: this.actionButton('ui-attack-button', 'attack'),
+      heavy: this.actionButton('ui-heavy-button', 'heavy'),
+      dash: this.actionButton('ui-dash-button', 'dash'),
+      potion: this.actionButton('ui-potion-button', 'potion'),
+      lock: this.actionButton('ui-lock-button', 'lock'),
+    };
     this.potionCount = el('span', { className: 'ui-potion-count' });
-    this.potion.append(this.potionCount);
+    this.buttons.potion.append(this.potionCount);
     this.setPotions(0);
     this.setLabels(labels);
+    const style = window.getComputedStyle(document.documentElement);
+    this.basePx = readPx(style.getPropertyValue('--touch-size'), FALLBACK_SIZE_PX);
+    this.bigPx = readPx(style.getPropertyValue('--touch-size-big'), FALLBACK_BIG_PX);
     this.root = el(
       'div',
       { className: 'ui-touch-controls' },
       this.base,
-      this.attack,
-      this.heavy,
-      this.dash,
-      this.potion,
-      this.lock,
+      ...TOUCH_BUTTONS.map((id) => this.buttons[id]),
     );
     // Phones and tablets show the buttons from the start; other devices after the first touch.
     this.shownButtons = window.matchMedia('(pointer: coarse)').matches;
     this.root.classList.toggle('ui-touch-visible', this.shownButtons);
+  }
+
+  /** How big a button of this kind is drawn, at the chosen size. */
+  diameterPx(id: TouchButtonId): number {
+    const size = clampSize(this.cfg, this.settings.size);
+    return Math.round((id === 'attack' ? this.bigPx : this.basePx) * size);
+  }
+
+  /** The player's size, side and places (from the save). Draws them straight away. */
+  setSettings(settings: TouchControlSettings): void {
+    this.settings = settings;
+    this.input.setMirrored(settings.mirrored);
+    this.laidOut = { width: 0, height: 0 };
+    this.layout();
+  }
+
+  /** Puts every button where it belongs; call after a resize (cheap, only writes on a change). */
+  layout(force = false): void {
+    const stage: StageSize = { width: this.root.clientWidth, height: this.root.clientHeight };
+    if (stage.width <= 0 || stage.height <= 0) return;
+    if (!force && stage.width === this.laidOut.width && stage.height === this.laidOut.height) {
+      return;
+    }
+    this.laidOut = stage;
+    for (const id of TOUCH_BUTTONS) {
+      const diameter = this.diameterPx(id);
+      const point = placeButton(id, this.settings, diameter, stage, this.cfg);
+      const { left, top } = pointToPixels(point, diameter, stage, this.settings.mirrored);
+      const button = this.buttons[id];
+      button.style.width = button.style.height = `${diameter}px`;
+      button.style.left = `${left}px`;
+      button.style.top = `${top}px`;
+    }
   }
 
   setLabels(labels: TouchLabels): void {
@@ -74,32 +127,32 @@ export class TouchControls {
       button.textContent = label;
       button.setAttribute('aria-label', label);
     };
-    set(this.attack, labels.attack);
-    set(this.heavy, labels.heavy);
-    set(this.dash, labels.dash);
-    set(this.lock, labels.lock);
+    set(this.buttons.attack, labels.attack);
+    set(this.buttons.heavy, labels.heavy);
+    set(this.buttons.dash, labels.dash);
+    set(this.buttons.lock, labels.lock);
     // The drink button shows a flask and the count; the label is for screen readers.
-    this.potion.setAttribute('aria-label', labels.potion);
+    this.buttons.potion.setAttribute('aria-label', labels.potion);
   }
 
   /** Hides the lock-on button where there is nothing to lock on to (the intro fight). */
   setLockVisible(visible: boolean): void {
-    this.lock.hidden = !visible;
+    this.buttons.lock.hidden = !visible;
   }
 
   /** Lights the lock-on button while you are locked on to an enemy. */
   setLocked(locked: boolean): void {
     if (locked === this.lockedShown) return;
     this.lockedShown = locked;
-    this.lock.classList.toggle('ui-touch-button-active', locked);
-    this.lock.setAttribute('aria-pressed', String(locked));
+    this.buttons.lock.classList.toggle('ui-touch-button-active', locked);
+    this.buttons.lock.setAttribute('aria-pressed', String(locked));
   }
 
   /** Number of potions the drink key would use; the button hides at 0. */
   setPotions(count: number): void {
     if (count === this.potionShown) return;
     this.potionShown = count;
-    this.potion.hidden = count <= 0;
+    this.buttons.potion.hidden = count <= 0;
     this.potionCount.textContent = String(count);
   }
 
@@ -109,13 +162,15 @@ export class TouchControls {
       this.shownButtons = true;
       this.root.classList.add('ui-touch-visible');
     }
+    this.layout();
     const j = this.input.joystick;
     if (j.active !== this.shownJoystick) {
       this.shownJoystick = j.active;
       this.base.classList.toggle('ui-joystick-active', j.active);
       if (j.active) {
-        this.base.style.left = `${j.originX - this.radiusPx}px`;
-        this.base.style.top = `${j.originY - this.radiusPx}px`;
+        const box = this.root.getBoundingClientRect();
+        this.base.style.left = `${j.originX - box.left - this.radiusPx}px`;
+        this.base.style.top = `${j.originY - box.top - this.radiusPx}px`;
       }
     }
     if (j.active && (j.knobX !== this.knobX || j.knobY !== this.knobY)) {
@@ -149,4 +204,10 @@ export class TouchControls {
     button.addEventListener('contextmenu', (event) => event.preventDefault());
     return button;
   }
+}
+
+/** "82px" -> 82; anything else falls back. */
+function readPx(value: string, fallback: number): number {
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
