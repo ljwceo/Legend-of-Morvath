@@ -32,7 +32,7 @@
       "id": "monastery",
       "zone": "greyhaven",
       "kind": "place",
-      "shape": { "type": "circle", "x": -1801.5, "z": 66.4, "radius": 18 },
+      "shape": { "type": "circle", "x": -1800, "z": 84, "radius": 20 },
       "firstVisitText": "place.monastery"
     },
     {
@@ -67,14 +67,14 @@
       "id": "garden",
       "zone": "greyhaven",
       "kind": "place",
-      "shape": { "type": "circle", "x": -1785, "z": 45.5, "radius": 10 },
+      "shape": { "type": "circle", "x": -1784, "z": 112, "radius": 26 },
       "firstVisitText": "place.garden"
     },
     {
       "id": "garden_plot",
       "zone": "greyhaven",
       "kind": "place",
-      "shape": { "type": "circle", "x": -1781, "z": 45, "radius": 2.5 }
+      "shape": { "type": "circle", "x": -1806, "z": 121, "radius": 2.5 }
     },
     {
       "id": "academy",

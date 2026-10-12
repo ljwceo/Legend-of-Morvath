@@ -222,12 +222,31 @@ const zoneSchema = z.strictObject({
     amplitude: max(nonNegative, 500),
   }),
   neighbors: z.array(id),
+  /**
+   * `y` (optional, Blender-built zones): the floor to stand on, for a spot under a roof (the bed
+   * in the Monastery). Without it you arrive on the highest ground.
+   */
   spawnPoints: atLeast(
-    z.array(z.strictObject({ id, x: coord, z: coord, headingDegrees: optional(range(-360, 360)) })),
+    z.array(
+      z.strictObject({
+        id,
+        x: coord,
+        y: optional(coord),
+        z: coord,
+        headingDegrees: optional(range(-360, 360)),
+      }),
+    ),
   ),
   /** Walking within `radius` meters makes this your checkpoint (and lets you rest there). */
   checkpoint: optional(
-    z.strictObject({ id, kind: id, x: coord, z: coord, radius: max(positive, 100) }),
+    z.strictObject({
+      id,
+      kind: id,
+      x: coord,
+      y: optional(coord),
+      z: coord,
+      radius: max(positive, 100),
+    }),
   ),
   npcs: z.array(id),
   /** Named parts of a zone; `noScatter` keeps trees and rocks out (e.g. inside the city walls). */

@@ -35,6 +35,7 @@ DROP_PREFIX = ('MON_Petal', 'MON_Firefl')
 nocoll = set()
 for e in [o for o in vl.objects if o.type == 'EMPTY' and o.instance_type == 'COLLECTION'
           and o.instance_collection and o.visible_get() and o.name.startswith('GH_MonasteryNew')]:
+    source = e.instance_collection.name
     for o in vl.objects:
         o.select_set(False)
     e.select_set(True)
@@ -50,7 +51,7 @@ for e in [o for o in vl.objects if o.type == 'EMPTY' and o.instance_type == 'COL
             bpy.data.objects.remove(k)
             dropped += 1
     kids = list(e.children_recursive)
-    if e.instance_collection.name in NO_COLLISION_SETS:
+    if source in NO_COLLISION_SETS:
         nocoll.update(k.name for k in kids)
     P('real', e.name, len(kids), 'dropped', dropped)
     e.instance_type = 'NONE'

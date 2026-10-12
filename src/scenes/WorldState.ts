@@ -1334,7 +1334,9 @@ export class WorldState implements GameState, InstanceHost {
     const start = zone?.spawnPoints.find((point) => point.id === data.player.start.spawnPoint);
     this.respawn.x = checkpoint?.x ?? start?.x ?? player.state.x;
     this.respawn.z = checkpoint?.z ?? start?.z ?? player.state.z;
-    session.world.position = { x: this.respawn.x, y: 0, z: this.respawn.z };
+    // A floor height (the bed under the Monastery roof) is kept; else the ground is found later.
+    const floor = checkpoint ? checkpoint.y : start?.y;
+    session.world.position = { x: this.respawn.x, y: floor ?? 0, z: this.respawn.z };
     session.world.zone =
       this.zones?.zoneAt(this.respawn.x, this.respawn.z)?.id ?? session.world.zone;
     session.progress.hp = null;
@@ -2587,7 +2589,7 @@ export class WorldState implements GameState, InstanceHost {
         }
       }
       if (!best) return false;
-      this.travel(zone.id, best.x, best.z, (best.headingDegrees ?? 0) * DEG);
+      this.travel(zone.id, best.x, best.z, (best.headingDegrees ?? 0) * DEG, best.y);
       return true;
     }
     session.world.zone = zone.id;
@@ -2615,16 +2617,16 @@ export class WorldState implements GameState, InstanceHost {
   /**
    * Switches between a Blender-built zone and the open world: the destination goes into the save
    * (autosave, zone banner), then the world is built again for it, with a loading screen when
-   * it is a Blender-built zone.
+   * it is a Blender-built zone. `y` = a floor to arrive on (under a roof); else from above.
    */
-  private travel(zoneId: string, x: number, z: number, heading: number): void {
+  private travel(zoneId: string, x: number, z: number, heading: number, y?: number): void {
     const session = this.ctx.session;
     if (!session || this.travelling) return;
     this.travelling = true;
     session.world.zone = zoneId;
     session.world.instance = null;
     // A Blender-built zone finds its ground from above; the open world from its terrain.
-    session.world.position = { x, y: ARRIVE_FROM_ABOVE, z };
+    session.world.position = { x, y: y ?? ARRIVE_FROM_ABOVE, z };
     session.world.heading = heading;
     this.dialog?.close();
     this.ctx.events.emit('zoneEntered', { zoneId });
@@ -2943,7 +2945,7 @@ export class WorldState implements GameState, InstanceHost {
     const heading = (spawn.headingDegrees ?? 0) * DEG;
     if (zone.scene || this.sceneZone) {
       if (zone.id !== this.sceneZoneDef?.id || this.instanceDef) {
-        this.travel(zone.id, spawn.x, spawn.z, heading);
+        this.travel(zone.id, spawn.x, spawn.z, heading, spawn.y);
         return;
       }
       this.respawnInScene();
@@ -3429,7 +3431,7 @@ export class WorldState implements GameState, InstanceHost {
     player.state.x = spawn.x;
     player.state.z = spawn.z;
     // An instance has floors above each other (a tower): arrive at the spawn's own height.
-    player.state.y = inside ? inside.y : ARRIVE_FROM_ABOVE;
+    player.state.y = inside ? inside.y : (spawn.y ?? ARRIVE_FROM_ABOVE);
     player.state.heading = (spawn.headingDegrees ?? 0) * DEG;
     this.sceneZone.placeOnGround(player.state);
   }

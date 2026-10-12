@@ -92,8 +92,8 @@
       "role": "priest",
       "zone": "greyhaven",
       "position": {
-        "x": -1795.5,
-        "z": 48.5
+        "x": -1810,
+        "z": 98.6
       },
       "interaction": "talk",
       "behavior": "static",
@@ -182,8 +182,8 @@
       "role": "herbalist",
       "zone": "greyhaven",
       "position": {
-        "x": -1788,
-        "z": 45.5
+        "x": -1803,
+        "z": 116
       },
       "interaction": "talk",
       "behavior": "static",
@@ -315,8 +315,8 @@
       "role": "companion",
       "zone": "greyhaven",
       "position": {
-        "x": -1799,
-        "z": 55
+        "x": -1795.5,
+        "z": 94
       },
       "interaction": "pet",
       "behavior": "follow",
