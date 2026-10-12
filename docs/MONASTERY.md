@@ -47,6 +47,18 @@ en `assets/Monastery_Garden.blend`. Aanpassen doe je dus in die twee bestanden; 
 ![Klooster in Greyhaven](monastery/in_greyhaven.png)
 ![Bovenaanzicht](monastery/in_greyhaven_top.png)
 
+**Nieuwe zuidmuur (Bo, 2026-10-12):** de stad is naar het zuiden groter gemaakt volgens Bo's tekening. De nieuwe
+stadsmuur (collectie `GH_CityWall_South_New`: 65 muurstukken `GH_CityWall_19_*` met looppad en 10 nieuwe torens
+`GH_CityTower_19…28`, zelfde stijl als de bestaande muur) loopt vanaf de haven langs de westkust, onder het klooster en de
+tuin langs de zuidkust en dan schuin naar het noordoosten tot **toren 13**. Toren 18 zit erin opgenomen. De oude zuidmuur
+die nu binnen de stad zou staan (muur 13–16, torens 14 en 15 en de ongebruikte zuidpoort) staat in `GH_SouthWall_Replaced`
+(uit). Backup: `Greyhaven_backup_before_southwall.blend`. Let op: de weg vanaf de brug naar de oude zuidpoort houdt nu
+in het weiland op, en het weiland met de akkers in het zuidoosten hoort nu bij de stad (in de game: `areas`/`noScatter`
+en `safeZones` aanpassen, anders groeien er bomen binnen de muur).
+
+![Nieuwe zuidmuur](monastery/south_wall.png)
+![Bovenaanzicht](monastery/south_wall_top.png)
+
 **Nog te doen (Greyhaven-chat):** bij export de instances echt maken (Object → Apply → Make Instances Real, of de
 exporter laten volgen) en `MON_Reference` overslaan; spawnpunt, checkpoint en NPC's in `zones.json`/`npcs.json` naar de
 nieuwe plekken; de `safeZones`-polygoon van de stadsmuur; en voor de zones (open vraag over eigen zones) in Greyhaven
