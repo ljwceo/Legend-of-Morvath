@@ -25,6 +25,8 @@
   smalle, lagere achterkant van de volgende, dus de naden lopen strak over.
 - **Muurstenen:** A, B, C (gewone muur) en de grote funderingsstenen D, E in de onderste 1,2 m. Alleen de zichtbare
   voorkant van een steen is gemodelleerd (8 vertices), rond ramen en deuren wordt ruimte gelaten.
+- **Kleurverloop (2026-10-12, Bo):** bovenaan bij de nok de donkerste leien, naar de dakrand toe steeds lichter, in 5 tinten
+  (`RoofTile_Darkest`, `_Dark`, `_Slate`, `_Blue`, `_Light`) met een beetje variatie. Script `17_roof_gradient.py`.
 - Ramen: stenen boog, vensterbank, houten kozijn, glas in lood (warm gloeiend). Deuren: planken, ijzeren banden, ringgreep.
 
 ## Oostvleugel – binnen

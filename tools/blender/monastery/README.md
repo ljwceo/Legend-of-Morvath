@@ -23,6 +23,7 @@ de maten en lijsten daarvan staan in de tekstblokken in het .blend.
 | `14_genshin_water.py` | Water: diepte per punt (`WaterDepth`) → kleur + doorzichtigheid, schuimrand, rimpels | `MON_genshin_water` |
 | `15_genshin_flowers.py` | Bloemenpollen (kaartjes met plaatje) op de plekken van de oude bloemen | `MON_genshin_flowers` |
 | `16_genshin_bridges_wood.py` | Nieuwe houten boogbruggen + houtplaatje op bankjes, hekjes, moestuin | `MON_genshin_bridges` |
+| `17_roof_gradient.py` | Daken: donkere leien bovenaan bij de nok, naar de dakrand toe lichter (5 tinten) | `MON_roof_gradient` |
 | – | Vorm van de tuin, vijver, beekjes | `MON_garden_layout` |
 
 Gebruik in Blender: open het script in de Scripting-tab en voer het uit, of
