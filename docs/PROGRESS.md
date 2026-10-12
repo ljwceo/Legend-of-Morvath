@@ -701,3 +701,4 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - Blender (Bo + Claude): Monastery.blend gebouwd (klooster, daken, stenen, ramen/deuren, binnenkant oostvleugel met 6 kamers) en de kloostertuin met vijver, koi en kweekbare bedden. Alleen docs en Blender-scripts in de repo; geen game-code veranderd. Tijdelijke namen: Monastery Garden, Moonbell.
 - Blender (Bo + Claude, middag): losse tuinmodellen (7 bomen, 3 rotsen, 3 fruitsoorten, 5 gewassen × 3 groeistadia, vogelverschrikker) in `MON_GardenPieces`; de tuin gebruikt nu instances daarvan. Koi voor nu weggehaald.
 - Blender (middag): sakura's met doorkijkbare kroon (takken + bloesemtrosjes) en vallende blaadjes (lus van 10 s).
+- Blender (avond): bomen in Genshin-stijl naar Bo's voorbeelden: sakura's, eiken en appelboom met een kroon van veel kleine blad-/bloesemkaartjes in lagen (licht boven, donker onder). Vallende blaadjes starten in de nieuwe kroon. Script `06_card_trees.py`.

@@ -91,10 +91,31 @@ De kweekbedden `MON_FarmPlot_1…6` hebben nu ook `stage` (0 = leeg, 3 = rijp). 
 
 **Sakura's (2026-10-12):** de kroon is een takkenstelsel (stam → dikke takken → takken → twijgen) met losse
 bloesemtrosjes, zodat je de takken door de bloesem heen ziet. Onder de boom liggen losse blaadjes.
-**Vallende blaadjes:** per sakura een *collection instance* van `MON_PetalFall_Sakura_A/B` (22 blaadjes, lus van 240
+**Vallende blaadjes:** per sakura een *collection instance* van `MON_PetalFall_Sakura_A/B` (28 blaadjes, lus van 240
 frames = 10 s, draaien en zweven met de wind mee, verdwijnen als ze landen). In de tuin staan ze in `MON_Garden_PetalFalls`,
 op dezelfde plek, draaiing en grootte als de boom. Of de glTF-export deze animatie meeneemt moet nog getest worden;
 anders kan de game de blaadjes zelf laten vallen vanaf de boomposities (goedkoop met één InstancedMesh).
+
+**Bomen in Genshin-stijl (2026-10-12, naar Bo's voorbeelden):** de sakura's, eiken en de appelboom hebben nu een
+kroon van heel veel kleine losse kaartjes (bloesem: bloemetje met 5 punten, blad: puntig ovaal) in trosjes en grote
+wolken. Bovenkant en buitenkant zijn licht, binnen en onder donkerder, zodat de kroon in lagen lijkt te liggen.
+Slanke, vertakte stammen; `Tree_Sakura_B` heeft twee stammen die om elkaar heen draaien. Tussen de wolken door zie je
+nog takken. Nieuwe kleuren: `GH_Monastery_Blossom_Deep`, `GH_Monastery_TreeLeaf_Light/Mid/Deep`.
+De vallende blaadjes beginnen nu in de nieuwe kroon. Script: `tools/blender/monastery/06_card_trees.py`
+(backup ervoor: `Monastery_backup_before_card_trees.blend`).
+
+| Model | Vertices |
+|---|---|
+| `Tree_Sakura_A` / `_B` | ~27.000 / ~26.000 |
+| `Tree_Oak_A` / `_B` | ~11.000 / ~12.600 |
+| `Tree_Apple` | ~8.000 |
+
+Dat is zwaar per boom; omdat het instances zijn kost het geheugen weinig, maar voor de game is een lichtere versie
+(minder kaartjes of een LOD voor verre bomen) slim.
+
+![Sakura in Genshin-stijl](monastery/card_trees_sakura.png)
+![Sakura met twee stammen](monastery/sakura_twin_trunks.png)
+![Tuin met de nieuwe bomen](monastery/garden_card_trees.png)
 
 ## Markers (collectie `MON_Markers`)
 
