@@ -7,7 +7,10 @@
 > | `C:\Users\Bo\Documents\Morvath\Greyhaven\assets\Monastery_Building.blend` | Het klooster: kerk, toren, kloostergang met binnentuin, oost-/zuid-/westvleugel, **alle binnenkanten**, daken, muurstenen, markers voor het kerkportaal (`MON_Zone_*`), de kloosterkant van de oostdeur (`MON_GardenGate_FromMonastery`, `_SpawnInMonastery`), kamers, spawn-bed, Brother Ansel | klooster |
 > | `C:\Users\Bo\Documents\Morvath\Greyhaven\assets\Monastery_Garden.blend` | De Monastery Garden: grond, vijver, beekjes, bruggen, paden, bomen, gras, bloemen, bosjes, moestuin, tuinmuur (`MON_Stones_GardenWall`), losse tuinmodellen (`MON_GardenPieces`), vallende blaadjes, vuurvliegjes, markers `MON_FarmPlot_*` en de tuinkant van de oostdeur (`MON_GardenGate_SpawnInGarden`, `_FromGarden`) | tuin |
 >
-> Beide gebruiken dezelfde coördinaten (klooster-lokaal, +Y = noord), dus ze passen precies op elkaar. Het oude
+> Beide gebruiken dezelfde coördinaten (klooster-lokaal, +Y = noord), dus ze passen precies op elkaar.
+> In `Monastery_Garden.blend` staat het klooster als **gelinkte referentie** (`REF_Building_*` in `MON_Reference`,
+> niet selecteerbaar): pas het klooster aan in `Monastery_Building.blend`, dan komt het vanzelf mee. Bij exporteren van de
+> tuin moet `MON_Reference` worden overgeslagen, anders gaat het klooster dubbel mee. Het oude
 > gecombineerde bestand is `Monastery_backup_before_split.blend`; oudere backups heten `Monastery_backup_before_*.blend`.
 > Scripts: `tools/blender/monastery/` (de tekstblokken staan in beide bestanden). Staat nog **niet** in Greyhaven.
 
