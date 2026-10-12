@@ -4,8 +4,11 @@ import type { Panel } from '../Overlays';
 import { bindT } from './ConfirmPanel';
 import { settingsPanel } from './SettingsPanel';
 
-/** Pause menu: resume, settings, or save and go back to the title screen. */
-export function pausePanel(ctx: GameContext, onClose: () => void): Panel {
+/**
+ * Pause menu: resume, your status, settings, or save and go back to the title screen. The
+ * status window also has its own key; from here it is reachable on a phone too.
+ */
+export function pausePanel(ctx: GameContext, onClose: () => void, onStatus?: () => void): Panel {
   return {
     build: () => {
       const { t } = bindT(ctx);
@@ -14,6 +17,12 @@ export function pausePanel(ctx: GameContext, onClose: () => void): Panel {
         { className: 'ui-panel ui-menu', attrs: { role: 'dialog' } },
         el('h2', { className: 'ui-heading', text: t('pause.title') }),
         button(t('pause.resume'), () => ctx.overlays.close(), true),
+        onStatus
+          ? button(t('status.title'), () => {
+              ctx.overlays.close();
+              onStatus();
+            })
+          : null,
         button(t('pause.settings'), () => ctx.overlays.open(settingsPanel(ctx))),
         button(t('pause.toTitle'), () => {
           ctx.persist();

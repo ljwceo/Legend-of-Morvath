@@ -127,6 +127,12 @@
       "potion": "Drankjes +{n}%"
     }
   },
+  "status": {
+    "title": "Status",
+    "inCombat": "Niet terwijl je vecht.",
+    "fromGear": "Van je gear",
+    "noGear": "Nog niets."
+  },
   "appearance": {
     "body": {
       "male": "Man",
@@ -252,7 +258,10 @@
     "packInCombat": "Nu niet, je bent in een gevecht.",
     "packTooHeavy": "{name} kan niet zoveel dragen.",
     "packWorn": "Doe het eerst uit.",
-    "noMana": "Niet genoeg mana."
+    "noMana": "Niet genoeg mana.",
+    "statPoint": "Je hebt een statpunt. Open je statusvenster met {keyStatus}.",
+    "statPoints": "Je hebt {n} statpunten. Open je statusvenster met {keyStatus}.",
+    "statsReturned": "Levels groeien niet meer vanzelf: je {n} punten mag je zelf verdelen ({keyStatus})."
   },
   "dialog": {
     "next": "Verder",
@@ -628,7 +637,8 @@
       "lock": "Lock-on",
       "lockSwitch": "Volgend doel",
       "confirm": "Bevestigen",
-      "down": "Omlaag vliegen (debug)"
+      "down": "Omlaag vliegen (debug)",
+      "status": "Statusvenster"
     }
   },
   "key": {

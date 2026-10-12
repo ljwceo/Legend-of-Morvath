@@ -1891,3 +1891,8 @@
   font: 15px var(--gh-font-tekst);
   color: var(--gh-tekst-zacht);
 }
+
+/* The status window (fase 3.7): as wide as the bag, and it scrolls on a phone. */
+.ui-status {
+  width: min(420px, 100%);
+}

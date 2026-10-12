@@ -155,8 +155,13 @@ import {
   applyStatsToCombat,
   computeStatEffects,
   emptyStatEffects,
+  spendMore,
+  spentPoints,
   type StatEffects,
+  type StatPoints,
+  unspentPoints,
 } from '../systems/Stats';
+import { statusPanel } from '../ui/menus/StatusPanel';
 import type { Panel } from '../ui/Overlays';
 import { type TouchLabels, TouchControls } from '../ui/TouchControls';
 import { Checkpoints, checkpointsOf } from '../world/Checkpoints';
@@ -595,6 +600,10 @@ export class WorldState implements GameState, InstanceHost {
     this.iconLabelFor = null;
     if (this.instanceDef) this.hud.showZone(this.instanceDef.name);
     else this.showZoneName(session.world.zone);
+    // Points waiting to be spent: a save from before fase 3.7 gets the explanation, a new
+    // level the short reminder.
+    const spent = spentPoints(data.stats, session.character?.stats ?? {});
+    this.sayStatPoints(spent === 0 && session.progress.level > 1);
 
     this.cheatPanel = new CheatPanel(
       ctx,
@@ -786,6 +795,7 @@ export class WorldState implements GameState, InstanceHost {
       input.consumePressed('heavy');
       input.consumePressed('potion');
       input.consumePressed('bag');
+      input.consumePressed('status');
       input.consumePressed('lock');
       input.consumePressed('lockSwitch');
       if (input.consumePressed('confirm') || next || dash) this.dialog.advance();
@@ -812,6 +822,10 @@ export class WorldState implements GameState, InstanceHost {
       if (input.consumePressed('potion')) this.drink(null);
       if (input.consumePressed('bag')) {
         this.openBag();
+        return;
+      }
+      if (input.consumePressed('status')) {
+        this.openStatus();
         return;
       }
     }
@@ -1416,7 +1430,10 @@ export class WorldState implements GameState, InstanceHost {
     }
   }
 
-  /** Adds XP; every new level gives more HP, mana and sword damage (and fills HP and mana). */
+  /**
+   * Adds XP. A new level gives one stat point (and fills HP and mana); HP, mana and damage
+   * only change once you spend that point in the status window (fase 3.7).
+   */
   private gainXp(amount: number): void {
     const data = this.ctx.data;
     const session = this.ctx.session;
@@ -1437,6 +1454,8 @@ export class WorldState implements GameState, InstanceHost {
     this.conditionContext.level = progress.level;
     this.hud?.showMessage(this.ctx.i18n.t('hud.levelUp', { level: progress.level }));
     this.ctx.events.emit('levelUp', { level: progress.level });
+    // Every level gives one point; say so, because nothing grows by itself any more.
+    this.sayStatPoints();
     this.syncSave();
     this.ctx.persist();
   }
@@ -2726,7 +2745,7 @@ export class WorldState implements GameState, InstanceHost {
   private pause(): void {
     // A cutscene already waits (and has its own Skip); the pause menu comes after it.
     if (this.cutscenePlaying) return;
-    this.openMenu((resume) => pausePanel(this.ctx, resume));
+    this.openMenu((resume) => pausePanel(this.ctx, resume, () => this.openStatus()));
   }
 
   /** The bag (I / B or the bag button); the game waits while it is open. */
@@ -2751,6 +2770,62 @@ export class WorldState implements GameState, InstanceHost {
         resume,
       ),
     );
+  }
+
+  /**
+   * The status window (its own key): your level, the points you still have and the ten stats.
+   * Spending works outside a fight; a point you spent stays spent (fase 3.9 undoes it at
+   * Sultan). The game pauses while it is open, like the bag.
+   */
+  private openStatus(): void {
+    if (this.dialog?.isOpen || this.deathTimer !== NOT_DYING) return;
+    this.openMenu((resume) =>
+      statusPanel(
+        this.ctx,
+        {
+          spend: (points) => this.spendPoints(points),
+          canSpend: () => !(this.player?.combat.inCombat ?? false),
+          xpLine: () => this.xpLine(),
+        },
+        resume,
+      ),
+    );
+  }
+
+  /**
+   * Saves a new point spread and lets everything that depends on it follow (max HP and mana,
+   * damage, equip load). Never in a fight, and never more than the points you have.
+   */
+  private spendPoints(points: StatPoints): void {
+    const data = this.ctx.data;
+    const character = this.ctx.session?.character;
+    const c = this.player?.combat;
+    if (!data || !character || !c) return;
+    if (c.inCombat) {
+      this.hud?.showMessage(this.ctx.i18n.t('status.inCombat'));
+      return;
+    }
+    const level = this.ctx.session?.progress.level ?? 1;
+    const next = spendMore(data.stats, level, character.stats, points);
+    if (!next) return;
+    character.stats = next;
+    this.applyGear(true);
+    this.ctx.events.emit('statsSpent', { level });
+    this.syncSave();
+    this.ctx.persist();
+    this.ctx.overlays.refreshTop();
+  }
+
+  /** Says once that there are points waiting (a new level, or a save from before fase 3.7). */
+  private sayStatPoints(returned = false): void {
+    const data = this.ctx.data;
+    const session = this.ctx.session;
+    if (!data || !session?.character) return;
+    const left = unspentPoints(data.stats, session.progress.level, session.character.stats);
+    if (left <= 0) return;
+    const t = this.ctx.i18n;
+    if (returned) this.hud?.showMessage(t.t('hud.statsReturned', { n: left }));
+    else this.hud?.showMessage(t.t(left === 1 ? 'hud.statPoint' : 'hud.statPoints', { n: left }));
   }
 
   /** Carried and maximum kg and the load tier, for the bag and the pack animal. */

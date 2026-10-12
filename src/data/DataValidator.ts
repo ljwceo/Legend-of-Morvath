@@ -635,6 +635,11 @@ class CrossChecker {
     const f = 'stats';
     const s = this.data.stats;
     s.stats.forEach((def, i) => {
+      // Every stat needs an explanation in the language files (the creator shows it).
+      this.text(f, `stats[${i}].id`, `stats.desc.${def.id}`);
+      if (Object.keys(def.effects).length === 0) {
+        this.issue(f, `stats[${i}].effects`, `stat "${def.id}" does nothing`);
+      }
       def.softCaps.forEach((cap, j) => {
         const before = def.softCaps[j - 1]?.fromPoints;
         if (before !== undefined && cap.fromPoints <= before) {

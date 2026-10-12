@@ -127,6 +127,12 @@
       "potion": "Potions +{n}%"
     }
   },
+  "status": {
+    "title": "Status",
+    "inCombat": "Not while you are fighting.",
+    "fromGear": "From your gear",
+    "noGear": "Nothing yet."
+  },
   "appearance": {
     "body": {
       "male": "Male",
@@ -252,7 +258,10 @@
     "packInCombat": "Not now, you are in a fight.",
     "packTooHeavy": "{name} can't carry that much.",
     "packWorn": "Take it off first.",
-    "noMana": "Not enough mana."
+    "noMana": "Not enough mana.",
+    "statPoint": "You have a stat point. Open your status window with {keyStatus}.",
+    "statPoints": "You have {n} stat points. Open your status window with {keyStatus}.",
+    "statsReturned": "Levels no longer grow by themselves: your {n} points are yours to spend ({keyStatus})."
   },
   "dialog": {
     "next": "Continue",
@@ -628,7 +637,8 @@
       "lock": "Lock-on",
       "lockSwitch": "Next target",
       "confirm": "Confirm",
-      "down": "Fly down (debug)"
+      "down": "Fly down (debug)",
+      "status": "Status window"
     }
   },
   "key": {

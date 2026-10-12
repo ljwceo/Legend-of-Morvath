@@ -12,6 +12,7 @@ import {
   pointBudget,
   presetPoints,
   randomStatPoints,
+  spendMore,
   spentPoints,
   unspentPoints,
 } from './Stats';
@@ -172,6 +173,34 @@ describe('normalizing a spread', () => {
 
   it('turns nothing into an empty spread', () => {
     expect(normalizeStatPoints(toy, null, 1)).toEqual({ hp: 0, defense: 0, regen: 0 });
+  });
+});
+
+describe('spending points in the world', () => {
+  it('spends what fits and leaves the rest', () => {
+    const next = spendMore(toy, 1, { hp: 1 }, { hp: 3, defense: 2 });
+    expect(next).toEqual({ hp: 3, defense: 2, regen: 0 });
+  });
+
+  it('never takes a spent point back out', () => {
+    const next = spendMore(toy, 1, { hp: 4, defense: 1 }, { hp: 1, defense: 3 });
+    expect(next).toEqual({ hp: 4, defense: 3, regen: 0 });
+  });
+
+  it('says nothing changed when the spread is the same', () => {
+    expect(spendMore(toy, 1, { hp: 2 }, { hp: 2, defense: 0, regen: 0 })).toBeNull();
+    expect(spendMore(toy, 1, { hp: 2 }, { hp: 1 })).toBeNull();
+  });
+
+  it('never spends more than the budget', () => {
+    const next = spendMore(toy, 1, {}, { hp: 9, defense: 9 });
+    expect(next && spentPoints(toy, next)).toBe(toy.startPoints);
+  });
+
+  it('refuses a spread that no longer fits (the data changed under an old save)', () => {
+    expect(
+      spendMore(toy, 1, { hp: 12, defense: 12 }, { hp: 12, defense: 12, regen: 1 }),
+    ).toBeNull();
   });
 });
 

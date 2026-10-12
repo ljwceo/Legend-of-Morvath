@@ -1454,6 +1454,7 @@ export const CONTROL_ACTIONS = [
   'interact',
   'potion',
   'bag',
+  'status',
   'lock',
   'lockSwitch',
   'confirm',

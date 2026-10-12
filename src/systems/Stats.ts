@@ -172,6 +172,29 @@ export function normalizeStatPoints(
   return out;
 }
 
+/**
+ * Spending points in the world (the status window): the wanted spread, but a point that was
+ * already spent can never come back out and the budget still holds. Returns null when nothing
+ * would change, so the caller can skip saving.
+ */
+export function spendMore(
+  file: StatsFile,
+  level: number,
+  before: Readonly<StatPoints>,
+  wanted: Readonly<StatPoints>,
+): StatPoints | null {
+  const next = normalizeStatPoints(file, wanted, level);
+  let changed = false;
+  for (const def of file.stats) {
+    const had = Math.max(0, Math.floor(before[def.id] ?? 0));
+    if ((next[def.id] ?? 0) < had) next[def.id] = had;
+    if ((next[def.id] ?? 0) !== had) changed = true;
+  }
+  if (!changed) return null;
+  // A spread that no longer fits (e.g. the data changed) is refused rather than trimmed.
+  return spentPoints(file, next) <= pointBudget(file, level) ? next : null;
+}
+
 /** A suggested spread from stats.json ("Sword Fighter"), padded out with zeros. */
 export function presetPoints(file: StatsFile, presetId: string, level = 1): StatPoints {
   const preset = file.presets.find((entry) => entry.id === presetId);
