@@ -1,7 +1,7 @@
 /* HTML screens and panels. Colors and fonts only from docs/art-style/tokens.css. */
 
 .ui-layer {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 10;
@@ -64,7 +64,8 @@
   flex-direction: column;
   gap: 12px;
   width: min(440px, 100%);
-  max-height: calc(100dvh - 32px);
+  /* The playing field is the limit, not the window: a panel never runs off the screen. */
+  max-height: 100%;
   overflow-y: auto;
   padding: 20px;
   box-sizing: border-box;
@@ -203,9 +204,46 @@
 
 .ui-slider {
   width: 100%;
-  min-height: 32px;
+  min-height: 44px;
   accent-color: var(--gh-ornamentgoud);
   touch-action: pan-x;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+
+/* A thick track and a big round knob: easy to see and to grab with a thumb. */
+.ui-slider::-webkit-slider-runnable-track {
+  height: 10px;
+  background: color-mix(in srgb, var(--gh-rand) 70%, transparent);
+  border: 1px solid var(--gh-rand);
+  border-radius: 6px;
+}
+
+.ui-slider::-moz-range-track {
+  height: 10px;
+  background: color-mix(in srgb, var(--gh-rand) 70%, transparent);
+  border: 1px solid var(--gh-rand);
+  border-radius: 6px;
+}
+
+.ui-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 28px;
+  height: 28px;
+  margin-top: -10px;
+  background: var(--gh-ornamentgoud);
+  border: 2px solid var(--gh-nachtinkt);
+  border-radius: 50%;
+}
+
+.ui-slider::-moz-range-thumb {
+  width: 28px;
+  height: 28px;
+  background: var(--gh-ornamentgoud);
+  border: 2px solid var(--gh-nachtinkt);
+  border-radius: 50%;
 }
 
 .ui-slider-row {
@@ -343,9 +381,9 @@
   position: absolute;
   top: max(12px, env(safe-area-inset-top));
   right: max(12px, env(safe-area-inset-right));
-  width: 44px;
-  height: 44px;
-  font: 700 16px var(--gh-font-stats);
+  width: var(--touch-size);
+  height: var(--touch-size);
+  font: 700 20px var(--gh-font-stats);
   color: var(--gh-tekst);
   background: color-mix(in srgb, var(--gh-panel) 70%, transparent);
   border: 1px solid var(--gh-koper);
@@ -361,11 +399,19 @@
 :root {
   --joystick-zone-width: 45vw;
   --joystick-zone-top: 50vh;
-  --button-zone-width: 240px;
-  --button-zone-height: 200px;
+  --button-zone-width: 300px;
+  --button-zone-height: 220px;
   /* Corner the action buttons are placed from (the attack button sits right in it). */
   --button-right: max(28px, calc(env(safe-area-inset-right) + 12px));
   --button-bottom: max(36px, calc(env(safe-area-inset-bottom) + 16px));
+  /*
+   * Every button you tap is about 1.5 cm across, the size of a fingertip (Bo, 2026-10-12).
+   * A CSS pixel is about 0.18 mm on a phone, so 1.5 cm is roughly 82 px; the attack button is
+   * a touch bigger because you use it most.
+   */
+  --touch-size: 82px;
+  --touch-size-big: 92px;
+  --touch-gap: 12px;
 }
 
 /* Full-screen surface under the world HUD that receives drags, pinches and the mouse wheel. */
@@ -433,8 +479,8 @@
 
 .ui-touch-button {
   position: absolute;
-  width: 76px;
-  height: 76px;
+  width: var(--touch-size);
+  height: var(--touch-size);
   font: 600 15px var(--gh-font-tekst);
   color: var(--gh-tekst);
   background: color-mix(in srgb, var(--gh-panel) 55%, transparent);
@@ -450,38 +496,30 @@
   background: color-mix(in srgb, var(--gh-lantaarnamber) 45%, transparent);
 }
 
-/* Attack (big, in the corner), heavy hit to its left, dash above it, drink potion diagonally. */
+/* Attack (biggest, in the corner), heavy hit to its left, dash above it, drink potion diagonally. */
 .ui-attack-button {
-  width: 84px;
-  height: 84px;
+  width: var(--touch-size-big);
+  height: var(--touch-size-big);
   right: var(--button-right);
   bottom: var(--button-bottom);
 }
 
-.ui-heavy-button,
-.ui-dash-button {
-  width: 62px;
-  height: 62px;
-  font-size: 13px;
-}
-
 .ui-heavy-button {
-  right: calc(var(--button-right) + 96px);
-  bottom: calc(var(--button-bottom) + 4px);
+  right: calc(var(--button-right) + var(--touch-size-big) + var(--touch-gap));
+  bottom: var(--button-bottom);
 }
 
 .ui-dash-button {
-  right: calc(var(--button-right) + 11px);
-  bottom: calc(var(--button-bottom) + 96px);
+  right: calc(var(--button-right) + (var(--touch-size-big) - var(--touch-size)) / 2);
+  bottom: calc(var(--button-bottom) + var(--touch-size-big) + var(--touch-gap));
 }
 
 /* Lock-on: left of the heavy hit; it stays lit while a target is locked. */
 .ui-lock-button {
-  width: 52px;
-  height: 52px;
-  font-size: 12px;
-  right: calc(var(--button-right) + 176px);
-  bottom: calc(var(--button-bottom) + 10px);
+  right: calc(
+    var(--button-right) + var(--touch-size-big) + var(--touch-size) + var(--touch-gap) * 2
+  );
+  bottom: var(--button-bottom);
 }
 
 .ui-touch-button-active {
@@ -489,12 +527,10 @@
   border-color: var(--gh-ornamentgoud);
 }
 
-/* Drink potion: a small flask with the number of potions; hidden without potions. */
+/* Drink potion: a flask with the number of potions; hidden without potions. */
 .ui-potion-button {
-  width: 52px;
-  height: 52px;
-  right: calc(var(--button-right) + 100px);
-  bottom: calc(var(--button-bottom) + 100px);
+  right: calc(var(--button-right) + var(--touch-size-big) + var(--touch-gap));
+  bottom: calc(var(--button-bottom) + var(--touch-size-big) + var(--touch-gap));
 }
 
 .ui-potion-button::before {
@@ -1006,7 +1042,7 @@
 
 /* Above the debug overlay (z-index 100), which covers much of a phone screen. */
 .ui-cheats-layer {
-  position: fixed;
+  position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 102;
@@ -1022,10 +1058,10 @@
 .ui-cheats-button {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));
-  right: calc(max(12px, env(safe-area-inset-right)) + 104px);
-  height: 44px;
-  padding: 0 12px;
-  font: 600 14px var(--gh-font-stats);
+  right: calc(max(12px, env(safe-area-inset-right)) + (var(--touch-size) + var(--touch-gap)) * 2);
+  height: var(--touch-size);
+  padding: 0 16px;
+  font: 600 15px var(--gh-font-stats);
   color: var(--gh-zonlicht);
   background: color-mix(in srgb, var(--gh-panel) 70%, transparent);
   border: 1px dashed var(--gh-koper);
@@ -1464,9 +1500,9 @@
 .ui-bag-button {
   position: absolute;
   top: max(12px, env(safe-area-inset-top));
-  right: calc(max(12px, env(safe-area-inset-right)) + 52px);
-  width: 44px;
-  height: 44px;
+  right: calc(max(12px, env(safe-area-inset-right)) + var(--touch-size) + var(--touch-gap));
+  width: var(--touch-size);
+  height: var(--touch-size);
   background: color-mix(in srgb, var(--gh-panel) 70%, transparent);
   border: 1px solid var(--gh-koper);
   border-radius: 50%;
@@ -1478,12 +1514,12 @@
   position: absolute;
   left: 50%;
   top: 54%;
-  width: 18px;
-  height: 15px;
+  width: 30px;
+  height: 25px;
   transform: translate(-50%, -50%);
   border: 2px solid var(--gh-ornamentgoud);
-  border-radius: 3px 3px 6px 6px;
-  box-shadow: 0 -7px 0 -4px var(--gh-ornamentgoud);
+  border-radius: 4px 4px 8px 8px;
+  box-shadow: 0 -11px 0 -6px var(--gh-ornamentgoud);
 }
 
 .ui-bag {
@@ -1895,4 +1931,171 @@
 /* The status window (fase 3.7): as wide as the bag, and it scrolls on a phone. */
 .ui-status {
   width: min(420px, 100%);
+}
+
+/* ------------------------------------------- scrolling you can see and grab (2026-10-12) */
+
+/*
+ * Lists that scroll (the bag, the status window, Settings) had the browser's hairline scroll
+ * bar, which you cannot see, let alone drag, on a phone. These are wide enough for a thumb and
+ * carry the gold of the style guide.
+ */
+.ui-panel,
+.ui-screen,
+.ui-bag-list,
+.ui-stats,
+.ui-cheats,
+.debug-overlay {
+  scrollbar-width: auto;
+  scrollbar-color: var(--gh-ornamentgoud) color-mix(in srgb, var(--gh-nachtinkt) 70%, transparent);
+}
+
+.ui-panel::-webkit-scrollbar,
+.ui-screen::-webkit-scrollbar,
+.ui-bag-list::-webkit-scrollbar,
+.ui-stats::-webkit-scrollbar,
+.ui-cheats::-webkit-scrollbar,
+.debug-overlay::-webkit-scrollbar {
+  width: 14px;
+  height: 14px;
+}
+
+.ui-panel::-webkit-scrollbar-track,
+.ui-screen::-webkit-scrollbar-track,
+.ui-bag-list::-webkit-scrollbar-track,
+.ui-stats::-webkit-scrollbar-track,
+.ui-cheats::-webkit-scrollbar-track,
+.debug-overlay::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--gh-nachtinkt) 70%, transparent);
+  border-radius: 7px;
+}
+
+.ui-panel::-webkit-scrollbar-thumb,
+.ui-screen::-webkit-scrollbar-thumb,
+.ui-bag-list::-webkit-scrollbar-thumb,
+.ui-stats::-webkit-scrollbar-thumb,
+.ui-cheats::-webkit-scrollbar-thumb,
+.debug-overlay::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--gh-ornamentgoud) 80%, transparent);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+  border-radius: 7px;
+}
+
+/* ------------------------------------------------------- turn your device (fase 3.7, 2026-10-12) */
+
+/*
+ * The game is played lying down. A screen that is taller than it is wide gets this instead,
+ * and the game waits. It sits outside the playing field, so it covers the black bars too.
+ */
+.ui-rotate {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: 24px;
+  box-sizing: border-box;
+  text-align: center;
+  background: var(--gh-nachtinkt);
+}
+
+.ui-rotate-visible {
+  display: flex;
+}
+
+.ui-rotate-text {
+  margin: 0;
+  font: 20px/1.4 var(--gh-font-tekst);
+  color: var(--gh-tekst);
+}
+
+/* A phone that tips over: the outline turns a quarter and comes back. */
+.ui-rotate-icon {
+  width: 56px;
+  height: 92px;
+  border: 3px solid var(--gh-ornamentgoud);
+  border-radius: 10px;
+  animation: ui-rotate-tip 2.4s ease-in-out infinite;
+}
+
+@keyframes ui-rotate-tip {
+  0%,
+  25% {
+    transform: rotate(0deg);
+  }
+
+  55%,
+  85% {
+    transform: rotate(-90deg);
+  }
+
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-rotate-icon {
+    animation: none;
+    transform: rotate(-90deg);
+  }
+}
+
+/* ------------------------------------------- panels on a phone lying down (2026-10-12) */
+
+/*
+ * A phone lying down is only about 390 px tall, so a panel has to be compact and it has to be
+ * obvious that it scrolls. Everything stays just as tappable (the rows and buttons keep their
+ * height); only the air around them gets smaller.
+ */
+@media (max-height: 520px) {
+  .ui-panel {
+    gap: 8px;
+    padding: 12px 14px;
+  }
+
+  .ui-heading {
+    font-size: 22px;
+  }
+
+  .ui-bag-list {
+    max-height: none;
+  }
+
+  .ui-stats {
+    gap: 6px;
+  }
+
+  .ui-stat {
+    padding-bottom: 4px;
+  }
+
+  .ui-screen {
+    gap: 12px;
+  }
+}
+
+/*
+ * A scrollable panel fades out at the bottom edge, so you can see there is more below even
+ * where the browser hides its scroll bar (every phone does).
+ */
+.ui-panel {
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 18px), transparent 100%);
+  mask-size: 100% 100%;
+}
+
+.ui-panel:not(:has(> *:last-child)),
+.ui-confirm {
+  mask-image: none;
+}
+
+/* While a panel is open the corner buttons stay out of the way (they would sit on top of it). */
+#app:has(.ui-overlay) .ui-pause-button,
+#app:has(.ui-overlay) .ui-bag-button,
+#app:has(.ui-overlay) .ui-cheats-button {
+  display: none;
 }

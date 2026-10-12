@@ -19,6 +19,7 @@ import { LanguageSelectState } from './scenes/LanguageSelectState';
 import { TitleState } from './scenes/TitleState';
 import { el } from './ui/dom';
 import { Overlays } from './ui/Overlays';
+import { Stage } from './ui/Stage';
 import './style.css';
 import './ui/ui.css';
 
@@ -226,6 +227,49 @@ document.addEventListener('visibilitychange', () => {
   if (!document.hidden) loop.resetClock();
 });
 
+/**
+ * The game is played lying down. A screen that is taller than it is wide shows this instead,
+ * and the game waits (nothing simulates, nothing renders) until the device is turned back.
+ * The text comes from the language files once they are loaded; before that it says it in both
+ * languages, because this can already happen on the loading screen.
+ */
+const rotateScreen = el(
+  'div',
+  { className: 'ui-rotate', attrs: { role: 'alertdialog', 'aria-live': 'assertive' } },
+  el('div', { className: 'ui-rotate-icon', attrs: { 'aria-hidden': 'true' } }),
+  el('p', { className: 'ui-rotate-text' }),
+);
+document.body.append(rotateScreen);
+
+function refreshRotateText(): void {
+  const text = rotateScreen.querySelector('.ui-rotate-text');
+  if (!text) return;
+  text.textContent = i18n.has('rotate.text')
+    ? i18n.t('rotate.text')
+    : 'Draai je telefoon \u00b7 Turn your device';
+}
+refreshRotateText();
+events.on('languageChanged', () => refreshRotateText());
+
+let stoppedForPortrait = false;
+const stage = new Stage(
+  (portrait) => {
+    rotateScreen.classList.toggle('ui-rotate-visible', portrait);
+    refreshRotateText();
+    if (portrait) {
+      stoppedForPortrait = true;
+      loop.stop();
+    } else if (stoppedForPortrait) {
+      stoppedForPortrait = false;
+      loop.resetClock();
+      loop.start();
+    }
+  },
+  () => renderer.resize(),
+);
+stage.mount();
+
 states.change('boot');
 states.applyPending();
-loop.start();
+if (!stage.portrait) loop.start();
+else rotateScreen.classList.add('ui-rotate-visible');

@@ -37,14 +37,25 @@ export function visibleLineKeys(view: DebugView, keys: Iterable<string>): string
   return view === 'small' ? all.filter((key) => SMALL_VIEW_KEYS.includes(key)) : all;
 }
 
+/**
+ * Below this screen height (CSS pixels) the big view would cover the whole game, so a phone
+ * lying down starts small. A tap on the overlay (or F3) still walks through every size.
+ */
+const SHORT_SCREEN_PX = 560;
+
+export function defaultDebugView(screenHeight: number): DebugView {
+  return screenHeight < SHORT_SCREEN_PX ? 'small' : 'large';
+}
+
 function loadView(): DebugView {
+  const fallback = defaultDebugView(window.innerHeight);
   try {
     const stored = window.localStorage.getItem(VIEW_STORAGE_KEY);
     return (DEBUG_VIEWS as readonly string[]).includes(stored ?? '')
       ? (stored as DebugView)
-      : 'large';
+      : fallback;
   } catch {
-    return 'large';
+    return fallback;
   }
 }
 
@@ -94,6 +105,9 @@ export class DebugOverlay {
 
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('touchstart', this.onTouchStart, { passive: true });
+    // On a phone there is no F3: tapping the overlay itself shows the next size (and hides it
+    // again), so it can never end up in the way of the game.
+    this.element.addEventListener('click', this.onOverlayClick);
     this.setEnabled(new URLSearchParams(window.location.search).get('debug') === '1');
   }
 
@@ -143,7 +157,12 @@ export class DebugOverlay {
     }
   }
 
-  /** F3 / three-finger tap: switch debug mode on, or show the next size. */
+  private readonly onOverlayClick = (event: MouseEvent): void => {
+    event.preventDefault();
+    this.cycle();
+  };
+
+  /** F3 / a tap on the overlay / three-finger tap: debug mode on, or the next size. */
   private cycle(): void {
     if (!this.enabled) this.setEnabled(true);
     else this.setView(nextDebugView(this.viewMode));
@@ -181,6 +200,7 @@ export class DebugOverlay {
   dispose(): void {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('touchstart', this.onTouchStart);
+    this.element.removeEventListener('click', this.onOverlayClick);
     this.element.remove();
     this.errorElement.remove();
   }
