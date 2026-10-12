@@ -1,3 +1,4 @@
+import type { PlayerPath } from '../data/types';
 import { EventBus } from './EventBus';
 
 /**
@@ -30,6 +31,8 @@ export interface GameEvents {
   /** Everything of a running quest is done; it can be handed in at the giver. */
   questReady: { questId: string };
   questCompleted: { questId: string };
+  /** Said yes twice to a teacher (Your Resolve): the path for the rest of the game. */
+  pathChosen: { path: PlayerPath; teacherId: string };
   /** Rested in the bed at a checkpoint: HP and mana are full. */
   playerRested: { checkpointId: string };
   /** The UI language changed; screens rebuild their text. */

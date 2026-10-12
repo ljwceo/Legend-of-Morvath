@@ -776,6 +776,41 @@
   color: var(--gh-tekst-zacht);
 }
 
+/* Answers under the last line ("Yes" / "No"): tap one, or W/S + E. The highlighted one glows. */
+.ui-dialog-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.ui-dialog-choices[hidden] {
+  display: none;
+}
+
+.ui-dialog-choice {
+  flex: 1 1 160px;
+  min-height: 44px;
+  padding: 8px 14px;
+  font: 500 16px var(--gh-font-tekst);
+  color: var(--gh-tekst);
+  background: var(--gh-panel);
+  border: 1px solid var(--gh-koper);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.ui-dialog-choice:hover {
+  border-color: var(--gh-ornamentgoud);
+}
+
+.ui-dialog-choice-selected {
+  color: var(--gh-nachtinkt);
+  background: var(--gh-lantaarnamber);
+  border-color: var(--gh-zonlicht);
+  box-shadow: var(--gh-glow-knop);
+}
+
 /* Debug only: names above the placeholder buildings. */
 .ui-layer > .ui-structure-labels {
   position: absolute;

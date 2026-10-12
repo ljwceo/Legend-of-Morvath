@@ -1,10 +1,17 @@
 {
   "conditions": {
-    "readyToChoosePath": {
-      "type": "level",
-      "min": 5,
-      "note": "Master Brink talks about choosing your path from level 5 (main quest Your Resolve, phase 3)."
+    "canChoosePath": {
+      "type": "all",
+      "of": [
+        { "type": "questCompleted", "quest": "defeat_sultan" },
+        { "type": "path", "is": "none" }
+      ],
+      "note": "Your Resolve: after Sultan the teachers ask \"Will you train under me?\" until you have a path."
     },
+    "pathChosen": { "type": "path", "is": "any" },
+    "pathSword": { "type": "path", "is": "sword" },
+    "pathLight": { "type": "path", "is": "light" },
+    "pathDark": { "type": "path", "is": "dark" },
     "canLeaveCity": {
       "type": "always",
       "note": "Concept: only after defeating Sultan and choosing your path (Your Resolve, phase 3). Always true until then so the Greenwood can be reached."

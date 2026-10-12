@@ -1,5 +1,5 @@
 import { z } from 'zod/mini';
-import { qualityLevelSchema } from '../data/schemas';
+import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
@@ -55,7 +55,7 @@ export const saveDataSchema = z.object({
     mana: z.nullable(z.number().check(z.nonnegative())),
   }),
   /** Chosen in the main quest "Your Resolve" (phase 3); null until then. */
-  path: z.nullable(z.enum(['sword', 'light', 'dark'])),
+  path: z.nullable(z.enum(PLAYER_PATHS)),
   world: z.object({
     zone: z.nullable(id),
     /** The instance of the zone you are in (Master Brink's tower), null outside. */

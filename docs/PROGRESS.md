@@ -7,9 +7,9 @@
 | | |
 |---|---|
 | **Huidige fase** | Fase 3 – Je pad, Entrance Exam en gear (plan goedgekeurd 2026-10-10) |
-| **Status** | Stap 3.2 klaar. Op Bo's branch `greyhaven-zone-daynight`: main erin, één vijandsysteem, plekken in het Blender-Greyhaven opgemeten, stap 3.3 (instances: toren van Brink, kelder van Sam). Fase 2 wacht nog op spelen en Meet 20 s op de pc |
-| **Volgende stap** | Bo/Lucas testen PR #34 (plekken, instances, fps); daarna 3.4 (*Your Resolve*) |
-| **Laatste sessie** | 2026-10-11: Greyhaven-branch bijgewerkt, stap 3.3 |
+| **Status** | Stap 3.0 t/m 3.4 klaar. PR #34 (Blender-Greyhaven, één vijandsysteem, stap 3.3 instances) is gemerged in `main`. Stap 3.4 (*Your Resolve*: je pad kiezen bij een leraar) gebouwd. Fase 2 en het Blender-Greyhaven wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
+| **Volgende stap** | Bo/Lucas: de teksten van de drie leraren lezen en meten op pc/iPhone; daarna 3.5 (vechten met een staf + lock-on) |
+| **Laatste sessie** | 2026-10-12: stap 3.4 (*Your Resolve*) gemerged; daarvoor (Blender) het Monastery als eigen asset met kloostertuin |
 
 ### Open vragen
 
@@ -417,7 +417,7 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 | ✅ | Tests (gevechtsformules, XP, quests, save-migratie) en de DataValidator slagen | 330 tests |
 
 ### Fase 3 – Je pad, Entrance Exam en gear
-**Status:** plan goedgekeurd; stap 3.0, 3.1 en 3.2 gebouwd.
+**Status:** plan goedgekeurd; stap 3.0 t/m 3.4 gebouwd (3.3 via PR #34, gemerged).
 **Gebouwd:**
 - 3.0 Debugvenster in groottes:
   - **F3** (of tikken met drie vingers) zet debugmodus aan en wisselt daarna de grootte: **Groot** (alles, zoals eerst) → **Normaal** (alles, kleiner en doorzichtiger) → **Klein** (fps, draw calls, grafische stand, positie en zone) → **Alleen fps** (één regel) → **Verborgen** → Groot. Ook te kiezen bovenin het cheatmenu (**Debugvenster**). De keuze wordt per browser onthouden (niet in de save).
@@ -468,6 +468,18 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
   - Na het laden van Greyhaven worden gear, wie er is (Biscuit, Sultan) en questmarkeringen nu goed gezet (ging mis door het async laden).
   - Getest: 385 tests, lint, opmaak, typecheck, build. Headless Chromium (software-rendering, ~1–8 fps, dus fps zegt niets): naar de torendeur lopen → toren laadt (17 meshes) → cutscene → Overslaan → Brink staat er → de deur uit → terug in de stad (161 meshes); keldertrap af → kelder (18 meshes) → cutscene; herladen in de kelder → trap op → terug in de oostvleugel; smidse met Hilda, geen Biscuit zonder quest; Greenwood met 42 vijanden. Geen fouten.
   - Tijdelijke namen (alleen in data): Master Brink's Tower en Wizard Sam's Cellar (nieuw), Hilda Ironhand, Professor Fizzwick, Old Bertha, Sir Garrick, Marco the Merchant, Biscuit, Gold.
+
+- 3.4 Main quest *Your Resolve* (2026-10-11):
+  - **Na Sultan** begint de quest *Your Resolve* vanzelf ("Ga naar de Academy en kies je pad. Sir Garrick wacht op het trainingsveld, Master Brink in zijn toren en Wizard Sam in de kelder."). Oude saves waarin Sultan al verslagen is, krijgen de quest bij het laden. De drie leraren hebben dan een gouden ruit boven hun hoofd.
+  - **Praten met een leraar:** een paar zinnen over zijn pad, dan **"Will you train under me?"** met de knoppen **Ja / Nee**. Nee mag altijd ("Daar is niets mis mee…"), en je kunt naar een andere leraar. Ja → nog één keer: **"Weet je het zeker? Zeg je ja, dan is … je pad voor de rest van het spel."** met **Ja, ik weet het zeker / Nee, nog niet**. Daar staat *Nee, nog niet* voorgeselecteerd, zodat je nooit per ongeluk kiest door op E te blijven drukken.
+  - Zoals het concept wil: **Sam waarschuwt** dat het een duistere weg is (de magie van Lucael en Baelor, sterk in het begin en later zwakker), **Brink zegt dat geduld wordt beloond**, en Garrick vertelt dat een zwaardvechter vooraan staat.
+  - **Kiezen:** met de muis of een tik op een knop, of met W/S/A/D, de pijltjes of de joystick en dan E, spatie of Enter. Escape of weglopen = niets gekozen.
+  - **Na de keuze:** het pad staat in de save (`path`: `sword`, `light` of `dark`; kan maar één keer), melding "Je pad: duistere magie. Wizard Sam is je leraar.", de quest is klaar (+50 XP), event `pathChosen`. Je eigen leraar zegt daarna dat je Entrance Exam binnenkort klaar is (stap 3.6); de andere twee reageren op je keuze.
+  - **Keuzeknoppen in het dialoogvenster** zijn algemeen (`Dialog.open(..., { choices })`), dus ook bruikbaar voor latere keuzes.
+  - **Data:** blok `teaches` per leraar in `npcs.json`, voorwaarde `path` en de voorwaarden `canChoosePath`, `pathChosen`, `pathSword`, `pathLight`, `pathDark` in `triggers.json`, doel `choosePath` in `quests.json`. Een nieuwe leraar of keuze is alleen data. Geen nieuwe saveversie: `path` stond al sinds fase 1 in de save.
+  - **Cheatmenu:** "Sultan verslagen (overslaan)" en "Pad (Your Resolve): Geen / Zwaard / Licht / Duister".
+  - Getest: 392 tests (o.a. voorwaarde `path`, één leraar per pad, leraar vraagt alleen na Sultan en zolang je geen pad hebt, pad maar één keer, quest klaar bij een keuze en niet bij alleen praten, dialoog van Brink na de keuze, validator). Headless Chromium (pc 1100×760): Sir Garrick (EN) op het trainingsveld, Wizard Sam (NL) in de kelder en Master Brink (EN) in de toren: Nee → Ja → "Nee, nog niet" (standaard) → geen pad; opnieuw met muisklik Ja → "Ja, zeker" → pad in de save, quest klaar, leraar zegt de nieuwe zin. Geen fouten.
+  - Tijdelijke namen (alleen in data): Sir Garrick, Master Brink's Tower, Wizard Sam's Cellar. Nieuw: geen. **Alle zinnen van de leraren zijn een voorstel**, zeg het als ze anders moeten.
 
 - Extra taak (2026-10-12, opdracht van Bo, in Blender): **Monastery als eigen asset + kloostertuin** (`Monastery.blend` naast `Forge.blend`; uitleg in `docs/MONASTERY.md`, scripts in `tools/blender/monastery/`)
   - Klooster naar een echt middeleeuws plan: kerk met apsis, roosvenster en klokkentoren, kloostergang met bogen, oost-, zuid- en westvleugel. Daken met 4 leivormen + 2 nokpannen, muren met 3 stenen + 2 funderingsstenen, echte ramen en deuren.
@@ -641,6 +653,8 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 | 2026-10-11 | De stad houdt de buitenkant van de toren; alleen het interieur (boeken, kaarsen, kristallen, vloeren) gaat eruit. De kelder gaat er helemaal uit | Anders zit er een gat in de skyline; de kelder ligt onder de grond |
 | 2026-10-11 | Nachtmonsters zijn groepjes in de gewone vijandenpool (`night: true`) | Verzoek: geen dubbele vijandcode. Zelfde AI, buit en tekenen als overdag |
 | 2026-10-11 | Sultan-arena straal 14 (was 15) | Er is maar zoveel vlak gras binnen de muur bij de weg naar het oosten |
+| 2026-10-11 | Je kiest je pad **direct na Sultan** (level 3), niet pas vanaf level 5 | Concept: Your Resolve na Sultan, de Entrance Exam brengt je naar level 5. De oude voorwaarde `readyToChoosePath` (level 5) is vervangen door `canChoosePath` |
+| 2026-10-11 | Bij "Weet je het zeker?" staat **"Nee, nog niet"** voorgeselecteerd | Je pad geldt voor de rest van het spel; wie op E blijft drukken, kiest zo nooit per ongeluk |
 | 2026-10-11 | Smidse = rood huis met schoorsteen, aambeeld en vuur ten zuiden van de markt; Golden Kettle = rood huis oost van de markt; Alchemy Lab = leien huis met ronde toren | Uit het model af te lezen (vuur + aambeeld). De andere twee zijn een keuze: zeg het als het andersom moet |
 
 ## Sessielog
@@ -680,6 +694,7 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 
 ### 2026-10-11
 - Op verzoek (Bo/Lucas): PR #34 niet mergen, wel bijwerken op Bo's branch. Main erin gemerged, één vijandsysteem, NPC's/plekken/Sultan-gevecht opgemeten in het Blender-model, toren van Brink en kelder van Sam als instances met cutscene (stap 3.3). Save versie 7. 385 tests, headless Chromium zonder fouten. Open: fps meten op pc en iPhone, een echte landpoort in het model (open vraag 5).
+- PR #34 bleek al gemerged; PROGRESS bijgewerkt. Stap 3.4 gebouwd: main quest *Your Resolve* (keuzeknoppen in de dialoog, drie leraren met Ja/Nee en nog één keer bevestigen, pad in de save, quest klaar, cheats). 392 tests, headless Chromium (EN en NL, alle drie de leraren) zonder fouten. Tijdelijke namen: geen nieuwe. Volgende stap: 3.5 (staf + lock-on).
 
 ### 2026-10-12
 - Blender (Bo + Claude): Monastery.blend gebouwd (klooster, daken, stenen, ramen/deuren, binnenkant oostvleugel met 6 kamers) en de kloostertuin met vijver, koi en kweekbare bedden. Alleen docs en Blender-scripts in de repo; geen game-code veranderd. Tijdelijke namen: Monastery Garden, Moonbell.

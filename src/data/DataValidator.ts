@@ -470,6 +470,22 @@ class CrossChecker {
         entry.lines.forEach((key, l) => this.text(f, `${p}.dialogueWhen[${w}].lines[${l}]`, key));
       });
 
+      const teaches = npc.teaches;
+      if (teaches) {
+        const tp = `${p}.teaches`;
+        this.ref('condition', f, `${tp}.when`, teaches.when);
+        teaches.offer.forEach((key, l) => this.text(f, `${tp}.offer[${l}]`, key));
+        this.text(f, `${tp}.question`, teaches.question);
+        this.text(f, `${tp}.confirm`, teaches.confirm);
+        teaches.accepted.forEach((key, l) => this.text(f, `${tp}.accepted[${l}]`, key));
+        teaches.declined.forEach((key, l) => this.text(f, `${tp}.declined[${l}]`, key));
+        if (npc.interaction !== 'talk') this.issue(f, tp, 'a teacher needs an NPC you can talk to');
+        const other = this.data.npcs.npcs.findIndex((o) => o.teaches?.path === teaches.path);
+        if (other !== i) {
+          this.issue(f, `${tp}.path`, `"${teaches.path}" is already taught by npcs[${other}]`);
+        }
+      }
+
       npc.shop?.items.forEach((entry, e) => {
         this.ref('item', f, `${p}.shop.items[${e}].item`, entry.item);
         if (entry.item === 'gold') this.issue(f, `${p}.shop.items[${e}].item`, 'gold is not sold');

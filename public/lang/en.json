@@ -211,7 +211,20 @@
   },
   "dialog": {
     "next": "Continue",
-    "close": "Close"
+    "close": "Close",
+    "choice": {
+      "yes": "Yes",
+      "no": "No",
+      "sure": "Yes, I'm sure",
+      "notYet": "No, not yet"
+    }
+  },
+  "path": {
+    "chosen": {
+      "sword": "Your path: sword fighter. Sir Garrick is your teacher.",
+      "light": "Your path: light magic. Master Brink is your teacher.",
+      "dark": "Your path: dark magic. Wizard Sam is your teacher."
+    }
   },
   "place": {
     "monastery": "The Monastery is your checkpoint. If you fall, you wake up here. Rest in your bed to recover.",
@@ -262,15 +275,55 @@
     "master_brink": {
       "1": "Welcome to the Academy. Magic rewards those who are patient.",
       "2": "Come back when you are ready to choose your path.",
-      "ready": "You have grown strong. It is time to choose your path. Will you train under me?"
+      "offer": {
+        "1": "Ah, the one who faced Sultan. Word travels fast in this tower.",
+        "2": "I teach the magic of the world itself: Water, Fire, Nature and Wind. Your staff will carry one of them.",
+        "3": "My path starts slowly. But patience is rewarded: in the end, no magic burns brighter."
+      },
+      "confirm": "Are you sure? Once you say yes, light magic is your path for the rest of the game.",
+      "accepted": {
+        "1": "Then welcome, student. Patience, practice, and a little curiosity. That is all I ask.",
+        "2": "Your Entrance Exam will be ready soon. Come and see me then."
+      },
+      "declined": "Take your time. Patience, remember? My door stays open.",
+      "student": "Your Entrance Exam is not ready yet. Patience, student.",
+      "otherPath": "You chose another path. I hope you know where it leads."
     },
     "wizard_sam": {
       "1": "Hm. Not many visitors find their way to me.",
-      "2": "Dark magic is strong, quickly. Remember that it is a dark road."
+      "2": "Dark magic is strong, quickly. Remember that it is a dark road.",
+      "offer": {
+        "1": "You came all the way down the stairs. Most turn back halfway.",
+        "2": "What I teach is the magic of Lucael and Baelor. Their own power, turned against them. It is strong from the very first day.",
+        "3": "But hear me well: it is a dark path. It grows weaker as you grow older, and it does not let go of you easily."
+      },
+      "confirm": "Are you sure? Once you say yes, dark magic is your path for the rest of the game.",
+      "accepted": {
+        "1": "So be it. Remember: you chose this. Nobody pushed you.",
+        "2": "Your Entrance Exam will be ready soon. The cellar will be waiting."
+      },
+      "declined": "Wise, perhaps. The cellar will still be here.",
+      "student": "Your Entrance Exam is not ready yet. Come back soon.",
+      "otherPath": "You chose the light, or the blade. Hm. We shall see who was right."
     },
     "sir_garrick": {
       "1": "A sword fighter stands in front and takes the blows for the team.",
-      "2": "Train hard, and steel will never let you down."
+      "2": "Train hard, and steel will never let you down.",
+      "offer": {
+        "1": "So you are the one who beat Sultan with nothing but an old sword. Not bad at all.",
+        "2": "A blade never runs out of mana. Steel, sweat and a steady heart: that is all I teach. You stand in front and take the blows, so others can strike."
+      },
+      "confirm": "Are you sure? Once you say yes, the sword is your path for the rest of the game.",
+      "accepted": {
+        "1": "Ha! Good. Then we start where every blademaster starts: on the training field.",
+        "2": "Your Entrance Exam will be ready soon. Get some rest until then."
+      },
+      "declined": "No shame in that. The field is here if you change your mind.",
+      "student": "Your Entrance Exam is not ready yet. Come back soon, student.",
+      "otherPath": "You chose another teacher. A pity; you have a good arm. Train hard anyway."
+    },
+    "teacher": {
+      "question": "Will you train under me?"
     },
     "pringle": {
       "pet": "Pringle purrs happily."
@@ -360,16 +413,8 @@
       "desc": "Leave the city: defeat Sultan at the city gate."
     },
     "your_resolve": {
-      "offer": {
-        "1": "It is time to choose your path."
-      },
-      "progress": {
-        "1": "Choose your path at the Academy."
-      },
-      "complete": {
-        "1": "Your path is chosen."
-      },
-      "desc": "Go to the Academy and choose your path."
+      "objective": "Choose a teacher: Sir Garrick, Master Brink or Wizard Sam",
+      "desc": "Go to the Academy and choose your path. Sir Garrick waits on the training field, Master Brink in his tower and Wizard Sam in the cellar."
     },
     "first_harvest": {
       "offer": {
@@ -553,13 +598,19 @@
     "grantSlimeGel": "+3 Slime Gel",
     "boss": "Boss fight",
     "bossSultan": "Fight Sultan",
+    "bossSkip": "Sultan defeated (skip)",
     "grantGear": "+ all gear",
     "grantPackAnimal": "+ pack animal",
     "dayNight": "Day and night",
     "dayNightNow": "{phase} · {time} left",
     "dayNightClock": "Real clock",
     "dayNightSpeed": "Speed",
-    "dayNightMonsters": "Night monsters: {count} · test area only in debug mode"
+    "dayNightMonsters": "Night monsters: {count} · test area only in debug mode",
+    "path": "Path (Your Resolve)",
+    "path_none": "None",
+    "path_sword": "Sword",
+    "path_light": "Light",
+    "path_dark": "Dark"
   },
   "bag": {
     "title": "Bag",

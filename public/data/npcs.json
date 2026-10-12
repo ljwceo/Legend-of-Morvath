@@ -189,11 +189,22 @@
       "behavior": "static",
       "dialogue": ["npc.master_brink.1", "npc.master_brink.2"],
       "dialogueWhen": [
-        {
-          "condition": "readyToChoosePath",
-          "lines": ["npc.master_brink.ready"]
-        }
+        { "condition": "pathLight", "lines": ["npc.master_brink.student"] },
+        { "condition": "pathChosen", "lines": ["npc.master_brink.otherPath"] }
       ],
+      "teaches": {
+        "path": "light",
+        "when": "canChoosePath",
+        "offer": [
+          "npc.master_brink.offer.1",
+          "npc.master_brink.offer.2",
+          "npc.master_brink.offer.3"
+        ],
+        "question": "npc.teacher.question",
+        "confirm": "npc.master_brink.confirm",
+        "accepted": ["npc.master_brink.accepted.1", "npc.master_brink.accepted.2"],
+        "declined": ["npc.master_brink.declined"]
+      },
       "heading": 45
     },
     {
@@ -206,6 +217,19 @@
       "interaction": "talk",
       "behavior": "static",
       "dialogue": ["npc.wizard_sam.1", "npc.wizard_sam.2"],
+      "dialogueWhen": [
+        { "condition": "pathDark", "lines": ["npc.wizard_sam.student"] },
+        { "condition": "pathChosen", "lines": ["npc.wizard_sam.otherPath"] }
+      ],
+      "teaches": {
+        "path": "dark",
+        "when": "canChoosePath",
+        "offer": ["npc.wizard_sam.offer.1", "npc.wizard_sam.offer.2", "npc.wizard_sam.offer.3"],
+        "question": "npc.teacher.question",
+        "confirm": "npc.wizard_sam.confirm",
+        "accepted": ["npc.wizard_sam.accepted.1", "npc.wizard_sam.accepted.2"],
+        "declined": ["npc.wizard_sam.declined"]
+      },
       "heading": 210
     },
     {
@@ -217,6 +241,19 @@
       "interaction": "talk",
       "behavior": "static",
       "dialogue": ["npc.sir_garrick.1", "npc.sir_garrick.2"],
+      "dialogueWhen": [
+        { "condition": "pathSword", "lines": ["npc.sir_garrick.student"] },
+        { "condition": "pathChosen", "lines": ["npc.sir_garrick.otherPath"] }
+      ],
+      "teaches": {
+        "path": "sword",
+        "when": "canChoosePath",
+        "offer": ["npc.sir_garrick.offer.1", "npc.sir_garrick.offer.2"],
+        "question": "npc.teacher.question",
+        "confirm": "npc.sir_garrick.confirm",
+        "accepted": ["npc.sir_garrick.accepted.1", "npc.sir_garrick.accepted.2"],
+        "declined": ["npc.sir_garrick.declined"]
+      },
       "heading": 270
     },
     {

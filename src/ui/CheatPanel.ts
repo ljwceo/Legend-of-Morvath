@@ -1,5 +1,6 @@
 import type { GameContext } from '../core/GameContext';
 import type { Input } from '../core/Input';
+import { PLAYER_PATHS, type PlayerPath } from '../data/schemas';
 import { DEBUG_VIEWS } from '../render/DebugOverlay';
 import { CHEAT_SPEEDS, type Cheats } from '../systems/Cheats';
 import { el } from './dom';
@@ -23,6 +24,12 @@ export interface CheatPanelHandlers {
   grant(kind: 'xp' | 'gold' | 'potions' | 'slimeGel' | 'gear' | 'packAnimal'): void;
   /** Starts the Sultan fight right away (no quests needed). */
   bossFight(): void;
+  /** Counts Sultan as defeated without the fight (the teachers ask right away). */
+  skipBoss(): void;
+  /** The chosen path (Your Resolve), null = none yet. */
+  path(): PlayerPath | null;
+  /** Sets the path or clears it (the teachers ask again). */
+  setPath(path: PlayerPath | null): void;
 }
 
 type SaveTool = 'none' | 'export' | 'import';
@@ -239,6 +246,20 @@ export class CheatPanel {
           'div',
           { className: 'ui-chips' },
           chip(t('cheats.bossSultan'), false, () => this.handlers.bossFight()),
+          chip(t('cheats.bossSkip'), false, () => this.handlers.skipBoss()),
+        ),
+      ),
+      section(
+        t('cheats.path'),
+        el(
+          'div',
+          { className: 'ui-chips' },
+          ...[null, ...PLAYER_PATHS].map((path) =>
+            chip(t(`cheats.path_${path ?? 'none'}`), this.handlers.path() === path, () => {
+              this.handlers.setPath(path);
+              this.rebuild();
+            }),
+          ),
         ),
       ),
       section(

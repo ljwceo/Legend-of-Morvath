@@ -13,7 +13,7 @@ import { countItem, type ItemStack, removeItem } from './Inventory';
 export type QuestStatus = 'locked' | 'available' | 'active' | 'ready' | 'done';
 
 /** Counted things that happen in the world (events), matched against objectives. */
-export type QuestEventKind = 'talk' | 'kill' | 'boss' | 'buy' | 'rest' | 'visit';
+export type QuestEventKind = 'talk' | 'kill' | 'boss' | 'buy' | 'rest' | 'visit' | 'path';
 
 /** How far one objective is: `have` of `need` (capped at `need`). */
 export interface ObjectiveProgress {
@@ -25,7 +25,7 @@ type ActiveQuest = SaveQuests['active'][number];
 
 /** What an event means for an objective: its target, or null when the objective does not count it. */
 function eventTarget(objective: QuestObjective, kind: QuestEventKind): string | null | undefined {
-  if (objective.type !== kind) return null;
+  if (objective.type !== (kind === 'path' ? 'choosePath' : kind)) return null;
   switch (objective.type) {
     case 'talk':
       return objective.npc;
@@ -39,6 +39,9 @@ function eventTarget(objective: QuestObjective, kind: QuestEventKind): string | 
       return objective.checkpoint;
     case 'buy':
       return objective.item;
+    case 'choosePath':
+      // Any path counts (the target is the chosen path).
+      return undefined;
     default:
       return null;
   }

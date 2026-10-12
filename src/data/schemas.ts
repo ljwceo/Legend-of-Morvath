@@ -19,6 +19,12 @@ const textKey = z.string().check(z.regex(/^[a-zA-Z0-9_.]+$/, 'not a valid text k
 const colorToken = z.string().check(z.minLength(1));
 const hexColor = z.string().check(z.regex(/^#[0-9a-fA-F]{6}$/, 'expected #RRGGBB'));
 const name = z.string().check(z.minLength(1));
+
+/** The paths a teacher offers (main quest Your Resolve): sword fighter, light or dark mage. */
+export const PLAYER_PATHS = ['sword', 'light', 'dark'] as const;
+export type PlayerPath = (typeof PLAYER_PATHS)[number];
+/** A path condition: none chosen yet, any chosen, or this one. */
+export type PathCheck = 'none' | 'any' | PlayerPath;
 // zod 4 numbers are always finite (no Infinity / NaN).
 const nonNegative = z.number().check(z.nonnegative());
 const positive = z.number().check(z.positive());
@@ -396,6 +402,21 @@ const npcSchema = z.strictObject({
    */
   dialogueWhen: optional(
     z.array(z.strictObject({ condition: name, lines: atLeast(z.array(textKey)) })),
+  ),
+  /**
+   * A teacher (Your Resolve): while `when` holds, talking ends with "Will you train under me?".
+   * No may always; yes asks `confirm` once more, then `path` is yours for the rest of the game.
+   */
+  teaches: optional(
+    z.strictObject({
+      path: z.enum(PLAYER_PATHS),
+      when: name,
+      offer: atLeast(z.array(textKey)),
+      question: textKey,
+      confirm: textKey,
+      accepted: atLeast(z.array(textKey)),
+      declined: atLeast(z.array(textKey)),
+    }),
   ),
   /** A pack animal (Biscuit): carries up to `maxKg` of your gear (interaction "pack"). */
   pack: optional(z.strictObject({ maxKg: range(1, 10_000) })),
@@ -917,6 +938,7 @@ export type Condition =
   | { type: 'never'; note?: string | undefined }
   | { type: 'level'; min: number; note?: string | undefined }
   | { type: 'questCompleted'; quest: string; note?: string | undefined }
+  | { type: 'path'; is: PathCheck; note?: string | undefined }
   | { type: 'all'; of: Condition[]; note?: string | undefined }
   | { type: 'any'; of: Condition[]; note?: string | undefined };
 
@@ -927,6 +949,11 @@ export const conditionSchema: z.ZodMiniType<Condition> = z.lazy(() =>
     z.strictObject({ type: z.literal('never'), note }),
     z.strictObject({ type: z.literal('level'), min: level, note }),
     z.strictObject({ type: z.literal('questCompleted'), quest: id, note }),
+    z.strictObject({
+      type: z.literal('path'),
+      is: z.enum(['none', 'any', ...PLAYER_PATHS]),
+      note,
+    }),
     z.strictObject({ type: z.literal('all'), of: z.array(conditionSchema), note }),
     z.strictObject({ type: z.literal('any'), of: z.array(conditionSchema), note }),
   ]),
@@ -969,6 +996,8 @@ const objectiveSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('rest'), checkpoint: optional(id), text: textKey }),
   /** Walk into a trigger area (triggers.json); `text` says where to go. */
   z.strictObject({ type: z.literal('visit'), trigger: id, text: textKey }),
+  /** Say yes (twice) to a teacher: your path is chosen (main quest Your Resolve). */
+  z.strictObject({ type: z.literal('choosePath'), text: textKey }),
 ]);
 
 export const questsFileSchema = z.strictObject({

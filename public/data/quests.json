@@ -216,12 +216,11 @@
       "id": "your_resolve",
       "name": "Your Resolve",
       "kind": "main",
-      "giver": "master_brink",
       "description": "quest.your_resolve.desc",
       "objectives": [
         {
-          "type": "talk",
-          "npc": "master_brink"
+          "type": "choosePath",
+          "text": "quest.your_resolve.objective"
         }
       ],
       "requires": {
@@ -231,11 +230,6 @@
         "xp": 50,
         "gold": 0,
         "items": []
-      },
-      "dialogue": {
-        "offer": ["quest.your_resolve.offer.1"],
-        "progress": ["quest.your_resolve.progress.1"],
-        "complete": ["quest.your_resolve.complete.1"]
       }
     },
     {

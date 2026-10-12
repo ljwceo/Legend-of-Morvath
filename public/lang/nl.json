@@ -211,7 +211,20 @@
   },
   "dialog": {
     "next": "Verder",
-    "close": "Sluiten"
+    "close": "Sluiten",
+    "choice": {
+      "yes": "Ja",
+      "no": "Nee",
+      "sure": "Ja, ik weet het zeker",
+      "notYet": "Nee, nog niet"
+    }
+  },
+  "path": {
+    "chosen": {
+      "sword": "Je pad: zwaardvechter. Sir Garrick is je leraar.",
+      "light": "Je pad: lichte magie. Master Brink is je leraar.",
+      "dark": "Je pad: duistere magie. Wizard Sam is je leraar."
+    }
   },
   "place": {
     "monastery": "Het Monastery is je checkpoint. Val je, dan word je hier wakker. Rust uit in je bed om bij te komen.",
@@ -262,15 +275,55 @@
     "master_brink": {
       "1": "Welkom in de Academy. Magie beloont wie geduld heeft.",
       "2": "Kom terug als je klaar bent om je pad te kiezen.",
-      "ready": "Je bent sterk geworden. Het is tijd om je pad te kiezen. Wil je bij mij in de leer?"
+      "offer": {
+        "1": "Ah, degene die Sultan aandurfde. Nieuws gaat snel in deze toren.",
+        "2": "Ik leer de magie van de wereld zelf: Water, Fire, Nature en Wind. Je staf zal er één van dragen.",
+        "3": "Mijn pad begint langzaam. Maar geduld wordt beloond: uiteindelijk brandt geen magie feller."
+      },
+      "confirm": "Weet je het zeker? Zeg je ja, dan is lichte magie je pad voor de rest van het spel.",
+      "accepted": {
+        "1": "Welkom dan, leerling. Geduld, oefening en een beetje nieuwsgierigheid. Meer vraag ik niet.",
+        "2": "Je Entrance Exam is binnenkort klaar. Kom me dan opzoeken."
+      },
+      "declined": "Neem de tijd. Geduld, weet je nog? Mijn deur blijft open.",
+      "student": "Je Entrance Exam is nog niet klaar. Geduld, leerling.",
+      "otherPath": "Je koos een ander pad. Ik hoop dat je weet waar het heen leidt."
     },
     "wizard_sam": {
       "1": "Hm. Niet veel bezoekers vinden de weg naar mij.",
-      "2": "Duistere magie is snel sterk. Onthoud wel dat het een duistere weg is."
+      "2": "Duistere magie is snel sterk. Onthoud wel dat het een duistere weg is.",
+      "offer": {
+        "1": "Je bent helemaal de trap af gekomen. De meesten keren halverwege om.",
+        "2": "Wat ik leer, is de magie van Lucael en Baelor. Hun eigen kracht, tegen hen gekeerd. Vanaf de eerste dag sterk.",
+        "3": "Maar luister goed: het is een duistere weg. Hij wordt zwakker naarmate je verder komt, en hij laat je niet makkelijk los."
+      },
+      "confirm": "Weet je het zeker? Zeg je ja, dan is duistere magie je pad voor de rest van het spel.",
+      "accepted": {
+        "1": "Het zij zo. Onthoud: jij koos dit. Niemand duwde je.",
+        "2": "Je Entrance Exam is binnenkort klaar. De kelder wacht op je."
+      },
+      "declined": "Verstandig, misschien. De kelder blijft hier wel.",
+      "student": "Je Entrance Exam is nog niet klaar. Kom snel terug.",
+      "otherPath": "Je koos het licht, of het zwaard. Hm. We zullen zien wie er gelijk had."
     },
     "sir_garrick": {
       "1": "Een zwaardvechter staat vooraan en vangt de klappen op voor het team.",
-      "2": "Train hard, dan laat staal je nooit in de steek."
+      "2": "Train hard, dan laat staal je nooit in de steek.",
+      "offer": {
+        "1": "Dus jij bent degene die Sultan versloeg met alleen een oud zwaard. Niet slecht.",
+        "2": "Een zwaard raakt nooit door zijn mana heen. Staal, zweet en een vast hart: meer leer ik niet. Jij staat vooraan en vangt de klappen op, zodat anderen kunnen toeslaan."
+      },
+      "confirm": "Weet je het zeker? Zeg je ja, dan is het zwaard je pad voor de rest van het spel.",
+      "accepted": {
+        "1": "Ha! Mooi. Dan beginnen we waar elke zwaardmeester begint: op het trainingsveld.",
+        "2": "Je Entrance Exam is binnenkort klaar. Rust tot die tijd maar goed uit."
+      },
+      "declined": "Daar is niets mis mee. Het veld is er nog als je van gedachten verandert.",
+      "student": "Je Entrance Exam is nog niet klaar. Kom snel terug, leerling.",
+      "otherPath": "Je koos een andere leraar. Jammer, je hebt een goede arm. Blijf toch maar trainen."
+    },
+    "teacher": {
+      "question": "Wil je bij mij in de leer?"
     },
     "pringle": {
       "pet": "Pringle spint tevreden."
@@ -360,16 +413,8 @@
       "desc": "Verlaat de stad: versla Sultan bij de stadspoort."
     },
     "your_resolve": {
-      "offer": {
-        "1": "Het is tijd om je pad te kiezen."
-      },
-      "progress": {
-        "1": "Kies je pad in de Academy."
-      },
-      "complete": {
-        "1": "Je pad is gekozen."
-      },
-      "desc": "Ga naar de Academy en kies je pad."
+      "objective": "Kies een leraar: Sir Garrick, Master Brink of Wizard Sam",
+      "desc": "Ga naar de Academy en kies je pad. Sir Garrick wacht op het trainingsveld, Master Brink in zijn toren en Wizard Sam in de kelder."
     },
     "first_harvest": {
       "offer": {
@@ -553,13 +598,19 @@
     "grantSlimeGel": "+3 Slime Gel",
     "boss": "Baasgevecht",
     "bossSultan": "Vecht tegen Sultan",
+    "bossSkip": "Sultan verslagen (overslaan)",
     "grantGear": "+ alle gear",
     "grantPackAnimal": "+ pakdier",
     "dayNight": "Dag en nacht",
     "dayNightNow": "{phase} · nog {time}",
     "dayNightClock": "Echte klok",
     "dayNightSpeed": "Snelheid",
-    "dayNightMonsters": "Nachtmonsters: {count} · testgebied alleen in debugmodus"
+    "dayNightMonsters": "Nachtmonsters: {count} · testgebied alleen in debugmodus",
+    "path": "Pad (Your Resolve)",
+    "path_none": "Geen",
+    "path_sword": "Zwaard",
+    "path_light": "Licht",
+    "path_dark": "Duister"
   },
   "bag": {
     "title": "Tas",

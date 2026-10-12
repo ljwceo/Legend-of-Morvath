@@ -423,13 +423,17 @@ describe('NPC data', () => {
     for (const role of npcsFile().roles) expect(hasNpcModel(role.model), role.model).toBe(true);
   });
 
-  it('picks conditional dialogue (Master Brink from level 5)', () => {
+  it('picks conditional dialogue (Master Brink after you chose a path)', () => {
     const conditions = triggersFileSchema.parse(readPublicJson('data/triggers.json')).conditions;
     const brink = npcsFile().npcs.find((npc) => npc.id === 'master_brink');
     if (!brink) throw new Error('missing Master Brink');
-    const low = { level: 1, completedQuests: new Set<string>() };
-    const high = { level: 5, completedQuests: new Set<string>() };
-    expect(dialogueLines(brink, conditions, low)).toEqual(brink.dialogue);
-    expect(dialogueLines(brink, conditions, high)).toEqual(['npc.master_brink.ready']);
+    const done = new Set(['defeat_sultan']);
+    expect(dialogueLines(brink, conditions, { level: 3, completedQuests: done })).toEqual(
+      brink.dialogue,
+    );
+    const light = { level: 3, completedQuests: done, path: 'light' as const };
+    expect(dialogueLines(brink, conditions, light)).toEqual(['npc.master_brink.student']);
+    const dark = { level: 3, completedQuests: done, path: 'dark' as const };
+    expect(dialogueLines(brink, conditions, dark)).toEqual(['npc.master_brink.otherPath']);
   });
 });

@@ -34,7 +34,15 @@ import { pointInShape } from '../world/Shapes';
 import { Random } from '../core/Random';
 import { Input, type LookDelta } from '../core/Input';
 import type { GameState } from '../core/StateMachine';
-import type { GameData, ItemDef, NpcDef, QualityPreset, QuestDef } from '../data/types';
+import type {
+  GameData,
+  ItemDef,
+  NpcDef,
+  PlayerPath,
+  QualityPreset,
+  QuestDef,
+  TeachDef,
+} from '../data/types';
 import { chosenLevel, presetFor } from '../render/quality';
 import type { FollowTarget } from '../entities/Companion';
 import type { Enemy } from '../entities/Enemy';
@@ -82,6 +90,7 @@ import {
   rollDrops,
 } from '../systems/Inventory';
 import { moveFromPack, moveToPack } from '../systems/PackAnimal';
+import { choosePath, teacherOffer } from '../systems/PathChoice';
 import { QuestBook, type QuestEventKind } from '../systems/Quests';
 import { addXp, deathGoldLoss, xpFraction, xpToNext } from '../systems/Progression';
 import type { EnemyTarget } from '../systems/EnemyAI';
@@ -110,7 +119,7 @@ import { bagPanel } from '../ui/menus/BagPanel';
 import { packPanel } from '../ui/menus/PackPanel';
 import { type BuyResult, shopPanel } from '../ui/menus/ShopPanel';
 import { QuestTexts } from '../ui/questText';
-import type { ChecklistRow } from '../ui/Dialog';
+import type { ChecklistRow, DialogOptions } from '../ui/Dialog';
 import { pausePanel } from '../ui/menus/PausePanel';
 import type { Panel } from '../ui/Overlays';
 import { TouchControls } from '../ui/TouchControls';
@@ -137,6 +146,8 @@ import { placeAtStart } from './flow';
 
 const DEG = Math.PI / 180;
 const DEBUG_REFRESH_MS = 250;
+/** How far a stick or key must push (0..1) to move the highlight between dialogue answers. */
+const CHOICE_PUSH = 0.5;
 /** Debug overlay lines this scene owns (removed again on exit). */
 const DEBUG_KEYS = [
   'pos',
@@ -315,6 +326,8 @@ export class WorldState implements GameState, InstanceHost {
   private dialog: Dialog | null = null;
   /** The NPC in the open dialogue window, or null. */
   private talkingTo: Npc | null = null;
+  /** Last direction pushed while picking an answer (W/S, arrows, joystick): one step per push. */
+  private choiceAxis = 0;
   /** The NPC that E / the icon would use now (nearest in range), or null. */
   private targetNpc: Npc | null = null;
   /** Cached icon label (made only when the target or the language changes). */
@@ -464,6 +477,7 @@ export class WorldState implements GameState, InstanceHost {
     this.quests = new QuestBook(data.quests.quests, session.quests);
     this.questTexts = new QuestTexts(data, t);
     this.conditionContext.completedQuests = this.quests.completed;
+    this.conditionContext.path = session.path;
     this.applyGear(false);
     this.updatePlayerGear();
     this.cutscenePlaying = false;
@@ -498,6 +512,14 @@ export class WorldState implements GameState, InstanceHost {
         bossFight: () => {
           this.cheatPanel?.toggle();
           this.encounter?.forceStart('sultan');
+        },
+        skipBoss: () => this.skipSultan(),
+        path: () => this.ctx.session?.path ?? null,
+        setPath: (path) => {
+          const session = this.ctx.session;
+          if (!session) return;
+          session.path = path;
+          this.pathChanged(path);
         },
       },
     );
@@ -658,6 +680,11 @@ export class WorldState implements GameState, InstanceHost {
       input.consumePressed('potion');
       input.consumePressed('bag');
       if (input.consumePressed('confirm') || next || dash) this.dialog.advance();
+      // Answers ("Yes" / "No"): W/S, A/D, arrows or the joystick move the highlight, one step
+      // per push.
+      const axis = this.choiceAxisNow();
+      if (axis !== 0 && axis !== this.choiceAxis) this.dialog.moveSelection(axis);
+      this.choiceAxis = axis;
       this.swordInput.fast = false;
       this.swordInput.heavy = false;
     } else {
@@ -1261,6 +1288,12 @@ export class WorldState implements GameState, InstanceHost {
     }
     // Talking counts for quests that send you to this NPC.
     this.recordQuest('talk', npc.id, 1);
+    // A teacher asks "Will you train under me?" until you have a path (Your Resolve).
+    const teaches = teacherOffer(npc.def, data.triggers.conditions, this.conditionContext);
+    if (teaches) {
+      this.askToTrain(npc, teaches);
+      return;
+    }
     const talk = this.questConversation(npc.def);
     const lines =
       talk?.lines ?? dialogueLines(npc.def, data.triggers.conditions, this.conditionContext);
@@ -1275,8 +1308,68 @@ export class WorldState implements GameState, InstanceHost {
         // A merchant opens the shop after the last line (not after Escape or walking away).
         if (finished && shop) this.openShop(npc.def.name, npc.id, shop);
       },
-      talk?.checklist ?? null,
+      { checklist: talk?.checklist ?? null },
     );
+  }
+
+  /** Lines from an NPC you are talking to (the window follows you until you walk away). */
+  private say(npc: Npc, lines: readonly string[], options?: DialogOptions): void {
+    this.talkingTo = npc;
+    this.targetNpc = null;
+    // A key still held from walking up to the NPC must not move the highlight.
+    this.choiceAxis = this.choiceAxisNow();
+    this.dialog?.open(npc.def.name, lines, () => (this.talkingTo = null), options);
+  }
+
+  /** Which way the walk keys or joystick push now, for picking answers: -1, 0 or +1. */
+  private choiceAxisNow(): number {
+    const { x, y } = this.moveInput;
+    if (Math.abs(x) > CHOICE_PUSH) return Math.sign(x);
+    return Math.abs(y) > CHOICE_PUSH ? -Math.sign(y) : 0;
+  }
+
+  /**
+   * Your Resolve: the teacher's lines end with "Will you train under me?". No may always (you
+   * can walk to another teacher); yes asks once more.
+   */
+  private askToTrain(npc: Npc, teaches: TeachDef): void {
+    this.say(npc, [...teaches.offer, teaches.question], {
+      choices: [
+        { label: 'dialog.choice.yes', pick: () => this.confirmPath(npc, teaches) },
+        { label: 'dialog.choice.no', pick: () => this.say(npc, teaches.declined) },
+      ],
+    });
+  }
+
+  /** "Are you sure?": "Not yet" is highlighted, so pressing E through the lines never decides. */
+  private confirmPath(npc: Npc, teaches: TeachDef): void {
+    this.say(npc, [teaches.confirm], {
+      choices: [
+        { label: 'dialog.choice.sure', pick: () => this.takePath(npc, teaches) },
+        { label: 'dialog.choice.notYet', pick: () => this.say(npc, teaches.declined) },
+      ],
+      selected: 1,
+    });
+  }
+
+  /** Yes, twice: the path is yours for the rest of the game; Your Resolve is done. */
+  private takePath(npc: Npc, teaches: TeachDef): void {
+    const session = this.ctx.session;
+    if (!session || !choosePath(session, teaches.path)) return;
+    this.pathChanged(teaches.path);
+    this.ctx.events.emit('pathChosen', { path: teaches.path, teacherId: npc.id });
+    this.hud?.showMessage(this.ctx.i18n.t(`path.chosen.${teaches.path}`));
+    this.say(npc, teaches.accepted);
+  }
+
+  /** The path changed (chosen, or a cheat): conditions, quests, markers and the save follow. */
+  private pathChanged(path: PlayerPath | null): void {
+    this.conditionContext.path = path;
+    if (path) this.recordQuest('path', path, 1);
+    this.refreshNpcPresence();
+    this.refreshQuestMarkers();
+    this.syncSave();
+    this.ctx.persist();
   }
 
   /**
@@ -1551,11 +1644,17 @@ export class WorldState implements GameState, InstanceHost {
     const { npcs, quests } = this;
     const session = this.ctx.session;
     const bag = session?.character?.inventory;
+    const conditions = this.ctx.data?.triggers.conditions;
+    const ctx = this.conditionContext;
     if (!npcs || !quests || !session || !bag) return;
     for (const npc of npcs.list) {
       const found = quests.forNpc(npc.id, session.progress.level, bag);
       npc.questMarker =
         found?.status === 'ready' ? 'handIn' : found?.status === 'available' ? 'offer' : 'none';
+      // A teacher waiting for your answer (Your Resolve) shows the same mark as a new quest.
+      if (npc.questMarker === 'none' && conditions && teacherOffer(npc.def, conditions, ctx)) {
+        npc.questMarker = 'offer';
+      }
     }
   }
 
@@ -2325,6 +2424,21 @@ export class WorldState implements GameState, InstanceHost {
       if (objective.type === 'talk') this.recordQuest('talk', objective.npc, 1, undefined, true);
     }
     this.completeQuest(quest);
+  }
+
+  /** Debug: counts Sultan as defeated without the fight (to test Your Resolve quickly). */
+  private skipSultan(): void {
+    const book = this.quests;
+    const session = this.ctx.session;
+    const bag = session?.character?.inventory;
+    if (!book || !session || !bag) return;
+    for (const def of book.defs) {
+      if (!def.objectives.some((o) => o.type === 'boss' && o.monster === 'sultan')) continue;
+      if (book.completed.has(def.id)) continue;
+      book.accept(def.id);
+      // The quest has no giver, so counting the boss hands it in at once.
+      this.recordQuest('boss', 'sultan', 1);
+    }
   }
 
   /** Debug: back to "Auto" without a chosen preset, so the benchmark runs again right away. */

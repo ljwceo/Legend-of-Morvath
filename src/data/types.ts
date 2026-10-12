@@ -34,6 +34,7 @@ export type NightSpawnDef = NonNullable<Zone['nightSpawns']>[number];
 export type InstanceDef = Zone['instances'][number];
 export type InstanceSceneDef = NonNullable<InstanceDef['scene']>;
 export type Shape = z.infer<typeof shapeSchema>;
-export type { Condition } from './schemas';
+export type { Condition, PathCheck, PlayerPath } from './schemas';
 export type QuestObjective = QuestDef['objectives'][number];
 export type ShopDef = NonNullable<NpcDef['shop']>;
+export type TeachDef = NonNullable<NpcDef['teaches']>;
