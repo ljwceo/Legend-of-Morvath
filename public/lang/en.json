@@ -358,10 +358,16 @@
       "desc": "Sticky gel left behind by a slime."
     },
     "health_potion": {
-      "desc": "Restores 50 HP."
+      "desc": "Restores 50% of your HP."
     },
     "greater_health_potion": {
-      "desc": "Restores 120 HP."
+      "desc": "Restores all of your HP."
+    },
+    "mana_potion": {
+      "desc": "Restores 30% of your mana."
+    },
+    "greater_mana_potion": {
+      "desc": "Restores 60% of your mana."
     },
     "honed_old_sword": {
       "desc": "Your old sword, honed by Hilda. Every hit does 3 more damage."

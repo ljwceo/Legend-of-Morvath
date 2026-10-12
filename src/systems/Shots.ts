@@ -1,4 +1,4 @@
-import type { ShotConfig } from './StaffCombat';
+import { chargeScale, type ShotConfig } from './StaffCombat';
 
 /** Shots of the player in flight at the same time; the oldest is reused when all are busy. */
 export const SHOT_POOL_SIZE = 24;
@@ -40,6 +40,8 @@ export class Shot {
   homingRadians = 0;
   /** The locked target it curves towards, or null for a straight shot. */
   target: ShotTarget | null = null;
+  /** How far the spell was charged (0–1); 0 for the Arcane Shard. */
+  charge = 0;
   /** 'arcane_shard' or the spell's id (the renderer colours it by element). */
   id = '';
   element = '';
@@ -117,7 +119,8 @@ export class Shots {
 
   /**
    * Fires a shot from (x, y, z) towards `heading`, with `damage` already worked out.
-   * `target` is the locked target it may curve towards (null = a straight shot).
+   * `target` is the locked target it may curve towards (null = a straight shot). `charge`
+   * (0–1) is how long the cast button was held: a charged shot is bigger and a bit faster.
    */
   fire(
     cfg: ShotConfig,
@@ -127,6 +130,7 @@ export class Shots {
     heading: number,
     damage: number,
     target: ShotTarget | null,
+    charge = 0,
   ): Shot {
     let slot = this.list[0] as Shot;
     for (let i = 0; i < this.list.length; i++) {
@@ -137,17 +141,22 @@ export class Shots {
       }
       if (shot.age > slot.age) slot = shot;
     }
+    const grow = cfg.charge ? chargeScale(cfg.charge.radiusFactor, charge) : 1;
+    const quicker = cfg.charge ? chargeScale(cfg.charge.speedFactor, charge) : 1;
+    const speed = cfg.speed * quicker;
     slot.dirX = Math.sin(heading);
     slot.dirZ = Math.cos(heading);
     slot.place(x, y, z);
-    slot.speed = cfg.speed;
+    slot.speed = speed;
     slot.damage = damage;
-    slot.radius = cfg.radius;
+    slot.radius = cfg.radius * grow;
     slot.homingRadians = cfg.homingRadians;
     slot.target = target;
+    slot.charge = charge;
     slot.id = cfg.id;
     slot.element = cfg.element;
-    slot.life = (cfg.range + EXTRA_RANGE) / cfg.speed;
+    // The range stays the same, so a charged shot gets there sooner.
+    slot.life = (cfg.range + EXTRA_RANGE) / speed;
     slot.age = 0;
     slot.active = true;
     return slot;

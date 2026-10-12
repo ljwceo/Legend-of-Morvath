@@ -123,6 +123,31 @@ describe('hit tests cover the whole step', () => {
   });
 });
 
+describe('charged shots', () => {
+  const fireball = cfg.spells.get('fireball') as ShotConfig;
+
+  it('a fully charged shot is bigger and a bit faster, and gets there sooner', () => {
+    const shots = new Shots();
+    const plain = shots.fire(fireball, 0, 1.3, 0, 0, 20, null, 0);
+    const charged = shots.fire(fireball, 0, 1.3, 0, 0, 50, null, 1);
+    expect(charged.radius).toBeCloseTo(plain.radius * 1.8, 6);
+    expect(charged.speed).toBeCloseTo(plain.speed * 1.25, 6);
+    // The range stays the same, so it is in the air for less time.
+    expect(charged.life).toBeLessThan(plain.life);
+    expect(charged.charge).toBe(1);
+  });
+
+  it('a wider charged shot hits a monster the uncharged one flies past', () => {
+    const aside = () => ({ x: 0.7, z: 10, radius: 0.2, hittable: true, dodging: false });
+    const plainShots = new Shots();
+    plainShots.fire(fireball, 0, 1.3, 0, 0, 20, null, 0);
+    expect(fly(plainShots, [aside()], 2).hits).toBe(0);
+    const chargedShots = new Shots();
+    chargedShots.fire(fireball, 0, 1.3, 0, 0, 50, null, 1);
+    expect(fly(chargedShots, [aside()], 2).hits).toBe(1);
+  });
+});
+
 describe('lock-on homing and missing', () => {
   const fireball = cfg.spells.get('fireball') as ShotConfig;
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { Random } from '../core/Random';
 import { itemsFileSchema, monstersFileSchema, playerFileSchema } from '../data/schemas';
-import type { ItemDef, MonsterDef, PlayerConfig } from '../data/types';
+import type { ItemDef, MonsterDef, PlayerConfig, PotionDef } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
 import { applyLevel, CombatState } from './Combat';
 import {
@@ -9,6 +9,8 @@ import {
   countItem,
   drinkPotion,
   type ItemStack,
+  potionHp,
+  potionMana,
   removeItem,
   rollDrops,
 } from './Inventory';
@@ -117,6 +119,32 @@ describe('potions', () => {
     expect(drinkPotion(bag, order, items, c, 0, healed)).toBe('drunk');
     expect(healed.item).toBe('greater_health_potion');
     expect(c.hp).toBe(100);
+  });
+
+  it('restores a share of your maximum, so it grows with your level', () => {
+    const low = new CombatState();
+    applyLevel(low, player, 1);
+    low.hp = 1;
+    expect(potionHp(items.get('health_potion')?.potion as PotionDef, low.maxHp)).toBe(50);
+
+    const high = new CombatState();
+    applyLevel(high, player, 10);
+    expect(high.maxHp).toBe(190);
+    expect(potionHp(items.get('health_potion')?.potion as PotionDef, high.maxHp)).toBe(95);
+    expect(potionMana(items.get('mana_potion')?.potion as PotionDef, high.maxMana)).toBeCloseTo(
+      high.maxMana * 0.3,
+      6,
+    );
+  });
+
+  it('a mana potion refills mana, also when your HP is full', () => {
+    const bag: ItemStack[] = [{ item: 'mana_potion', count: 1 }];
+    const c = hurt(100);
+    c.mana = 0;
+    expect(drinkPotion(bag, ['mana_potion'], items, c, 0, healed)).toBe('drunk');
+    expect(c.mana).toBeCloseTo(c.maxMana * 0.3, 6);
+    expect(healed.hp).toBe(0);
+    expect(bag).toEqual([]);
   });
 
   it('never drinks something that is not a potion', () => {

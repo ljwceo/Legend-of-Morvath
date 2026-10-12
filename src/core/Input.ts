@@ -303,13 +303,14 @@ export class Input {
     const id = event.pointerId;
     if (event.pointerType === 'mouse') {
       if (this.pointerLocked) {
-        // A click is a single press; nothing stays held. Left = fast hit (and "next" in a
-        // conversation), right = heavy hit.
+        // Left = fast hit / Arcane Shard (and "next" in a conversation), right = heavy hit or
+        // spell. Both stay held while the button is down, so you can keep attacking and charge
+        // a spell; the middle button is a single press (lock-on).
         if (event.button === 0) {
           this.tap('confirm');
-          this.tap('attack');
+          this.press('attack');
         } else if (event.button === 2) {
-          this.tap('heavy');
+          this.press('heavy');
         } else if (event.button === 1) {
           this.tap('lock');
         }
@@ -404,6 +405,12 @@ export class Input {
 
   private readonly onPointerUp = (event: PointerEvent): void => {
     const id = event.pointerId;
+    if (event.pointerType === 'mouse' && this.pointerLocked) {
+      // Letting go of the mouse stops attacking (and fires a charged spell).
+      if (event.button === 0) this.release('attack');
+      else if (event.button === 2) this.release('heavy');
+      return;
+    }
     if (id === this.joystickPointer) {
       this.joystickPointer = null;
       this.joystick.active = false;

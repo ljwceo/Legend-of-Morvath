@@ -475,6 +475,8 @@ export const playerFileSchema = z.strictObject({
   xpToNextLevel: atLeast(z.array(posInt)),
   regen: z.strictObject({
     hpPerSecondOutOfCombat: nonNegative,
+    /** Mana comes back very slowly, in a fight as well; potions are the quick way. */
+    manaPerSecond: max(nonNegative, 100),
     energyPerSecond: positive,
     energyDelaySeconds: max(nonNegative, 10),
   }),
@@ -876,11 +878,16 @@ const itemSchema = z.strictObject({
       moveSpeedPercent: optional(max(nonNegative, 100)),
     }),
   ),
-  /** What drinking it restores (potions only). */
+  /**
+   * What drinking it restores (potions only). The percentages are of your maximum, so a potion
+   * keeps up as your HP and mana bars grow with your level; `hp` and `mana` are flat amounts.
+   */
   potion: optional(
     z.strictObject({
       hp: optional(max(nonNegative, 100_000)),
       mana: optional(max(nonNegative, 100_000)),
+      hpPercent: optional(range(0, 100)),
+      manaPercent: optional(range(0, 100)),
     }),
   ),
 });
@@ -1114,6 +1121,19 @@ export const spellsFileSchema = z.strictObject({
       radius: max(positive, 5),
       /** How fast the shot may curve towards a locked target (0 = never curves). */
       homingDegreesPerSecond: max(nonNegative, 720),
+      /**
+       * Holding the cast button charges the spell. A tap fires it uncharged; holding it for
+       * `maxSeconds` fires the biggest version (and that also lets it go by itself). The
+       * factors say what a full charge does to the damage, the mana it costs, how big the
+       * shot is and how fast it flies.
+       */
+      charge: z.strictObject({
+        maxSeconds: max(positive, 30),
+        damageFactor: range(1, 20),
+        manaFactor: range(1, 20),
+        radiusFactor: range(1, 10),
+        speedFactor: range(1, 10),
+      }),
     }),
   ),
 });

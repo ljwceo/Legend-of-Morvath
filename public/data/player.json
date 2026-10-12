@@ -12,6 +12,7 @@
   "xpToNextLevel": [100, 150, 220, 300, 400, 520, 660],
   "regen": {
     "hpPerSecondOutOfCombat": 1,
+    "manaPerSecond": 0.4,
     "energyPerSecond": 20,
     "energyDelaySeconds": 1
   },

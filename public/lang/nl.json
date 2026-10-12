@@ -358,10 +358,16 @@
       "desc": "Kleverige gel die een slime achterlaat."
     },
     "health_potion": {
-      "desc": "Herstelt 50 HP."
+      "desc": "Vult 50% van je HP aan."
     },
     "greater_health_potion": {
-      "desc": "Herstelt 120 HP."
+      "desc": "Vult je HP helemaal aan."
+    },
+    "mana_potion": {
+      "desc": "Vult 30% van je mana aan."
+    },
+    "greater_mana_potion": {
+      "desc": "Vult 60% van je mana aan."
     },
     "honed_old_sword": {
       "desc": "Je oude zwaard, geslepen door Hilda. Elke slag doet 3 schade meer."

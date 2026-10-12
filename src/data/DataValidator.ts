@@ -728,6 +728,10 @@ class CrossChecker {
       if ((item.type === 'potion') !== (item.potion !== undefined)) {
         this.issue(f, `${p}.potion`, 'potion settings belong to (and are required for) potions');
       }
+      const potion = item.potion;
+      if (potion && !potion.hp && !potion.mana && !potion.hpPercent && !potion.manaPercent) {
+        this.issue(f, `${p}.potion`, 'a potion must restore HP or mana');
+      }
       if (item.slot !== undefined && item.type !== 'armor') {
         this.issue(f, `${p}.slot`, 'only armor has a slot');
       }

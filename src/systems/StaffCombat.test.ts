@@ -4,6 +4,8 @@ import type { PlayerConfig, SpellsFile } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
 import { applyLevel, CombatState } from './Combat';
 import {
+  affordableCharge,
+  chargedManaCost,
   powerFactor,
   SHARD_ID,
   type ShotConfig,
@@ -29,7 +31,7 @@ function fresh(level = 1): { state: StaffState; combat: CombatState } {
   return { state: new StaffState(), combat };
 }
 
-const out = (): StaffResult => ({ fired: 'none', shot: null, damage: 0 });
+const out = (): StaffResult => ({ fired: 'none', shot: null, damage: 0, charge: 0 });
 const press = (shard: boolean, spell = false): StaffInput => ({ shard, spell });
 
 /** Runs `seconds` of steps with the same input; returns every shot that left the staff. */
@@ -75,13 +77,13 @@ describe('Arcane Shard', () => {
 });
 
 describe('spells', () => {
-  it('cost mana once, up front, and fire after the wind-up', () => {
+  it('cost their mana once, when the shot leaves after the wind-up', () => {
     const made = fresh();
     made.combat.mana = 50;
-    const fired = run(made, 0.2, press(false, true));
-    expect(fired).toHaveLength(0);
-    expect(made.combat.mana).toBe(50 - fireball.manaCost);
-    const landed = run(made, 0.3, press(false));
+    // One step with the button down (a click), then let go: it fires uncharged.
+    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    expect(made.combat.mana).toBe(50);
+    const landed = run(made, 0.6, press(false));
     expect(landed).toHaveLength(1);
     expect(landed[0]?.shot?.id).toBe('fireball');
     expect(made.combat.mana).toBe(50 - fireball.manaCost);
@@ -96,10 +98,25 @@ describe('spells', () => {
     expect(run(made, 0.5, press(true)).length).toBeGreaterThan(0);
   });
 
-  it('keep their cooldown: holding the button does not cast every wind-up', () => {
+  it('keep their cooldown: tapping fast does not cast every step', () => {
     const made = fresh();
     made.combat.mana = 1000;
-    const fired = run(made, 3, press(false, true));
+    const fired: StaffResult[] = [];
+    const steps = Math.round(3 / DT);
+    for (let i = 0; i < steps; i++) {
+      // A tap every other step (press one step, let go the next).
+      const r = stepStaff(
+        made.state,
+        made.combat,
+        press(false, i % 2 === 0),
+        cfg,
+        fireball,
+        1,
+        DT,
+        out(),
+      );
+      if (r.fired !== 'none') fired.push({ ...r });
+    }
     const cycle = fireball.windupSeconds + fireball.cooldownSeconds;
     expect(fired.length).toBeLessThanOrEqual(Math.ceil(3 / cycle));
     expect(fired.length).toBeGreaterThan(0);
@@ -110,6 +127,80 @@ describe('spells', () => {
     const made = fresh();
     expect(run(made, 0.6, press(false, true), null)).toHaveLength(0);
     expect(run(made, 0.6, press(true, true), null).every((r) => r.fired === 'shard')).toBe(true);
+  });
+});
+
+describe('charging a spell', () => {
+  const max = fireball.charge?.maxSeconds ?? 0;
+
+  it('a tap fires an uncharged spell', () => {
+    const made = fresh();
+    made.combat.mana = 100;
+    // One step with the button down (a click), then let go.
+    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    const fired = run(made, 1, press(false));
+    expect(fired).toHaveLength(1);
+    expect(fired[0]?.charge).toBe(0);
+    expect(fired[0]?.damage).toBe(fireball.damage);
+    expect(made.combat.mana).toBe(100 - fireball.manaCost);
+  });
+
+  it('holding it fires by itself at a full charge: more damage, more mana', () => {
+    const made = fresh();
+    made.combat.mana = 1000;
+    const fired = run(made, max + 1, press(false, true));
+    expect(fired).toHaveLength(1);
+    expect(fired[0]?.charge).toBeCloseTo(1, 3);
+    expect(fired[0]?.damage).toBe(Math.round(fireball.damage * 2.5));
+    expect(1000 - made.combat.mana).toBeCloseTo(fireball.manaCost * 3, 3);
+  });
+
+  it('letting go halfway fires a half-charged spell', () => {
+    const made = fresh();
+    made.combat.mana = 1000;
+    run(made, max / 2, press(false, true));
+    const fired = run(made, 0.5, press(false));
+    expect(fired).toHaveLength(1);
+    expect(fired[0]?.charge).toBeCloseTo(0.5, 1);
+    const damage = fired[0]?.damage ?? 0;
+    expect(damage).toBeGreaterThan(fireball.damage);
+    expect(damage).toBeLessThan(Math.round(fireball.damage * 2.5));
+  });
+
+  it('never charges further than your mana can pay for', () => {
+    const made = fresh();
+    // Enough for an uncharged spell and a little more, not for a full one.
+    made.combat.mana = fireball.manaCost * 1.5;
+    const fired = run(made, max + 1, press(false, true));
+    expect(fired).toHaveLength(1);
+    expect(fired[0]?.charge).toBeLessThan(1);
+    expect(made.combat.mana).toBeGreaterThanOrEqual(0);
+    expect(made.combat.mana).toBeLessThan(1e-6 + fireball.manaCost * 0.5);
+  });
+
+  it('the mana is only paid when the shot leaves', () => {
+    const made = fresh();
+    made.combat.mana = 100;
+    run(made, 1, press(false, true));
+    expect(made.state.casting).toBe(true);
+    expect(made.combat.mana).toBe(100);
+  });
+
+  it('the Arcane Shard does not charge', () => {
+    const made = fresh();
+    const fired = run(made, 1, press(true));
+    expect(fired.length).toBeGreaterThan(0);
+    for (const shot of fired) expect(shot.charge).toBe(0);
+    expect(cfg.shard.charge).toBeNull();
+  });
+
+  it('works out the cost and the strongest charge you can pay for', () => {
+    expect(chargedManaCost(fireball, 0)).toBe(fireball.manaCost);
+    expect(chargedManaCost(fireball, 1)).toBe(fireball.manaCost * 3);
+    expect(affordableCharge(fireball, fireball.manaCost - 0.1)).toBe(0);
+    expect(affordableCharge(fireball, fireball.manaCost)).toBe(0);
+    expect(affordableCharge(fireball, fireball.manaCost * 3)).toBe(1);
+    expect(affordableCharge(fireball, fireball.manaCost * 2)).toBeCloseTo(0.5, 6);
   });
 });
 

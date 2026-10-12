@@ -50,6 +50,11 @@ const STRIP_SEGMENTS = 24;
 const SHOT_OPACITY = 0.9;
 const SHOT_STRETCH = 1.8;
 const SHOT_AXIS = new Vector3(0, 1, 0);
+/** The charge orb in front of the staff: size (m) at no charge and at a full one. */
+const ORB_MIN_RADIUS = 0.1;
+const ORB_MAX_RADIUS = 0.42;
+const ORB_PULSE = 0.08;
+const ORB_PULSE_SPEED = 9;
 /** The lock-on ring: size (m), how see-through it is and how fast it turns (rad/s). */
 const LOCK_RING_RADIUS = 0.42;
 const LOCK_RING_THICKNESS = 0.055;
@@ -494,5 +499,47 @@ export class LockOnMarker {
     this.mesh.removeFromParent();
     this.mesh.geometry.dispose();
     (this.mesh.material as MeshBasicMaterial).dispose();
+  }
+}
+
+/**
+ * The ball of magic that grows in front of the staff while a spell is being charged: the
+ * bigger it gets, the harder the shot hits (and the more mana it costs).
+ */
+export class ChargeOrb {
+  private readonly mesh: Mesh;
+  private readonly material: MeshBasicMaterial;
+
+  constructor(root: Group) {
+    this.material = new MeshBasicMaterial({
+      transparent: true,
+      opacity: SHOT_OPACITY,
+      depthWrite: false,
+    });
+    this.mesh = new Mesh(new SphereGeometry(1, 12, 10), this.material);
+    this.mesh.visible = false;
+    this.mesh.name = 'chargeOrb';
+    root.add(this.mesh);
+  }
+
+  /** Puts the orb at (x, y, z) at this charge (0–1) in the element's color. */
+  show(x: number, y: number, z: number, charge: number, color: number, time: number): void {
+    const size = ORB_MIN_RADIUS + (ORB_MAX_RADIUS - ORB_MIN_RADIUS) * Math.min(1, charge);
+    // A gentle pulse, a little stronger as it fills up.
+    const pulse = 1 + Math.sin(time * ORB_PULSE_SPEED) * ORB_PULSE * (0.3 + 0.7 * charge);
+    this.mesh.position.set(x, y, z);
+    this.mesh.scale.setScalar(size * pulse);
+    this.material.color.set(color);
+    this.mesh.visible = true;
+  }
+
+  hide(): void {
+    this.mesh.visible = false;
+  }
+
+  dispose(): void {
+    this.mesh.removeFromParent();
+    this.mesh.geometry.dispose();
+    this.material.dispose();
   }
 }

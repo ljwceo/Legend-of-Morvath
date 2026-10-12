@@ -59,6 +59,7 @@ import {
   type CombatState,
   damageTaken,
   inSwingArc,
+  regenMana,
   regenOutOfCombat,
   type SwordConfig,
   type SwordInput,
@@ -119,6 +120,7 @@ import { BossEncounter } from './BossEncounter';
 import { ARROW_HEIGHT, Projectiles, type ProjectileWorld } from '../systems/Projectiles';
 import { EnemyRenderer } from '../render/EnemyRenderer';
 import {
+  ChargeOrb,
   LockOnMarker,
   ProjectileRenderer,
   ShotRenderer,
@@ -208,6 +210,8 @@ const NO_SWORD_INPUT: SwordInput = { fast: false, heavy: false };
 const NO_STAFF_INPUT: StaffInput = { shard: false, spell: false };
 /** The lock-on ring hangs this far (m) above the enemy's head. */
 const LOCK_RING_ABOVE_HEAD = 0.45;
+/** The charge orb floats this far (m) in front of the player. */
+const ORB_AHEAD = 0.55;
 /** Seconds over which fog and sky change color after entering another zone. */
 const FOG_SHARPNESS = 1.5;
 /** The text on the interaction icon per kind of NPC ("Talk to Marco", "Pet Pringle"). */
@@ -365,6 +369,8 @@ export class WorldState implements GameState, InstanceHost {
   /** The enemy you are locked on to (lock-on), or null. */
   private locked: Enemy | null = null;
   private lockMarker: LockOnMarker | null = null;
+  /** The growing ball of magic while a spell is being charged. */
+  private chargeOrb: ChargeOrb | null = null;
   /** Whether the HUD currently shows the fight bars (changes only on transitions). */
   private hudInCombat = false;
   private dialog: Dialog | null = null;
@@ -428,7 +434,7 @@ export class WorldState implements GameState, InstanceHost {
   private readonly swordResult: SwordResult = { landed: 'none', damage: 0, combo: false };
   private readonly staffState = new StaffState();
   private readonly staffInput: StaffInput = { shard: false, spell: false };
-  private readonly staffResult: StaffResult = { fired: 'none', shot: null, damage: 0 };
+  private readonly staffResult: StaffResult = { fired: 'none', shot: null, damage: 0, charge: 0 };
   /** player.json lock-on numbers with the debug aim-help multipliers applied (reused). */
   private readonly lockNow: LockOnConfig = {
     range: 0,
@@ -880,6 +886,7 @@ export class WorldState implements GameState, InstanceHost {
       this.baseWalkSpeed * this.cheats.speed * (windingUp ? sword.heavyMoveFactor : 1);
     stepMovement(s, this.command, movement, dt, mover);
     regenOutOfCombat(c, data.player.regen.hpPerSecondOutOfCombat, dt);
+    regenMana(c, data.player.regen.manaPerSecond, dt);
   }
 
   /**
@@ -910,15 +917,18 @@ export class WorldState implements GameState, InstanceHost {
       dt,
       this.staffResult,
     );
-    if (result.shot) this.fireShot(result.shot, result.damage);
+    if (result.shot) this.fireShot(result.shot, result.damage, result.charge);
     if (state.noMana) this.sayNoMana();
 
     const casting = state.casting;
+    // Charging counts as fighting, so you can see your mana while it drains.
+    if (casting) c.sinceCombat = 0;
     if (casting) this.command.dash = false;
     movement.walkSpeed =
       this.baseWalkSpeed * this.cheats.speed * (casting ? staff.castMoveFactor : 1);
     stepMovement(s, this.command, movement, dt, mover);
     regenOutOfCombat(c, data.player.regen.hpPerSecondOutOfCombat, dt);
+    regenMana(c, data.player.regen.manaPerSecond, dt);
   }
 
   /**
@@ -941,7 +951,7 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /** A shot leaves the staff: it flies by itself from here on (Shots). */
-  private fireShot(shot: ShotConfig, damage: number): void {
+  private fireShot(shot: ShotConfig, damage: number, charge: number): void {
     const { player, shots, staff } = this;
     if (!player || !shots || !staff) return;
     const s = player.state;
@@ -954,6 +964,7 @@ export class WorldState implements GameState, InstanceHost {
       s.heading,
       damage,
       locked?.hittable ? locked : null,
+      charge,
     );
     // Debug: the cheat menu can make shots curve harder or not at all.
     fired.homingRadians = shot.homingRadians * this.cheats.homing;
@@ -2048,6 +2059,7 @@ export class WorldState implements GameState, InstanceHost {
     this.warningRenderer?.setArena(this.encounter?.arena ?? null);
     this.projectileRenderer?.update(a);
     this.shotRenderer?.update(a);
+    this.updateChargeOrb(a);
     input.consumeLook(this.look);
     const look = this.look;
     const turning = input.turningCamera || look.yaw !== 0 || look.pitch !== 0;
@@ -2098,6 +2110,30 @@ export class WorldState implements GameState, InstanceHost {
       window.innerHeight,
     );
     this.ctx.renderer.render(scene, rig.camera);
+  }
+
+  /** The ball of magic in front of the staff while a spell is being charged. */
+  private updateChargeOrb(alpha: number): void {
+    const { player, staff, chargeOrb } = this;
+    const state = this.staffState;
+    const spell = this.spell;
+    if (!chargeOrb) return;
+    if (!player || !staff || !spell || state.pending !== 'spell') {
+      chargeOrb.hide();
+      return;
+    }
+    const x = player.interpolatedX(alpha);
+    const y = player.interpolatedY(alpha);
+    const z = player.interpolatedZ(alpha);
+    const heading = player.state.heading;
+    chargeOrb.show(
+      x + Math.sin(heading) * ORB_AHEAD,
+      y + staff.shotHeight,
+      z + Math.cos(heading) * ORB_AHEAD,
+      state.chargeFraction,
+      this.shotColor(spell.element, this.ctx.data as GameData),
+      this.time,
+    );
   }
 
   /**
@@ -2970,6 +3006,7 @@ export class WorldState implements GameState, InstanceHost {
       this.shotColor(element, data),
     );
     this.lockMarker = new LockOnMarker(worldRoot);
+    this.chargeOrb = new ChargeOrb(worldRoot);
     const enemies = this.enemies;
     this.enemiesWorld = {
       mover: this.mover as Mover,
@@ -3235,6 +3272,8 @@ export class WorldState implements GameState, InstanceHost {
     this.shotRenderer = null;
     this.lockMarker?.dispose();
     this.lockMarker = null;
+    this.chargeOrb?.dispose();
+    this.chargeOrb = null;
     this.shots = null;
     this.shotWorld = null;
     this.locked = null;
@@ -3381,7 +3420,11 @@ export class WorldState implements GameState, InstanceHost {
   private staffDebug(): string {
     const state = this.staffState;
     const spell = this.spell?.id ?? 'no spell';
-    const busy = state.casting ? `casting ${state.pending}` : 'staff ready';
+    const charge =
+      state.pending === 'spell' && state.chargeFraction > 0
+        ? ` ${Math.round(state.chargeFraction * 100)}%`
+        : '';
+    const busy = state.casting ? `casting ${state.pending}${charge}` : 'staff ready';
     const cooldown = state.spellCooldown > 0 ? ` (${state.spellCooldown.toFixed(1)} s)` : '';
     const shots = this.shots?.activeCount ?? 0;
     const lock = this.locked ? `lock ${this.locked.def.id}` : 'no lock';
