@@ -261,6 +261,28 @@ De 62 bosjes zijn nu net als de boomkronen gemaakt: `GH_Monastery_Bush_A` (9 kaa
 
 ![Bosjes](monastery/bushes.png)
 
+## Ingang: het klooster als eigen zone (2026-10-12, idee van Bo)
+
+Het **kerkportaal** (`MON_Church_Portal_Frame`, westkant van de kerk) is de in- en uitgang van het klooster. Loop je
+daar in Greyhaven tegenaan, dan laadt de game het klooster als **eigen zone** (dit bestand, met alle detail) en wordt
+alles daarbuiten niet getekend: meer fps, en het klooster mag dan veel detail hebben. Hetzelfde komt later voor de
+**Academy** (eigen Blender-bestand met meer detail).
+
+| Marker | Wat |
+|---|---|
+| `MON_Zone_Door` | Cirkel (r 1,3 m) vóór het portaal, op de trap: hier stap je in vanuit Greyhaven |
+| `MON_Zone_Spawn` | Waar je binnen verschijnt: net achter het portaal, kijkend naar het oosten (het middenschip in) |
+| `MON_Zone_Exit` | Cirkel (r 1,0 m) binnen bij het portaal: terug naar Greyhaven |
+| `MON_Zone_ExitTo` | Waar je in Greyhaven terugkomt: op de trap vóór het portaal, kijkend naar het westen |
+
+- De game heeft dit al half: `instances` in `zones.json` (Master Brink's Tower, Wizard Sam's Cellar) met `door`,
+  `spawn` en `exit`, maar die tekenen een **stuk van `greyhaven.glb`**. Nieuw nodig: een instance die een **eigen .glb**
+  laadt (bijv. `scene.model: "zones/monastery/monastery.glb"`) en Greyhaven zolang uitzet. Open vraag 11.
+- In Greyhaven zelf komt dan alleen een simpele buitenkant van het klooster (weinig vertices), zonder binnenkant.
+- De kloostertuin en de kloostergang liggen in dit bestand, dus die horen bij de klooster-zone. Over de tuinmuur heen zie
+  je dan alleen lucht/mist (of later een simpele achtergrond).
+- De westpoort (`MON_Gate_*`) is daarmee voorlopig decoratie; kan later een tweede ingang worden.
+
 ## Markers (collectie `MON_Markers`)
 
 `MON_Spawn_PlayerBed`, `MON_NPC_BrotherAnsel`, `MON_Door_Cloister_Outside`, `MON_Door_East_Outside`,
