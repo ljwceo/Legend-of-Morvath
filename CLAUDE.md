@@ -318,6 +318,7 @@ Definition of Done:
 
 ### Fase 3 – Je pad, Entrance Exam en gear
 Status: plan goedgekeurd (2026-10-10); stap 3.0 t/m 3.5 gebouwd (3.3: toren van Brink en kelder van Sam als instances uit het Blender-model; 3.4: *Your Resolve*, je pad kiezen; 3.5: vechten met een staf en lock-on). Details, keuzes en stappen in `docs/PROGRESS.md`.
+Opgesplitst (2026-10-12, Bo): het restant gaat verder als **fase 3.6 t/m 3.10** onderaan dit bestand, elk in een eigen chat. De oude stap 3.6 (exams) is nu fase 3.8 en de oude stap 3.7 (afronden) is nu fase 3.10.
 Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizard Sam), doet zijn Entrance Exam tot level 5 en kunt daarna de stad uit. Je draagt gear met gewicht (draaglast zoals Elden Ring) en ezel Biscuit draagt je extra spullen. Een mage vecht met staf, kristal, Arcane Shard en één spell, met lock-on.
 Bouwen: debugvenster in groottes + cheats zonder venster; gear (6 slots, 4 zeldzaamheden, stats) en draaglast (licht/middel/zwaar/overbelast); Biscuit met pakdier-tas (spullen erop zijn niet bruikbaar tot je ze eruit haalt); instances via deur/portaal (Academy-hal, kelder van Sam) met cutscene bij de eerste keer; keuzedialoog Your Resolve; staf-gevecht (Arcane Shard, 5 spells met reisafstand, lock-on, richthulp in het cheatmenu); Entrance Exams, pad-effecten, Crystal Ceremony, poort open.
 Data: `items.json` (gear, staven, zwaarden, gewicht, stats), `player.json` (draaglast, perks, lock-on, richthulp), `npcs.json` (Biscuit, keuzes), `quests.json` (Your Resolve + exams), `spells.json`, `monsters.json` (gear-buit), `cutscenes.json` (Crystal Ceremony, uitleg Brink/Sam), `instances.json` (nieuw), `triggers.json` (poort, deuren), save versie 6+.
@@ -333,3 +334,76 @@ Definition of Done:
 - [ ] Biscuit loopt mee en draagt spullen; wat op Biscuit ligt kan ik pas gebruiken als ik het eruit haal.
 - [ ] Alles blijft 60/120 fps op de pc en is op elke grafische stand gelijk; geheugen groeit niet bij instances in en uit.
 - [ ] Tests (draaglast, lock-on/missen, keuzes, quests, save-migratie) en de DataValidator slagen.
+
+### Besluiten van 2026-10-12 (Bo) – fase 3 wordt opgesplitst
+Fase 3 bleek te groot voor één reeks, en er kwamen drie nieuwe wensen bij. Het restant van fase 3 is daarom opgesplitst in **fase 3.6 t/m 3.10** (elk in een eigen chat, elke stap een eigen pull request). Wat de stappen 3.0 t/m 3.5 betreft verandert niets; die zijn gebouwd.
+
+Nieuwe afspraken die vanaf nu overal gelden:
+1. **Elke knop is zelf in te stellen** (buttonmapping), net als in een gewone pc-game. Ook de lock-knop en "doel wisselen".
+2. **Lock-on werkt als in Elden Ring:** een klein **wit puntje met een dun ringetje** op het midden van de vijand (niet door muren heen te zien). Locken kan alleen op een vijand die dichtbij genoeg is **en te zien is**; komt er iets tussen **de camera** en de vijand, dan stopt de lock. Doel wisselen met een eigen knop.
+3. **Levels zijn een puntensysteem, geen automatische groei.** Je begint met **20 punten** die je in de character creator verdeelt over tien stats (HP, Defense, Strength, Power, Mana, Magic Power, Regen, Dexterity, Faith, Luck) en **elk level geeft 1 punt**. De automatische +10 HP en +5 mana per level en de schade per level verdwijnen: alles komt uit je punten, je gear en je perks. Punten komen **alleen** uit XP-levels.
+4. **Gold is alleen voor spullen:** items, drankjes, zwaarden, staven, gear. Je kunt er nooit stats of punten mee kopen.
+5. **De stat-punten van `skills.json` (`core`, met de tegenstellingen en 1–2 punten per level) vervallen** en worden deze tien stats, 1 punt per level voor iedereen. De skill tree van fase 4 gaat daarna alleen nog over **skills en perks**, niet meer over losse statpunten.
+6. **Faith** hoort bij bepaalde magie; **lichtmagie komt later in het spel** en is extra effectief tegen duistere vijanden. Duister houdt zijn eigen krachtcurve (sterk aan het begin, later zwakker).
+7. **Eieren:** er zijn **10 vindbare eieren** in het spel, elk eenmalig bij een **mini-boss** op een vaste plek, plus **het ei van Sultan** (van het baasgevecht zelf). Een ei lever je bij Sultan in om **al je punten opnieuw te verdelen** (je level en je pad blijven).
+
+### Fase 3.6 – Buttonmapping en lock-on (Elden Ring-stijl)
+Doel: ik kan elke toets en muisknop zelf instellen, en lock-on voelt als Elden Ring: een klein wit puntje op de vijand, dat verdwijnt zodra er iets tussen mijn camera en hem staat.
+Bouwen: mapping-laag in `Input` met standaardbindingen uit data en eigen bindingen in de save, twee bindingen per actie (W én pijltje), muisknoppen even goed bindbaar als toetsen, **Settings → Besturing** ("druk een toets…", conflicten afpakken met melding, Terug naar standaard), alle hint-teksten via `{key}` zodat ze de ingestelde toets tonen; lock-on-marker als **wit puntje met dun ringetje** op het midden van de vijand (altijd even groot op het scherm, niet door muren heen), **zichtcheck van de camera naar de vijand** (straal tegen de MeshBVH van Greyhaven of terrein + gebouwen in de open wereld; gras, klimop, water en kleine props blokkeren niet) met een tolerantie van 0,2 s tegen geknipper, **doel wisselen** op een eigen knop, alle getallen cheat-baar.
+Data: `controls.json` (nieuw: standaardbindingen), `player.json` (`lockOn`: marker, zicht, tolerantie, wisselen), `lang/en.json` + `nl.json` (actienamen, Besturing, `{key}`-teksten), save versie 9 (`settings.keybindings`).
+Niet doen: gamepad (de mapping maakt het later makkelijk), stats, exams, eieren.
+Definition of Done:
+- [ ] In Settings → Besturing stel ik elke actie in op een toets of muisknop; een bezette toets wordt bij de oude actie weggehaald met een melding; Terug naar standaard werkt; het blijft bewaard na herladen.
+- [ ] Alle hints in het spel noemen de toets die ík heb ingesteld.
+- [ ] Lock-on zet een klein wit puntje met een dun ringetje op het midden van de vijand, even groot dichtbij en ver weg, op elke grafische stand gelijk.
+- [ ] Ik kan alleen locken op een vijand die dichtbij genoeg is en te zien is; loopt er een huis, boom of muur tussen mijn camera en hem, dan stopt de lock.
+- [ ] Doel wisselen met mijn eigen knop pakt de volgende zichtbare vijand.
+- [ ] 60/120 fps blijft gelijk; tests (mapping, conflicten, zichtstraal, tolerantie in seconden, wisselen, save 8 → 9) en de DataValidator slagen.
+
+### Fase 3.7 – Stats en builds (puntensysteem)
+Doel: ik bouw mijn eigen personage: 20 punten aan het begin, 1 punt per level, tien stats met zachte grenzen, en een statusvenster waarin ik alles zie.
+Bouwen: `stats.json` met de tien stats en wat één punt doet, met **zachte grenzen (soft caps)** zoals Elden Ring; punten verdelen in de **character creator** (nieuwe stap met het poppetje erbij: vrij verdelen, Random, en drie startvoorstellen zwaardvechter / lichtmage / duistere mage, live te zien wat het met je HP, schade en mana doet); **1 punt per level**, alleen uit XP; **statusvenster** op een eigen instelbare toets (level, ongebruikte punten, je stats, en wat gear en perks erbovenop doen), punten besteden kan altijd behalve in een gevecht; de automatische groei per level (`perLevel`, `sword.damagePerLevel`, `staff.shard.damagePerLevel`) eruit en in de stats; `skills.json` → `core` vervalt.
+Data: `stats.json` (nieuw), `player.json` (startwaarden, geen groei per level meer), `skills.json` (core eruit, perks blijven), `lang/*.json`, save versie 10 (`character.stats` + ongebruikte punten; oude saves krijgen `20 + (level − 1)` punten ongebruikt met een melding).
+Niet doen: skill tree en skills (fase 4), eieren en herverdelen (fase 3.9), nieuwe spells.
+Definition of Done:
+- [ ] Een nieuw spel laat me 20 punten verdelen (vrij, Random of een startvoorstel) en het poppetje draait er gewoon bij.
+- [ ] Elk level geeft precies 1 punt; gold kan nooit punten of stats kopen.
+- [ ] Alle tien de stats doen wat `stats.json` zegt, met zachte grenzen, en gear en perks komen erbovenop.
+- [ ] Het statusvenster opent op mijn eigen toets en laat zien wat elke stat me geeft; in een gevecht kan ik niets besteden.
+- [ ] Een gemiddelde build is ongeveer zo sterk als de speler nu; een extreme build voelt anders maar niet gebroken.
+- [ ] Oude saves houden hun level en krijgen hun punten ongebruikt terug met een melding.
+- [ ] 60/120 fps gelijk; tests (puntentelling, zachte grenzen, HP/mana/schade-formules, migratie) en de DataValidator slagen.
+
+### Fase 3.8 – Entrance Exams, je pad en de stadspoort
+Doel: na mijn keuze doe ik de Entrance Exam van mijn leraar tot level 5, krijg wat mijn pad me geeft, en daarna gaat de stadspoort open.
+Bouwen: **drie exam-quests per leraar** (9 in totaal, alleen voor je eigen pad, elk de volgende pas na de vorige, in EN en NL; opbouw: iets leren bij je leraar → het gebruiken in de Greenwood → terugkomen en voordoen), één nieuw doel-type `train` ("raak de trainingspop N keer", bij Brink en Sam met een opgeladen spreuk); **pad-effecten**: zwaardvechter een beter zwaard, geen mana (manabalk weg), 115% kracht en de perks Iron Body / Battle Hardened / Swift Blade (bestaan al als data, werken nog niet; `attackSpeedPercent` moet in de zwaai-tijden), mage de **Mage Staff** + **Crystal Ceremony** als stripcutscene (Brink: willekeurig Water/Fire/Nature/Wind, Sam: Dark) met het kristal in de save; `canLeaveCity` wordt **Sultan verslagen + exam klaar**.
+Data: `quests.json` (9 exams), `npcs.json`, `items.json` (beter zwaard), `skills.json` (perks aan), `cutscenes.json` (Crystal Ceremony), `spells.json`, `triggers.json` (`canLeaveCity`), `lang/*.json`, save versie +1 (kristal).
+Niet doen: skill tree, spellboek en meer spells, kristallen mergen, Forge en markt (fase 4); eieren (fase 3.9).
+Definition of Done:
+- [ ] De drie exams van elke leraar werken in NL en EN en brengen me van ±level 3 naar level 5 (520 XP).
+- [ ] Zwaardvechter: beter zwaard, geen mana, 115% kracht en de drie perks werken echt (HP, schade die ik krijg, aanvalssnelheid).
+- [ ] Mage: de Crystal Ceremony speelt (overslaanbaar), ik krijg mijn staf met kristal en de bijbehorende spreuk; licht en duister volgen hun krachtcurve.
+- [ ] Na de exam gaat de stadspoort open; daarvoor niet, met de bestaande melding. Teleport in het cheatmenu blijft altijd werken.
+- [ ] 60/120 fps gelijk; tests (exams, perks, kristal in de save, poortvoorwaarde) en de DataValidator slagen.
+
+### Fase 3.9 – Eieren, mini-bosses en opnieuw verdelen
+Doel: ik vind eieren bij mini-bosses en lever er één in bij Sultan om mijn hele build opnieuw te verdelen.
+Bouwen: **10 vindbare eieren**, elk eenmalig bij een **mini-boss** op een vaste plek (data: plek, mini-boss, ei; eenmalig, dus in de save), plus het **ei van Sultan** uit het baasgevecht; eieren wegen niets en zijn niet te gebruiken, alleen in te leveren; **Sultan na zijn gevecht** (hij staat al bij de oostmuur): praat je met een ei in je tas, dan vraagt hij "Alles opnieuw verdelen? Dat kost één ei." met Ja/Nee en nog één keer bevestigen; hij geeft **al je punten vrij** (level, pad, gear en quests blijven) en je verdeelt ze opnieuw in hetzelfde venster als in de character creator; event `statsReset`.
+Data: `items.json` (eieren), `monsters.json` (mini-bosses), `zones.json` (hun plekken), `npcs.json` (Sultan als inleverpunt), `lang/*.json`, save versie +1 (welke eieren gevonden zijn).
+Niet doen: nieuwe dungeons, eieren kopen bij Marco, pad opnieuw kiezen (dat kan nooit).
+Definition of Done:
+- [ ] Er zijn 10 mini-bosses met elk eenmalig een ei, plus het ei van Sultan; een gevonden ei komt nooit terug.
+- [ ] Met een ei verdeel ik bij Sultan al mijn punten opnieuw; zonder ei of zonder hem verslagen te hebben kan het niet, en niet in een gevecht.
+- [ ] Mijn level, pad, gear en quests blijven na het herverdelen precies gelijk; het ei is op.
+- [ ] 60/120 fps gelijk; tests (eenmalige drop, herverdelen houdt het totaal gelijk, kosten, voorwaarden) en de DataValidator slagen.
+
+### Fase 3.10 – Afronden fase 3
+Doel: fase 3 is af, gemeten en opgeschreven.
+Bouwen: balans nameten met een nagebootste speler (zwaard, licht en duister, en een paar extreme builds), Meet 20 s op de pc (en iPhone als dat lukt) op Low, Mid en High, geheugen controleren (ook instances in en uit en 10 minuten heen en weer lopen), `docs/ARCHITECTURE.md` en `docs/PROGRESS.md` bijwerken.
+Data: alleen bijschaven van bestaande getallen.
+Niet doen: nieuwe systemen.
+Definition of Done:
+- [ ] 60 fps op Mid en 120 fps op High op de pc, gameplay gelijk op elke stand.
+- [ ] Geen geheugengroei na 10 minuten lopen en na instances in en uit.
+- [ ] Balans: geen build die alles kapot slaat of nergens doorheen komt.
+- [ ] Alle tests, de taal-key-check en de DataValidator slagen; de documentatie klopt met de code.
