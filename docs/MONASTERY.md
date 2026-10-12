@@ -129,6 +129,14 @@ anders). Rond elke wilg zweven **16 vuurvliegjes** (`MON_Fireflies_Willow` als c
 
 ![Treurwilg met vuurvliegjes](monastery/willow_fireflies.png)
 
+**Volle kroon en twijgjes (2026-10-12, Bo):** in elke kaartjes-kroon zijn de blaadjes binnenin groter (×1,5) en aan de
+buitenkant kleiner (×0,7), zodat de kroon voller lijkt met minder kaartjes. Niets zweeft meer los: elke bladwolk hangt
+aan een twijgje vanaf een tak, en bij de wilg zit elke sliert aan een dun hangend twijgje (`GH_Monastery_Willow_Twig`)
+met de blaadjes eraan vast; het twijgje zwaait mee. Vertices nu: sakura ~25.600 / ~24.600, eik ~10.400 / ~12.100,
+appel ~8.000, wilg ~19.000. Backup ervoor: `Monastery_backup_before_twigs.blend`.
+
+![Wilg met twijgjes](monastery/willow_twigs.png)
+
 ## Markers (collectie `MON_Markers`)
 
 `MON_Spawn_PlayerBed`, `MON_NPC_BrotherAnsel`, `MON_Door_Cloister_Outside`, `MON_Door_East_Outside`,
