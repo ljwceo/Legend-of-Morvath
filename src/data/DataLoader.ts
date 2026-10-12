@@ -13,7 +13,7 @@ export const fetchJson: JsonFetcher = async (url) => {
   return response.json() as Promise<unknown>;
 };
 
-/** Root URL of the public folder (Vite's `base`, e.g. "/journey-gaym/"). */
+/** Root URL of the public folder (Vite's `base`, e.g. "/Legend-of-Morvath/"). */
 export function publicUrl(path: string): string {
   return `${import.meta.env.BASE_URL}${path}`;
 }
