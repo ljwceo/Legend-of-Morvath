@@ -23,8 +23,9 @@
 | 6 | Past het nieuwe Monastery (met tuin, samen ±100 × 70 m) op de kliffen aan de westkust van Greyhaven? Het oude placeholder-klooster is ±31 × 32 m | Nog niet geplaatst; in de Greyhaven-chat bekijken (plek, draaien, eventueel kleiner). Zie `docs/MONASTERY.md` |
 | 7 | Kweekbare bedden in de kloostertuin (`MON_FarmPlot_1…6`): hoe moet farming werken (zaad, groeitijd, oogst, seizoenen)? | Alleen de bedden + markers staan in Blender; nog geen spelregels of code |
 | 8 | Hoe snel komt mana terug? | **Beantwoord (Bo, 2026-10-12)**: heel langzaam vanzelf (nu 0,4 per seconde, ook in een gevecht) en verder met drankjes. Getal in `player.json` → `regen.manaPerSecond`; zeg het als het sneller of trager moet |
-| 10 | De Q-knop (snel drinken) pakt alleen health potions (`player.json` → `potions.quickOrder`). Mana potions drink je uit de tas | Voorstel: zo laten, of een tweede knop/regel ("pak een mana potion als je HP vol is") |
 | 9 | Schoten vliegen dwars door een vijand die je niet kunt raken (Treewarden in de elfenstad, een baas die ontwijkt); bij het zwaard krijg je dan wel een melding of een "geblokkeerd"-effect | Voorstel: zo laten (je schiet erlangs); zeg het als een schot op zo'n vijand ook moet melden dat hij beschermd is |
+| 10 | De Q-knop (snel drinken) pakt alleen health potions (`player.json` → `potions.quickOrder`). Mana potions drink je uit de tas | Voorstel: zo laten, of een tweede knop/regel ("pak een mana potion als je HP vol is") |
+| 11 | Vallende sakura-blaadjes zijn een Blender-animatie via collection instances. Gaat die mee met de glTF-export, of laat de game de blaadjes zelf vallen? | Nog testen bij het inbouwen in Greyhaven |
 
 ---
 
@@ -731,3 +732,8 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - Stap 3.5 gebouwd: vechten met een staf (Arcane Shard + 5 spreuken met reisafstand), lock-on met ring en camera die het doel vasthoudt, missen bij een aanval of te ver wegkijken, richthulp-cheats, staf en spreuk uit het cheatmenu. Save versie 8. 430 tests, headless Chromium zonder fouten. Open: mana-regen en schoten op beschermde vijanden (open vragen 8 en 9), fps meten op de pc.
 - Daarna (verzoek van Bo in dezelfde PR): spreuken opladen (tik = ongeladen, 4 s vasthouden = groter, sterker, sneller en duurder), mana die heel langzaam vanzelf terugkomt, en drankjes op percentage met twee nieuwe mana-drankjes bij Marco. 442 tests, headless Chromium zonder fouten.
 - Blender (Bo + Claude): Monastery.blend gebouwd (klooster, daken, stenen, ramen/deuren, binnenkant oostvleugel met 6 kamers) en de kloostertuin met vijver, koi en kweekbare bedden. Alleen docs en Blender-scripts in de repo; geen game-code veranderd. Tijdelijke namen: Monastery Garden, Moonbell.
+- Blender (Bo + Claude, middag): losse tuinmodellen (7 bomen, 3 rotsen, 3 fruitsoorten, 5 gewassen × 3 groeistadia, vogelverschrikker) in `MON_GardenPieces`; de tuin gebruikt nu instances daarvan. Koi voor nu weggehaald.
+- Blender (middag): sakura's met doorkijkbare kroon (takken + bloesemtrosjes) en vallende blaadjes (lus van 10 s).
+- Blender (avond): bomen in Genshin-stijl naar Bo's voorbeelden: sakura's, eiken en appelboom met een kroon van veel kleine blad-/bloesemkaartjes in lagen (licht boven, donker onder). Vallende blaadjes starten in de nieuwe kroon. Script `06_card_trees.py`.
+- Blender (avond): dennen voor nu uit de tuin (Bo bedenkt nog iets anders). Treurwilgen opnieuw in kaartjes-stijl met zwaaiende slierten en vuurvliegjes eromheen (`07_willow.py`).
+- Blender (avond): kronen met grote blaadjes binnen en kleine buiten; bladwolken en wilgenslierten hangen nu aan twijgjes (niets zweeft meer). Wilgenslierten hangen aan boogtakken die uit de takken groeien.

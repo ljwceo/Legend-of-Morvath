@@ -54,7 +54,7 @@ oostkant en achter de kerk langs tot de toren, met een lage stenen muur eromheen
 - **Beekje** uit een bronnetje met watervalletje (noordoost) de vijver in; aan de andere kant stroomt het achter de kerk
   langs naar een poel. Twee houten bruggetjes waar het pad het water kruist.
 - **Koi:** voor nu weggehaald (2026-10-12, Bo). De kleuren `GH_Monastery_Koi_White/Black` blijven bewaard in het .blend.
-- **Groen:** boomgaard achter de kerk, bloesembomen, loofbomen en dennen, struiken, bloemenvelden, lavendel langs het pad.
+- **Groen:** boomgaard achter de kerk, bloesembomen, loofbomen, treurwilgen, struiken, bloemenvelden, lavendel langs het pad.
 - **Moestuin met kweekbare bedden** (met hekje, vogelverschrikker, regenton):
 
 | Marker | Gewas nu |
@@ -69,6 +69,76 @@ oostkant en achter de kerk langs tot de toren, met een lage stenen muur eromheen
 Elke marker heeft de eigenschappen `crop` en `farmable = true`.
 
 ![Vijver](monastery/pond.png)
+
+## Losse tuinmodellen (collectie `MON_GardenPieces`)
+
+Net als de leien en stenen zijn alle tuinonderdelen losse modellen; de tuin gebruikt **instances** (gedeelde mesh) ervan.
+Pas je een model aan, dan verandert elk exemplaar in de tuin mee. Bomen in de tuin heten `GH_Tree_MON_<soort>_<nr>`,
+zodat de web-export ze als bomen herkent (zoals de `GH_Tree*`-nodes in Greyhaven).
+
+| Groep | Modellen (`GH_Monastery_…`) |
+|---|---|
+| Bomen | `Tree_Oak_A`, `Tree_Oak_B`, `Tree_Pine`, `Tree_Willow`, `Tree_Apple` (met appels), `Tree_Sakura_A`, `Tree_Sakura_B` (met afgevallen bloesem) |
+| Rotsen | `Rock_A` (kei), `Rock_B` (platte steen), `Rock_C` (groepje), met mos bovenop |
+| Fruit | `Fruit_Apple`, `Fruit_Pear`, `Fruit_Plum` |
+| Gewassen, 3 groeistadia | `Crop_<Cabbage/Carrot/Pumpkin/Wheat/Moonbell>_1_Seedling`, `_2_Growing`, `_3_Ripe` |
+| Overig | `Scarecrow` |
+
+In de tuin: 41 bomen, 39 rotsen, 94 gewassen (rijp), de vogelverschrikker en afgevallen appels onder de appelbomen.
+De kweekbedden `MON_FarmPlot_1…6` hebben nu ook `stage` (0 = leeg, 3 = rijp). Script: `tools/blender/monastery/05_garden_pieces.py`.
+
+![Tuinmodellen](monastery/garden_pieces.png)
+
+**Sakura's (2026-10-12):** de kroon is een takkenstelsel (stam → dikke takken → takken → twijgen) met losse
+bloesemtrosjes, zodat je de takken door de bloesem heen ziet. Onder de boom liggen losse blaadjes.
+**Vallende blaadjes:** per sakura een *collection instance* van `MON_PetalFall_Sakura_A/B` (28 blaadjes, lus van 240
+frames = 10 s, draaien en zweven met de wind mee, verdwijnen als ze landen). In de tuin staan ze in `MON_Garden_PetalFalls`,
+op dezelfde plek, draaiing en grootte als de boom. Of de glTF-export deze animatie meeneemt moet nog getest worden;
+anders kan de game de blaadjes zelf laten vallen vanaf de boomposities (goedkoop met één InstancedMesh).
+
+**Bomen in Genshin-stijl (2026-10-12, naar Bo's voorbeelden):** de sakura's, eiken en de appelboom hebben nu een
+kroon van heel veel kleine losse kaartjes (bloesem: bloemetje met 5 punten, blad: puntig ovaal) in trosjes en grote
+wolken. Bovenkant en buitenkant zijn licht, binnen en onder donkerder, zodat de kroon in lagen lijkt te liggen.
+Slanke, vertakte stammen; `Tree_Sakura_B` heeft twee stammen die om elkaar heen draaien. Tussen de wolken door zie je
+nog takken. Nieuwe kleuren: `GH_Monastery_Blossom_Deep`, `GH_Monastery_TreeLeaf_Light/Mid/Deep`.
+De vallende blaadjes beginnen nu in de nieuwe kroon. Script: `tools/blender/monastery/06_card_trees.py`
+(backup ervoor: `Monastery_backup_before_card_trees.blend`).
+
+| Model | Vertices |
+|---|---|
+| `Tree_Sakura_A` / `_B` | ~27.000 / ~26.000 |
+| `Tree_Oak_A` / `_B` | ~11.000 / ~12.600 |
+| `Tree_Apple` | ~8.000 |
+
+Dat is zwaar per boom; omdat het instances zijn kost het geheugen weinig, maar voor de game is een lichtere versie
+(minder kaartjes of een LOD voor verre bomen) slim.
+
+![Sakura in Genshin-stijl](monastery/card_trees_sakura.png)
+![Sakura met twee stammen](monastery/sakura_twin_trunks.png)
+![Tuin met de nieuwe bomen](monastery/garden_card_trees.png)
+
+**Treurwilgen en vuurvliegjes (2026-10-12, idee van Claude):** `Tree_Willow` is opnieuw gemaakt in de kaartjes-stijl:
+korte dikke stam, koepel van blaadjes en 78 lange slierten blaadjes die tot vlak boven de grond hangen. De slierten
+**zwaaien zachtjes in de wind** (shape keys `Sway_A`/`Sway_B` op de mesh, lus van 5 s; elke sliert beweegt een beetje
+anders). Rond elke wilg zweven **16 vuurvliegjes** (`MON_Fireflies_Willow` als collection instance in
+`MON_Garden_Fireflies`, lus van 10 s, elk knippert op zijn eigen moment). Script: `tools/blender/monastery/07_willow.py`
+(backup ervoor: `Monastery_backup_before_willow.blend`). Ongeveer 17.000 vertices per wilg.
+
+**Dennen:** voor nu uit de tuin gehaald (Bo wil er nog iets anders voor bedenken). Het model `Tree_Pine` staat nog in
+`MON_GardenPieces`.
+
+![Treurwilg met vuurvliegjes](monastery/willow_fireflies.png)
+
+**Volle kroon en twijgjes (2026-10-12, Bo):** in elke kaartjes-kroon zijn de blaadjes binnenin groter (×1,5) en aan de
+buitenkant kleiner (×0,7), zodat de kroon voller lijkt met minder kaartjes. Niets zweeft meer los: elke bladwolk hangt
+aan een twijgje vanaf een tak, en bij de wilg zit elke sliert aan een dun hangend twijgje (`GH_Monastery_Willow_Twig`)
+met de blaadjes eraan vast; het twijgje zwaait mee. Vertices nu: sakura ~25.600 / ~24.600, eik ~10.400 / ~12.100,
+appel ~8.000, wilg ~19.000. Backup ervoor: `Monastery_backup_before_twigs.blend`.
+
+**Wilg aan de boom vast (2026-10-12, Bo):** uit elk takeinde groeien 3 dunne boogtakken naar buiten en omlaag, met
+blaadjes erop; de slierten hangen aan die boogtakken, dus alles zit aan de boom vast. ~23.400 vertices.
+
+![Wilg met boogtakken](monastery/willow_twigs.png)
 
 ## Markers (collectie `MON_Markers`)
 
