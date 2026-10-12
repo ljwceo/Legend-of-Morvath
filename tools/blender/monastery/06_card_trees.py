@@ -22,7 +22,7 @@ GREEN = ("GH_Monastery_TreeLeaf_Light", "GH_Monastery_TreeLeaf_Mid", "GH_Monaste
 
 class Crown:
     """Collects leaf cards; colours them at the end by where they sit in the whole crown."""
-    def __init__(s): s.cards = []
+    def __init__(s, inner=1.5, outer=0.7): s.cards = []; s.inner = inner; s.outer = outer
     def cluster(s, c, r, n, size, up=0.6, flat=0.8):
         c = Vector(c)
         for _ in range(n):
@@ -36,7 +36,10 @@ class Crown:
         ctr = sum((p for p, *_ in s.cards), Vector()) / len(s.cards)
         R = max((Vector((p.x - ctr.x, p.y - ctr.y)).length for p, *_ in s.cards)) or 1
         L, Mi, Dp = (G.mi(m) for m in mats)
+        cz = (z0 + z1) / 2; R3 = max(((p - Vector((ctr.x, ctr.y, cz))).length for p, *_ in s.cards)) or 1
         for p, nrm, sz, spin, cc in s.cards:
+            d3 = (p - Vector((ctr.x, ctr.y, cz))).length / R3                    # 0 deep inside .. 1 outer edge
+            sz *= s.inner - (s.inner - s.outer) * d3 ** 1.3                       # big inside, small outside
             hz = (p.z - z0) / max(z1 - z0, 1e-3)                                  # 0 bottom .. 1 top of crown
             out = Vector((p.x - ctr.x, p.y - ctr.y)).length / R                   # 0 centre .. 1 edge
             local = (p - cc).normalized().z                                       # top of its own cluster
@@ -92,6 +95,7 @@ def card_tree(trunks, P, mats, shape, cl_r, cl_n, size, mid_r, mid_n, extra=None
         for k in range(nm):
             e = Vector(random.choice(ends))
             c = e.lerp(cen, 0.25) + Vector((0, 0, cl_r * random.uniform(0.2, 0.7)))
+            tube(G, BK, [(e, 0.035), (e.lerp(c, 0.5) + Vector((0, 0, 0.08)), 0.022), (c, 0.012)], seg=4)
             C.cluster(c, cl_r * rm * random.uniform(0.8, 1.2), cm, size * 1.05, up=P.get("cardup", 0.6), flat=0.7)
     C.emit(G, mats, shape)
     if extra: extra(G, C)
@@ -113,8 +117,8 @@ def replace_mesh(obj, G):
     for m in G.mats: me.materials.append(D.materials[m])
     me.polygons.foreach_set("material_index", G.MI); me.update()
 
-SAK = dict(bark="GH_Monastery_Bark_Sakura", maxd=3, middepth=1, splits=(3, 2, 2), keep=0.6, spread=0.75, up=0.22, lratio=(0.6, 0.72), rratio=0.62, midp=0.8, cardup=0.9, mass=(16, 2.3, 110))
-OAK = dict(bark="GH_Monastery_Bark", maxd=3, middepth=1, splits=(2, 2, 2), keep=0.75, spread=0.55, up=0.45, lratio=(0.6, 0.75), rratio=0.62, midp=0.75, cardup=0.7, mass=(10, 2.2, 70))
+SAK = dict(bark="GH_Monastery_Bark_Sakura", maxd=3, middepth=1, splits=(3, 2, 2), keep=0.6, spread=0.75, up=0.22, lratio=(0.6, 0.72), rratio=0.62, midp=0.8, cardup=0.9, mass=(16, 2.3, 85))
+OAK = dict(bark="GH_Monastery_Bark", maxd=3, middepth=1, splits=(2, 2, 2), keep=0.75, spread=0.55, up=0.45, lratio=(0.6, 0.75), rratio=0.62, midp=0.75, cardup=0.7, mass=(10, 2.2, 55))
 APL = dict(bark="GH_Monastery_Bark", maxd=2, middepth=1, splits=(3, 2), keep=0.6, spread=0.75, up=0.35, lratio=(0.6, 0.75), rratio=0.62, midp=0.9, cardup=0.7, mass=(8, 2.0, 60))
 TREES = {}
 def build_all():

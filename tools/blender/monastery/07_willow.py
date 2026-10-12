@@ -10,7 +10,7 @@ from mathutils import Vector, Matrix
 exec(bpy.data.texts["MON_card_trees"].as_string().split("SAK = dict")[0], globals())   # Crown, grow, tube, Geo, replace_mesh ...
 D = bpy.data
 for name, rgb in {"GH_Monastery_Willow_Light": (0.66, 0.84, 0.40), "GH_Monastery_Willow_Mid": (0.45, 0.68, 0.30),
-                  "GH_Monastery_Willow_Deep": (0.24, 0.47, 0.25)}.items():
+                  "GH_Monastery_Willow_Deep": (0.24, 0.47, 0.25), "GH_Monastery_Willow_Twig": (0.42, 0.36, 0.20)}.items():
     mkmat(name, rgb)
 WIL = ("GH_Monastery_Willow_Light", "GH_Monastery_Willow_Mid", "GH_Monastery_Willow_Deep")
 WP = dict(bark="GH_Monastery_Bark", maxd=2, middepth=1, splits=(2, 2), keep=0.55, spread=0.8, up=0.35, lratio=(0.6, 0.75), rratio=0.62)
@@ -33,7 +33,9 @@ def willow(seed=90, n_strands=78):
     for e in ends:
         C.cluster(Vector(e) + Vector((0, 0, 0.25)), 0.55, 34, 0.13, up=0.9)
     for k in range(14):
-        e = Vector(random.choice(ends)); C.cluster(e.lerp(cen, 0.3) + Vector((0, 0, 0.35)), 1.15, 90, 0.15, up=0.9, flat=0.6)
+        e = Vector(random.choice(ends)); c = e.lerp(cen, 0.3) + Vector((0, 0, 0.35))
+        tube(G, "GH_Monastery_Bark", [(e, 0.04), (e.lerp(c, 0.5) + Vector((0, 0, 0.1)), 0.025), (c, 0.014)], seg=4)
+        C.cluster(c, 1.15, 75, 0.15, up=0.9, flat=0.6)
     C.emit(G, WIL, "leaf")
     crown_top = max(v[2] for v in G.V)
     # hanging strands of leaves all round the crown
@@ -49,21 +51,39 @@ def willow(seed=90, n_strands=78):
         dirA = (Vector((1, 0.3, 0)) * 0.6 + Vector((random.uniform(-1, 1), random.uniform(-1, 1), 0))).normalized()
         dirB = Vector((-dirA.y, dirA.x, 0)); amp = 0.28 * L / 2.8 * random.uniform(0.8, 1.2)
         nc = int(L / 0.1)
-        for k in range(nc):
+        TW = G.mi("GH_Monastery_Willow_Twig")
+        P = lambda t: att + out * (0.45 * math.sin(t * 1.4)) + Vector((0, 0, -L * t))
+        # the twig: thin 3-sided strand from the crown down to the tip (sways with the leaves)
+        nt = 9; tb = len(G.V); s3 = out.cross(Vector((0, 0, 1))).normalized()
+        for k in range(nt + 1):
+            t = k / nt; c = P(t); r = 0.016 * (1 - 0.6 * t)
+            for q in range(3):
+                ang = 2 * math.pi * q / 3
+                G.V.append(tuple(c + (out * math.cos(ang) + s3 * math.sin(ang)) * r))
+            f = t ** 1.6 * amp
+            for vi in range(tb + 3 * k, tb + 3 * k + 3): sway[vi] = (dirA * f, dirB * f)
+        for k in range(nt):
+            for q in range(3):
+                G.F.append((tb + 3 * k + q, tb + 3 * k + (q + 1) % 3, tb + 3 * (k + 1) + (q + 1) % 3, tb + 3 * (k + 1) + q)); G.MI.append(TW)
+        # leaves grow from the twig: stem end ON the twig, tip pointing out and down
+        for k in range(1, nc):
             t = k / nc
-            p = att + out * (0.45 * math.sin(t * 1.4)) + Vector((0, 0, -L * t))
-            tang = (out * 0.45 * 1.4 * math.cos(t * 1.4) / L - Vector((0, 0, 1))).normalized()
-            side = out.cross(Vector((0, 0, 1))).normalized() * (0.035 if k % 2 else -0.035)
-            sz = 0.14 * (1 - 0.45 * t) * random.uniform(0.85, 1.15)
-            nrm = (out + Vector((random.uniform(-.5, .5), random.uniform(-.5, .5), 0.2))).normalized()
-            ax = (tang + side * 4).normalized(); bx = nrm.cross(ax).normalized()
-            q = p + side
-            pts = [q + ax * sz * 0.9, q + bx * sz * 0.38, q - ax * sz * 0.7, q - bx * sz * 0.38]   # leaf points down the strand
+            p = P(t)
+            tang = (P(min(t + 0.01, 1)) - P(max(t - 0.01, 0))).normalized()
+            sgn = 1 if k % 2 else -1
+            sd = (s3 * sgn * 0.8 + out * random.uniform(0.2, 0.6)).normalized()
+            ax = (tang * 0.75 + sd * 0.65).normalized()                      # leaf direction
+            nrm = (out + Vector((random.uniform(-.4, .4), random.uniform(-.4, .4), 0.2))).normalized()
+            bx = nrm.cross(ax).normalized()
+            ln = 0.26 * (1.25 - 0.6 * t) * random.uniform(0.85, 1.15); wd = ln * 0.2
+            pts = [p, p + ax * ln * 0.45 + bx * wd, p + ax * ln, p + ax * ln * 0.45 - bx * wd]
             mi = L_ if (k % 5 == 0 and t < 0.5) else D_ if (t > 0.65 and random.random() < 0.4) else M_
             if random.random() < 0.25: mi = L_
             bi = len(G.V); G.V += [tuple(v) for v in pts]; G.F.append((bi, bi + 1, bi + 2, bi + 3)); G.MI.append(mi)
-            f = t ** 1.6 * amp
-            for i in range(bi, bi + 4): sway[i] = (dirA * f, dirB * f)
+            f = t ** 1.6 * amp; f2 = (min(t + 0.06, 1)) ** 1.6 * amp       # tip swings a little further than the stem
+            sway[bi] = (dirA * f, dirB * f)
+            for vi in range(bi + 1, bi + 4): sway[vi] = (dirA * f2, dirB * f2)
+
     return G, sway, [tuple(e) for e in ends]
 
 
