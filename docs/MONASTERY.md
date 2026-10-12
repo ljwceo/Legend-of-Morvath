@@ -56,7 +56,7 @@ houten plankenvloeren (3 houttinten, net als de oostvleugel) en balkenplafonds. 
 |---|---|---|
 | Kerk | Middenschip met houten balkenplafond, 2 zijbeuken (5 bogen per kant), koorboog naar de apsis, verhoogd koor met altaar, kaarsen en lessenaar, 28 kerkbanken met middenpad, hangende lantaarns. Ramen, roosvenster en portaal zijn echte openingen | `MON_Room_Church`, `MON_Room_Sanctuary` |
 | Eetzaal (Refectory) | Lange zaal met 2 rijen lange tafels + banken, kommen en bekers, verhoogde tafel van de abt, haard met ketel onder de schoorsteen, voorleespreekstoel, rek met kommen. Deur naar de kloostergang en een keukendeur naar de westvleugel | `MON_Room_Refectory` |
-| Westvleugel | Poortdoorgang (buitenpoort → kloostergang) met zijdeuren. Beneden: voorraadkamer (vaten, kisten, zakken, planken) en gastenzaal (tafel, banken, haard). Trap naar boven: gastenslaapzaal (4 bedden + kisten) en graanzolder. 2 nieuwe deuren naar de kloostergang | `MON_Room_StoreRoom`, `MON_Room_GuestHall`, `MON_Room_GuestDormitory`, `MON_Room_Granary`, `MON_Room_GatePassage` |
+| Westvleugel | Gang achter de (dichte) westpoort met zijdeuren naar beide kamers. Beneden: voorraadkamer (vaten, kisten, zakken, planken) en gastenzaal (tafel, banken, haard). Trap naar boven: gastenslaapzaal (4 bedden + kisten) en graanzolder. 2 nieuwe deuren naar de kloostergang | `MON_Room_StoreRoom`, `MON_Room_GuestHall`, `MON_Room_GuestDormitory`, `MON_Room_Granary`, `MON_Room_GatePassage` |
 | Toren | Deur vanuit de noordbeuk van de kerk, houten wenteltrap langs de muren (74 treden) naar de klokkenvloer op 15 m, open klokkengaten aan 4 kanten | `MON_Room_TowerBase`, `MON_Room_Belfry` |
 
 ## Extra stenen (2026-10-12)
@@ -281,7 +281,8 @@ alles daarbuiten niet getekend: meer fps, en het klooster mag dan veel detail he
 - In Greyhaven zelf komt dan alleen een simpele buitenkant van het klooster (weinig vertices), zonder binnenkant.
 - De kloostertuin en de kloostergang liggen in dit bestand, dus die horen bij de klooster-zone. Over de tuinmuur heen zie
   je dan alleen lucht/mist (of later een simpele achtergrond).
-- De westpoort (`MON_Gate_*`) is daarmee voorlopig decoratie; kan later een tweede ingang worden.
+- De westpoort (`MON_Gate_*`) is **decoratie** (Bo, 2026-10-12): de poortdeur gaat niet open en de doorgang is direct
+  erachter dicht (`MON_WestRange_GatePlug`). De rest van de doorgang is nu een gang tussen voorraadkamer en gastenzaal.
 
 ## Markers (collectie `MON_Markers`)
 
