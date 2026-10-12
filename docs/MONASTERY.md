@@ -1,10 +1,17 @@
 # Monastery of Greyhaven – Blender-asset
 
-> Gebouwd in Blender met Claude op 2026-10-12. Bestand: `C:\Users\Bo\Documents\Morvath\Greyhaven\assets\Monastery.blend`
-> (backups: `Monastery_backup_before_tiles`, `_before_interior`, `_before_garden`). Scripts: `tools/blender/monastery/`.
-> Staat nog **niet** in Greyhaven: dat gebeurt (zoals bij de smidse) in de aparte Greyhaven-chat.
+> Gebouwd in Blender met Claude op 2026-10-12. **Sinds 2026-10-12 (avond) in twee bestanden**, zodat alles los aangepast kan worden:
+>
+> | Bestand | Wat erin zit | Zone |
+> |---|---|---|
+> | `C:\Users\Bo\Documents\Morvath\Greyhaven\assets\Monastery_Building.blend` | Het klooster: kerk, toren, kloostergang met binnentuin, oost-/zuid-/westvleugel, **alle binnenkanten**, daken, muurstenen, markers voor het kerkportaal (`MON_Zone_*`), de kloosterkant van de oostdeur (`MON_GardenGate_FromMonastery`, `_SpawnInMonastery`), kamers, spawn-bed, Brother Ansel | klooster |
+> | `C:\Users\Bo\Documents\Morvath\Greyhaven\assets\Monastery_Garden.blend` | De Monastery Garden: grond, vijver, beekjes, bruggen, paden, bomen, gras, bloemen, bosjes, moestuin, tuinmuur (`MON_Stones_GardenWall`), losse tuinmodellen (`MON_GardenPieces`), vallende blaadjes, vuurvliegjes, markers `MON_FarmPlot_*` en de tuinkant van de oostdeur (`MON_GardenGate_SpawnInGarden`, `_FromGarden`) | tuin |
+>
+> Beide gebruiken dezelfde coördinaten (klooster-lokaal, +Y = noord), dus ze passen precies op elkaar. Het oude
+> gecombineerde bestand is `Monastery_backup_before_split.blend`; oudere backups heten `Monastery_backup_before_*.blend`.
+> Scripts: `tools/blender/monastery/` (de tekstblokken staan in beide bestanden). Staat nog **niet** in Greyhaven.
 
-![Klooster en tuin](monastery/garden_overview.png)
+![Alleen het klooster (Monastery_Building.blend)](monastery/building_only.png)
 
 ## Opbouw (zoals een echt middeleeuws klooster, naar het St. Gall-plan)
 

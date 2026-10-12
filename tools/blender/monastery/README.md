@@ -1,6 +1,6 @@
 # Monastery – Blender-scripts
 
-Het Blender-bestand is `C:\Users\Bo\Documents\Morvath\Greyhaven\assets\Monastery.blend` (naast `Forge.blend`).
+De Blender-bestanden zijn `Monastery_Building.blend` (klooster + binnenkant) en `Monastery_Garden.blend` (tuin), in `C:\Users\Bo\Documents\Morvath\Greyhaven\assets\` (naast `Forge.blend`). Tot 2026-10-12 was het één bestand `Monastery.blend` (nu `Monastery_backup_before_split.blend`).
 **Het .blend-bestand is de bron**; deze scripts laten zien hoe het gebouwd is en zijn handig om delen opnieuw te maken.
 Een paar stappen (binnenkant van de oostvleugel, tuin) zijn direct in Blender uitgevoerd met de helpers hieronder;
 de maten en lijsten daarvan staan in de tekstblokken in het .blend.
