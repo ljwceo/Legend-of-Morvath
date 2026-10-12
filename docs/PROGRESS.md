@@ -23,6 +23,7 @@
 | 6 | Past het nieuwe Monastery (met tuin, samen ±100 × 70 m) op de kliffen aan de westkust van Greyhaven? Het oude placeholder-klooster is ±31 × 32 m | Nog niet geplaatst; in de Greyhaven-chat bekijken (plek, draaien, eventueel kleiner). Zie `docs/MONASTERY.md` |
 | 7 | Kweekbare bedden in de kloostertuin (`MON_FarmPlot_1…6`): hoe moet farming werken (zaad, groeitijd, oogst, seizoenen)? | Alleen de bedden + markers staan in Blender; nog geen spelregels of code |
 | 8 | Vallende sakura-blaadjes zijn een Blender-animatie via collection instances. Gaat die mee met de glTF-export, of laat de game de blaadjes zelf vallen? | Nog testen bij het inbouwen in Greyhaven |
+| 9 | Bomen in de kloostertuin gebruiken nu Genshin-achtige trosjes-kaartjes (plaatje met alpha + bol-normals, `GH_Monastery_Foliage_*`). De game-shader heeft daar nog geen modus voor | Nodig: bladmodus in `ToonMaterial` (plaatje, `discard` op alpha, custom normals, wind) en de export moet UV/normals/plaatje meenemen. Zie `docs/MONASTERY.md` |
 
 ---
 
@@ -704,3 +705,4 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - Blender (avond): bomen in Genshin-stijl naar Bo's voorbeelden: sakura's, eiken en appelboom met een kroon van veel kleine blad-/bloesemkaartjes in lagen (licht boven, donker onder). Vallende blaadjes starten in de nieuwe kroon. Script `06_card_trees.py`.
 - Blender (avond): dennen voor nu uit de tuin (Bo bedenkt nog iets anders). Treurwilgen opnieuw in kaartjes-stijl met zwaaiende slierten en vuurvliegjes eromheen (`07_willow.py`).
 - Blender (avond): kronen met grote blaadjes binnen en kleine buiten; bladwolken en wilgenslierten hangen nu aan twijgjes (niets zweeft meer). Wilgenslierten hangen aan boogtakken die uit de takken groeien.
+- Blender (avond): alle tuinbomen omgebouwd naar de Genshin-techniek (grote kaartjes met geschilderde trosjes + alpha, bol-normals). Van ±650.000 naar ±140.000 vertices voor alle bomen. Scripts `08`–`10`, plaatjes in `tools/blender/monastery/textures/`. Open vraag 9 (bladmodus in de game).
