@@ -297,6 +297,17 @@ alles daarbuiten niet getekend: meer fps, en het klooster mag dan veel detail he
   binnenkanten niet getekend te worden en andersom. Of het één bestand blijft (en de game per zone een deel tekent,
   zoals bij de instances) of twee aparte .glb's wordt, is aan de game-kant (open vraag 11).
 
+## Grindpaden (2026-10-12, Bo)
+
+`MON_Garden_Paths` is nu een grindpad: het geschilderde plaatje `T_MON_Gravel` (tegel van 2 m: zand met heel veel
+steentjes, elk met een lichte kant, donkere rand en schaduwtje, zodat het plat pad diepte lijkt te hebben), materiaal
+`GH_Monastery_GravelTex`. Langs beide randen liggen **719 platte randstenen** in de kleuren van de muurstenen (deels
+mos), iets in de grond gezakt, en op het pad liggen **481 losse steentjes** (object `MON_Garden_PathStones`,
+±9.600 vertices). De rand is bepaald op een raster van 10 cm, omdat het pad uit losse overlappende stukken bestaat.
+Script `23_gravel_path.py`, backup `Monastery_backup_before_gravel.blend`.
+
+![Grindpad](monastery/gravel_path.png)
+
 ## Markers (collectie `MON_Markers`)
 
 `MON_Spawn_PlayerBed`, `MON_NPC_BrotherAnsel`, `MON_Door_Cloister_Outside`, `MON_Door_East_Outside`,
