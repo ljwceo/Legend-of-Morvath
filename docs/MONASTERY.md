@@ -70,6 +70,25 @@ Elke marker heeft de eigenschappen `crop` en `farmable = true`.
 
 ![Vijver](monastery/pond.png)
 
+## Losse tuinmodellen (collectie `MON_GardenPieces`)
+
+Net als de leien en stenen zijn alle tuinonderdelen losse modellen; de tuin gebruikt **instances** (gedeelde mesh) ervan.
+Pas je een model aan, dan verandert elk exemplaar in de tuin mee. Bomen in de tuin heten `GH_Tree_MON_<soort>_<nr>`,
+zodat de web-export ze als bomen herkent (zoals de `GH_Tree*`-nodes in Greyhaven).
+
+| Groep | Modellen (`GH_Monastery_…`) |
+|---|---|
+| Bomen | `Tree_Oak_A`, `Tree_Oak_B`, `Tree_Pine`, `Tree_Willow`, `Tree_Apple` (met appels), `Tree_Sakura_A`, `Tree_Sakura_B` (met afgevallen bloesem) |
+| Rotsen | `Rock_A` (kei), `Rock_B` (platte steen), `Rock_C` (groepje), met mos bovenop |
+| Fruit | `Fruit_Apple`, `Fruit_Pear`, `Fruit_Plum` |
+| Gewassen, 3 groeistadia | `Crop_<Cabbage/Carrot/Pumpkin/Wheat/Moonbell>_1_Seedling`, `_2_Growing`, `_3_Ripe` |
+| Overig | `Scarecrow` |
+
+In de tuin: 47 bomen, 39 rotsen, 94 gewassen (rijp), de vogelverschrikker en afgevallen appels onder de appelbomen.
+De kweekbedden `MON_FarmPlot_1…6` hebben nu ook `stage` (0 = leeg, 3 = rijp). Script: `tools/blender/monastery/05_garden_pieces.py`.
+
+![Tuinmodellen](monastery/garden_pieces.png)
+
 ## Markers (collectie `MON_Markers`)
 
 `MON_Spawn_PlayerBed`, `MON_NPC_BrotherAnsel`, `MON_Door_Cloister_Outside`, `MON_Door_East_Outside`,

@@ -11,6 +11,7 @@ de maten en lijsten daarvan staan in de tekstblokken in het .blend.
 | `mon_helpers.py` | Maten van de oostvleugel, lijst van ramen/deuren/binnenmuren/kamers, raam- en deur-kits | `MON_build_helpers` |
 | `03_tile_roofs.py` | Alle daken bedekken met de leien A–D en nok-/graatpannen E/F | `MON_roof_tiles` (alleen de functies) |
 | `04_wall_stones.py` | Stenen A–C (en funderingsstenen D/E) op de muren | `MON_wall_stones` |
+| `05_garden_pieces.py` | Losse tuinmodellen: bomen, rotsen, fruit, gewassen (3 groeistadia), vogelverschrikker | `MON_garden_pieces` |
 | – | Vorm van de tuin, vijver, beekjes | `MON_garden_layout` |
 
 Gebruik in Blender: open het script in de Scripting-tab en voer het uit, of
