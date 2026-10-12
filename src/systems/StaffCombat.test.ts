@@ -210,6 +210,56 @@ describe('charging a spell', () => {
   });
 });
 
+describe('your stats at the staff (fase 3.7)', () => {
+  it('Magic Power makes spells hit harder and the Shard a little', () => {
+    const made = fresh();
+    made.combat.mana = 1000;
+    made.combat.spellFactor = 1.24;
+    // A tap (one step down, then let go) fires the spell uncharged.
+    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    const spell = run(made, 1, press(false));
+    expect(spell[0]?.damage).toBe(Math.round(fireball.damage * 1.24));
+    const shard = run(fresh(), 0.6, press(true));
+    expect(shard[0]?.damage).toBe(cfg.shard.damage);
+    const boosted = fresh();
+    boosted.combat.staffNormalFactor = 1.25;
+    expect(run(boosted, 0.6, press(true))[0]?.damage).toBe(Math.round(cfg.shard.damage * 1.25));
+  });
+
+  it('Luck turns a shot into a critical hit (1.5x), and only on a low roll', () => {
+    const lucky = fresh();
+    lucky.combat.critChance = 0.5;
+    lucky.combat.critFactor = 1.5;
+    const crit = run(lucky, 0.6, press(true, false, 0.1));
+    expect(crit[0]?.crit).toBe(true);
+    expect(crit[0]?.damage).toBe(Math.round(cfg.shard.damage * 1.5));
+    const plain = fresh();
+    plain.combat.critChance = 0.5;
+    const normal = run(plain, 0.6, press(true, false, 0.9));
+    expect(normal[0]?.crit).toBe(false);
+    expect(normal[0]?.damage).toBe(cfg.shard.damage);
+  });
+
+  it('Dexterity makes charging and casting faster, not stronger', () => {
+    const quick = fresh();
+    quick.combat.mana = 1000;
+    quick.combat.attackSpeedFactor = 2;
+    const max = fireball.charge?.maxSeconds ?? 0;
+    // At twice the speed a full charge is ready in half the time.
+    const fired = run(quick, max / 2 + 0.2, press(false, true));
+    expect(fired).toHaveLength(1);
+    expect(fired[0]?.charge).toBeCloseTo(1, 2);
+    expect(fired[0]?.damage).toBe(Math.round(fireball.damage * 2.5));
+  });
+
+  it('fires more Shards per second with Dexterity', () => {
+    const slow = run(fresh(), 2, press(true)).length;
+    const quick = fresh();
+    quick.combat.attackSpeedFactor = 2;
+    expect(run(quick, 2, press(true)).length).toBeGreaterThan(slow);
+  });
+});
+
 describe('power curves (light and dark)', () => {
   it('dark starts strong and gets weaker, light the other way round', () => {
     expect(powerFactor(spells.powerCurves, 'dark', 1)).toBeGreaterThan(
