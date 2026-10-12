@@ -407,3 +407,129 @@ Definition of Done:
 - [ ] Geen geheugengroei na 10 minuten lopen en na instances in en uit.
 - [ ] Balans: geen build die alles kapot slaat of nergens doorheen komt.
 - [ ] Alle tests, de taal-key-check en de DataValidator slagen; de documentatie klopt met de code.
+
+### Fase A – Personage-animaties (Mixamo + eigen cape)
+Status: prompt opgeslagen (2026-10-12, Bo); nog niets gebouwd. Elke chat een eigen branch + pull request.
+Werkwijze: begin een chat met *"Lees CLAUDE.md. We doen Fase A, Chat X."* Volgorde: Chat 1 → (Bo: Mixamo, Deel B in `tools/blender/character/README.md`, komt in Chat 1) → Chat 2 → Chat 3 → Chat 4. Chat 5 (rennen + springen) heeft geen Blender nodig en mag al eerder of tegelijk.
+
+#### Deel A – Context (geldt voor elke chat van fase A)
+
+**Wat we bouwen.** De speler krijgt vloeiende animaties: idle, lopen, rennen, sprinten, springen (afzet, in de lucht, landen), dashen, zwaardaanvallen (3 combo-slagen, heavy windup + slag), spreuken (opladen + loslaten), geraakt worden, doodgaan en interacteren. Plus een cape die vanzelf wappert.
+
+**De gekozen aanpak (besloten op 2026-10-12)**
+- **Mixamo** (gratis, Adobe) doet het skelet en het lijf: auto-rig + de meeste animaties.
+- **De cape maken we zelf:** extra cape-botten aan het Mixamo-skelet, weight-painted in Blender. In de game bewegen die botten met code ("spring bones"), dus nooit met de hand animeren.
+- **Hoed, haar en zwaard** hangen stijf aan een bot (`Head`, `RightHand`), zonder skinning.
+- Later kan het lijf vervangen worden door een gekocht stylized basismodel; de stappen blijven dan hetzelfde, alleen begint Chat 1 met dat model.
+
+**Hoe het nu in de repo zit (gecontroleerd op 2026-10-12)**
+- `public/zones/greyhaven/player.glb` = 24 losse stijve stukken (Torso, Neck, Head, Hair, Shoulder_L/R, Arm_L/R, Hand_L/R, Belt, Leg_L/R, Boot_L/R, Cloak, Cloak_Trim, Collar_Trim, Hat, Hat_Band, Hat_Brim, Sword_Blade/Grip/Guard). Geen skelet, geen skin, geen animaties.
+- Komt uit `Greyhaven.blend` (staat niet in de repo; Bo heeft hem lokaal), collectie `StartCharacter`, via `tools/blender/export_web.py` met `export_animations=False` en `export_apply=True` (dat laatste bakt een armature weg).
+- `src/world/scene/ScenePlayerModel.ts` laadt het model, zet de toon-shader erop en kleurt materialen via de character creator: `Cloak_Navy`/`Hat_Navy` → mantle, `Gold_Trim` → embroidery, `Hair` → hair, `Skin` → skin. **Deze materiaalnamen moeten blijven bestaan.** `Sword_*`-nodes worden verborgen; de game tekent nu zelf een zwaard met `PlaceholderFactory.setSwordPose()` (rest / fast / windup / heavy).
+- De toon-shader (`src/render/toon/ToonMaterial.ts`) is een eigen ShaderMaterial **zonder skinning**. Een SkinnedMesh vervormt daarmee niet. Moet erbij (Chat 3).
+- Alleen in Greyhaven wordt `player.glb` gebruikt (`WorldState` → `buildPlayerModel` → `CharacterModel.useModel`). In de open wereld en in `IntroFightState` staat nog het placeholder-poppetje.
+- `Player.syncModel(alpha)` interpoleert positie en heading; `showSword()` / `showStaff()` tekenen het wapen.
+- Beweging (`src/systems/Movement.ts`, `player.json`): alleen lopen (4 m/s), draaien (720°/s) en dashen (4 m in 0,18 s, energie, cooldown, "fat roll" bij zware last). Geen rennen, geen springen. Zwaartekracht alleen bij van een rand vallen (`GroundedMover`).
+- Gevecht: `CombatState` (swing, swingTime, heavyWindup, combo elke 3e slag), `StaffState.progress` (opladen 0–1), `castMoveFactor`, `heavyMoveFactor`.
+- Acties in `controls.json`: moveForward/Back/Left/Right, attack, heavy, dash, interact, potion, bag, status, lock, lockSwitch, confirm, down.
+
+**Regels voor deze fase (bovenop de harde eisen in §2)**
+1. **Animatie is alleen render-kant.** Hij leest de simulatie (`MoverState`, `CombatState`, `StaffState`) en stuurt die nooit. Geen hitbox, snelheid of timing hangt af van een animatie. Zo blijft het gelijk op 60/120 fps en op Low/Mid/High.
+2. **Alles in place, geen root motion.** De simulatie verplaatst het personage al. Clips die toch verschuiven: de horizontale beweging van `Hips` eruit filteren.
+3. **Data buiten de code:** clipnamen, fade-tijden, referentiesnelheden en cape-getallen in `public/data/animations.json` (nieuw, met zod-schema en DataValidator-checks).
+4. **Geen allocaties per frame** in de animator en de spring bones.
+5. **Mixamo-licentie:** de ruwe Mixamo-FBX-bestanden komen **niet** in de (publieke) repo. Bewaar ze buiten de repo of in `art-source/` (in `.gitignore`). Alleen de geëxporteerde `player.glb` gaat in git.
+6. Code, bestandsnamen en commentaar in het Engels; uitleg aan Bo in het Nederlands. Eigen branch per chat + pull request, zoals in §10.
+
+**Clipnamen (overal precies deze namen gebruiken)**
+
+| Groep | Clips |
+|---|---|
+| Basis | `Idle`, `Walk`, `Run`, `Sprint` |
+| Springen | `Jump_Start`, `Jump_Air` (lus), `Land` |
+| Dash | `Dash`, `Dash_Recover` |
+| Zwaard | `Slash_1`, `Slash_2`, `Slash_3`, `Heavy_Windup`, `Heavy_Strike` |
+| Staf | `Cast_Gather` (lus), `Cast_Release` |
+| Overig | `Hit`, `Death`, `Interact` |
+
+#### Deel C – Opdrachtblokken per chat
+
+##### Chat 1 – Lijf klaarmaken voor Mixamo (Blender)
+Doel: een FBX van alleen het lijf die Mixamo goed kan riggen.
+Bouwen: `tools/blender/character/01_prep_mixamo.py` (zelfde stijl als de andere `tools/blender`-scripts, draait met `blender -b Greyhaven.blend --python ...`):
+- Kopieer de lijfstukken uit `StartCharacter` (Torso, Neck, Head, Shoulder_L/R, Arm_L/R, Hand_L/R, Belt, Leg_L/R, Boot_L/R) en voeg ze samen tot één mesh `Body`. Niet meenemen: Hair, Hat*, Cloak*, Collar_Trim, Sword_* (die komen in Chat 2 terug).
+- Controleer de pose: hangen de armen recht naar beneden, zet ze in de kopie in een A-pose (±45°), anders kan Mixamo de polsen en ellebogen niet goed vinden.
+- Transforms toepassen, voeten op 0, gezicht naar Blender −Y (zoals Mixamo verwacht), schaal in meters. Materiaalnamen (`Skin`, enz.) houden.
+- Exporteer `body_for_mixamo.fbx` naar een map buiten de repo.
+- Voeg `art-source/` toe aan `.gitignore`.
+- Schrijf in `tools/blender/character/README.md` hoe je het draait en wat Deel B (Mixamo, door Bo) is.
+Niet doen: game-code aanpassen, iets exporteren naar `public/`.
+Definition of Done:
+- [ ] `body_for_mixamo.fbx` bestaat, is één mesh in A-pose, zonder hoed/haar/cape/zwaard.
+- [ ] Mixamo accepteert hem en de preview buigt zonder rare vervormingen (Bo test).
+
+##### Chat 2 – Mixamo terug in Blender: rig, cape, export
+Doel: een nieuwe `player.glb` met skelet, skin, cape-botten en alle clips uit de tabel.
+Bouwen: `tools/blender/character/02_import_mixamo.py` + aanpassing in `export_web.py`:
+- `body_rigged.fbx` en alle animatie-FBX's importeren; schaal ×0,01 toepassen (Mixamo werkt in cm); botnamen `mixamorig:Hips` → `Hips` (de dubbele punt geeft problemen in Three.js); elke animatie wordt één Action met de clipnaam uit Deel A.
+- Horizontale verplaatsing van `Hips` uit alle clips filteren (alleen de hoogte houden). Clips inkorten waar nodig: `Dash` ±0,18–0,25 s, `Heavy_Windup` past bij `windupSeconds` 0,9 s, `Cast_Gather` als nette lus.
+- Hair, Hat, Hat_Band, Hat_Brim stijf aan bot `Head`; Sword_* stijf aan `RightHand` (grip in de hand, kling recht).
+- Cape: Cloak, Cloak_Trim, Collar_Trim terug. Voeg 3 kettingen van 3 botten toe (`Cape_L1-3`, `Cape_M1-3`, `Cape_R1-3`), geparent aan `Spine2`. Weights: bovenrand op Spine2/schouders, de rest verloopt over de cape-botten. Cape-botten zitten in geen enkele clip.
+- Materiaalnamen behouden (`Cloak_Navy`, `Hat_Navy`, `Gold_Trim`, `Hair`, `Skin`, `Outline`) zodat de character creator blijft werken. Zelfde oriëntatie en voethoogte als de huidige `player.glb`, zodat `ScenePlayerModel` niet hoeft te draaien.
+- `export_web.py` (alleen het speler-deel): `export_animations=True`, armature + skin mee, geen `export_apply` op de armature (transforms vooraf toepassen), alle Actions als losse animaties. Controleer of Draco werkt met de skin; zo niet, Draco uit voor `player.glb`.
+- Een korte check die uitprint: aantal botten, driehoeken (doel ≤ 30.000), clips met duur, bestandsgrootte (doel ≤ 2 MB).
+Niet doen: game-code (behalve als de oude game door de nieuwe glb kapot gaat: dan alleen het minimale om hem weer te laten starten).
+Definition of Done:
+- [ ] `player.glb` heeft skelet + skin + alle clips met de juiste namen; cape-botten zonder animatie.
+- [ ] In Blender: elke clip afspelen, niets glijdt weg, hoed/haar/zwaard bewegen mee, de cape gaat mee met het lijf.
+- [ ] De game start nog in Greyhaven (het model mag nog in bind-pose staan).
+
+##### Chat 3 – PlayerAnimator in de game
+Doel: het personage speelt de juiste animatie, vloeiend overgaand, perfect in sync met het gevecht.
+Bouwen:
+- **Skinning in de toon-shader** (`ToonMaterial.ts`, ook de Outline): de skinning-chunks van Three.js toevoegen (`skinning_pars_vertex`, `skinbase_vertex`, `skinning_vertex`, `skinnormal_vertex`) zonder dat statische meshes duurder worden.
+- `ScenePlayerModel.ts`: SkinnedMesh behouden, de Blender-`Sword_*` aan `RightHand` zichtbaar (voor zwaard én staf, afhankelijk van het wapen), de clips doorgeven.
+- Nieuw `src/render/PlayerAnimator.ts`: een `AnimationMixer` + kleine state machine (Idle, Walk, Run, Sprint, Jump, Fall, Land, Dash, Dash_Recover, Attack, Cast, Hit, Death, Interact) die elke render-frame de simulatie leest:
+  - Crossfades 0,15–0,25 s (uit `animations.json`).
+  - Loop-snelheid gekoppeld aan echte snelheid (`timeScale = snelheid / referentiesnelheid`) zodat voeten niet glijden; snelheid uit de geïnterpoleerde positie.
+  - **Aanvallen op voortgang, niet op tijd:** `action.time = progress × duur`, met progress uit `CombatState`/`StaffState` (net als `setSwordPose` nu). Zo valt de slag altijd samen met de hitbox, ook met `attackSpeedFactor`, input buffer en `noEnergySlowdown`. Combo: Slash_1 → 2 → 3.
+  - Bovenlijf apart voor casten tijdens lopen (`castMoveFactor`): een kopie van de cast-clip met alleen de bovenlijf-botten, bovenop de loopclip van de benen.
+  - Licht leunen bij scherp draaien en remmen.
+- Placeholder-poppetje (open wereld, intro-gevecht) houdt `setSwordPose` als terugval, achter dezelfde interface.
+- Debug (F3): huidige animatie-state + clip; cheatmenu: elke clip los afspelen.
+- `public/data/animations.json` + schema + validator.
+Niet doen: cape-beweging (Chat 4), nieuwe gameplay (Chat 5).
+Definition of Done:
+- [ ] Idle/lopen/dashen/zwaard/staf zien er vloeiend uit, zonder glijdende voeten, op 60 en 120 fps gelijk.
+- [ ] De zwaardslag raakt visueel op hetzelfde moment als de schade.
+- [ ] Draw calls en fps gelijk of nauwelijks anders op Low/Mid/High; geen allocaties per frame.
+- [ ] Tests voor de state-keuze (pure functie) slagen; headless Chromium zonder fouten.
+
+##### Chat 4 – Wapperende cape (spring bones)
+Doel: de cape zwiept na bij lopen, rennen, dashen, springen en stilstaan, en gaat niet door de benen.
+Bouwen: `src/render/SpringBones.ts`:
+- Per cape-bot: een punt met stijfheid, demping, zwaartekracht en een maximale hoek; de ketting volgt het lijf met vertraging.
+- Botsbollen op heupen en bovenbenen (en rug), zodat de cape er niet doorheen gaat.
+- **Fps-onafhankelijk:** de veren draaien op een eigen vaste substap (bijv. 120 Hz met accumulator), zodat de cape op 60 en 120 fps precies hetzelfde beweegt. Na een teleport of respawn: resetten, geen zwiep door de hele wereld.
+- Getallen in `animations.json` (`cape`), cheat-baar om af te stellen.
+- Pure logica testen (stap, demping, botsing, reset).
+Niet doen: echte cloth-simulatie, physics-engine.
+Definition of Done:
+- [ ] De cape hangt stil bij idle, wappert bij rennen/dashen, zweeft even na bij springen, valt na de landing terug.
+- [ ] Geen cape door de benen bij rennen of dashen.
+- [ ] Even mooi op 60 en 120 fps; geen fps-verlies op de iPhone.
+
+##### Chat 5 – Rennen, sprinten en springen (simulatie)
+Doel: de speler kan rennen/sprinten en springen, met hetzelfde gevoel op elk scherm.
+Bouwen (gameplay, dus op de vaste stap, met tests):
+- `player.json`: `sprint` (speed, energyPerSecond) en `jump` (heightMeters, gravity, coyoteSeconds ±0,1, bufferSeconds ±0,12, airControl).
+- `MoverState`: vy, grounded, sprinting, coyoteTime, jumpBuffer. `GroundedMover`: echte verticale snelheid in plaats van alleen vallen.
+- Draaglast: sprong en sprint schalen mee met de load tier; overloaded = niet sprinten of springen.
+- `controls.json`: acties `jump` en `sprint` met standaardtoetsen (bijv. Spatie, Shift; check botsing met dash), TouchControls-knoppen, `lang/en.json` + `nl.json`. Bestaande saves krijgen de nieuwe toetsen als standaard.
+- **Open vragen voor Bo (eerst stellen, niet zelf kiezen):** mag je in de lucht dashen? Mag je in de lucht aanvallen of casten? Kost springen energie? Sprinten vasthouden of aan/uit?
+Niet doen: animaties (die volgen uit Chat 3 via vy/grounded/sprinting), klimmen, zwemmen.
+Definition of Done:
+- [ ] Springen is precies even hoog en ver op 60 en 120 Hz (test).
+- [ ] Coyote time en jump buffer werken (test); landen op trappen en randen gaat goed.
+- [ ] Sprinten kost energie en stopt als die op is; regen werkt zoals nu.
+- [ ] Nieuwe toetsen instelbaar in Settings → Besturing; DataValidator en alle tests slagen.
