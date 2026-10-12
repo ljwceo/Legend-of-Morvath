@@ -18,6 +18,11 @@ de maten en lijsten daarvan staan in de tekstblokken in het .blend.
 | `09_foliage_materials.py` | Toon-materialen plaatje × kleur met doorzichtige rand (`GH_Monastery_Foliage_*`) | `MON_foliage_mats` |
 | `10_cluster_trees.py` | **Huidige bomen** in Genshin-techniek: grote trosjes-kaartjes + bol-normals (vervangt 06/07 voor de kroon) | `MON_cluster_trees` |
 | `11_grass.py` | Gras in Genshin-stijl: graspollen van kaartjes met een sprietjes-plaatje, normals omhoog, gestrooid over het gazon | `MON_grass` |
+| `12_genshin_textures.py` | Kleur-plaatjes in geschilderde stijl: grond, gras, vijverbodem, rimpels, 5 bloemen, hout | `MON_genshin_tex` |
+| `13_genshin_ground_grass.py` | Grond met plaatje (16 m tegel), vijverbodem-overgang (`BedMix`), graspollen in 3 tinten die de grond volgen | `MON_genshin_ground` |
+| `14_genshin_water.py` | Water: diepte per punt (`WaterDepth`) → kleur + doorzichtigheid, schuimrand, rimpels | `MON_genshin_water` |
+| `15_genshin_flowers.py` | Bloemenpollen (kaartjes met plaatje) op de plekken van de oude bloemen | `MON_genshin_flowers` |
+| `16_genshin_bridges_wood.py` | Nieuwe houten boogbruggen + houtplaatje op bankjes, hekjes, moestuin | `MON_genshin_bridges` |
 | – | Vorm van de tuin, vijver, beekjes | `MON_garden_layout` |
 
 Gebruik in Blender: open het script in de Scripting-tab en voer het uit, of
