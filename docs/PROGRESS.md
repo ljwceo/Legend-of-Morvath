@@ -9,7 +9,7 @@
 | **Huidige fase** | Fase 3 – Je pad, Entrance Exam en gear (plan goedgekeurd 2026-10-10) |
 | **Status** | Stap 3.0 t/m 3.4 klaar. PR #34 (Blender-Greyhaven, één vijandsysteem, stap 3.3 instances) is gemerged in `main`. Stap 3.4 (*Your Resolve*: je pad kiezen bij een leraar) gebouwd. Fase 2 en het Blender-Greyhaven wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
 | **Volgende stap** | Bo/Lucas: de teksten van de drie leraren lezen en meten op pc/iPhone; daarna 3.5 (vechten met een staf + lock-on) |
-| **Laatste sessie** | 2026-10-11: PROGRESS bijgewerkt (PR #34 gemerged), stap 3.4 |
+| **Laatste sessie** | 2026-10-12: stap 3.4 (*Your Resolve*) gemerged; daarvoor (Blender) het Monastery als eigen asset met kloostertuin |
 
 ### Open vragen
 
@@ -20,6 +20,8 @@
 | 3 | Kloppen de plekken in het Blender-Greyhaven? | **Opgemeten in het model** (2026-10-11): smidse (aambeeld + vuur), markt, Monastery, haven, Academy met trainingsveld, toren van Brink, kelder van Sam. Golden Kettle en Alchemy Lab zijn niet te herkennen (gewone huizen bij de markt), de Garden (binnentuin van het Monastery) is dicht, dus Rose staat aan de rivieroever ernaast. Alleen data |
 | 5 | Het model heeft geen echte landpoort: de stadsmuur is dicht behalve waar de rivier eronderdoor gaat | Bo: een poort in Blender maken? Daarna alleen data (`exits`, `city_gate`, `sultan_gate`, arena) |
 | 4 | Moet `player.glb` ook in de open wereld gebruikt worden? | Nu alleen in Greyhaven; in de open wereld nog het placeholder-poppetje |
+| 6 | Past het nieuwe Monastery (met tuin, samen ±100 × 70 m) op de kliffen aan de westkust van Greyhaven? Het oude placeholder-klooster is ±31 × 32 m | Nog niet geplaatst; in de Greyhaven-chat bekijken (plek, draaien, eventueel kleiner). Zie `docs/MONASTERY.md` |
+| 7 | Kweekbare bedden in de kloostertuin (`MON_FarmPlot_1…6`): hoe moet farming werken (zaad, groeitijd, oogst, seizoenen)? | Alleen de bedden + markers staan in Blender; nog geen spelregels of code |
 
 ---
 
@@ -479,6 +481,12 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
   - Getest: 392 tests (o.a. voorwaarde `path`, één leraar per pad, leraar vraagt alleen na Sultan en zolang je geen pad hebt, pad maar één keer, quest klaar bij een keuze en niet bij alleen praten, dialoog van Brink na de keuze, validator). Headless Chromium (pc 1100×760): Sir Garrick (EN) op het trainingsveld, Wizard Sam (NL) in de kelder en Master Brink (EN) in de toren: Nee → Ja → "Nee, nog niet" (standaard) → geen pad; opnieuw met muisklik Ja → "Ja, zeker" → pad in de save, quest klaar, leraar zegt de nieuwe zin. Geen fouten.
   - Tijdelijke namen (alleen in data): Sir Garrick, Master Brink's Tower, Wizard Sam's Cellar. Nieuw: geen. **Alle zinnen van de leraren zijn een voorstel**, zeg het als ze anders moeten.
 
+- Extra taak (2026-10-12, opdracht van Bo, in Blender): **Monastery als eigen asset + kloostertuin** (`Monastery.blend` naast `Forge.blend`; uitleg in `docs/MONASTERY.md`, scripts in `tools/blender/monastery/`)
+  - Klooster naar een echt middeleeuws plan: kerk met apsis, roosvenster en klokkentoren, kloostergang met bogen, oost-, zuid- en westvleugel. Daken met 4 leivormen + 2 nokpannen, muren met 3 stenen + 2 funderingsstenen, echte ramen en deuren.
+  - Oostvleugel van binnen: hal + 6 kamers (Dormitory, Infirmary, Warming Room, Chapter House, Scriptorium, Brother Ansel's Cell), plankenvloer, plafond 6,5 m. Markers voor spawn (bed), Brother Ansel, deuren en kamers.
+  - Kloostertuin (±2× het klooster, vorm getekend door Bo): vijver (koi voor nu weggehaald), beekje met bron en poel, bruggetjes, bomen en bloemen, prieel, moestuin met 6 kweekbare bedden (`MON_FarmPlot_1…6`).
+  - Nog niet in Greyhaven en nog niet geoptimaliseerd (±545.000 vertices, vooral daken en stenen). Open vragen 6–8.
+
 ## Besluiten
 
 | Datum | Besluit | Waarom |
@@ -687,3 +695,6 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 ### 2026-10-11
 - Op verzoek (Bo/Lucas): PR #34 niet mergen, wel bijwerken op Bo's branch. Main erin gemerged, één vijandsysteem, NPC's/plekken/Sultan-gevecht opgemeten in het Blender-model, toren van Brink en kelder van Sam als instances met cutscene (stap 3.3). Save versie 7. 385 tests, headless Chromium zonder fouten. Open: fps meten op pc en iPhone, een echte landpoort in het model (open vraag 5).
 - PR #34 bleek al gemerged; PROGRESS bijgewerkt. Stap 3.4 gebouwd: main quest *Your Resolve* (keuzeknoppen in de dialoog, drie leraren met Ja/Nee en nog één keer bevestigen, pad in de save, quest klaar, cheats). 392 tests, headless Chromium (EN en NL, alle drie de leraren) zonder fouten. Tijdelijke namen: geen nieuwe. Volgende stap: 3.5 (staf + lock-on).
+
+### 2026-10-12
+- Blender (Bo + Claude): Monastery.blend gebouwd (klooster, daken, stenen, ramen/deuren, binnenkant oostvleugel met 6 kamers) en de kloostertuin met vijver, koi en kweekbare bedden. Alleen docs en Blender-scripts in de repo; geen game-code veranderd. Tijdelijke namen: Monastery Garden, Moonbell.

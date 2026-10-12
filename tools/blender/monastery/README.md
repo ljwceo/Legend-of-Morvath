@@ -1,0 +1,20 @@
+# Monastery – Blender-scripts
+
+Het Blender-bestand is `C:\Users\Bo\Documents\Morvath\Greyhaven\assets\Monastery.blend` (naast `Forge.blend`).
+**Het .blend-bestand is de bron**; deze scripts laten zien hoe het gebouwd is en zijn handig om delen opnieuw te maken.
+Een paar stappen (binnenkant van de oostvleugel, tuin) zijn direct in Blender uitgevoerd met de helpers hieronder;
+de maten en lijsten daarvan staan in de tekstblokken in het .blend.
+
+| Bestand | Wat | In het .blend als tekstblok |
+|---|---|---|
+| `01_build_monastery.py` | Eerste opzet: kerk, kloostergang, vleugels, toren (scene "Monastery") | – |
+| `mon_helpers.py` | Maten van de oostvleugel, lijst van ramen/deuren/binnenmuren/kamers, raam- en deur-kits | `MON_build_helpers` |
+| `03_tile_roofs.py` | Alle daken bedekken met de leien A–D en nok-/graatpannen E/F | `MON_roof_tiles` (alleen de functies) |
+| `04_wall_stones.py` | Stenen A–C (en funderingsstenen D/E) op de muren | `MON_wall_stones` |
+| – | Vorm van de tuin, vijver, beekjes | `MON_garden_layout` |
+
+Gebruik in Blender: open het script in de Scripting-tab en voer het uit, of
+`exec(bpy.data.texts["MON_build_helpers"].as_string())` in de Python-console.
+
+Afspraken: 1 eenheid = 1 meter, vloer/grond op Z=0, +Y = noord, +X = oost. Alle objecten beginnen met `MON_`,
+alle materialen met `GH_Monastery_` (GH_Toon-shader, dus de web-export herkent ze). Zie `docs/MONASTERY.md`.
