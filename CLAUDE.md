@@ -375,9 +375,9 @@ Definition of Done:
 - [ ] 60/120 fps gelijk; tests (puntentelling, zachte grenzen, HP/mana/schade-formules, migratie) en de DataValidator slagen.
 
 ### Fase 3.8 – Entrance Exams, je pad en de stadspoort
-Status: gebouwd op 2026-10-13 (negen exams, `train`-doel, pad-effecten met de drie perks, Crystal Ceremony per leraar, poort na Sultan + exam, save 12); wacht op spelen door Bo en Lucas. Details in `docs/PROGRESS.md`.
+Status: gebouwd op 2026-10-13 (negen exams, `train`-doel, pad-effecten met de drie perks, Crystal Ceremony per leraar, poort na Sultan + exam, save 12); wacht op spelen door Bo en Lucas. **Aangepast op 2026-10-13 (Bo):** de tweede exam van elk pad is geen Greenwood-tocht meer maar een slime-gevecht in drie waves op het trainingsveld, binnen de stad (zie het blok "Besluit van 2026-10-13" onderaan). Details in `docs/PROGRESS.md`.
 Doel: na mijn keuze doe ik de Entrance Exam van mijn leraar tot level 5, krijg wat mijn pad me geeft, en daarna gaat de stadspoort open.
-Bouwen: **drie exam-quests per leraar** (9 in totaal, alleen voor je eigen pad, elk de volgende pas na de vorige, in EN en NL; opbouw: iets leren bij je leraar → het gebruiken in de Greenwood → terugkomen en voordoen), één nieuw doel-type `train` ("raak de trainingspop N keer", bij Brink en Sam met een opgeladen spreuk); **pad-effecten**: zwaardvechter een beter zwaard, geen mana (manabalk weg), 115% kracht en de perks Iron Body / Battle Hardened / Swift Blade (bestaan al als data, werken nog niet; `attackSpeedPercent` moet in de zwaai-tijden), mage de **Mage Staff** + **Crystal Ceremony** als stripcutscene (Brink: willekeurig Water/Fire/Nature/Wind, Sam: Dark) met het kristal in de save; `canLeaveCity` wordt **Sultan verslagen + exam klaar**.
+Bouwen: **drie exam-quests per leraar** (9 in totaal, alleen voor je eigen pad, elk de volgende pas na de vorige, in EN en NL; opbouw: iets leren bij je leraar → het in een echt gevecht gebruiken op het trainingsveld → terugkomen en voordoen), twee nieuwe doel-types: `train` ("raak de trainingspop N keer", bij Brink en Sam met een opgeladen spreuk) en `waves` ("Wave 2/3", drie waves slimes op het trainingsveld); **pad-effecten**: zwaardvechter een beter zwaard, geen mana (manabalk weg), 115% kracht en de perks Iron Body / Battle Hardened / Swift Blade (bestaan al als data, werken nog niet; `attackSpeedPercent` moet in de zwaai-tijden), mage de **Mage Staff** + **Crystal Ceremony** als stripcutscene (Brink: willekeurig Water/Fire/Nature/Wind, Sam: Dark) met het kristal in de save; `canLeaveCity` wordt **Sultan verslagen + exam klaar**.
 Data: `quests.json` (9 exams), `npcs.json`, `items.json` (beter zwaard), `skills.json` (perks aan), `cutscenes.json` (Crystal Ceremony), `spells.json`, `triggers.json` (`canLeaveCity`), `lang/*.json`, save versie +1 (kristal).
 Niet doen: skill tree, spellboek en meer spells, kristallen mergen, Forge en markt (fase 4); eieren (fase 3.9).
 Definition of Done:
@@ -535,3 +535,16 @@ Definition of Done:
 - [ ] Coyote time en jump buffer werken (test); landen op trappen en randen gaat goed.
 - [ ] Sprinten kost energie en stopt als die op is; regen werkt zoals nu.
 - [ ] Nieuwe toetsen instelbaar in Settings → Besturing; DataValidator en alle tests slagen.
+
+### Besluit van 2026-10-13 (Bo) – de tweede Entrance Exam op het trainingsveld
+De tweede exam van elk pad stuurde je naar de Greenwood, maar de stadspoort gaat pas open na de **laatste** exam: je zat vast in Greyhaven. De tweede exam is daarom naar binnen gehaald en de Greenwood-tocht wordt een side quest voor later.
+
+1. **De tweede exam is een slime-gevecht op het trainingsveld van de Academy**, op dezelfde plek in de volgorde: *Hold the Line* (Sir Garrick), *Sparks on the Field* (Master Brink), *Shadows on the Field* (Wizard Sam). Je leraar roept de slimes; het veld valt binnen de veilige zone van Greyhaven en deze slimes zijn daar een bewuste uitzondering op — alleen tijdens de exam en alleen op het veld.
+2. **Drie waves**, elke zwaarder dan de vorige, met een instelbare pauze ertussen (`pauseSeconds` in de data). Nieuw doel-type **`waves`** met voortgang "Wave 2/3" in de questlijst.
+3. **Per leraar een andere soort slime:** Sir Garrick gewone Green Slimes en Big Slimes, Master Brink elementaire slimes (per slime willekeurig Water / Fire / Nature / Wind), Wizard Sam Dark Slimes. Alle soorten zijn dezelfde HP, schade en XP waard, dus de exam is op elk pad hetzelfde waard.
+4. **Statuseffecten zijn een herbruikbaar systeem** (`monsters.json` → `statusEffects`, een monster noemt ze in `onHit`): **Chilled** (slow, Water), **Burning** (schade over tijd, Fire), leech (Nature heelt van wat hij doet), een duidelijk hogere en verdere sprong (Wind) en **Weakened** (je eigen treffers doen minder, Dark). Later krijgt elk ander monster ze zonder nieuwe code.
+5. **Dood gaan of van het veld lopen** = de drill begint opnieuw bij wave 1, net als een herkansing bij Sultan. Een stap over de lijn is vergeven (`leaveSeconds`, nu 3 s), want in wave 3 duwen de grote slimes je rond.
+6. **De Greenwood-quests blijven bestaan** als side quest bij dezelfde leraar, pas als de poort open is (Sultan verslagen + je laatste exam), met gear als beloning. Ze tellen niet meer mee voor de exam.
+7. `canLeaveCity` blijft Sultan verslagen + de laatste exam van je eigen leraar, en de XP-rekening blijft 520 van level 3 naar level 5.
+
+**Open vraag:** het effect van de Dark Slime is een voorstel van Claude (**Weakened**: 4 s lang −25% eigen schade). Zeg het als je iets anders wilt.

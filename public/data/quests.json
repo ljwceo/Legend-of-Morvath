@@ -1,4 +1,143 @@
 {
+  "waveFights": [
+    {
+      "id": "garrick_field_drill",
+      "teacher": "sir_garrick",
+      "area": "academy_training_field",
+      "spawnRadius": 7,
+      "pauseSeconds": 4,
+      "leaveSeconds": 3,
+      "lines": {
+        "start": "fight.garrick_field_drill.start",
+        "wave": ["fight.garrick_field_drill.wave.2", "fight.garrick_field_drill.wave.3"],
+        "end": "fight.garrick_field_drill.end",
+        "reset": "fight.garrick_field_drill.reset"
+      },
+      "waves": [
+        {
+          "monsters": [
+            {
+              "monsters": ["green_slime"],
+              "count": 3
+            }
+          ]
+        },
+        {
+          "monsters": [
+            {
+              "monsters": ["green_slime"],
+              "count": 5
+            }
+          ]
+        },
+        {
+          "monsters": [
+            {
+              "monsters": ["big_slime"],
+              "count": 3
+            },
+            {
+              "monsters": ["green_slime"],
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "brink_field_drill",
+      "teacher": "master_brink",
+      "area": "academy_training_field",
+      "spawnRadius": 7,
+      "pauseSeconds": 4,
+      "leaveSeconds": 3,
+      "lines": {
+        "start": "fight.brink_field_drill.start",
+        "wave": ["fight.brink_field_drill.wave.2", "fight.brink_field_drill.wave.3"],
+        "end": "fight.brink_field_drill.end",
+        "reset": "fight.brink_field_drill.reset"
+      },
+      "waves": [
+        {
+          "monsters": [
+            {
+              "monsters": ["water_slime", "fire_slime", "nature_slime", "wind_slime"],
+              "count": 3
+            }
+          ]
+        },
+        {
+          "monsters": [
+            {
+              "monsters": ["water_slime", "fire_slime", "nature_slime", "wind_slime"],
+              "count": 5
+            }
+          ]
+        },
+        {
+          "monsters": [
+            {
+              "monsters": [
+                "water_big_slime",
+                "fire_big_slime",
+                "nature_big_slime",
+                "wind_big_slime"
+              ],
+              "count": 3
+            },
+            {
+              "monsters": ["water_slime", "fire_slime", "nature_slime", "wind_slime"],
+              "count": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sam_field_drill",
+      "teacher": "wizard_sam",
+      "area": "academy_training_field",
+      "spawnRadius": 7,
+      "pauseSeconds": 4,
+      "leaveSeconds": 3,
+      "lines": {
+        "start": "fight.sam_field_drill.start",
+        "wave": ["fight.sam_field_drill.wave.2", "fight.sam_field_drill.wave.3"],
+        "end": "fight.sam_field_drill.end",
+        "reset": "fight.sam_field_drill.reset"
+      },
+      "waves": [
+        {
+          "monsters": [
+            {
+              "monsters": ["dark_slime"],
+              "count": 3
+            }
+          ]
+        },
+        {
+          "monsters": [
+            {
+              "monsters": ["dark_slime"],
+              "count": 5
+            }
+          ]
+        },
+        {
+          "monsters": [
+            {
+              "monsters": ["dark_big_slime"],
+              "count": 3
+            },
+            {
+              "monsters": ["dark_slime"],
+              "count": 2
+            }
+          ]
+        }
+      ]
+    }
+  ],
   "quests": [
     {
       "id": "a_quiet_awakening",
@@ -271,9 +410,38 @@
       }
     },
     {
+      "id": "hold_the_line",
+      "name": "Hold the Line",
+      "kind": "main",
+      "giver": "sir_garrick",
+      "description": "quest.hold_the_line.desc",
+      "objectives": [
+        {
+          "type": "waves",
+          "fight": "garrick_field_drill",
+          "count": 3,
+          "text": "quest.hold_the_line.objective.waves"
+        }
+      ],
+      "requires": {
+        "quests": ["first_form"],
+        "path": "sword"
+      },
+      "dialogue": {
+        "offer": ["quest.hold_the_line.offer.1", "quest.hold_the_line.offer.2"],
+        "progress": ["quest.hold_the_line.progress.1"],
+        "complete": ["quest.hold_the_line.complete.1", "quest.hold_the_line.complete.2"]
+      },
+      "rewards": {
+        "xp": 80,
+        "gold": 30,
+        "items": []
+      }
+    },
+    {
       "id": "blade_in_the_woods",
       "name": "Blade in the Woods",
-      "kind": "main",
+      "kind": "side",
       "giver": "sir_garrick",
       "description": "quest.blade_in_the_woods.desc",
       "objectives": [
@@ -289,7 +457,7 @@
         }
       ],
       "requires": {
-        "quests": ["first_form"],
+        "quests": ["defeat_sultan", "prove_your_edge"],
         "path": "sword"
       },
       "dialogue": {
@@ -300,7 +468,16 @@
       "rewards": {
         "xp": 150,
         "gold": 30,
-        "items": []
+        "items": [
+          {
+            "item": "padded_mantle",
+            "count": 1
+          },
+          {
+            "item": "greater_health_potion",
+            "count": 2
+          }
+        ]
       }
     },
     {
@@ -318,7 +495,7 @@
         }
       ],
       "requires": {
-        "quests": ["blade_in_the_woods"],
+        "quests": ["hold_the_line"],
         "path": "sword"
       },
       "dialogue": {
@@ -327,7 +504,7 @@
         "complete": ["quest.prove_your_edge.complete.1", "quest.prove_your_edge.complete.2"]
       },
       "rewards": {
-        "xp": 180,
+        "xp": 120,
         "gold": 50,
         "items": []
       }
@@ -372,9 +549,38 @@
       }
     },
     {
+      "id": "sparks_on_the_field",
+      "name": "Sparks on the Field",
+      "kind": "main",
+      "giver": "master_brink",
+      "description": "quest.sparks_on_the_field.desc",
+      "objectives": [
+        {
+          "type": "waves",
+          "fight": "brink_field_drill",
+          "count": 3,
+          "text": "quest.sparks_on_the_field.objective.waves"
+        }
+      ],
+      "requires": {
+        "quests": ["the_arcane_shard"],
+        "path": "light"
+      },
+      "dialogue": {
+        "offer": ["quest.sparks_on_the_field.offer.1", "quest.sparks_on_the_field.offer.2"],
+        "progress": ["quest.sparks_on_the_field.progress.1"],
+        "complete": ["quest.sparks_on_the_field.complete.1", "quest.sparks_on_the_field.complete.2"]
+      },
+      "rewards": {
+        "xp": 80,
+        "gold": 30,
+        "items": []
+      }
+    },
+    {
       "id": "sparks_in_the_greenwood",
       "name": "Sparks in the Greenwood",
-      "kind": "main",
+      "kind": "side",
       "giver": "master_brink",
       "description": "quest.sparks_in_the_greenwood.desc",
       "objectives": [
@@ -390,7 +596,7 @@
         }
       ],
       "requires": {
-        "quests": ["the_arcane_shard"],
+        "quests": ["defeat_sultan", "show_me_your_focus"],
         "path": "light"
       },
       "dialogue": {
@@ -404,7 +610,16 @@
       "rewards": {
         "xp": 150,
         "gold": 30,
-        "items": []
+        "items": [
+          {
+            "item": "swift_ring",
+            "count": 1
+          },
+          {
+            "item": "greater_mana_potion",
+            "count": 2
+          }
+        ]
       }
     },
     {
@@ -423,7 +638,7 @@
         }
       ],
       "requires": {
-        "quests": ["sparks_in_the_greenwood"],
+        "quests": ["sparks_on_the_field"],
         "path": "light"
       },
       "dialogue": {
@@ -432,7 +647,7 @@
         "complete": ["quest.show_me_your_focus.complete.1", "quest.show_me_your_focus.complete.2"]
       },
       "rewards": {
-        "xp": 180,
+        "xp": 120,
         "gold": 50,
         "items": []
       }
@@ -477,9 +692,41 @@
       }
     },
     {
+      "id": "shadows_on_the_field",
+      "name": "Shadows on the Field",
+      "kind": "main",
+      "giver": "wizard_sam",
+      "description": "quest.shadows_on_the_field.desc",
+      "objectives": [
+        {
+          "type": "waves",
+          "fight": "sam_field_drill",
+          "count": 3,
+          "text": "quest.shadows_on_the_field.objective.waves"
+        }
+      ],
+      "requires": {
+        "quests": ["the_first_shadow"],
+        "path": "dark"
+      },
+      "dialogue": {
+        "offer": ["quest.shadows_on_the_field.offer.1", "quest.shadows_on_the_field.offer.2"],
+        "progress": ["quest.shadows_on_the_field.progress.1"],
+        "complete": [
+          "quest.shadows_on_the_field.complete.1",
+          "quest.shadows_on_the_field.complete.2"
+        ]
+      },
+      "rewards": {
+        "xp": 80,
+        "gold": 30,
+        "items": []
+      }
+    },
+    {
       "id": "shadows_in_the_greenwood",
       "name": "Shadows in the Greenwood",
-      "kind": "main",
+      "kind": "side",
       "giver": "wizard_sam",
       "description": "quest.shadows_in_the_greenwood.desc",
       "objectives": [
@@ -495,7 +742,7 @@
         }
       ],
       "requires": {
-        "quests": ["the_first_shadow"],
+        "quests": ["defeat_sultan", "show_me_your_shadow"],
         "path": "dark"
       },
       "dialogue": {
@@ -512,7 +759,16 @@
       "rewards": {
         "xp": 150,
         "gold": 30,
-        "items": []
+        "items": [
+          {
+            "item": "goblin_tooth_necklace",
+            "count": 1
+          },
+          {
+            "item": "greater_mana_potion",
+            "count": 2
+          }
+        ]
       }
     },
     {
@@ -531,7 +787,7 @@
         }
       ],
       "requires": {
-        "quests": ["shadows_in_the_greenwood"],
+        "quests": ["shadows_on_the_field"],
         "path": "dark"
       },
       "dialogue": {
@@ -540,7 +796,7 @@
         "complete": ["quest.show_me_your_shadow.complete.1", "quest.show_me_your_shadow.complete.2"]
       },
       "rewards": {
-        "xp": 180,
+        "xp": 120,
         "gold": 50,
         "items": []
       }

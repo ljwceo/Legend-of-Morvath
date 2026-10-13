@@ -13,7 +13,8 @@ import { countItem, type ItemStack, removeItem } from './Inventory';
 export type QuestStatus = 'locked' | 'available' | 'active' | 'ready' | 'done';
 
 /** Counted things that happen in the world (events), matched against objectives. */
-export type QuestEventKind = 'talk' | 'kill' | 'boss' | 'buy' | 'rest' | 'visit' | 'path' | 'train';
+export type QuestEventKind =
+  'talk' | 'kill' | 'boss' | 'buy' | 'rest' | 'visit' | 'path' | 'train' | 'waves';
 
 /** How far one objective is: `have` of `need` (capped at `need`). */
 export interface ObjectiveProgress {
@@ -44,6 +45,8 @@ function eventTarget(objective: QuestObjective, kind: QuestEventKind): string | 
       return undefined;
     case 'train':
       return objective.monster;
+    case 'waves':
+      return objective.fight;
     default:
       return null;
   }
@@ -99,7 +102,17 @@ export class QuestBook {
 
   /** Running quests, in the order they were started. */
   activeDefs(): QuestDef[] {
-    return this.save.active.map((entry) => this.byId.get(entry.id) as QuestDef);
+    return this.activeDefsInto([]);
+  }
+
+  /** The same list in `out` (reused), so the fixed step can look at it without allocating. */
+  activeDefsInto(out: QuestDef[]): QuestDef[] {
+    out.length = 0;
+    for (let i = 0; i < this.save.active.length; i++) {
+      const entry = this.save.active[i] as ActiveQuest;
+      out.push(this.byId.get(entry.id) as QuestDef);
+    }
+    return out;
   }
 
   status(id: string, level: number, bag: readonly ItemStack[]): QuestStatus {
@@ -169,6 +182,25 @@ export class QuestBook {
       if (changed) out.push(def);
     }
     return out;
+  }
+
+  /**
+   * Forgets what was counted for the objectives of one type (the waves of an Entrance Exam
+   * after you went down or walked off the field: the drill starts again at wave 1). Does
+   * nothing for a quest that is not running. Returns true when something was actually reset.
+   */
+  resetObjectives(id: string, type: QuestObjective['type']): boolean {
+    const def = this.byId.get(id);
+    const entry = this.entry(id);
+    if (!def || !entry) return false;
+    let changed = false;
+    for (let i = 0; i < def.objectives.length; i++) {
+      if ((def.objectives[i] as QuestObjective).type !== type) continue;
+      if ((entry.counts[i] ?? 0) === 0) continue;
+      entry.counts[i] = 0;
+      changed = true;
+    }
+    return changed;
   }
 
   /** How far objective `index` of a quest is (0 of need when it has not started). */

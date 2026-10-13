@@ -196,7 +196,9 @@ export class EnemyRenderer {
       }
       const hop = e.def.ai?.hop;
       if (blob && hop && e.hopTime > 0 && e.hopTime < hop.seconds) {
-        lift = Math.sin((e.hopTime / hop.seconds) * Math.PI) * HOP_HEIGHT;
+        // `heightFactor` makes a Wind slime jump clearly higher than a normal one.
+        const height = HOP_HEIGHT * (hop.heightFactor ?? 1);
+        lift = Math.sin((e.hopTime / hop.seconds) * Math.PI) * height;
       }
     }
     this.rotation.setFromAxisAngle(this.yAxis, e.drawHeading(alpha) + twist);

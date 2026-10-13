@@ -1,21 +1,52 @@
 import { describe, expect, it } from 'vitest';
 import {
+  itemsFileSchema,
   monstersFileSchema,
   playerFileSchema,
+  questsFileSchema,
+  skillsFileSchema,
+  spellsFileSchema,
   statsFileSchema,
   zonesFileSchema,
 } from '../data/schemas';
-import type { MonstersFile, PlayerConfig, StatsFile } from '../data/types';
+import type {
+  ItemsFile,
+  MonstersFile,
+  PlayerConfig,
+  PlayerPath,
+  Shape,
+  SkillsFile,
+  SpellsFile,
+  StatsFile,
+  WaveFightDef,
+  Zone,
+} from '../data/types';
 import type { Enemy } from '../entities/Enemy';
 import { readPublicJson } from '../test/loadPublic';
 import type { PointXZ } from '../world/Colliders';
-import { keepInArena } from './BossAI';
+import { emptyBox, shapeBounds } from '../world/Shapes';
+import { type Arena, keepInArena } from './BossAI';
+import { emptyGearStats, gearStats } from './Gear';
+import { headingTo } from './LockOn';
+import { applyPath } from './Paths';
+import { Shots } from './Shots';
+import {
+  powerFactor,
+  type StaffInput,
+  type StaffResult,
+  StaffState,
+  staffConfig,
+  stepStaff,
+} from './StaffCombat';
+import { leechHeal, slowFactor, StatusEffects, weakenFactor } from './StatusEffects';
+import { WaveFight } from './WaveFight';
 import {
   applyStats,
   assistedHeading,
   CombatState,
   damageTaken as damageTakenBy,
   inSwingArc,
+  regenMana,
   type SwordResult,
   stepSword,
   swordConfig,
@@ -347,5 +378,447 @@ describe('balance: extreme builds against Sultan', () => {
     console.log(`nothing spent, level 3: ${summary(results)}`);
     // It can be done, but you feel every missing point: this is the floor of the balance.
     expect(results.some((r) => r.won)).toBe(true);
+  });
+});
+
+/**
+ * The second Entrance Exam (fase 3.8): three waves of slimes on the Academy training field,
+ * run with the real wave code, the real enemy AI and the real status effects. The point of the
+ * check is the same as for Sultan: a normal player should usually get through it, and someone
+ * who only mashes the attack button should not.
+ */
+
+const questsFile = questsFileSchema.parse(readPublicJson('data/quests.json'));
+const items = itemsFileSchema.parse(readPublicJson('data/items.json')) as ItemsFile;
+const spells = spellsFileSchema.parse(readPublicJson('data/spells.json')) as SpellsFile;
+const skills = skillsFileSchema.parse(readPublicJson('data/skills.json')) as SkillsFile;
+const staff = staffConfig(player, spells);
+const itemsById = new Map(items.items.map((item) => [item.id, item]));
+const DRILLS: Readonly<Record<PlayerPath, string>> = {
+  sword: 'garrick_field_drill',
+  light: 'brink_field_drill',
+  dark: 'sam_field_drill',
+};
+/** What each path fights with after the first exam (its teacher hands it over). */
+const WEAPONS: Readonly<Record<PlayerPath, string>> = {
+  sword: 'academy_blade',
+  light: 'mage_staff',
+  dark: 'mage_staff',
+};
+/** The spell the crystal of each path comes with (Master Brink draws one of four). */
+const SPELLS: Readonly<Record<PlayerPath, string | null>> = {
+  sword: null,
+  light: 'thorn_shot',
+  dark: 'shadow_bolt',
+};
+
+const freeShots = { heightAt: () => 0, blocked: () => false };
+/** Seconds a simulated player steps away from a lunge, and how long it then holds its ground. */
+const DODGE_SECONDS = 0.5;
+const ATTACK_SECONDS = 0.8;
+
+function waveFight(id: string): WaveFightDef {
+  const def = questsFile.waveFights.find((entry) => entry.id === id);
+  if (!def) throw new Error(`missing wave fight ${id}`);
+  return def;
+}
+
+/** Greyhaven with nothing in it but the training field, so only the drill spawns monsters. */
+function fieldOnly(): Zone[] {
+  const base = zones.zones.find((zone) => zone.id === 'greyhaven');
+  if (!base) throw new Error('missing greyhaven');
+  return [{ ...base, spawns: [], spawnAreas: [], nightSpawns: [] }];
+}
+
+function trainingField(): Shape {
+  const greyhaven = zones.zones.find((zone) => zone.id === 'greyhaven');
+  const area = greyhaven?.areas.find((entry) => entry.id === 'academy_training_field');
+  if (!area) throw new Error('missing training field');
+  return area.shape;
+}
+
+interface DrillBot {
+  path: PlayerPath;
+  /** Keeps its distance from a slime that is winding up (false: only walks in and hits). */
+  dodges: boolean;
+  /** Seconds before reacting to a warning. */
+  reaction: number;
+  level: number;
+  points: StatPoints;
+}
+
+interface DrillResult {
+  won: boolean;
+  waves: number;
+  seconds: number;
+  hpLeft: number;
+  damageTaken: number;
+}
+
+/**
+ * One run of a path's drill with a simulated player. Walking, fighting, status effects and the
+ * waves are all the real code; only the decisions are a robot's.
+ */
+function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
+  const def = waveFight(DRILLS[bot.path]);
+  const field = trainingField();
+  const box = shapeBounds(field, emptyBox());
+  const cx = (box.minX + box.maxX) / 2;
+  const cz = (box.minZ + box.maxZ) / 2;
+  const enemies = new Enemies(
+    fieldOnly(),
+    monsters,
+    { showRadius: 160, hideMargin: 20 },
+    new Map([['academy_training_field', field]]),
+    null,
+    seed,
+    [def],
+  );
+  const status = new StatusEffects(monsters.statusEffects);
+  const shots = new Shots();
+
+  // The build, the weapon and the path, exactly as the world puts them together.
+  const c = new CombatState();
+  const effects = emptyStatEffects();
+  computeStatEffects(stats, bot.points, bot.path, effects);
+  const pathBonus = applyPath(player, skills, stats, bot.path, effects);
+  const weapon = itemsById.get(WEAPONS[bot.path]);
+  const gear = gearStats({ weapon: weapon?.id ?? '' }, itemsById, emptyGearStats());
+  c.weaponBonus = weapon?.weapon?.damageBonus ?? 0;
+  c.gearHp = gear.hp;
+  c.gearMana = gear.mana;
+  c.damageFactor = 1 + gear.damagePercent / 100;
+  applyStatsToCombat(stats, effects, c, gear.damageReductionPercent);
+  c.hasMana = pathBonus.hasMana;
+  applyStats(c, player, bot.level);
+  c.hp = c.maxHp;
+  c.mana = c.maxMana;
+  const spellId = SPELLS[bot.path];
+  const spell = spellId ? (staff.spells.get(spellId) ?? null) : null;
+  const power = powerFactor(spells.powerCurves, bot.path, bot.level);
+
+  const arena: Arena = { x: cx, z: cz, radius: field.type === 'circle' ? field.radius : 9 };
+  const s = new MoverState();
+  s.x = cx;
+  s.z = cz;
+  s.energy = moveCfg.maxEnergy;
+  const walkSpeed = moveCfg.walkSpeed * (1 + effects.moveSpeedPercent / 100);
+  let damageTaken = 0;
+  const target: EnemyTarget = { x: s.x, z: s.z, radius: moveCfg.radius, hostile: true };
+  const world: EnemiesWorld = {
+    mover: free,
+    heightAt: () => 0,
+    hitPlayer: (e, damage) => {
+      const taken = damageTakenBy(c, damage);
+      c.hp -= taken;
+      damageTaken += taken;
+      c.sinceCombat = 0;
+      status.applyAll(e.def);
+      leechHeal(e, taken);
+    },
+    shoot: () => {},
+    alive: () => 0,
+    alert: (e) => enemies.alert(e),
+    bossEvent: () => {},
+  } as EnemiesWorld;
+
+  let won = false;
+  let cleared = 0;
+  const fight = new WaveFight(def, {
+    alive: () => enemies.waveAlive(def.id),
+    spawnWave: (index) => void enemies.spawnWave(def.id, index, cx, cz, def.spawnRadius),
+    clear: () => enemies.clearWave(def.id),
+    // The robot never walks off the field (it is clamped to it below).
+    inArea: () => true,
+    say: () => {},
+    waveCleared: () => cleared++,
+    finished: () => {
+      won = true;
+    },
+    reset: () => {},
+  });
+  enemies.step(DT, target, world);
+  fight.start();
+
+  const cmd: MoveCommand = { x: 0, z: 0, dash: false };
+  const swordInput = { fast: false, heavy: false, critRoll: 1 };
+  const staffInput: StaffInput = { shard: false, spell: false, critRoll: 1 };
+  const swordOut: SwordResult = { landed: 'none', damage: 0, combo: false, crit: false };
+  const staffOut: StaffResult = { fired: 'none', shot: null, damage: 0, charge: 0, crit: false };
+  const staffState = new StaffState();
+  let warned = 0;
+  // A player does not back off forever in a crowd: dodge a lunge, then hit again.
+  let dodgeLeft = 0;
+  let holdGround = 0;
+  let time = 0;
+  for (; time < maxSeconds; time += DT) {
+    const totals = status.step(DT);
+    if (totals.damage > 0) {
+      const taken = damageTakenBy(c, totals.damage);
+      c.hp -= taken;
+      damageTaken += taken;
+    }
+    const weaken = weakenFactor(totals.weakenPercent);
+    // The nearest slime that can still be hit.
+    let near: Enemy | null = null;
+    let nearGap = Infinity;
+    let threat = false;
+    for (const e of enemies.shown) {
+      if (!e.hittable) continue;
+      const gap = Math.hypot(e.x - s.x, e.z - s.z) - e.radius - moveCfg.radius;
+      if (e.dodging && gap < 2.4) threat = true;
+      if (gap < nearGap) {
+        nearGap = gap;
+        near = e;
+      }
+    }
+    warned = threat ? warned + DT : 0;
+    dodgeLeft = Math.max(0, dodgeLeft - DT);
+    holdGround = Math.max(0, holdGround - DT);
+    if (bot.dodges && threat && warned >= bot.reaction && dodgeLeft <= 0 && holdGround <= 0) {
+      dodgeLeft = DODGE_SECONDS;
+      holdGround = DODGE_SECONDS + ATTACK_SECONDS;
+    }
+    cmd.x = 0;
+    cmd.z = 0;
+    cmd.dash = false;
+    swordInput.fast = false;
+    staffInput.shard = false;
+    staffInput.spell = false;
+    if (near) {
+      const dx = near.x - s.x;
+      const dz = near.z - s.z;
+      const d = Math.max(1e-6, Math.hypot(dx, dz));
+      const keep = bot.path === 'sword' ? 0 : 5.5;
+      if (!bot.dodges) {
+        // The button masher: walks straight at the nearest slime and keeps the button down,
+        // whatever is winding up around it.
+        if (nearGap > (bot.path === 'sword' ? sword.range * 0.75 : 1)) {
+          cmd.x = dx / d;
+          cmd.z = dz / d;
+        }
+        swordInput.fast = true;
+        staffInput.shard = true;
+        staffInput.spell = spell !== null && c.mana >= spell.manaCost;
+      } else if (dodgeLeft > 0) {
+        // Step out of the jump: sideways, towards the middle of the field, because backing
+        // straight up in a ring of slimes only puts you against the fence.
+        const toMiddleX = cx - s.x;
+        const toMiddleZ = cz - s.z;
+        const side = -dz * toMiddleX + dx * toMiddleZ >= 0 ? 1 : -1;
+        const px = (-dz / d) * side;
+        const pz = (dx / d) * side;
+        const middle = Math.max(1e-6, Math.hypot(toMiddleX, toMiddleZ));
+        cmd.x = px * 0.8 + (toMiddleX / middle) * 0.5;
+        cmd.z = pz * 0.8 + (toMiddleZ / middle) * 0.5;
+        cmd.dash = nearGap < 1.2;
+      } else if (bot.path === 'sword') {
+        if (nearGap > sword.range * 0.75) {
+          cmd.x = dx / d;
+          cmd.z = dz / d;
+        }
+        swordInput.fast = nearGap < sword.range;
+      } else {
+        // A mage keeps away from everything at once: it walks away from every slime that is
+        // too close (the nearer, the harder) and back towards the middle when the fence is
+        // behind it. That is what kiting in a ring looks like.
+        let awayX = 0;
+        let awayZ = 0;
+        for (const e of enemies.shown) {
+          if (!e.hittable) continue;
+          const ex = s.x - e.x;
+          const ez = s.z - e.z;
+          const gap = Math.max(0.2, Math.hypot(ex, ez) - e.radius - moveCfg.radius);
+          if (gap > keep + 2) continue;
+          awayX += (ex / Math.max(1e-6, Math.hypot(ex, ez))) * (keep / gap);
+          awayZ += (ez / Math.max(1e-6, Math.hypot(ex, ez))) * (keep / gap);
+        }
+        const edge = Math.hypot(s.x - cx, s.z - cz);
+        if (edge > arena.radius - 2.5) {
+          awayX += ((cx - s.x) / Math.max(1e-6, edge)) * 2.5;
+          awayZ += ((cz - s.z) / Math.max(1e-6, edge)) * 2.5;
+        }
+        const run = Math.hypot(awayX, awayZ);
+        if (run > 1e-6) {
+          cmd.x = awayX / run;
+          cmd.z = awayZ / run;
+        }
+        // The Shard is free, so it is always on; the spell goes out whenever it is ready.
+        staffInput.shard = true;
+        staffInput.spell = spell !== null && c.mana >= spell.manaCost;
+      }
+    }
+    if (bot.path === 'sword') {
+      if (swordInput.fast && s.dashTime <= 0 && near) {
+        // A real player turns the camera towards what they are hitting; aim assist only
+        // refines a heading that already points roughly the right way.
+        s.heading = headingTo(s.x, s.z, near.x, near.z, s.heading);
+        s.heading = assistedHeading(
+          s.x,
+          s.z,
+          s.heading,
+          enemies.shown,
+          sword.aimRange,
+          sword.aimHalfArc,
+        );
+      }
+      stepSword(
+        c,
+        s,
+        s.dashTime > 0 ? { fast: false, heavy: false, critRoll: 1 } : swordInput,
+        sword,
+        DT,
+        swordOut,
+      );
+      if (swordOut.landed !== 'none') {
+        const damage = Math.max(1, Math.round(swordOut.damage * weaken));
+        for (const e of enemies.shown) {
+          if (!e.hittable) continue;
+          if (!inSwingArc(s.x, s.z, s.heading, e.x, e.z, e.radius, sword.range, sword.halfArc)) {
+            continue;
+          }
+          enemies.hit(e, damage);
+          c.sinceCombat = 0;
+        }
+      }
+      moveCfg.walkSpeed =
+        walkSpeed *
+        (c.heavyWindup > 0 ? sword.heavyMoveFactor : 1) *
+        slowFactor(totals.slowPercent);
+    } else {
+      if ((staffInput.shard || staffInput.spell || staffState.casting) && near && s.dashTime <= 0) {
+        s.heading = headingTo(s.x, s.z, near.x, near.z, s.heading);
+      }
+      stepStaff(
+        staffState,
+        c,
+        s.dashTime > 0 ? { shard: false, spell: false, critRoll: 1 } : staffInput,
+        staff,
+        spell,
+        power,
+        DT,
+        staffOut,
+      );
+      if (staffOut.shot) {
+        shots.fire(
+          staffOut.shot,
+          s.x,
+          s.y + staff.shotHeight,
+          s.z,
+          s.heading,
+          Math.max(1, Math.round(staffOut.damage * weaken)),
+          // A mage locks on (fase 3.6), so the shot curves after its target — and lets go
+          // again the moment that target jumps at you, which is how shots miss.
+          near?.hittable ? near : null,
+          staffOut.charge,
+          staffOut.crit,
+        );
+        c.sinceCombat = 0;
+      }
+      moveCfg.walkSpeed =
+        walkSpeed *
+        (staffState.casting ? staff.castMoveFactor : 1) *
+        slowFactor(totals.slowPercent);
+    }
+    stepMovement(s, cmd, moveCfg, DT, free);
+    // A real player stays on the field (walking off it resets the drill, see WaveFight).
+    keepInArena(s, arena, moveCfg.radius);
+    regenMana(c, player.regen.manaPerSecond + effects.manaRegenPerSecond, DT);
+    target.x = s.x;
+    target.z = s.z;
+    enemies.step(DT, target, world);
+    shots.step(DT, enemies.shown, freeShots, (hit, shot) => {
+      const e = hit as Enemy;
+      if (!e.hittable) return;
+      enemies.hit(e, shot.damage);
+      c.sinceCombat = 0;
+    });
+    fight.step(DT);
+    if (won) break;
+    if (c.hp <= 0) break;
+  }
+  moveCfg.walkSpeed = movementConfig(player).walkSpeed;
+  return { won, waves: cleared, seconds: time, hpLeft: Math.max(0, c.hp), damageTaken };
+}
+
+function drillSummary(results: DrillResult[]): string {
+  const wins = results.filter((r) => r.won);
+  const avg = (list: number[]) => list.reduce((a, b) => a + b, 0) / Math.max(1, list.length);
+  return (
+    `wins ${wins.length}/${results.length} · ` +
+    `waves ${avg(results.map((r) => r.waves)).toFixed(1)}/3 · ` +
+    `time ${avg(wins.map((r) => r.seconds)).toFixed(0)} s · ` +
+    `hp left ${avg(wins.map((r) => r.hpLeft)).toFixed(0)} · ` +
+    `damage taken ${avg(results.map((r) => r.damageTaken)).toFixed(0)}`
+  );
+}
+
+describe('balance: the second Entrance Exam (three waves on the training field)', () => {
+  /** A normal player: level 3 or 4, one of the starting spreads from stats.json. */
+  const normal = (path: PlayerPath, level: number): DrillBot => ({
+    path,
+    dodges: true,
+    reaction: 0.3,
+    level,
+    points: build(
+      path === 'sword' ? 'sword_fighter' : path === 'light' ? 'light_mage' : 'dark_mage',
+      level,
+    ),
+  });
+
+  const average = (list: number[]): number =>
+    list.reduce((a, b) => a + b, 0) / Math.max(1, list.length);
+
+  for (const path of ['sword', 'light', 'dark'] as const) {
+    it(`is usually beaten by a normal ${path} player at level 3-4`, () => {
+      const results = SEEDS.flatMap((seed) =>
+        [3, 4].map((level) => runDrill(normal(path, level), seed)),
+      );
+      console.log(`drill, ${path}, level 3-4, plays it properly: ${drillSummary(results)}`);
+      const wins = results.filter((r) => r.won);
+      // "Usually": at least three out of four runs, and never a walkover in a few seconds.
+      expect(wins.length).toBeGreaterThanOrEqual(Math.ceil(results.length * 0.75));
+      expect(average(wins.map((r) => r.seconds))).toBeGreaterThan(15);
+      // And it costs you something: the waves really get through now and then.
+      expect(average(results.map((r) => r.damageTaken))).toBeGreaterThan(8);
+    });
+
+    it(`punishes a ${path} player who only mashes the attack button`, () => {
+      const masher = SEEDS.map((seed) =>
+        runDrill({ ...normal(path, 3), dodges: false, reaction: 0 }, seed),
+      );
+      const careful = SEEDS.map((seed) => runDrill(normal(path, 3), seed));
+      console.log(`drill, ${path}, button masher: ${drillSummary(masher)}`);
+      const wins = (list: DrillResult[]) => list.filter((r) => r.won).length;
+      const damage = (list: DrillResult[]) => average(list.map((r) => r.damageTaken));
+      const hpLeft = (list: DrillResult[]) => average(list.map((r) => r.hpLeft));
+      // Walking into the ring and holding the button down always costs clearly more.
+      expect(damage(masher)).toBeGreaterThan(damage(careful));
+      if (path === 'sword') {
+        // A sword fighter can brute-force a field of slimes (his swing hits all of them at
+        // once), but he comes out of it with clearly less left than someone who steps out of
+        // the lunges. Slimes are simply no wall for a sword: see docs/PROGRESS.md.
+        expect(hpLeft(masher)).toBeLessThan(hpLeft(careful));
+      } else {
+        // A mage who stands between the slimes does not come out: distance is the lesson.
+        expect(wins(masher)).toBe(0);
+      }
+    });
+  }
+
+  it('makes every wave heavier than the one before it', () => {
+    const hpOf = (id: string): number =>
+      monsters.monsters.find((entry) => entry.id === id)?.hp ?? 0;
+    for (const fight of questsFile.waveFights) {
+      let previous = 0;
+      for (const wave of fight.waves) {
+        const hp = wave.monsters.reduce(
+          (sum, entry) => sum + hpOf(entry.monsters[0] as string) * entry.count,
+          0,
+        );
+        expect(hp).toBeGreaterThan(previous);
+        previous = hp;
+      }
+    }
   });
 });

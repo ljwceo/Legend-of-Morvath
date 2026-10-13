@@ -13,8 +13,11 @@ import { readPublicJson } from '../test/loadPublic';
 import { addItem, countItem, type ItemStack } from './Inventory';
 import { addXp, type LevelState } from './Progression';
 import { QuestBook } from './Quests';
+import { emptyBox, pointInShape, shapeBounds } from '../world/Shapes';
 
-const quests = questsFileSchema.parse(readPublicJson('data/quests.json')).quests;
+const questsFile = questsFileSchema.parse(readPublicJson('data/quests.json'));
+const quests = questsFile.quests;
+const waveFights = questsFile.waveFights;
 const player = playerFileSchema.parse(readPublicJson('data/player.json')) as PlayerConfig;
 const monsters = monstersFileSchema.parse(readPublicJson('data/monsters.json')).monsters;
 const zones = zonesFileSchema.parse(readPublicJson('data/zones.json')).zones;
@@ -199,7 +202,14 @@ describe('the first day in Greyhaven (quests.json)', () => {
 describe('the Entrance Exams (fase 3.8)', () => {
   /** The three exams of one teacher, in the order you do them. */
   function examsOf(path: 'sword' | 'light' | 'dark'): QuestDef[] {
-    return quests.filter((quest) => quest.requires.path === path);
+    return quests.filter((quest) => quest.requires.path === path && quest.kind === 'main');
+  }
+
+  /** The side quest the same teacher gives you once the city gate is open. */
+  function sideOf(path: 'sword' | 'light' | 'dark'): QuestDef {
+    const found = quests.find((quest) => quest.requires.path === path && quest.kind === 'side');
+    if (!found) throw new Error(`no side quest for ${path}`);
+    return found;
   }
 
   /** Walks a path's exams the way the world does: accept, do everything, hand in. */
@@ -212,7 +222,10 @@ describe('the Entrance Exams (fase 3.8)', () => {
     const done: QuestDef[] = [];
     for (let round = 0; round < 5; round++) {
       const next = quests.find(
-        (quest) => quest.requires.path === path && book.status(quest.id, 5, bag) === 'available',
+        (quest) =>
+          quest.requires.path === path &&
+          quest.kind === 'main' &&
+          book.status(quest.id, 5, bag) === 'available',
       );
       if (!next) break;
       book.accept(next.id);
@@ -221,6 +234,8 @@ describe('the Entrance Exams (fase 3.8)', () => {
           book.record('train', objective.monster, objective.count, [], undefined, charge);
         } else if (objective.type === 'kill') {
           book.record('kill', objective.monster, objective.count, []);
+        } else if (objective.type === 'waves') {
+          book.record('waves', objective.fight, objective.count, []);
         }
       }
       if (!book.isReady(next, bag)) break;
@@ -300,22 +315,173 @@ describe('the Entrance Exams (fase 3.8)', () => {
     }
   });
 
-  it('walks a path from level 3 to level 5 (520 XP), kills included', () => {
+  it('walks a path from level 3 to level 5 (520 XP), the slimes of the drill included', () => {
     for (const path of ['sword', 'light', 'dark'] as const) {
       const done = runExams(path, 1);
       expect(done).toHaveLength(3);
       let xp = done.reduce((sum, quest) => sum + quest.rewards.xp, 0);
       for (const quest of done) {
         for (const objective of quest.objectives) {
-          if (objective.type !== 'kill') continue;
-          const monster = monsters.find((entry) => entry.id === objective.monster);
-          xp += (monster?.xp ?? 0) * objective.count;
+          if (objective.type === 'kill') {
+            xp += monsterXp(objective.monster) * objective.count;
+          } else if (objective.type === 'waves') {
+            xp += drillXp(objective.fight);
+          }
         }
       }
-      // From level 3 with nothing to spare: 220 + 300 XP brings you to level 5.
+      // From level 3 with nothing to spare: 220 + 300 XP brings you to level 5, exactly.
+      expect(xp).toBe(520);
       const state: LevelState = { level: 3, xp: 0 };
       addXp(player, state, xp);
-      expect(state.level).toBeGreaterThanOrEqual(5);
+      expect(state.level).toBe(5);
+      expect(state.xp).toBe(0);
     }
   });
+
+  it('is all doable inside Greyhaven, so the closed gate can never trap you', () => {
+    // Everything canLeaveCity needs: Sultan plus your own last exam, and so every quest that
+    // comes before it. None of them may send you outside the city walls.
+    const walls = greyhavenWalls();
+    for (const path of ['sword', 'light', 'dark'] as const) {
+      const last = examsOf(path)[2] as QuestDef;
+      for (const quest of questChain(last.id)) {
+        for (const objective of quest.objectives) {
+          if (objective.type === 'kill') {
+            // A kill objective would mean the Greenwood: nothing in the chain may ask for one.
+            expect.fail(`${quest.id} asks you to hunt ${objective.monster} outside the city`);
+          }
+          if (objective.type === 'waves') {
+            const fight = waveFights.find((entry) => entry.id === objective.fight);
+            expect(fight, objective.fight).toBeDefined();
+            const shape = areaShape(fight?.area ?? '');
+            expect(shape, fight?.area).toBeDefined();
+            if (!shape || !walls) continue;
+            const box = shapeBounds(shape, emptyBox());
+            for (const [x, z] of [
+              [box.minX, box.minZ],
+              [box.minX, box.maxZ],
+              [box.maxX, box.minZ],
+              [box.maxX, box.maxZ],
+            ] as const) {
+              expect(pointInShape(walls, x, z), `${fight?.id} at ${x}, ${z}`).toBe(true);
+            }
+          }
+        }
+      }
+    }
+  });
+
+  it('keeps the Greenwood runs, but only once the city gate is open', () => {
+    for (const path of ['sword', 'light', 'dark'] as const) {
+      const side = sideOf(path);
+      const last = examsOf(path)[2] as QuestDef;
+      // Exactly what canLeaveCity asks for (triggers.json): Sultan plus your own last exam.
+      expect(side.requires.quests).toEqual(['defeat_sultan', last.id]);
+      expect(side.objectives.every((objective) => objective.type === 'kill')).toBe(true);
+      // And it pays in items, not in a place in the exam chain.
+      expect(side.rewards.items.length).toBeGreaterThan(0);
+      for (const stack of side.rewards.items) {
+        expect(
+          items.some((item) => item.id === stack.item),
+          stack.item,
+        ).toBe(true);
+      }
+      // Locked until the last exam is handed in; open right after.
+      const save = freshSave();
+      save.completed.push(
+        'defeat_sultan',
+        'your_resolve',
+        ...examsOf(path)
+          .slice(0, 2)
+          .map((q) => q.id),
+      );
+      const book = new QuestBook(quests, save);
+      book.path = path;
+      expect(book.status(side.id, 5, [])).toBe('locked');
+      save.completed.push(last.id);
+      const after = new QuestBook(quests, save);
+      after.path = path;
+      expect(after.status(side.id, 5, [])).toBe('available');
+    }
+  });
+
+  it("makes the second exam a drill of three waves at your own teacher's field", () => {
+    for (const path of ['sword', 'light', 'dark'] as const) {
+      const second = examsOf(path)[1] as QuestDef;
+      const objective = second.objectives[0];
+      expect(objective?.type).toBe('waves');
+      if (objective?.type !== 'waves') continue;
+      const fight = waveFights.find((entry) => entry.id === objective.fight);
+      expect(fight?.teacher).toBe(second.giver);
+      expect(fight?.waves).toHaveLength(objective.count);
+      expect(objective.count).toBe(3);
+    }
+  });
+
+  it('counts a cleared wave, and forgets them again when the drill resets', () => {
+    const save = freshSave();
+    save.completed.push('defeat_sultan', 'your_resolve', 'first_form');
+    const book = new QuestBook(quests, save);
+    book.path = 'sword';
+    const drill = examsOf('sword')[1] as QuestDef;
+    const objective = drill.objectives[0];
+    if (objective?.type !== 'waves') throw new Error('expected a waves objective');
+    book.accept(drill.id);
+    book.record('waves', objective.fight, 1, []);
+    book.record('waves', objective.fight, 1, []);
+    expect(book.progress(drill, 0, [], { have: 0, need: 0 })).toEqual({ have: 2, need: 3 });
+    // Another teacher's drill never counts for yours.
+    book.record('waves', 'sam_field_drill', 1, []);
+    expect(book.progress(drill, 0, [], { have: 0, need: 0 }).have).toBe(2);
+    // Down or off the field: back to wave 1.
+    expect(book.resetObjectives(drill.id, 'waves')).toBe(true);
+    expect(book.progress(drill, 0, [], { have: 0, need: 0 }).have).toBe(0);
+    expect(book.resetObjectives(drill.id, 'waves')).toBe(false);
+    // Three waves finish it.
+    book.record('waves', objective.fight, 3, []);
+    expect(book.isReady(drill, [])).toBe(true);
+  });
 });
+
+/** XP a monster is worth, with what it splits into (a Big Slime leaves two Green Slimes). */
+function monsterXp(id: string): number {
+  const def = monsters.find((entry) => entry.id === id);
+  if (!def) throw new Error(`missing monster ${id}`);
+  const split = def.splitsInto;
+  const children = split ? monsterXp(split.monster) * split.count : 0;
+  return def.xp + children;
+}
+
+/** XP all the waves of a drill are worth (every candidate of an entry is worth the same). */
+function drillXp(fightId: string): number {
+  const fight = waveFights.find((entry) => entry.id === fightId);
+  if (!fight) throw new Error(`missing wave fight ${fightId}`);
+  let xp = 0;
+  for (const wave of fight.waves) {
+    for (const entry of wave.monsters) xp += monsterXp(entry.monsters[0] as string) * entry.count;
+  }
+  return xp;
+}
+
+/** A quest and everything that has to be handed in before it (its requirements, recursively). */
+function questChain(id: string, seen = new Set<string>()): QuestDef[] {
+  if (seen.has(id)) return [];
+  seen.add(id);
+  const def = quests.find((quest) => quest.id === id);
+  if (!def) return [];
+  const out: QuestDef[] = [def];
+  for (const required of def.requires.quests ?? []) out.push(...questChain(required, seen));
+  return out;
+}
+
+function greyhavenWalls() {
+  return zones.find((zone) => zone.id === 'greyhaven')?.safeZones?.[0]?.shape;
+}
+
+function areaShape(id: string) {
+  for (const zone of zones) {
+    const area = zone.areas.find((entry) => entry.id === id);
+    if (area) return area.shape;
+  }
+  return undefined;
+}

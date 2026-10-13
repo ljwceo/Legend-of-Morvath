@@ -48,17 +48,25 @@ function dummy(): EnemyModel {
   return { parts: [geometry], height: 2, style: 'upright' };
 }
 
-/** A slime: a squashed green drop with two eyes (facing +z). */
-function slime(): EnemyModel {
-  const eye = (): BufferGeometry => new SphereGeometry(0.06, 6, 4);
-  const geometry = colored([
-    [new SphereGeometry(0.45, 14, 10).scale(1, 0.75, 1), SLIME, 0, 0.34, 0],
-    [new SphereGeometry(0.2, 8, 6), 0xa8d98a, 0.12, 0.55, 0.12],
-    [eye(), EYES, -0.14, 0.42, 0.38],
-    [eye(), EYES, 0.14, 0.42, 0.38],
-  ]);
-  return { parts: [geometry], height: 0.75, style: 'blob' };
+/**
+ * A slime: a squashed drop with two eyes (facing +z). `body` is its colour and `shine` the
+ * lighter blob on top, so the elemental slimes of the second Entrance Exam are the same shape
+ * in another colour.
+ */
+function slimeOf(body: number, shine: number): () => EnemyModel {
+  return () => {
+    const eye = (): BufferGeometry => new SphereGeometry(0.06, 6, 4);
+    const geometry = colored([
+      [new SphereGeometry(0.45, 14, 10).scale(1, 0.75, 1), body, 0, 0.34, 0],
+      [new SphereGeometry(0.2, 8, 6), shine, 0.12, 0.55, 0.12],
+      [eye(), EYES, -0.14, 0.42, 0.38],
+      [eye(), EYES, 0.14, 0.42, 0.38],
+    ]);
+    return { parts: [geometry], height: 0.75, style: 'blob' };
+  };
 }
+
+const slime = slimeOf(SLIME, 0xa8d98a);
 
 /** The body all goblins share: small, green, big ears, a leather tunic. */
 function goblinBody(tunic: number): [BufferGeometry, number, number, number, number][] {
@@ -192,6 +200,12 @@ const builders: Record<string, () => EnemyModel> = {
   'placeholder:sultan': sultan,
   'placeholder:dummy': dummy,
   'placeholder:slime': slime,
+  // The elemental slimes of the second Entrance Exam: the same drop in its element's colour.
+  'placeholder:slime_water': slimeOf(palette.magieblauw, 0x9ad6f2),
+  'placeholder:slime_fire': slimeOf(palette.lantaarnamber, 0xffd089),
+  'placeholder:slime_nature': slimeOf(terrainColors.mosgroen, 0xb6d98a),
+  'placeholder:slime_wind': slimeOf(0xcfe4e8, terrainColors.sneeuw),
+  'placeholder:slime_dark': slimeOf(palette.schemerviolet, 0x8f7bbd),
   'placeholder:goblin': goblin,
   'placeholder:goblin_archer': goblinArcher,
   'placeholder:goblin_chief': goblinChief,

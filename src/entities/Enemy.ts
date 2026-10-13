@@ -115,6 +115,15 @@ export class Enemy implements SwordTarget, ShotTarget {
   }
 
   /**
+   * Can you lock on to it? Everything you can hit except something that does not move or
+   * fight: a training dummy stands in the middle of the Academy field, and locking on to it
+   * while a wave of slimes comes at you only gets in the way.
+   */
+  get lockable(): boolean {
+    return this.hittable && this.def.behavior !== 'static';
+  }
+
+  /**
    * Stepping aside right now: a shot of the player no longer curves towards it, so attacking
    * monsters are harder to hit (it does not dodge while recovering, so that is your opening).
    */
@@ -164,6 +173,11 @@ export class Enemy implements SwordTarget, ShotTarget {
   /** The ground height was just set for a fresh spot: no interpolation from 0. */
   settleY(): void {
     this.prevY = this.y;
+  }
+
+  /** The heading was just turned by hand (a wave spawning): no interpolation from the old one. */
+  settleHeading(): void {
+    this.prevHeading = this.heading;
   }
 
   drawX(alpha: number): number {

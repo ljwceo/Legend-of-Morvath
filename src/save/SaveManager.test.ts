@@ -255,6 +255,53 @@ describe('migrate', () => {
     expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
   });
 
+  it('upgrades a version 14 save: the second exam moved from the Greenwood to the field', () => {
+    // Someone who had already done Blade in the Woods as their exam keeps that step: it counts
+    // as the new drill, so they never do an exam twice, and the Greenwood run itself comes
+    // back later as a side quest.
+    const current = sampleSave();
+    const v14 = {
+      ...current,
+      version: 14,
+      quests: {
+        active: [
+          { id: 'sparks_in_the_greenwood', counts: [2, 1] },
+          { id: 'first_harvest', counts: [0] },
+        ],
+        completed: ['defeat_sultan', 'your_resolve', 'blade_in_the_woods'],
+      },
+    };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v14));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.quests.completed).toEqual([
+      'defeat_sultan',
+      'your_resolve',
+      'hold_the_line',
+    ]);
+    // A Greenwood run that was still open is dropped: your teacher offers the drill instead.
+    expect(result.save.quests.active).toEqual([{ id: 'first_harvest', counts: [0] }]);
+  });
+
+  it('upgrades a version 14 save that never started an exam: nothing changes', () => {
+    const current = sampleSave();
+    const v14 = {
+      ...current,
+      version: 14,
+      quests: { active: [{ id: 'steel_and_slime', counts: [0] }], completed: ['just_for_you'] },
+    };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v14));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.quests.active).toEqual([{ id: 'steel_and_slime', counts: [0] }]);
+    expect(result.save.quests.completed).toEqual(['just_for_you']);
+  });
+
   it('upgrades a version 10 save: the default on-screen buttons; the other settings stay', () => {
     const current = sampleSave();
     const settings: Record<string, unknown> = { ...current.settings, volume: 0.4 };

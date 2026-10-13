@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -233,6 +233,39 @@ export const migrations: Readonly<Record<number, Migration>> = {
   13: (save) => {
     const settings = (save.settings ?? {}) as Record<string, unknown>;
     return { ...save, version: 14, settings: { ...settings, bagFullscreen: false } };
+  },
+  // v15 (2026-10-13): the second Entrance Exam moved from the Greenwood to the Academy
+  // training field, because the city gate stays shut until the last exam is done. A Greenwood
+  // run that was still open is dropped (your teacher offers the new drill instead) and one
+  // that was already handed in counts as the new exam, so nobody does an exam twice. The
+  // Greenwood runs themselves come back later as side quests, with their own reward.
+  14: (save) => {
+    const moved: Readonly<Record<string, string>> = {
+      blade_in_the_woods: 'hold_the_line',
+      sparks_in_the_greenwood: 'sparks_on_the_field',
+      shadows_in_the_greenwood: 'shadows_on_the_field',
+    };
+    const quests = (save.quests ?? {}) as Record<string, unknown>;
+    const active = Array.isArray(quests.active) ? quests.active : [];
+    const completed = Array.isArray(quests.completed) ? quests.completed : [];
+    const nextCompleted: unknown[] = [];
+    for (const id of completed) {
+      const replacement = typeof id === 'string' ? moved[id] : undefined;
+      const keep = replacement ?? id;
+      if (!nextCompleted.includes(keep)) nextCompleted.push(keep);
+    }
+    return {
+      ...save,
+      version: 15,
+      quests: {
+        ...quests,
+        active: active.filter((entry) => {
+          const id = (entry as { id?: unknown } | null)?.id;
+          return typeof id !== 'string' || moved[id] === undefined;
+        }),
+        completed: nextCompleted,
+      },
+    };
   },
   // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged
   // them). Everyone starts on the default size and the default places.

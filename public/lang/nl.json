@@ -281,7 +281,8 @@
     "statPoints": "Je hebt {n} statpunten. Open je statusvenster met {keyStatus}.",
     "statsReturned": "Levels groeien niet meer vanzelf: je {n} punten mag je zelf verdelen ({keyStatus}).",
     "eggFound": "Je hebt de {name} gevonden. Sultan ruilt een ei voor een nieuwe build.",
-    "statsReset": "Je {n} punten zijn weer vrij. Verdeel ze zoals je wilt."
+    "statsReset": "Je {n} punten zijn weer vrij. Verdeel ze zoals je wilt.",
+    "drillLeft": "Je verliet het veld, dus de drill begint opnieuw. Stap er weer op zodra je klaar bent."
   },
   "dialog": {
     "next": "Verder",
@@ -680,12 +681,12 @@
     "blade_in_the_woods": {
       "complete": {
         "1": "Geen nieuwe schrammen? Of je bent voorzichtig, of je liegt tegen me.",
-        "2": "Hoe dan ook: je kunt vechten. Nog één test en de Academy is achter de rug."
+        "2": "Hou de mantel. Daarbuiten is voering meer waard dan mijn lof."
       },
-      "desc": "Sir Garrick wil het in het echt zien: versla 4 Goblins en 4 Green Slimes in The Greenwood of Aerandir.",
+      "desc": "Side quest: nu de poort open is wil Sir Garrick het in het echte bos zien — versla 4 Goblins en 4 Green Slimes in The Greenwood of Aerandir.",
       "offer": {
-        "1": "Een pop slaat nooit terug, dus die leert je niets over angst. De Greenwood wel.",
-        "2": "Vier goblins, vier slimes. Kom terug en vertel me welke je verkeerd inschatte."
+        "1": "De poort is open, dus hier is de les die ik je binnen de muren niet kon geven.",
+        "2": "Vier goblins, vier slimes, buiten in de Greenwood. Er zit een Padded Mantle voor je in."
       },
       "progress": {
         "1": "Er is nog werk in het bos. Vier goblins en vier slimes."
@@ -727,13 +728,13 @@
     },
     "sparks_in_the_greenwood": {
       "complete": {
-        "1": "En je komt terug met mana over? Dát is de les, niet het aantal.",
-        "2": "Nog één exam. Deze keer wil ik een opgeladen spreuk zien."
+        "1": "Het bos is geen trainingsveld. Dat merkte je, dat zie ik.",
+        "2": "De ring is van jou. Licht reist sneller als de hand dat ook doet."
       },
-      "desc": "Master Brink wil het gebruikt zien: versla 4 Green Slimes en 4 Goblins in The Greenwood of Aerandir.",
+      "desc": "Side quest: nu de poort open is wil Master Brink het buiten gebruikt zien — versla 4 Green Slimes en 4 Goblins in The Greenwood of Aerandir.",
       "offer": {
-        "1": "Een doel dat stilstaat leert je afstand. Een doel dat wegloopt leert je timing.",
-        "2": "Vier slimes, vier goblins, in de Greenwood. Houd je mana in de gaten, niet alleen je vijand."
+        "1": "Je bent geslaagd, dus dit is geen exam. Het is een gunst, en hij betaalt.",
+        "2": "Vier slimes, vier goblins, in de Greenwood. Er ligt een Swift Ring in mijn lade met bijna jouw naam erop."
       },
       "progress": {
         "1": "Vier slimes en vier goblins. Let op je mana."
@@ -759,7 +760,7 @@
     "the_first_shadow": {
       "complete": {
         "1": "Hahaa — het stro smeult. Dat is de Shard.",
-        "2": "Nu het bos. Schaduwen staan toch mooier tussen bomen."
+        "2": "Nu iets dat beweegt. Ik heb precies het juiste in de kelder."
       },
       "desc": "Wizard Sam gaf je een Mage Staff en een Dark Crystal. Raak de trainingspop op het veld 8 keer met de Arcane Shard.",
       "objective": {
@@ -775,13 +776,13 @@
     },
     "shadows_in_the_greenwood": {
       "complete": {
-        "1": "Levend! En er is niets met je meegelopen. Grotendeels.",
-        "2": "Nog één. Deze keer opgeladen — écht opgeladen."
+        "1": "Al terug? En nog redelijk heel.",
+        "2": "Hier. Hij ratelt als er iets duisters dichtbij is. Waarschijnlijk."
       },
-      "desc": "Wizard Sam wil het uitgeprobeerd zien: versla 4 Goblins en 4 Green Slimes in The Greenwood of Aerandir.",
+      "desc": "Side quest: nu de poort open is wil Wizard Sam het echt uitgeprobeerd zien — versla 4 Goblins en 4 Green Slimes in The Greenwood of Aerandir.",
       "offer": {
-        "1": "Ga eens iets bang maken. Vier goblins, vier slimes, in de Greenwood.",
-        "2": "En onthoud: nu sterk, later zwakker. Gebruik je voorsprong zolang je hem hebt."
+        "1": "Deze keer geen exam. Alleen ik, nieuwsgierig naar wat het bos met je doet.",
+        "2": "Vier goblins, vier slimes. Ik ruil je een Goblin Tooth Necklace voor het verhaal."
       },
       "progress": {
         "1": "Vier goblins en vier slimes. De Greenwood ligt in het noordoosten."
@@ -802,6 +803,57 @@
       },
       "progress": {
         "1": "Opgeladen, niet getikt. Houd de knop vast tot hij groeit, vijf keer."
+      }
+    },
+    "hold_the_line": {
+      "desc": "Sir Garrick roept slimes op het trainingsveld. Houd het veld drie waves lang.",
+      "objective": {
+        "waves": "Wave {have}/{need}"
+      },
+      "offer": {
+        "1": "Een pop slaat nooit terug, dus die leert je niets over angst. Deze wel.",
+        "2": "Ik heb er een paar in een ton achter de Academy. Drie waves, elke erger dan de vorige. Blijf op het veld."
+      },
+      "progress": {
+        "1": "Drie waves, op het veld. Loop je eraf, dan beginnen we opnieuw."
+      },
+      "complete": {
+        "1": "Drie waves en je staat nog. Daar is het veld voor.",
+        "2": "Nog één test en de Academy is achter de rug."
+      }
+    },
+    "sparks_on_the_field": {
+      "desc": "Master Brink roept elementaire slimes op het trainingsveld. Houd het veld drie waves lang.",
+      "objective": {
+        "waves": "Wave {have}/{need}"
+      },
+      "offer": {
+        "1": "Een doel dat stilstaat leert je afstand. Een doel dat bijt leert je timing.",
+        "2": "Water, vuur, natuur, wind — en je weet niet welke tot hij je raakt. Drie waves. Blijf op het veld."
+      },
+      "progress": {
+        "1": "Drie waves op het veld. Houd je mana in de gaten, niet alleen je vijand."
+      },
+      "complete": {
+        "1": "En je komt terug met mana over? Dát is de les, niet het aantal.",
+        "2": "Nog één exam. Deze keer wil ik een opgeladen spreuk zien."
+      }
+    },
+    "shadows_on_the_field": {
+      "desc": "Wizard Sam roept dark slimes op het trainingsveld. Houd het veld drie waves lang.",
+      "objective": {
+        "waves": "Wave {have}/{need}"
+      },
+      "offer": {
+        "1": "Slimes. Ik weet het, ik weet het. Maar deze zaten in mijn kelder, en de kelder verandert dingen.",
+        "2": "Drie waves, boven op het veld. Stap er niet af, of we doen het hele ding opnieuw."
+      },
+      "progress": {
+        "1": "Drie waves dark slimes, op het veld. Ze zuigen je leeg — dus sla als eerste."
+      },
+      "complete": {
+        "1": "Levend! En er is niets met je meegelopen. Grotendeels.",
+        "2": "Nog één. Deze keer opgeladen — écht opgeladen."
       }
     }
   },
@@ -1082,5 +1134,34 @@
   "world": {
     "loading": "Laden…",
     "loadFailed": "Deze plek kon niet geladen worden. Controleer je verbinding en probeer het opnieuw."
+  },
+  "fight": {
+    "garrick_field_drill": {
+      "start": "De ton is open. Voeten uit elkaar, ogen vooruit — daar komen ze.",
+      "wave": {
+        "2": "Dat was het opwarmen. De volgende is groter.",
+        "3": "Laatste wave, en de dikke heb ik erbij gedaan. Loop niet tegen een pop aan."
+      },
+      "end": "Het veld is van jou. Goed.",
+      "reset": "Van het veld af, dan ook van de exam af. Kom terug en we beginnen bij de eerste wave."
+    },
+    "brink_field_drill": {
+      "start": "Vier elementen, en ik vertel ze nooit welke ze moeten sturen. Begin.",
+      "wave": {
+        "2": "Nog eens, en meer. Houd afstand; afstand is de spreuk vóór de spreuk.",
+        "3": "De grote draagt hetzelfde element als de kleine. Leer het voordat hij je raakt."
+      },
+      "end": "Netjes. Mana over, voeten droog, en je staat nog.",
+      "reset": "Je verliet het veld, dus de les verdween met je mee. Vanaf de eerste wave, graag."
+    },
+    "sam_field_drill": {
+      "start": "Omhoog, kleintjes. Doe je best om de leerling pijn te doen.",
+      "wave": {
+        "2": "Meer! Ze worden dapperder in een groepje. Mensen ook.",
+        "3": "En de dikke. Als hij knapt krijg je er twee bij — dat is de grap."
+      },
+      "end": "Hah! Geen enkele meer over. Ik vond die slimes leuk.",
+      "reset": "Oh, je liep weg. Goed, goed. Dan vanaf het begin."
+    }
   }
 }
