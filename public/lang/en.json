@@ -128,6 +128,11 @@
       "attackSpeed": "Attack speed +{n}%",
       "regen": "Regen {hp} HP/s · {mana} mana/s · {energy} energy/s",
       "potion": "Potions +{n}%"
+    },
+    "reset": {
+      "title": "Build yourself again",
+      "hint": "Sultan took your egg and freed every point. Your level, your path, your gear and your quests stay as they are.",
+      "done": "This is who I am"
     }
   },
   "status": {
@@ -274,7 +279,9 @@
     "noMana": "Not enough mana.",
     "statPoint": "You have a stat point. Open your status window with {keyStatus}.",
     "statPoints": "You have {n} stat points. Open your status window with {keyStatus}.",
-    "statsReturned": "Levels no longer grow by themselves: your {n} points are yours to spend ({keyStatus})."
+    "statsReturned": "Levels no longer grow by themselves: your {n} points are yours to spend ({keyStatus}).",
+    "eggFound": "You found the {name}. Sultan trades an egg for a new build.",
+    "statsReset": "Your {n} points are free again. Spread them as you like."
   },
   "dialog": {
     "next": "Continue",
@@ -398,7 +405,16 @@
     "sultan": {
       "1": "You fought well, little one. Pringle was only a disguise. Cats have their secrets.",
       "2": "Go on, the world is waiting. But when you are stronger, come back. I want a rematch.",
-      "3": "Nine lives, remember? I still have eight."
+      "3": "Nine lives, remember? I still have eight.",
+      "4": "And bring me eggs. One egg, and I will untangle everything you are. Do not ask how.",
+      "reset": {
+        "1": "An egg! Give it here, and I will shake you loose.",
+        "2": "Everything you learned stays. Only the way you are built comes apart.",
+        "question": "Spread all your points again? That costs one egg.",
+        "confirm": "Once more: the egg is mine and your build comes apart. Sure?",
+        "accepted": "Hold still. There. Now build yourself again.",
+        "declined": "Keep your egg then. I am not going anywhere."
+      }
     }
   },
   "item": {
@@ -482,6 +498,39 @@
     },
     "academy_blade": {
       "desc": "A straight, well-balanced blade from the Academy armoury. Heavier than your old sword, and it shows."
+    },
+    "mossback_egg": {
+      "desc": "A mossy egg, warm to the touch. Sultan wants it."
+    },
+    "rootgnarl_egg": {
+      "desc": "A bark-hard egg from the deep woods. Sultan wants it."
+    },
+    "fenstalker_egg": {
+      "desc": "An egg out of the mud, still dripping. Sultan wants it."
+    },
+    "bogmaw_egg": {
+      "desc": "A slimy egg from the fens. Sultan wants it."
+    },
+    "hoarfrost_egg": {
+      "desc": "An egg of blue ice that never melts. Sultan wants it."
+    },
+    "whisperer_egg": {
+      "desc": "An egg that hums when nobody speaks. Sultan wants it."
+    },
+    "sentinel_egg": {
+      "desc": "A stone-grey egg from the old ruins. Sultan wants it."
+    },
+    "stonejaw_egg": {
+      "desc": "An egg as heavy as the mountain it came from. Sultan wants it."
+    },
+    "windlash_egg": {
+      "desc": "An egg that rocks in your hand on its own. Sultan wants it."
+    },
+    "blightborn_egg": {
+      "desc": "An egg with a dark glow. Sultan wants it, and nobody asks why."
+    },
+    "sultan_egg": {
+      "desc": "Sultan's own egg. He gave it to you after the fight, grinning."
     }
   },
   "quest": {
@@ -920,7 +969,11 @@
     "homing": "Shots curve",
     "lockSight": "Sight tolerance",
     "lockSightNote": "How long a locked enemy may be out of sight before the lock lets go (0× = at once).",
-    "examsDone": "Exams done"
+    "examsDone": "Exams done",
+    "eggs": "Eggs",
+    "eggGive": "Give an egg",
+    "eggForget": "Forget found eggs",
+    "eggsFound": "Found: {found} of {total}."
   },
   "bag": {
     "title": "Bag",

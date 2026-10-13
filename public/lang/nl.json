@@ -128,6 +128,11 @@
       "attackSpeed": "Aanvalssnelheid +{n}%",
       "regen": "Regen {hp} HP/s · {mana} mana/s · {energy} energie/s",
       "potion": "Drankjes +{n}%"
+    },
+    "reset": {
+      "title": "Bouw jezelf opnieuw",
+      "hint": "Sultan nam je ei aan en maakte al je punten vrij. Je level, je pad, je gear en je quests blijven precies zoals ze waren.",
+      "done": "Dit ben ik"
     }
   },
   "status": {
@@ -274,7 +279,9 @@
     "noMana": "Niet genoeg mana.",
     "statPoint": "Je hebt een statpunt. Open je statusvenster met {keyStatus}.",
     "statPoints": "Je hebt {n} statpunten. Open je statusvenster met {keyStatus}.",
-    "statsReturned": "Levels groeien niet meer vanzelf: je {n} punten mag je zelf verdelen ({keyStatus})."
+    "statsReturned": "Levels groeien niet meer vanzelf: je {n} punten mag je zelf verdelen ({keyStatus}).",
+    "eggFound": "Je hebt de {name} gevonden. Sultan ruilt een ei voor een nieuwe build.",
+    "statsReset": "Je {n} punten zijn weer vrij. Verdeel ze zoals je wilt."
   },
   "dialog": {
     "next": "Verder",
@@ -398,7 +405,16 @@
     "sultan": {
       "1": "Goed gevochten, kleintje. Pringle was maar een vermomming. Katten hebben hun geheimen.",
       "2": "Ga maar, de wereld wacht. Maar kom terug als je sterker bent. Ik wil een herkansing.",
-      "3": "Negen levens, weet je nog? Ik heb er nog acht."
+      "3": "Negen levens, weet je nog? Ik heb er nog acht.",
+      "4": "En breng me eieren. Eén ei, en ik haal alles wat je bent weer los. Vraag niet hoe.",
+      "reset": {
+        "1": "Een ei! Geef hier, dan schud ik je los.",
+        "2": "Alles wat je geleerd hebt blijft. Alleen hoe je gebouwd bent valt uit elkaar.",
+        "question": "Al je punten opnieuw verdelen? Dat kost één ei.",
+        "confirm": "Nog één keer: het ei is van mij en je build valt uit elkaar. Zeker?",
+        "accepted": "Stil blijven staan. Zo. Bouw jezelf nu opnieuw.",
+        "declined": "Hou je ei dan maar. Ik ga nergens heen."
+      }
     }
   },
   "item": {
@@ -482,6 +498,39 @@
     },
     "academy_blade": {
       "desc": "Een rechte, goed uitgebalanceerde kling uit de wapenkamer van de Academy. Zwaarder dan je oude zwaard, en dat merk je."
+    },
+    "mossback_egg": {
+      "desc": "Een ei vol mos, warm als je het aanraakt. Sultan wil het hebben."
+    },
+    "rootgnarl_egg": {
+      "desc": "Een ei zo hard als boomschors, uit het diepe bos. Sultan wil het hebben."
+    },
+    "fenstalker_egg": {
+      "desc": "Een ei uit de modder, nog nadruppelend. Sultan wil het hebben."
+    },
+    "bogmaw_egg": {
+      "desc": "Een glibberig ei uit het moeras. Sultan wil het hebben."
+    },
+    "hoarfrost_egg": {
+      "desc": "Een ei van blauw ijs dat nooit smelt. Sultan wil het hebben."
+    },
+    "whisperer_egg": {
+      "desc": "Een ei dat zoemt als niemand praat. Sultan wil het hebben."
+    },
+    "sentinel_egg": {
+      "desc": "Een steengrijs ei uit de oude ruïnes. Sultan wil het hebben."
+    },
+    "stonejaw_egg": {
+      "desc": "Een ei zo zwaar als de berg waar het uit komt. Sultan wil het hebben."
+    },
+    "windlash_egg": {
+      "desc": "Een ei dat vanzelf heen en weer wiegt in je hand. Sultan wil het hebben."
+    },
+    "blightborn_egg": {
+      "desc": "Een ei met een donkere gloed. Sultan wil het hebben, en niemand vraagt waarom."
+    },
+    "sultan_egg": {
+      "desc": "Het ei van Sultan zelf. Hij gaf het je na het gevecht, grijnzend."
     }
   },
   "quest": {
@@ -920,7 +969,11 @@
     "homing": "Schoten krommen",
     "lockSight": "Zicht-tolerantie",
     "lockSightNote": "Hoe lang een vergrendelde vijand uit het zicht mag zijn voordat de lock losgaat (0× = meteen).",
-    "examsDone": "Exams klaar"
+    "examsDone": "Exams klaar",
+    "eggs": "Eieren",
+    "eggGive": "Geef een ei",
+    "eggForget": "Vergeet gevonden eieren",
+    "eggsFound": "Gevonden: {found} van {total}."
   },
   "bag": {
     "title": "Tas",

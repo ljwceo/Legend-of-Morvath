@@ -12,6 +12,7 @@ const TYPE_ORDER: readonly ItemDef['type'][] = [
   'weapon',
   'armor',
   'crystal',
+  'egg',
   'quest',
   'recipe',
   'resource',

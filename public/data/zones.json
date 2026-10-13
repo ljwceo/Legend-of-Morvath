@@ -1354,6 +1354,22 @@
           "z": -1030,
           "wanderRadius": 6,
           "respawnSeconds": 180
+        },
+        {
+          "id": "mossback_lair",
+          "monster": "mossback",
+          "x": -1420,
+          "z": -760,
+          "wanderRadius": 12,
+          "respawnSeconds": 600
+        },
+        {
+          "id": "rootgnarl_lair",
+          "monster": "rootgnarl",
+          "x": -800,
+          "z": -700,
+          "wanderRadius": 12,
+          "respawnSeconds": 600
         }
       ],
       "spawnAreas": [
@@ -1472,6 +1488,24 @@
       },
       "npcs": [],
       "areas": [],
+      "spawns": [
+        {
+          "id": "fenstalker_lair",
+          "monster": "fenstalker",
+          "x": -1300,
+          "z": 260,
+          "wanderRadius": 12,
+          "respawnSeconds": 600
+        },
+        {
+          "id": "bogmaw_lair",
+          "monster": "bogmaw",
+          "x": -950,
+          "z": 950,
+          "wanderRadius": 12,
+          "respawnSeconds": 600
+        }
+      ],
       "instances": [],
       "structures": [
         {
@@ -1554,6 +1588,16 @@
       ],
       "npcs": [],
       "areas": [],
+      "spawns": [
+        {
+          "id": "hoarfrost_warden_lair",
+          "monster": "hoarfrost_warden",
+          "x": -300,
+          "z": -900,
+          "wanderRadius": 12,
+          "respawnSeconds": 600
+        }
+      ],
       "instances": [],
       "scatter": [
         {
@@ -1605,6 +1649,16 @@
       ],
       "npcs": [],
       "areas": [],
+      "spawns": [
+        {
+          "id": "hollow_whisperer_lair",
+          "monster": "hollow_whisperer",
+          "x": -300,
+          "z": -100,
+          "wanderRadius": 12,
+          "respawnSeconds": 600
+        }
+      ],
       "instances": [],
       "scatter": [
         {
@@ -1649,6 +1703,16 @@
       ],
       "npcs": [],
       "areas": [],
+      "spawns": [
+        {
+          "id": "dunmar_sentinel_lair",
+          "monster": "dunmar_sentinel",
+          "x": -300,
+          "z": 800,
+          "wanderRadius": 12,
+          "respawnSeconds": 600
+        }
+      ],
       "instances": [],
       "scatter": [
         {
@@ -1693,6 +1757,16 @@
       ],
       "npcs": [],
       "areas": [],
+      "spawns": [
+        {
+          "id": "stonejaw_lair",
+          "monster": "stonejaw",
+          "x": 650,
+          "z": -800,
+          "wanderRadius": 12,
+          "respawnSeconds": 600
+        }
+      ],
       "instances": [],
       "scatter": [
         {
@@ -1731,6 +1805,16 @@
       ],
       "npcs": [],
       "areas": [],
+      "spawns": [
+        {
+          "id": "windlash_lair",
+          "monster": "windlash",
+          "x": 650,
+          "z": 400,
+          "wanderRadius": 12,
+          "respawnSeconds": 600
+        }
+      ],
       "instances": [],
       "scatter": [
         {
@@ -1775,6 +1859,16 @@
       ],
       "npcs": [],
       "areas": [],
+      "spawns": [
+        {
+          "id": "blightborn_lair",
+          "monster": "blightborn",
+          "x": 1600,
+          "z": 0,
+          "wanderRadius": 12,
+          "respawnSeconds": 600
+        }
+      ],
       "instances": [],
       "scatter": [
         {

@@ -6,10 +6,10 @@
 
 | | |
 |---|---|
-| **Huidige fase** | Fase 3.7 – Stats en builds (puntensysteem) |
-| **Status** | **Fase 3.7 gebouwd (2026-10-12):** levels groeien niet meer vanzelf. Je verdeelt **20 punten** in de character creator (nieuwe tweede stap) en krijgt **1 punt per level**; tien stats met zachte grenzen in `stats.json`, een statusvenster op een eigen instelbare toets (standaard **P**, ook in het pauzemenu), save versie 10. Daarvoor: fase 3.6 (buttonmapping + lock-on) en stap 3.0 t/m 3.5 klaar. Fase 2, het Blender-Greyhaven en de teksten van de leraren wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
-| **Volgende stap** | **Fase 3.8 – Entrance Exams, je pad en de stadspoort** in een nieuwe chat (prompt hieronder). Bo/Lucas: 3.7 spelen — voelen de tien stats goed, en is Defense sterk genoeg? (zie open vraag 14) |
-| **Laatste sessie** | 2026-10-12: liggend spelen op de telefoon (speelveld, knoppen, debug, panelen); daarvoor het klooster in Greyhaven en fase 3.7 (stats en builds) |
+| **Huidige fase** | Fase 3.9 – Eieren, mini-bosses en opnieuw verdelen |
+| **Status** | **Fase 3.9 gebouwd (2026-10-13):** tien mini-bosses met elk eenmalig een ei, het ei van Sultan uit zijn baasgevecht, en inleveren bij Sultan om al je punten opnieuw te verdelen (save versie 13). Daarvoor: fase 3.8 (Entrance Exams, pad-effecten, stadspoort), 3.7 (stats en builds), 3.6 (buttonmapping + lock-on) en stap 3.0 t/m 3.5. Fase 2, 3.7, 3.8 en het Blender-Greyhaven wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
+| **Volgende stap** | **Fase 3.10 – Afronden fase 3** in een nieuwe chat (balans nameten, Meet 20 s op Low/Mid/High, geheugen, documentatie). Bo/Lucas: 3.8 en 3.9 spelen — zijn de tien mini-bosses sterk genoeg, en staan ze op leuke plekken? |
+| **Laatste sessie** | 2026-10-13: fase 3.9 (eieren, mini-bosses, opnieuw verdelen bij Sultan); daarvoor fase 3.8 (Entrance Exams) |
 
 ### Liggend spelen op de telefoon (Bo, 2026-10-12)
 
@@ -30,7 +30,7 @@ Na het spelen op de telefoon: de game speel je **alleen liggend**. Het beeld hou
 | 9 | Schoten vliegen dwars door een vijand die je niet kunt raken (Treewarden in de elfenstad, een baas die ontwijkt); bij het zwaard krijg je dan wel een melding of een "geblokkeerd"-effect | Voorstel: zo laten (je schiet erlangs); zeg het als een schot op zo'n vijand ook moet melden dat hij beschermd is |
 | 10 | De Q-knop (snel drinken) pakt alleen health potions (`player.json` → `potions.quickOrder`). Mana potions drink je uit de tas | Voorstel: zo laten, of een tweede knop/regel ("pak een mana potion als je HP vol is") |
 | 11 | Vallende sakura-blaadjes zijn een Blender-animatie via collection instances. Gaat die mee met de glTF-export, of laat de game de blaadjes zelf vallen? | **Getest (2026-10-12):** gaat niet mee (animatie van instances); de export laat de blaadjes en vuurvliegjes nu weg. Later eventueel als effect in de game |
-| 14 | **Defense is veel zwakker dan HP.** 22 punten in HP geeft +170 HP (ruim 4× zoveel leven), 22 punten in Defense maar −11% schade. In de balans-test wint "alles in HP" 8/8 en "alles in Defense" 3/8, net als niets besteed | Zo gelaten: dit zijn jouw getallen (−0,5%, boven 35 punten −0,2%, plafond 60% samen met gear), dus Defense is bedoeld als steunstat die pas met gear meetelt. Zeg het als een punt Defense meer moet doen; het is één regel in `stats.json` |
+| 14 | **Defense is veel zwakker dan HP.** 22 punten in HP geeft +170 HP (ruim 4× zoveel leven), 22 punten in Defense maar −11% schade | **Beantwoord (Bo, 2026-10-13): zo laten.** Defense is een steunstat; er komen items die je omdoet voor defense-buffs, en die tellen bij je punten op (plafond 60% samen met gear). De getallen in `stats.json` blijven ongewijzigd |
 | 13 | Zit het lock-on-puntje op het midden van de **vijand** of vast in het **midden van je scherm**? | Voorstel en nu afgesproken: op het midden van de vijand (de camera houdt hem toch vast, dus het zit in de praktijk vlak bij het schermmidden). Eén regel anders als Bo een vast vizier wil |
 | 12 | Bomen in de kloostertuin gebruiken nu Genshin-achtige trosjes-kaartjes (plaatje met alpha + bol-normals, `GH_Monastery_Foliage_*`). De game-shader heeft daar nog geen modus voor | **Gebouwd (2026-10-12):** `foliage`-modus in `ToonMaterial` (plaatje met alpha, `discard`, normals aan beide kanten, beetje wind); de export neemt UV, normals en PNG mee. Bladeren, gras en bloemen zijn geen muur (je loopt erdoorheen) |
 
@@ -665,10 +665,44 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - **Tijdelijke namen (alleen in data):** Academy Blade, en de negen questnamen (First Form, Blade in the Woods, Prove Your Edge, The Arcane Shard, Sparks in the Greenwood, Show Me Your Focus, The First Shadow, Shadows in the Greenwood, Show Me Your Shadow).
 - **Nog niet gemeten:** fps op de pc en de iPhone (zoals heel fase 2 en 3); deze stap voegt geen werk per frame toe behalve één null-check.
 
+### Fase 3.9 – Eieren, mini-bosses en opnieuw verdelen (2026-10-13)
+**Status:** gebouwd op 2026-10-13; wacht op spelen door Bo en Lucas.
+**Gebouwd:**
+- **Tien mini-bosses, elk met één ei**, op een vaste plek in de wereld (`zones.json` → `spawns`, `monsters.json` → `rank: "miniboss"` + het nieuwe veld `egg`). Ze staan verspreid over de hele kaart, zodat er in elke zone iets te halen valt zodra die zone inhoud krijgt. De plekken zijn met de terreinformule nagemeten: elke mini-boss staat op droge, vlakke grond, buiten elke veilige zone, en ver van de bestaande spawngebieden (test).
+
+  | Mini-boss | Zone | Level | HP | Ei |
+  |---|---|---|---|---|
+  | Mossback | The Greenwood of Aerandir (noordwest) | 6 | 450 | Mossback Egg |
+  | Rootgnarl | The Greenwood of Aerandir (oostrand) | 8 | 700 | Rootgnarl Egg |
+  | Fenstalker | The Mournfen (noord) | 10 | 1000 | Fenstalker Egg |
+  | Bogmaw | The Mournfen (zuid) | 13 | 1400 | Bogmaw Egg |
+  | Hoarfrost Warden | The Frozen Lake | 18 | 2200 | Hoarfrost Egg |
+  | Hollow Whisperer | Eredhollow | 19 | 1800 | Whisperer Egg |
+  | Dunmar Sentinel | The Ruins of Dunmar | 21 | 2600 | Sentinel Egg |
+  | Stonejaw | Mountains of Karad Vorn | 27 | 4000 | Stonejaw Egg |
+  | Windlash | The Plains of Tharond | 36 | 5500 | Windlash Egg |
+  | Blightborn | Morvath | 46 | 8000 | Blightborn Egg |
+
+  Elke mini-boss heeft één gewaarschuwde gebiedsaanval (elke 3e aanval, rode cirkel), wordt sneller onder 40% HP, en laat gold en twee grote drankjes vallen. Ze gebruiken de bestaande placeholder-modellen (slime, goblin-chief, treewarden, goblin-archer) op een ander formaat, dus er is geen nieuwe art voor nodig.
+- **Het ei van Sultan** komt uit zijn baasgevecht zelf: Sultan heeft hetzelfde `egg`-veld, dus winnen geeft **Sultan's Egg**. Je eerste herverdeling kost je dus niets extra's.
+- **Een ei is een eigen itemsoort** (`items.json` → `type: "egg"`): het weegt niets (alleen wapens en gear wegen), is niet te drinken of om te doen, en is alleen in te leveren. Leg je een ei op Biscuit, dan telt het niet mee tot je het er weer afhaalt (zoals al zijn spullen).
+- **Elk ei bestaat één keer in het hele spel.** De save (**versie 13**, `foundEggs`) onthoudt welke eieren gevonden zijn en slaat dat meteen op, dus herladen kan hetzelfde ei nooit twee keer geven. Een mini-boss komt na 10 minuten wel terug (voor XP en buit), maar zonder ei.
+- **Inleveren bij Sultan** (hij staat na zijn gevecht al bij de oostmuur): praat je met een ei in je tas, dan eindigt zijn tekst met *"Al je punten opnieuw verdelen? Dat kost één ei."* — **Nee** mag altijd, **Ja** vraagt nog één keer (met "Nee, nog niet" voorgeselecteerd, zoals bij Your Resolve, zodat doorklikken nooit een ei kost). In een gevecht doet hij geen aanbod, net zoals je dan ook geen punten kunt besteden. Zonder ei of vóór zijn gevecht zegt hij gewoon zijn eigen regels (met een hint over eieren erbij). Alles data: het nieuwe `eggReset`-blok in `npcs.json` (voorwaarde, prijs, teksten).
+- **Nieuw venster "Bouw jezelf opnieuw"**: zodra Sultan klaar is met praten, opent dezelfde stattenlijst als in de character creator, nu mét de startvoorstellen (Sword Fighter / Light Mage / Dark Mage), Willekeurig en Opnieuw beginnen, en met de **−** knoppen aan (alleen hier mogen punten terug naar binnen). Je **level, pad, gear en quests blijven precies gelijk**; alleen je punten bewegen, en het totaal blijft wat je level je geeft. Sluit je het venster met punten over, dan blijven die van je (het statusvenster besteedt ze later, één kant op zoals altijd). Nieuw event `statsReset` (en `eggFound`) voor latere quests.
+- **Cheats** (debug): een sectie **Eieren** met **Geef een ei** (het eerste nog niet gevonden ei in je tas) en **Vergeet gevonden eieren** (dan geeft elke mini-boss zijn ei weer), met de teller "Gevonden: x van 11".
+- **Getest:** 570 tests (15 nieuwe: een ei herkennen, alleen eieren tellen, een ei valt één keer en nooit meer, een gewone vijand geeft niets, Sultans aanbod staat alleen na zijn gevecht en met een ei in je tas, inleveren pakt precies één ei en maakt al je punten vrij zonder het totaal te veranderen, te weinig eieren verandert niets, de tien plekken liggen op droge grond buiten de veilige zones en minstens 200 m van elkaar, elf eieren horen bij elf dragers, save 12 → 13), lint, opmaak, typecheck, build en de DataValidator (nieuw: een ei verwijst naar een bestaand item van het soort "egg", alleen een mini-boss of baas draagt een ei, elk ei hoort bij precies één monster, een monster met een ei dat geen baas is moet ergens in de wereld staan, en een `eggReset` heeft bestaande teksten, een bestaande voorwaarde en een prijs die het spel kan betalen).
+- **Headless Chromium (pc 1280×800, NL), echt doorgespeeld:** nieuw spel → Sword Fighter → wereld; de cheats **Sultan verslagen** en **Geef een ei** zetten de teller op "Gevonden: 1 van 11" en het **Mossback Egg** staat met zijn beschrijving in de tas; van de Greenwood naar Greyhaven gelopen (zonewissel bij de oostmuur werkt nog gewoon). Daarna met een ingelezen save naast Sultan (level 5, zwaardpad, 20 punten besteed, ei in de tas) met hem gepraat: zijn twee regels → *"Al je punten opnieuw verdelen? Dat kost één ei."* met **Ja/Nee** → bevestigen met "Nee, nog niet" voorgeselecteerd → *"Stil blijven staan."* → melding "Je 20 punten zijn weer vrij", en het venster **Bouw jezelf opnieuw** opent met "24 punten over" (20 + 4 levels), de drie voorstellen, Willekeurig, Opnieuw beginnen en de tien stats. Sword Fighter aanklikken, een punt eruit (**5 over**) en weer erin (**4 over**) werkt, "Dit ben ik" bewaart de nieuwe verdeling, en in de save zijn het ei weg, de punten opnieuw verdeeld en level 5, het zwaardpad, de gear en `defeat_sultan` onveranderd. Nog een keer praten zonder ei geeft gewoon zijn eigen regels (geen aanbod). Geen fouten in de console.
+- **Tijdelijke namen (alleen in data):** de tien mini-bosses (Mossback, Rootgnarl, Fenstalker, Bogmaw, Hoarfrost Warden, Hollow Whisperer, Dunmar Sentinel, Stonejaw, Windlash, Blightborn), hun aanvallen en de elf einamen.
+- **Nog niet gemeten:** fps op de pc en de iPhone (zoals heel fase 2 en 3); deze stap voegt per frame niets toe (tien vijanden extra in de pool, die alleen in de buurt van de speler meedoen).
+
 ## Besluiten
 
 | Datum | Besluit | Waarom |
 |---|---|---|
+| 2026-10-13 | Defense blijft zoals hij is (open vraag 14) | Bo: er komen items die je omdoet voor defense-buffs, dus Defense groeit met je gear mee |
+| 2026-10-13 | De tien mini-bosses staan verspreid over alle zones (geen twee in Greyhaven) en komen na 10 minuten terug, hun ei maar één keer | Zo valt er in elke zone iets te halen en blijft een mini-boss ook later nog XP en buit waard, zonder dat je eieren kunt farmen |
+| 2026-10-13 | Een ei is een eigen itemsoort (`type: "egg"`) in plaats van een gewoon questitem | Dan weegt het automatisch niets, is het nergens te gebruiken, en weet het spel precies wat Sultan aanneemt |
+| 2026-10-13 | Sluit je het herverdeel-venster met punten over, dan blijven die ongebruikt (het statusvenster besteedt ze later) | Niemand wordt gedwongen in één keer te kiezen; het totaal blijft hetzelfde |
 | 2026-10-12 | Fase 3 opgesplitst in fase 3.6 t/m 3.10, elk in een eigen chat | De fase werd te groot en er kwamen drie wensen bij (Bo) |
 | 2026-10-12 | Escape en de functietoetsen (F3, F4, F6) zijn niet te binden; Backspace maakt een slot leeg | Pauze en debug moeten altijd werken, ook na een rare mapping |
 | 2026-10-12 | Een actie mag zonder toets komen te staan; Settings waarschuwt erover | Anders kun je een toets niet van de ene actie naar de andere verplaatsen |

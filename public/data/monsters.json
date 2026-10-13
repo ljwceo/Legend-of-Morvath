@@ -351,6 +351,7 @@
       "xp": 200,
       "behavior": "melee",
       "rank": "boss",
+      "egg": "sultan_egg",
       "transformsFrom": "pringle",
       "model": "placeholder:sultan",
       "radius": 0.55,
@@ -492,6 +493,451 @@
           "windupSeconds": 1.2,
           "recoverySeconds": 1.5,
           "cooldownSeconds": 2.5
+        }
+      }
+    },
+    {
+      "id": "mossback",
+      "name": "Mossback",
+      "levelRange": [6, 6],
+      "hp": 450,
+      "damage": { "min": 18, "max": 18 },
+      "speed": "slow",
+      "xp": 160,
+      "behavior": "melee",
+      "rank": "miniboss",
+      "egg": "mossback_egg",
+      "attacks": [
+        {
+          "id": "mossback_special",
+          "name": "Spore Burst",
+          "damage": 25,
+          "warningSeconds": 1.2,
+          "hits": 1,
+          "everyNth": 3,
+          "areaRadius": 4.5,
+          "recoverySeconds": 1.5
+        }
+      ],
+      "drops": [
+        { "item": "gold", "chance": 1, "min": 32, "max": 64 },
+        { "item": "greater_health_potion", "chance": 1, "min": 1, "max": 2 }
+      ],
+      "model": "placeholder:slime",
+      "radius": 1.1,
+      "scale": 2.6,
+      "enrage": { "belowHpFraction": 0.4, "speedFactor": 1.2 },
+      "ai": {
+        "aggroRadius": 18,
+        "leashRadius": 45,
+        "hop": { "seconds": 0.6, "pauseSeconds": 0.4 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.8,
+          "strikeSeconds": 0.3,
+          "lungeDistance": 3.0,
+          "windupSeconds": 0.9,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.6
+        }
+      }
+    },
+    {
+      "id": "rootgnarl",
+      "name": "Rootgnarl",
+      "levelRange": [8, 8],
+      "hp": 700,
+      "damage": { "min": 26, "max": 26 },
+      "speed": "verySlow",
+      "xp": 220,
+      "behavior": "melee",
+      "rank": "miniboss",
+      "egg": "rootgnarl_egg",
+      "attacks": [
+        {
+          "id": "rootgnarl_special",
+          "name": "Root Sweep",
+          "damage": 36,
+          "warningSeconds": 1.2,
+          "hits": 1,
+          "everyNth": 3,
+          "areaRadius": 5.0,
+          "recoverySeconds": 1.5
+        }
+      ],
+      "drops": [
+        { "item": "gold", "chance": 1, "min": 36, "max": 72 },
+        { "item": "greater_health_potion", "chance": 1, "min": 1, "max": 2 }
+      ],
+      "model": "placeholder:treewarden",
+      "radius": 0.95,
+      "scale": 0.8,
+      "enrage": { "belowHpFraction": 0.4, "speedFactor": 1.2 },
+      "ai": {
+        "aggroRadius": 18,
+        "leashRadius": 45,
+        "attack": {
+          "style": "strike",
+          "range": 2.2,
+          "windupSeconds": 0.9,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.6
+        }
+      }
+    },
+    {
+      "id": "fenstalker",
+      "name": "Fenstalker",
+      "levelRange": [10, 10],
+      "hp": 1000,
+      "damage": { "min": 30, "max": 30 },
+      "speed": "normal",
+      "xp": 320,
+      "behavior": "melee",
+      "rank": "miniboss",
+      "egg": "fenstalker_egg",
+      "attacks": [
+        {
+          "id": "fenstalker_special",
+          "name": "Mud Slam",
+          "damage": 42,
+          "warningSeconds": 1.2,
+          "hits": 1,
+          "everyNth": 3,
+          "areaRadius": 4.0,
+          "recoverySeconds": 1.5
+        }
+      ],
+      "drops": [
+        { "item": "gold", "chance": 1, "min": 40, "max": 80 },
+        { "item": "greater_health_potion", "chance": 1, "min": 1, "max": 2 }
+      ],
+      "model": "placeholder:goblin_chief",
+      "radius": 0.7,
+      "scale": 1.3,
+      "enrage": { "belowHpFraction": 0.4, "speedFactor": 1.2 },
+      "ai": {
+        "aggroRadius": 18,
+        "leashRadius": 45,
+        "attack": {
+          "style": "strike",
+          "range": 2.2,
+          "windupSeconds": 0.9,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.6
+        }
+      }
+    },
+    {
+      "id": "bogmaw",
+      "name": "Bogmaw",
+      "levelRange": [13, 13],
+      "hp": 1400,
+      "damage": { "min": 34, "max": 34 },
+      "speed": "slow",
+      "xp": 400,
+      "behavior": "melee",
+      "rank": "miniboss",
+      "egg": "bogmaw_egg",
+      "attacks": [
+        {
+          "id": "bogmaw_special",
+          "name": "Swallow",
+          "damage": 48,
+          "warningSeconds": 1.2,
+          "hits": 1,
+          "everyNth": 3,
+          "areaRadius": 5.0,
+          "recoverySeconds": 1.5
+        }
+      ],
+      "drops": [
+        { "item": "gold", "chance": 1, "min": 46, "max": 92 },
+        { "item": "greater_health_potion", "chance": 1, "min": 1, "max": 2 }
+      ],
+      "model": "placeholder:slime",
+      "radius": 1.3,
+      "scale": 3.2,
+      "enrage": { "belowHpFraction": 0.4, "speedFactor": 1.2 },
+      "ai": {
+        "aggroRadius": 18,
+        "leashRadius": 45,
+        "hop": { "seconds": 0.6, "pauseSeconds": 0.4 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.8,
+          "strikeSeconds": 0.3,
+          "lungeDistance": 3.0,
+          "windupSeconds": 0.9,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.6
+        }
+      }
+    },
+    {
+      "id": "hoarfrost_warden",
+      "name": "Hoarfrost Warden",
+      "levelRange": [18, 18],
+      "hp": 2200,
+      "damage": { "min": 48, "max": 48 },
+      "speed": "verySlow",
+      "xp": 650,
+      "behavior": "melee",
+      "rank": "miniboss",
+      "egg": "hoarfrost_egg",
+      "attacks": [
+        {
+          "id": "hoarfrost_warden_special",
+          "name": "Frost Nova",
+          "damage": 67,
+          "warningSeconds": 1.2,
+          "hits": 1,
+          "everyNth": 3,
+          "areaRadius": 6.0,
+          "recoverySeconds": 1.5
+        }
+      ],
+      "drops": [
+        { "item": "gold", "chance": 1, "min": 56, "max": 112 },
+        { "item": "greater_health_potion", "chance": 1, "min": 1, "max": 2 }
+      ],
+      "model": "placeholder:treewarden",
+      "radius": 1.2,
+      "scale": 1.1,
+      "enrage": { "belowHpFraction": 0.4, "speedFactor": 1.2 },
+      "ai": {
+        "aggroRadius": 18,
+        "leashRadius": 45,
+        "attack": {
+          "style": "strike",
+          "range": 2.2,
+          "windupSeconds": 0.9,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.6
+        }
+      }
+    },
+    {
+      "id": "hollow_whisperer",
+      "name": "Hollow Whisperer",
+      "levelRange": [19, 19],
+      "hp": 1800,
+      "damage": { "min": 44, "max": 44 },
+      "speed": "normal",
+      "xp": 700,
+      "behavior": "ranged",
+      "range": 16,
+      "rank": "miniboss",
+      "egg": "whisperer_egg",
+      "attacks": [
+        {
+          "id": "hollow_whisperer_special",
+          "name": "Wail",
+          "damage": 62,
+          "warningSeconds": 1.2,
+          "hits": 1,
+          "everyNth": 3,
+          "areaRadius": 7.0,
+          "recoverySeconds": 1.5
+        }
+      ],
+      "drops": [
+        { "item": "gold", "chance": 1, "min": 58, "max": 116 },
+        { "item": "greater_health_potion", "chance": 1, "min": 1, "max": 2 }
+      ],
+      "model": "placeholder:goblin_archer",
+      "radius": 0.6,
+      "scale": 1.8,
+      "enrage": { "belowHpFraction": 0.4, "speedFactor": 1.2 },
+      "ai": {
+        "aggroRadius": 18,
+        "leashRadius": 45,
+        "keepDistance": 9,
+        "attack": {
+          "style": "shoot",
+          "range": 16,
+          "projectileSpeed": 18,
+          "windupSeconds": 0.9,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.6
+        }
+      }
+    },
+    {
+      "id": "dunmar_sentinel",
+      "name": "Dunmar Sentinel",
+      "levelRange": [21, 21],
+      "hp": 2600,
+      "damage": { "min": 52, "max": 52 },
+      "speed": "normal",
+      "xp": 800,
+      "behavior": "melee",
+      "rank": "miniboss",
+      "egg": "sentinel_egg",
+      "attacks": [
+        {
+          "id": "dunmar_sentinel_special",
+          "name": "Stone Fist",
+          "damage": 73,
+          "warningSeconds": 1.2,
+          "hits": 1,
+          "everyNth": 3,
+          "areaRadius": 4.5,
+          "recoverySeconds": 1.5
+        }
+      ],
+      "drops": [
+        { "item": "gold", "chance": 1, "min": 62, "max": 124 },
+        { "item": "greater_health_potion", "chance": 1, "min": 1, "max": 2 }
+      ],
+      "model": "placeholder:goblin_chief",
+      "radius": 0.8,
+      "scale": 1.5,
+      "enrage": { "belowHpFraction": 0.4, "speedFactor": 1.2 },
+      "ai": {
+        "aggroRadius": 18,
+        "leashRadius": 45,
+        "attack": {
+          "style": "strike",
+          "range": 2.2,
+          "windupSeconds": 0.9,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.6
+        }
+      }
+    },
+    {
+      "id": "stonejaw",
+      "name": "Stonejaw",
+      "levelRange": [27, 27],
+      "hp": 4000,
+      "damage": { "min": 65, "max": 65 },
+      "speed": "normal",
+      "xp": 1200,
+      "behavior": "melee",
+      "rank": "miniboss",
+      "egg": "stonejaw_egg",
+      "attacks": [
+        {
+          "id": "stonejaw_special",
+          "name": "Boulder Smash",
+          "damage": 91,
+          "warningSeconds": 1.2,
+          "hits": 1,
+          "everyNth": 3,
+          "areaRadius": 5.5,
+          "recoverySeconds": 1.5
+        }
+      ],
+      "drops": [
+        { "item": "gold", "chance": 1, "min": 74, "max": 148 },
+        { "item": "greater_health_potion", "chance": 1, "min": 1, "max": 2 }
+      ],
+      "model": "placeholder:goblin_chief",
+      "radius": 0.9,
+      "scale": 1.8,
+      "enrage": { "belowHpFraction": 0.4, "speedFactor": 1.2 },
+      "ai": {
+        "aggroRadius": 18,
+        "leashRadius": 45,
+        "attack": {
+          "style": "strike",
+          "range": 2.2,
+          "windupSeconds": 0.9,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.6
+        }
+      }
+    },
+    {
+      "id": "windlash",
+      "name": "Windlash",
+      "levelRange": [36, 36],
+      "hp": 5500,
+      "damage": { "min": 80, "max": 80 },
+      "speed": "fast",
+      "xp": 1800,
+      "behavior": "ranged",
+      "range": 16,
+      "rank": "miniboss",
+      "egg": "windlash_egg",
+      "attacks": [
+        {
+          "id": "windlash_special",
+          "name": "Gale Burst",
+          "damage": 112,
+          "warningSeconds": 1.2,
+          "hits": 1,
+          "everyNth": 3,
+          "areaRadius": 7.0,
+          "recoverySeconds": 1.5
+        }
+      ],
+      "drops": [
+        { "item": "gold", "chance": 1, "min": 92, "max": 184 },
+        { "item": "greater_health_potion", "chance": 1, "min": 1, "max": 2 }
+      ],
+      "model": "placeholder:goblin_archer",
+      "radius": 0.7,
+      "scale": 2.0,
+      "enrage": { "belowHpFraction": 0.4, "speedFactor": 1.2 },
+      "ai": {
+        "aggroRadius": 18,
+        "leashRadius": 45,
+        "keepDistance": 9,
+        "attack": {
+          "style": "shoot",
+          "range": 16,
+          "projectileSpeed": 18,
+          "windupSeconds": 0.9,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.6
+        }
+      }
+    },
+    {
+      "id": "blightborn",
+      "name": "Blightborn",
+      "levelRange": [46, 46],
+      "hp": 8000,
+      "damage": { "min": 100, "max": 100 },
+      "speed": "slow",
+      "xp": 3000,
+      "behavior": "melee",
+      "rank": "miniboss",
+      "egg": "blightborn_egg",
+      "attacks": [
+        {
+          "id": "blightborn_special",
+          "name": "Blight Wave",
+          "damage": 140,
+          "warningSeconds": 1.2,
+          "hits": 1,
+          "everyNth": 3,
+          "areaRadius": 7.5,
+          "recoverySeconds": 1.5
+        }
+      ],
+      "drops": [
+        { "item": "gold", "chance": 1, "min": 112, "max": 224 },
+        { "item": "greater_health_potion", "chance": 1, "min": 1, "max": 2 }
+      ],
+      "model": "placeholder:slime",
+      "radius": 1.5,
+      "scale": 3.6,
+      "enrage": { "belowHpFraction": 0.4, "speedFactor": 1.2 },
+      "ai": {
+        "aggroRadius": 18,
+        "leashRadius": 45,
+        "hop": { "seconds": 0.6, "pauseSeconds": 0.4 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.8,
+          "strikeSeconds": 0.3,
+          "lungeDistance": 3.0,
+          "windupSeconds": 0.9,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.6
         }
       }
     }
