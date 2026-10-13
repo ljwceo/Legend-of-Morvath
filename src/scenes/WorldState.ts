@@ -29,7 +29,9 @@ import { disposeSceneAssets, loadSceneAssets, type SceneAssets } from '../world/
 import { buildPlayerModel, type ScenePlayerModel } from '../world/scene/ScenePlayerModel';
 import { instanceFilter, zoneFilter } from '../world/scene/SceneFilter';
 import { SceneZone } from '../world/scene/SceneZone';
+import { CinematicCutscene } from '../ui/CinematicCutscene';
 import { ComicCutscene } from '../ui/ComicCutscene';
+import { shouldPlayCutscene } from '../render/cinematic/CinematicTimeline';
 import { pointInShape } from '../world/Shapes';
 import { Random } from '../core/Random';
 import { Input, type LookDelta } from '../core/Input';
@@ -192,10 +194,13 @@ import { type StreamerStats, WorldStreamer } from '../world/WorldStreamer';
 import { ZoneLocator } from '../world/ZoneLocator';
 import { normalizeAppearance } from './creator';
 import type { InstanceDef, SceneDef, Zone } from '../data/types';
+import type { CutsceneDef } from '../render/cinematic/CinematicTimeline';
 import { placeAtStart } from './flow';
 
 const DEG = Math.PI / 180;
 const DEBUG_REFRESH_MS = 250;
+/** On the UI layer while a cinematic plays: touch buttons and the pause button hide. */
+const CINEMATIC_CLASS = 'ui-cinematic-playing';
 /** How far a stick or key must push (0..1) to move the highlight between dialogue answers. */
 const CHOICE_PUSH = 0.5;
 /** Debug overlay lines this scene owns (removed again on exit). */
@@ -292,6 +297,8 @@ export class WorldState implements GameState, InstanceHost {
   private instanceDef: InstanceDef | null = null;
   /** The first-visit cutscene of an instance, while it plays. */
   private comic: ComicCutscene | null = null;
+  /** A cutscene filmed in the 3D world (`type: "cinematic"`), while it plays. */
+  private cinematic: CinematicCutscene | null = null;
 
   get currentInstance(): string | null {
     return this.instanceDef?.id ?? null;
@@ -756,6 +763,9 @@ export class WorldState implements GameState, InstanceHost {
     this.ctx.quality.setMeasuring(false);
     this.comic?.dispose();
     this.comic = null;
+    this.cinematic?.dispose();
+    this.cinematic = null;
+    this.ctx.ui.classList.remove(CINEMATIC_CLASS);
     // A zone still loading is thrown away when it arrives.
     this.loadToken++;
     this.hideLoading();
@@ -808,6 +818,8 @@ export class WorldState implements GameState, InstanceHost {
 
   update(dt: number): void {
     const { player, input, mover, movement, rig, streamer, sceneZone } = this;
+    // A cinematic plays on the fixed step too (the same on 60 and 120 fps); the world waits.
+    if (this.cinematic && !this.paused) this.cinematic.step(dt);
     if (this.paused || this.travelling || this.cutscenePlaying) return;
     if (!player || !input || !mover || !movement || !rig) return;
     if (!streamer && !sceneZone) return;
@@ -1744,33 +1756,77 @@ export class WorldState implements GameState, InstanceHost {
    */
   private playPendingCutscene(): void {
     const pending = this.pendingCutscene;
-    if (!pending || this.dialog?.isOpen || this.comic) return;
+    if (!pending || this.dialog?.isOpen || this.comic || this.cinematic) return;
     this.pendingCutscene = null;
     this.playCutscene(pending.id, pending.params);
   }
 
   /**
-   * Plays a stripcutscene from cutscenes.json over the world, at most once when it says
+   * Plays a cutscene from cutscenes.json over the world, at most once when it says
    * `playOnce` (kept in the save). `params` fill the `{...}` in its lines, which is how the
    * Crystal Ceremony says which element picked you.
    */
   private playCutscene(id: string, params?: Record<string, string>): void {
     const session = this.ctx.session;
     const cutscene = this.ctx.data?.cutscenes.cutscenes.find((entry) => entry.id === id);
-    if (!session || !cutscene || this.comic) return;
-    if (cutscene.playOnce && session.seenCutscenes.includes(id)) return;
+    if (!session || !cutscene) return;
+    if (!shouldPlayCutscene(cutscene, session.seenCutscenes)) return;
+    this.startCutscene(cutscene, params, () => undefined);
+  }
+
+  /**
+   * Starts a cutscene: a cinematic in the 3D world (`type: "cinematic"`) or a comic over it.
+   * The world waits, the HUD hides for a cinematic; afterwards it counts as seen (saved) and
+   * `onDone` runs. Returns false when another cutscene is already playing.
+   */
+  private startCutscene(
+    cutscene: CutsceneDef,
+    params: Record<string, string> | undefined,
+    onDone: () => void,
+  ): boolean {
+    const session = this.ctx.session;
+    const data = this.ctx.data;
+    if (!session || !data || this.comic || this.cinematic) return false;
+    const id = cutscene.id;
+    const finish = (): void => {
+      if (!session.seenCutscenes.includes(id)) session.seenCutscenes.push(id);
+      this.ctx.persist();
+      this.setCutscenePlaying(false);
+      onDone();
+    };
+    const t = (key: string): string => this.ctx.i18n.t(key, params);
     this.setCutscenePlaying(true);
-    this.comic = new ComicCutscene(
-      cutscene,
-      (key) => this.ctx.i18n.t(key, params),
-      () => {
-        this.comic = null;
-        if (!session.seenCutscenes.includes(id)) session.seenCutscenes.push(id);
-        this.ctx.persist();
-        this.setCutscenePlaying(false);
-      },
-    );
+    if (cutscene.type === 'cinematic' && this.worldRoot && this.player) {
+      const s = this.player.state;
+      this.cinematic = new CinematicCutscene(
+        cutscene,
+        data.cutscenes.cinematic,
+        {
+          parent: this.worldRoot,
+          playerRoot: this.player.model.root,
+          player: { x: s.x, z: s.z, heading: s.heading },
+          ground: this.groundHeight,
+          t,
+          touch: (this.input?.usedTouch ?? false) || this.coarsePointer,
+        },
+        () => {
+          this.cinematic = null;
+          this.hud?.hiddenBy.hide('cinematic');
+          this.ctx.ui.classList.remove(CINEMATIC_CLASS);
+          finish();
+        },
+      );
+      this.hud?.hiddenBy.show('cinematic');
+      this.ctx.ui.classList.add(CINEMATIC_CLASS);
+      this.ctx.ui.append(this.cinematic.root);
+      return true;
+    }
+    this.comic = new ComicCutscene(cutscene, t, () => {
+      this.comic = null;
+      finish();
+    });
     this.ctx.ui.append(this.comic.root);
+    return true;
   }
 
   /** NPCs move, the conversation ends when you are far away, the interaction target updates. */
@@ -2335,7 +2391,7 @@ export class WorldState implements GameState, InstanceHost {
         this.refreshNpcPresence();
       },
       placePlayer: (x, z, heading) => this.placePlayer(x, z, heading),
-      setCutscenePlaying: (playing) => this.setCutscenePlaying(playing),
+      playCutscene: (cutscene, onDone) => this.startCutscene(cutscene, undefined, onDone),
       canStart: () =>
         !this.paused && this.deathTimer === NOT_DYING && !this.dialog?.isOpen && !this.cheats.fly,
       floatText: (x, y, z, text) => this.damageNumbers?.spawnText(x, y, z, text, 'dodged'),
@@ -2613,6 +2669,8 @@ export class WorldState implements GameState, InstanceHost {
     );
     this.followLock(waiting ? 0 : frameSeconds, a);
     this.applyCamera();
+    // A cinematic takes the camera (and moves its actors, your own model too).
+    this.cinematic?.render(alpha, rig.camera, origin.x, origin.z);
     this.updateLighting(this.paused ? 0 : frameSeconds);
     this.updateSun(root.position.x - origin.x, root.position.y, root.position.z - origin.z);
     // The sea follows the player (one plane, always under the view).

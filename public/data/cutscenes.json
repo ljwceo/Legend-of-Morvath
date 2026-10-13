@@ -1,4 +1,12 @@
 {
+  "cinematic": {
+    "barsSeconds": 0.8,
+    "barsAspect": 2.39,
+    "barsMinFraction": 0.07,
+    "barsMaxFraction": 0.13,
+    "holdToSkipSeconds": 1,
+    "holdReleaseFactor": 2
+  },
   "cutscenes": [
     {
       "id": "intro",
@@ -125,62 +133,288 @@
     },
     {
       "id": "pringle",
+      "type": "cinematic",
       "skippable": true,
       "playOnce": true,
-      "panels": [
+      "anchor": {
+        "x": -1551,
+        "z": -46
+      },
+      "actors": [
         {
-          "id": "gate",
-          "caption": "cutscene.pringle.caption1",
-          "background": "zonsondergang",
-          "lines": [
-            {
-              "speaker": "Pringle",
-              "text": "cutscene.pringle.1"
-            }
-          ]
+          "id": "player",
+          "model": "player"
         },
         {
-          "id": "eyes",
-          "caption": "cutscene.pringle.caption2",
-          "background": "ornamentgoud",
-          "zoom": true,
-          "lines": [
-            {
-              "speaker": "Pringle",
-              "text": "cutscene.pringle.2"
-            }
-          ]
+          "id": "pringle",
+          "model": "placeholder:cat",
+          "color": "zonsondergang"
         },
         {
           "id": "smoke",
-          "caption": "cutscene.pringle.caption3",
-          "background": "spreukviolet",
-          "shake": true
+          "model": "fx:smoke"
         },
         {
           "id": "sultan",
-          "caption": "cutscene.pringle.caption4",
-          "background": "schemerviolet",
-          "zoom": true,
-          "lines": [
+          "model": "placeholder:catman"
+        }
+      ],
+      "shots": [
+        {
+          "id": "gate",
+          "seconds": 4.6,
+          "camera": {
+            "from": {
+              "x": -1573.27,
+              "y": 2.2,
+              "z": -54.54
+            },
+            "to": {
+              "x": -1557.88,
+              "y": 0.8,
+              "z": -48.53
+            },
+            "lookFrom": {
+              "x": -1551,
+              "y": 0.5,
+              "z": -46
+            },
+            "lookTo": {
+              "x": -1551,
+              "y": 0.3,
+              "z": -46
+            },
+            "fovFrom": 50,
+            "fovTo": 42,
+            "ease": "inOut"
+          },
+          "actors": [
             {
-              "speaker": "Sultan",
-              "text": "cutscene.pringle.4"
+              "actor": "pringle",
+              "visible": true,
+              "from": {
+                "x": -1551,
+                "z": -46
+              },
+              "lookAt": "player"
             }
-          ]
+          ],
+          "subtitle": {
+            "speaker": "Pringle",
+            "text": "cutscene.pringle.1"
+          },
+          "fade": {
+            "from": 1,
+            "to": 0,
+            "seconds": 1.2
+          },
+          "tint": {
+            "color": "zonsondergang",
+            "amount": 0.35
+          }
+        },
+        {
+          "id": "eyes",
+          "seconds": 3.2,
+          "camera": {
+            "from": {
+              "x": 0,
+              "y": 0.5,
+              "z": 1.3
+            },
+            "to": {
+              "x": 0,
+              "y": 0.45,
+              "z": 0.7
+            },
+            "follow": "pringle",
+            "followHeight": 0.42,
+            "relative": true,
+            "fovFrom": 40,
+            "fovTo": 28,
+            "ease": "out"
+          },
+          "subtitle": {
+            "speaker": "Pringle",
+            "text": "cutscene.pringle.2"
+          },
+          "tint": {
+            "color": "ornamentgoud",
+            "amount": 0.3
+          }
+        },
+        {
+          "id": "smoke",
+          "seconds": 2.8,
+          "camera": {
+            "from": {
+              "x": -1558.04,
+              "y": 1.2,
+              "z": -46.96
+            },
+            "to": {
+              "x": -1556.96,
+              "y": 1.4,
+              "z": -46.91
+            },
+            "follow": "smoke",
+            "followHeight": 1.0,
+            "fovFrom": 55,
+            "fovTo": 50
+          },
+          "actors": [
+            {
+              "actor": "smoke",
+              "visible": true,
+              "from": {
+                "x": -1551,
+                "z": -46
+              },
+              "scaleFrom": 0.3,
+              "scaleTo": 1.1,
+              "ease": "out"
+            },
+            {
+              "actor": "pringle",
+              "scaleFrom": 1,
+              "scaleTo": 2.4,
+              "ease": "in"
+            }
+          ],
+          "shake": 0.12,
+          "tint": {
+            "color": "spreukviolet",
+            "amount": 0.3
+          }
+        },
+        {
+          "id": "sultan",
+          "seconds": 3.8,
+          "camera": {
+            "from": {
+              "x": 0.7,
+              "y": 0.2,
+              "z": 2.6
+            },
+            "to": {
+              "x": 0.45,
+              "y": 0.3,
+              "z": 2.0
+            },
+            "follow": "sultan",
+            "followHeight": 1.75,
+            "relative": true,
+            "fovFrom": 52,
+            "fovTo": 44,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "pringle",
+              "visible": false
+            },
+            {
+              "actor": "sultan",
+              "visible": true,
+              "from": {
+                "x": -1551,
+                "z": -46
+              },
+              "lookAt": "player"
+            },
+            {
+              "actor": "smoke",
+              "scaleFrom": 1.1,
+              "scaleTo": 0.1,
+              "ease": "out"
+            }
+          ],
+          "subtitle": {
+            "speaker": "Sultan",
+            "text": "cutscene.pringle.4"
+          },
+          "tint": {
+            "color": "schemerviolet",
+            "amount": 0.2
+          }
         },
         {
           "id": "leap",
-          "caption": "cutscene.pringle.caption5",
-          "background": "zonlicht",
-          "flash": true,
-          "shake": true,
-          "lines": [
+          "seconds": 1.1,
+          "camera": {
+            "from": {
+              "x": 0.3,
+              "y": 1.0,
+              "z": 4.5
+            },
+            "to": {
+              "x": 0.2,
+              "y": 1.3,
+              "z": 2.2
+            },
+            "follow": "sultan",
+            "followHeight": 1.3,
+            "relative": true,
+            "fovFrom": 55,
+            "fovTo": 65,
+            "ease": "in"
+          },
+          "actors": [
             {
-              "speaker": "Sultan",
-              "text": "cutscene.pringle.5"
+              "actor": "smoke",
+              "visible": false
+            },
+            {
+              "actor": "sultan",
+              "from": {
+                "x": -1551,
+                "z": -46
+              },
+              "to": {
+                "x": -1556.48,
+                "z": -48.45
+              },
+              "liftFrom": 0,
+              "liftTo": 1.4,
+              "ease": "in"
             }
-          ]
+          ],
+          "subtitle": {
+            "speaker": "Sultan",
+            "text": "cutscene.pringle.5"
+          },
+          "shake": 0.05
+        },
+        {
+          "id": "name",
+          "seconds": 2.6,
+          "camera": {
+            "from": {
+              "x": -1573.47,
+              "y": 2.0,
+              "z": -55.07
+            },
+            "lookFrom": {
+              "x": -1551,
+              "y": 1.2,
+              "z": -46
+            }
+          },
+          "actors": [
+            {
+              "actor": "sultan",
+              "from": {
+                "x": -1551,
+                "z": -46
+              },
+              "liftFrom": 0,
+              "lookAt": "player"
+            }
+          ],
+          "flash": 0.7,
+          "nameCard": {
+            "name": "Sultan"
+          }
         }
       ]
     },

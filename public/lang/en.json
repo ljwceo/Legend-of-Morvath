@@ -221,12 +221,7 @@
       "1": "Meow.",
       "2": "Did you really think you could just leave?",
       "4": "I am Sultan. Show me you're ready for the world out there.",
-      "5": "Try to keep up!",
-      "caption1": "The city gate at sunset. Pringle sits in the middle of the path.",
-      "caption2": "Close-up: Pringle's eyes glow gold.",
-      "caption3": "Purple smoke and wind. Pringle grows…",
-      "caption4": "A tall cat man stands in the smoke: cat ears, a tail, golden eyes.",
-      "caption5": "Sultan leaps forward. A flash!"
+      "5": "Try to keep up!"
     },
     "tapToContinue": "Tap or press Space",
     "brink_tower": {
@@ -254,7 +249,9 @@
       "caption2": "One crystal lifts, turns, and chooses.",
       "caption3": "The light sinks into the head of the staff.",
       "caption4": "The staff is warm now, and it knows one spell."
-    }
+    },
+    "holdToSkip": "Hold Esc to skip",
+    "holdToSkipTouch": "Hold to skip"
   },
   "hud": {
     "checkpointSet": "Checkpoint set",
@@ -1057,6 +1054,10 @@
         "strike": "He stands still: now strike!",
         "strikeTouch": "He stands still: tap Attack now!",
         "guard": "He dodges everything. Wait until he stands still after an attack."
+      },
+      "victory": {
+        "title": "BOND FORGED",
+        "subtitle": "A guardian has found his equal"
       }
     },
     "defeated": "{name} is defeated!"
@@ -1082,5 +1083,11 @@
   "world": {
     "loading": "Loading…",
     "loadFailed": "This place could not be loaded. Check your connection and try again."
+  },
+  "victory": {
+    "gods": {
+      "title": "GODS HAVE FALLEN",
+      "subtitle": "Even divinity has an end."
+    }
   }
 }

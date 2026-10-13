@@ -383,6 +383,10 @@
         "retryLine": "boss.sultan.retry",
         "enrageLine": "boss.sultan.enrage",
         "winLine": "boss.sultan.win",
+        "victory": {
+          "title": "boss.sultan.victory.title",
+          "subtitle": "boss.sultan.victory.subtitle"
+        },
         "strikeHint": "boss.sultan.hint.strike",
         "guardHint": "boss.sultan.hint.guard",
         "guardText": "boss.dodged"

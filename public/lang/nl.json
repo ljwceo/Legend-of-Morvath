@@ -221,12 +221,7 @@
       "1": "Miauw.",
       "2": "Dacht je echt dat je zomaar kon vertrekken?",
       "4": "Ik ben Sultan. Laat zien dat je klaar bent voor de wereld daarbuiten.",
-      "5": "Probeer me maar bij te houden!",
-      "caption1": "De stadspoort bij zonsondergang. Pringle zit midden op het pad.",
-      "caption2": "Close-up: Pringles ogen gloeien goud.",
-      "caption3": "Paarse rook en wind. Pringle groeit…",
-      "caption4": "In de rook staat een lange kattenman: kattenoren, een staart, gouden ogen.",
-      "caption5": "Sultan springt naar voren. Een flits!"
+      "5": "Probeer me maar bij te houden!"
     },
     "tapToContinue": "Tik of druk op spatie",
     "brink_tower": {
@@ -254,7 +249,9 @@
       "caption2": "Eén kristal komt los, draait, en kiest.",
       "caption3": "Het licht zakt weg in de kop van de staf.",
       "caption4": "De staf is nu warm, en kent één spreuk."
-    }
+    },
+    "holdToSkip": "Houd Esc ingedrukt om over te slaan",
+    "holdToSkipTouch": "Ingedrukt houden om over te slaan"
   },
   "hud": {
     "checkpointSet": "Checkpoint ingesteld",
@@ -1057,6 +1054,10 @@
         "strike": "Hij staat stil: nu slaan!",
         "strikeTouch": "Hij staat stil: tik nu op Slaan!",
         "guard": "Hij ontwijkt alles. Wacht tot hij stilstaat na een aanval."
+      },
+      "victory": {
+        "title": "BOND FORGED",
+        "subtitle": "Een beschermer heeft zijn gelijke gevonden"
       }
     },
     "defeated": "{name} is verslagen!"
@@ -1082,5 +1083,11 @@
   "world": {
     "loading": "Laden…",
     "loadFailed": "Deze plek kon niet geladen worden. Controleer je verbinding en probeer het opnieuw."
+  },
+  "victory": {
+    "gods": {
+      "title": "GODS HAVE FALLEN",
+      "subtitle": "Zelfs aan goddelijkheid komt een eind."
+    }
   }
 }

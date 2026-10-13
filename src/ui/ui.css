@@ -2297,3 +2297,244 @@
   border-radius: 999px;
   pointer-events: none;
 }
+
+/* ------------------------------------------------------------ cinematic cutscene */
+
+/* While a cinematic plays: no HUD, no buttons, nothing but the film (and the skip ring). */
+.ui-hud.ui-hud-hidden {
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.ui-cinematic-playing .ui-touch-controls,
+.ui-cinematic-playing .ui-pause-button,
+.ui-cinematic-playing .ui-bag-button,
+.ui-cinematic-playing .ui-look-hint,
+.ui-cinematic-playing ~ .ui-cheats-layer {
+  visibility: hidden;
+}
+
+/* Catches every click and tap, so nothing underneath grabs the mouse or turns the camera. */
+.ui-layer > .ui-cine {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: auto;
+  --cine-bar: 0px;
+}
+
+.ui-cine-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ui-cine-fade {
+  background: var(--gh-nachtinkt);
+}
+
+.ui-cine-flash {
+  background: var(--gh-tekst);
+}
+
+/* The warm sunset (or another color) laid softly over the picture. */
+.ui-cine-tint {
+  mix-blend-mode: soft-light;
+}
+
+/* Black bars: night ink, never pure black (style rule K1). */
+.ui-cine-bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  background: var(--gh-nachtinkt);
+  pointer-events: none;
+}
+
+.ui-cine-bar-top {
+  top: 0;
+}
+
+.ui-cine-bar-bottom {
+  bottom: 0;
+}
+
+/* The line sits on the lower bar, like film subtitles. */
+.ui-cine-subtitle {
+  position: absolute;
+  left: 50%;
+  bottom: max(10px, calc(var(--cine-bar) * 0.5 - 0.8em));
+  width: min(880px, calc(100% - 32px));
+  margin: 0;
+  transform: translateX(-50%);
+  text-align: center;
+  font-size: clamp(15px, 2.4vh, 22px);
+  line-height: 1.35;
+  color: var(--gh-tekst);
+  text-shadow: 0 2px 6px var(--gh-nachtinkt);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.ui-cine-speaker {
+  margin-right: 0.5em;
+  font-family: var(--gh-font-titel);
+  color: var(--gh-ornamentgoud);
+}
+
+.ui-cine-on {
+  opacity: 1;
+}
+
+/* A boss's name card: big, calm, gold on dusk, with thin lines either side. */
+.ui-cine-namecard {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: radial-gradient(
+    ellipse 60% 22% at 50% 50%,
+    color-mix(in srgb, var(--gh-nachtinkt) 60%, transparent),
+    transparent
+  );
+  opacity: 0;
+  transform: scale(1.04);
+  transition:
+    opacity 0.6s ease,
+    transform 2.4s ease-out;
+  pointer-events: none;
+}
+
+.ui-cine-namecard.ui-cine-on {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.ui-cine-name {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  margin: 0;
+  font: clamp(38px, 9vh, 76px) var(--gh-font-titel);
+  letter-spacing: 0.08em;
+  color: var(--gh-ornamentgoud);
+  text-shadow:
+    0 0 18px color-mix(in srgb, var(--gh-zonlicht) 45%, transparent),
+    0 3px 10px var(--gh-nachtinkt);
+}
+
+.ui-cine-name::before,
+.ui-cine-name::after {
+  content: '';
+  width: clamp(40px, 12vw, 140px);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gh-ornamentgoud), transparent);
+}
+
+.ui-cine-name-title {
+  margin: 0;
+  font-size: clamp(14px, 2.2vh, 18px);
+  color: var(--gh-tekst);
+  text-shadow: 0 2px 6px var(--gh-nachtinkt);
+}
+
+/* Hold to skip: a ring that fills while you hold (bottom right, above the lower bar). */
+.ui-cine-skip {
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, calc(var(--cine-bar) + 10px));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 4px 12px 4px 6px;
+  border: 0;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--gh-nachtinkt) 55%, transparent);
+  color: var(--gh-tekst);
+  font-size: 14px;
+  opacity: 0.55;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  transition: opacity 0.2s ease;
+  cursor: pointer;
+}
+
+.ui-cine-skip.ui-cine-skip-holding,
+.ui-cine-skip:hover {
+  opacity: 1;
+}
+
+.ui-cine-ring {
+  width: 32px;
+  height: 32px;
+  transform: rotate(-90deg);
+}
+
+.ui-cine-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.ui-cine-ring-track {
+  stroke: color-mix(in srgb, var(--gh-tekst) 25%, transparent);
+}
+
+.ui-cine-ring-fill {
+  stroke: var(--gh-ornamentgoud);
+  stroke-linecap: round;
+}
+
+/* ------------------------------------------------------------ victory words */
+
+.ui-hud > .ui-hud-victory {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 38%;
+  padding: 18px 16px;
+  text-align: center;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, var(--gh-nachtinkt) 70%, transparent) 25%,
+    color-mix(in srgb, var(--gh-nachtinkt) 70%, transparent) 75%,
+    transparent
+  );
+  opacity: 0;
+  transform: scale(1.06);
+  transition:
+    opacity 0.9s ease,
+    transform 3s ease-out;
+  pointer-events: none;
+}
+
+.ui-hud > .ui-hud-victory.ui-hud-victory-on {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.ui-hud-victory-title {
+  margin: 0;
+  font: clamp(34px, 8vh, 72px) var(--gh-font-titel);
+  letter-spacing: 0.12em;
+  color: var(--gh-ornamentgoud);
+  text-shadow:
+    0 0 22px color-mix(in srgb, var(--gh-zonlicht) 50%, transparent),
+    0 3px 10px var(--gh-nachtinkt);
+}
+
+.ui-hud-victory-subtitle {
+  margin: 6px 0 0;
+  font-size: clamp(14px, 2.4vh, 19px);
+  font-style: italic;
+  color: var(--gh-tekst);
+}
