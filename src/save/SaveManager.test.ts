@@ -40,6 +40,7 @@ function sampleSave() {
     pack: [],
     stats: { hp: 6, power: 5 },
     spells: [],
+    crystal: null,
   };
   save.world = {
     zone: 'greyhaven',
@@ -208,6 +209,21 @@ describe('migrate', () => {
     // Level, path, gear and quests are untouched; the points come back as unspent.
     expect(result.save.progress.level).toBe(4);
     expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
+  });
+
+  it('upgrades a version 11 save: no crystal yet; the spells you knew stay', () => {
+    const current = sampleSave();
+    const character: Record<string, unknown> = { ...current.character, spells: ['fireball'] };
+    delete character.crystal;
+    const v11 = { ...current, version: 11, character };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v11));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.character?.crystal).toBe(null);
+    expect(result.save.character?.spells).toEqual(['fireball']);
   });
 
   it('upgrades a version 10 save: the default on-screen buttons; the other settings stay', () => {

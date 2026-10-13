@@ -18,8 +18,8 @@ export function pathKey(path: PlayerPath | null | undefined): PathKey {
   return path ?? 'none';
 }
 
-/** Every effect a stat can have; the keys match stats.json. */
-export const EFFECT_KEYS = [
+/** Every effect a **stat** can have; these keys match stats.json. */
+export const STAT_EFFECT_KEYS = [
   'maxHp',
   'maxMana',
   'carryKg',
@@ -34,6 +34,14 @@ export const EFFECT_KEYS = [
   'potionPercent',
   'critChancePercent',
 ] as const;
+
+export type StatEffectKey = (typeof STAT_EFFECT_KEYS)[number];
+
+/**
+ * Everything that adds up: what your stats give, plus the two things only a path's perks can
+ * give (fase 3.8) — max HP as a percentage (Iron Body) and walking speed (Cat's Paw).
+ */
+export const EFFECT_KEYS = [...STAT_EFFECT_KEYS, 'maxHpPercent', 'moveSpeedPercent'] as const;
 
 export type EffectKey = (typeof EFFECT_KEYS)[number];
 
@@ -53,7 +61,7 @@ function pathNumber(value: number | Record<string, number | undefined>, path: Pa
 }
 
 /** What one point gives at this point of the ladder, or undefined when the stat skips it. */
-function rateOf(effects: StatEffectsDef, key: EffectKey, path: PathKey): number | undefined {
+function rateOf(effects: StatEffectsDef, key: StatEffectKey, path: PathKey): number | undefined {
   const value = effects[key];
   return value === undefined ? undefined : pathNumber(value, path);
 }
@@ -65,7 +73,7 @@ function rateOf(effects: StatEffectsDef, key: EffectKey, path: PathKey): number 
  */
 export function effectValue(
   def: StatDef,
-  key: EffectKey,
+  key: StatEffectKey,
   points: number,
   path: PathKey = 'none',
 ): number {
@@ -97,11 +105,20 @@ export function computeStatEffects(
   for (const def of file.stats) {
     const spent = points[def.id] ?? 0;
     if (spent <= 0) continue;
-    for (const effect of EFFECT_KEYS) {
+    for (const effect of STAT_EFFECT_KEYS) {
       if (def.effects[effect] === undefined) continue;
       out[effect] += effectValue(def, effect, spent, key);
     }
   }
+  return clampStatEffects(file, out);
+}
+
+/**
+ * Keeps the totals under the ceilings in stats.json. Called at the end of
+ * `computeStatEffects` and again after a path's perks are added (fase 3.8), so a perk can
+ * never push a stat past its cap either.
+ */
+export function clampStatEffects(file: StatsFile, out: StatEffects): StatEffects {
   const caps = file.caps;
   // Defense is negative (less damage taken), so its ceiling is a floor.
   out.damageTakenPercent = Math.max(out.damageTakenPercent, -caps.damageTakenPercent);
@@ -236,6 +253,7 @@ export function applyStatsToCombat(
 ): void {
   c.statHp = effects.maxHp;
   c.statMana = effects.maxMana;
+  c.hpFactor = 1 + effects.maxHpPercent / 100;
   c.normalFactor = 1 + effects.normalAttackPercent / 100;
   c.staffNormalFactor = 1 + (effects.normalAttackPercent + effects.staffNormalPercent) / 100;
   c.spellFactor = 1 + effects.spellPercent / 100;

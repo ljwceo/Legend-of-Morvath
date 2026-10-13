@@ -239,6 +239,16 @@
       "2": "My magic comes from Lucael and Baelor themselves. I don't serve them. I use their own power against them.",
       "caption3": "The smoke is gone. Sam looks at you.",
       "3": "Dark magic is strong, and quickly. But remember: it is a dark road."
+    },
+    "crystal_ceremony": {
+      "1": "Do not reach. A crystal is not taken; it is given.",
+      "2": "There — {element}. That one has made up its mind about you.",
+      "3": "Hold still. This part always tingles.",
+      "4": "Your {crystal} is set. It carries {spell}; everything else you will have to earn.",
+      "caption1": "A vault of crystals, humming softly in the dark.",
+      "caption2": "One crystal lifts, turns, and chooses.",
+      "caption3": "The light sinks into the head of the staff.",
+      "caption4": "The staff is warm now, and it knows one spell."
     }
   },
   "hud": {
@@ -469,6 +479,9 @@
     },
     "herb_seeds": {
       "desc": "Seeds from Rose. You can plant them in your plot later."
+    },
+    "academy_blade": {
+      "desc": "A straight, well-balanced blade from the Academy armoury. Heavier than your old sword, and it shows."
     }
   },
   "quest": {
@@ -596,6 +609,150 @@
       "complete": {
         "1": "Go on, say hello. Talk to him and you can load your spare gear onto him or take it off again.",
         "2": "Only remember: what Biscuit carries, you can't use. Take it out of his pack first. And not in the middle of a fight!"
+      }
+    },
+    "first_form": {
+      "complete": {
+        "1": "Hm. Sloppy on the third, but your feet stayed where they belong.",
+        "2": "That is the first form. Now go and use it on something that moves."
+      },
+      "desc": "Sir Garrick gave you the Academy Blade. Hit the training dummy on the field 12 times, the way he showed you.",
+      "objective": {
+        "train": "Hit the training dummy {have}/{need}"
+      },
+      "offer": {
+        "1": "So you picked the sword. Good. Hands out — no, like this. A blade is not a stick.",
+        "2": "Take this Academy Blade; that old thing of yours can hang over your bed. Twelve clean hits on the dummy and I will believe you were listening."
+      },
+      "progress": {
+        "1": "The dummy is over there and it is not going to hit itself. Twelve, I said."
+      }
+    },
+    "blade_in_the_woods": {
+      "complete": {
+        "1": "No new scars? Either you are careful or you are lying to me.",
+        "2": "Either way: you can fight. One more test and the Academy is behind you."
+      },
+      "desc": "Sir Garrick wants to see it work: defeat 4 Goblins and 4 Green Slimes in the Greenwood of Aerandir.",
+      "offer": {
+        "1": "A dummy never hits back, so it teaches you nothing about fear. The Greenwood does.",
+        "2": "Four goblins, four slimes. Come back and tell me which one you misjudged."
+      },
+      "progress": {
+        "1": "Still work left in the woods. Four goblins and four slimes."
+      }
+    },
+    "prove_your_edge": {
+      "complete": {
+        "1": "Good. That is enough for the road, and the road teaches the rest.",
+        "2": "You have passed. The city gate is open to you — mind what is east of it."
+      },
+      "desc": "The last exam: 15 hits on the training dummy, with Sir Garrick watching.",
+      "objective": {
+        "train": "Hit the training dummy {have}/{need}"
+      },
+      "offer": {
+        "1": "Last one. Fifteen hits, and I am watching every single one.",
+        "2": "Do not rush. A fast hit that lands beats three that do not."
+      },
+      "progress": {
+        "1": "Fifteen. I am still watching."
+      }
+    },
+    "the_arcane_shard": {
+      "complete": {
+        "1": "Eight out of eight, I trust? The dummy will tell me otherwise.",
+        "2": "Good. Now something that moves, before your aim gets comfortable."
+      },
+      "desc": "Master Brink gave you a Mage Staff and your crystal. Hit the training dummy on the field 8 times with the Arcane Shard.",
+      "objective": {
+        "train": "Hit the training dummy {have}/{need}"
+      },
+      "offer": {
+        "1": "Light is not loud. It is precise. Hold the staff — no, loosely. It is not a weapon yet.",
+        "2": "Your crystal is yours now. First the Arcane Shard: eight hits on the dummy at the field. It costs you nothing, so there is no excuse."
+      },
+      "progress": {
+        "1": "Eight shards on the dummy at the training field. The Shard costs no mana; practise it."
+      }
+    },
+    "sparks_in_the_greenwood": {
+      "complete": {
+        "1": "And you came back with mana to spare? That is the lesson, not the kills.",
+        "2": "One exam left. This time I want to see a charged spell."
+      },
+      "desc": "Master Brink wants it used: defeat 4 Green Slimes and 4 Goblins in the Greenwood of Aerandir.",
+      "offer": {
+        "1": "A target that stands still teaches you distance. A target that runs teaches you timing.",
+        "2": "Four slimes, four goblins, in the Greenwood. Keep an eye on your mana, not only on your enemy."
+      },
+      "progress": {
+        "1": "Four slimes and four goblins. Watch your mana."
+      }
+    },
+    "show_me_your_focus": {
+      "complete": {
+        "1": "There. That is focus. Keep it when you are frightened and you will keep your life.",
+        "2": "You have passed. The gate is open; the east is not. Not yet."
+      },
+      "desc": "The last exam: hit the training dummy 5 times with a charged spell while Master Brink watches.",
+      "objective": {
+        "train": "Hit the training dummy with a charged spell {have}/{need}"
+      },
+      "offer": {
+        "1": "Hold the cast button. Feel it fill. Let go too early and it is a spark; hold it and it is a lesson.",
+        "2": "Five charged hits on the dummy. I will know if you tapped."
+      },
+      "progress": {
+        "1": "Charged, I said. Hold the button until the light swells, five times."
+      }
+    },
+    "the_first_shadow": {
+      "complete": {
+        "1": "Hahaa — the straw is smoking. That is the Shard.",
+        "2": "Now the woods. Shadows look better between trees anyway."
+      },
+      "desc": "Wizard Sam gave you a Mage Staff and a Dark Crystal. Hit the training dummy on the field 8 times with the Arcane Shard.",
+      "objective": {
+        "train": "Hit the training dummy {have}/{need}"
+      },
+      "offer": {
+        "1": "Dark is generous at the start. That is exactly why nobody trusts it, heh.",
+        "2": "Staff, crystal, and the Arcane Shard. Eight hits on that poor dummy upstairs at the field. Go on."
+      },
+      "progress": {
+        "1": "Eight shards on the dummy at the training field. It costs nothing, so no whining."
+      }
+    },
+    "shadows_in_the_greenwood": {
+      "complete": {
+        "1": "Alive! And nothing followed you home. Mostly.",
+        "2": "One more. This time I want it charged — properly charged."
+      },
+      "desc": "Wizard Sam wants it tried out: defeat 4 Goblins and 4 Green Slimes in the Greenwood of Aerandir.",
+      "offer": {
+        "1": "Go frighten something. Four goblins, four slimes, in the Greenwood.",
+        "2": "And remember: strong now, weaker later. Use the head start while you have it."
+      },
+      "progress": {
+        "1": "Four goblins and four slimes. The Greenwood is northeast."
+      }
+    },
+    "show_me_your_shadow": {
+      "complete": {
+        "1": "Hah! Did you feel that? That is what the Lords of Morvath felt like, once.",
+        "2": "You have passed, student. The gate is open. Do not become a story I tell later."
+      },
+      "desc": "The last exam: hit the training dummy 5 times with a charged spell while Wizard Sam watches.",
+      "objective": {
+        "train": "Hit the training dummy with a charged spell {have}/{need}"
+      },
+      "offer": {
+        "1": "Hold it. Let it get heavy. Dark likes to be held too long — do not let it.",
+        "2": "Five charged hits. If the dummy is still standing afterwards I will be very disappointed."
+      },
+      "progress": {
+        "1": "Charged, not tapped. Hold the button until it swells, five times."
       }
     }
   },
@@ -762,7 +919,8 @@
     "lockRange": "Lock-on range",
     "homing": "Shots curve",
     "lockSight": "Sight tolerance",
-    "lockSightNote": "How long a locked enemy may be out of sight before the lock lets go (0× = at once)."
+    "lockSightNote": "How long a locked enemy may be out of sight before the lock lets go (0× = at once).",
+    "examsDone": "Exams done"
   },
   "bag": {
     "title": "Bag",

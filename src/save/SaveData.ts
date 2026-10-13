@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 11;
+export const SAVE_VERSION = 12;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -77,6 +77,12 @@ export const saveDataSchema = z.object({
        * A mage gets his first one from his crystal (Crystal Ceremony, step 3.6).
        */
       spells: z.array(id),
+      /**
+       * The element of the crystal in your staff (spells.json element id), drawn in the Crystal
+       * Ceremony: Master Brink's vault gives one of four, Wizard Sam gives Dark. Null for a
+       * sword fighter and before the ceremony. Stored, so a reload never redraws it.
+       */
+      crystal: z.nullable(id),
     }),
   ),
   /** Level, XP and how much HP / mana is left (null = full, e.g. a fresh game). */
@@ -205,6 +211,11 @@ export const migrations: Readonly<Record<number, Migration>> = {
   9: (save) => {
     const character = save.character as Record<string, unknown> | null | undefined;
     return { ...save, version: 10, character: character ? { ...character, stats: {} } : null };
+  },
+  // v12 (fase 3.8): the crystal in your staff. Nobody had been to the Crystal Ceremony yet.
+  11: (save) => {
+    const character = save.character as Record<string, unknown> | null | undefined;
+    return { ...save, version: 12, character: character ? { ...character, crystal: null } : null };
   },
   // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged
   // them). Everyone starts on the default size and the default places.

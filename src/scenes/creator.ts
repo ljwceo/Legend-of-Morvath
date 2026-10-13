@@ -124,5 +124,6 @@ export function createCharacter(
     pack: [],
     stats: { ...stats },
     spells: [],
+    crystal: null,
   };
 }

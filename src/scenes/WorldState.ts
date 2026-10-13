@@ -151,6 +151,7 @@ import { type BuyResult, shopPanel } from '../ui/menus/ShopPanel';
 import { QuestTexts } from '../ui/questText';
 import type { ChecklistRow, DialogOptions } from '../ui/Dialog';
 import { pausePanel } from '../ui/menus/PausePanel';
+import { applyPath } from '../systems/Paths';
 import {
   applyStatsToCombat,
   computeStatEffects,
@@ -349,6 +350,8 @@ export class WorldState implements GameState, InstanceHost {
   private encounter: BossEncounter | null = null;
   /** A comic cutscene plays over the world: the simulation waits. */
   private cutscenePlaying = false;
+  /** A cutscene waiting for the conversation to end (the Crystal Ceremony, fase 3.8). */
+  private pendingCutscene: { id: string; params: Record<string, string> } | null = null;
   /** NPCs out of the world for now (Pringle while he is Sultan). */
   private hiddenNpcs: ReadonlySet<string> = new Set();
   /** HP reached 0 during this step; handled once the monsters finished their step. */
@@ -577,6 +580,8 @@ export class WorldState implements GameState, InstanceHost {
     if (this.labels) ctx.ui.append(this.labels.root);
     this.hud = new HUD(data.player.hud, data.player.lowHpThreshold, () => this.interact());
     this.hud.setInteractKey(this.interactKeyLabel());
+    // The scene set the maxima before the HUD existed: a sword fighter has no mana bar.
+    this.hud.setBarUsed('mana', this.player?.combat.hasMana ?? true);
     ctx.ui.append(this.hud.root);
     this.dialog = new Dialog((key) => ctx.i18n.t(key));
     ctx.ui.append(this.dialog.root);
@@ -592,6 +597,8 @@ export class WorldState implements GameState, InstanceHost {
     this.questTexts = new QuestTexts(data, t);
     this.conditionContext.completedQuests = this.quests.completed;
     this.conditionContext.path = session.path;
+    // Only your own teacher's Entrance Exams are yours (fase 3.8).
+    this.quests.path = session.path;
     this.applyGear(false);
     this.updatePlayerGear();
     this.cutscenePlaying = false;
@@ -643,6 +650,7 @@ export class WorldState implements GameState, InstanceHost {
           session.path = path;
           this.pathChanged(path);
         },
+        skipExams: () => this.skipExams(),
       },
     );
     // Next to the UI layer (not inside it), so it can sit above the debug overlay.
@@ -793,6 +801,12 @@ export class WorldState implements GameState, InstanceHost {
     if (!streamer && !sceneZone) return;
     const session = this.ctx.session;
     if (session) session.playTimeSeconds += dt;
+    // A cutscene a quest brought with it (the Crystal Ceremony) plays as soon as the
+    // conversation is over; without a conversation that is right away.
+    if (this.pendingCutscene) {
+      this.playPendingCutscene();
+      if (this.cutscenePlaying) return;
+    }
 
     input.getMoveVector(this.moveInput);
     // Walking is relative to where the camera looks (W = away from the camera).
@@ -1231,6 +1245,8 @@ export class WorldState implements GameState, InstanceHost {
     const e = target as Enemy;
     if (!enemies || !player || !e.hittable) return;
     const defeated = enemies.hit(e, shot.damage);
+    // A mage practises with a charged spell, so how far it was charged counts.
+    this.recordTraining(e, shot.id === SHARD_ID ? 0 : shot.charge);
     const top = e.y + (enemyRenderer?.heightOf(e) ?? 1.5);
     this.damageNumbers?.spawn(
       e.x,
@@ -1242,6 +1258,18 @@ export class WorldState implements GameState, InstanceHost {
     player.combat.sinceCombat = 0;
     if (defeated) this.defeated(e, top);
   };
+
+  /**
+   * A hit landed on something you can practise on (the training dummies at the Academy field):
+   * it counts for a `train` objective. `charge` is how far a spell was charged (0 for a swing
+   * or the Arcane Shard), so a mage's exam only counts a real, charged spell.
+   */
+  private recordTraining(e: Enemy, charge = 0): void {
+    if (!this.quests?.activeDefs().some((def) => def.objectives.some((o) => o.type === 'train'))) {
+      return;
+    }
+    this.recordQuest('train', e.def.id, 1, undefined, false, charge);
+  }
 
   /** Applies a landed swing to every enemy in its arc, with damage numbers. */
   private landHit(result: SwordResult): void {
@@ -1262,6 +1290,8 @@ export class WorldState implements GameState, InstanceHost {
       }
       const defeated = enemies.hit(e, result.damage);
       hitAny = true;
+      // Practising at the training field (the Entrance Exams, fase 3.8).
+      this.recordTraining(e);
       const top = e.y + (enemyRenderer?.heightOf(e) ?? 1.5);
       const kind = result.crit
         ? 'crit'
@@ -1663,14 +1693,35 @@ export class WorldState implements GameState, InstanceHost {
 
   /** The first time in an instance: its cutscene (Master Brink explains his magic). */
   private playInstanceCutscene(): void {
-    const session = this.ctx.session;
     const id = this.instanceDef?.scene?.cutscene;
+    if (id) this.playCutscene(id);
+  }
+
+  /**
+   * A cutscene a conversation brought with it (the Crystal Ceremony): it waits until the
+   * teacher has said his lines, so the comic never lands on top of the dialogue window.
+   */
+  private playPendingCutscene(): void {
+    const pending = this.pendingCutscene;
+    if (!pending || this.dialog?.isOpen || this.comic) return;
+    this.pendingCutscene = null;
+    this.playCutscene(pending.id, pending.params);
+  }
+
+  /**
+   * Plays a stripcutscene from cutscenes.json over the world, at most once when it says
+   * `playOnce` (kept in the save). `params` fill the `{...}` in its lines, which is how the
+   * Crystal Ceremony says which element picked you.
+   */
+  private playCutscene(id: string, params?: Record<string, string>): void {
+    const session = this.ctx.session;
     const cutscene = this.ctx.data?.cutscenes.cutscenes.find((entry) => entry.id === id);
-    if (!session || !id || !cutscene || session.seenCutscenes.includes(id) || this.comic) return;
+    if (!session || !cutscene || this.comic) return;
+    if (cutscene.playOnce && session.seenCutscenes.includes(id)) return;
     this.setCutscenePlaying(true);
     this.comic = new ComicCutscene(
       cutscene,
-      (key) => this.ctx.i18n.t(key),
+      (key) => this.ctx.i18n.t(key, params),
       () => {
         this.comic = null;
         if (!session.seenCutscenes.includes(id)) session.seenCutscenes.push(id);
@@ -1765,6 +1816,8 @@ export class WorldState implements GameState, InstanceHost {
         this.talkingTo = null;
         // A merchant opens the shop after the last line (not after Escape or walking away).
         if (finished && shop) this.openShop(npc.def.name, npc.id, shop);
+        // A cutscene that a quest brought with it (the Crystal Ceremony) waits its turn.
+        this.playPendingCutscene();
       },
       { checklist: talk?.checklist ?? null },
     );
@@ -1823,6 +1876,7 @@ export class WorldState implements GameState, InstanceHost {
   /** The path changed (chosen, or a cheat): conditions, quests, markers and the save follow. */
   private pathChanged(path: PlayerPath | null): void {
     this.conditionContext.path = path;
+    if (this.quests) this.quests.path = path;
     this.applyGear(false);
     if (path) this.recordQuest('path', path, 1);
     this.refreshNpcPresence();
@@ -1853,7 +1907,7 @@ export class WorldState implements GameState, InstanceHost {
       return { lines: dialogue.complete, checklist: null };
     }
     if (found.status === 'available') {
-      book.accept(quest.id);
+      this.acceptQuest(quest);
       this.ctx.events.emit('questStarted', { questId: quest.id });
       // The giver's own "talk" objective counts now (e.g. listening to Old Bertha's tale).
       this.recordQuest('talk', def.id, 1, undefined, true);
@@ -1879,10 +1933,11 @@ export class WorldState implements GameState, InstanceHost {
     count: number,
     source?: string,
     quiet = false,
+    charge?: number,
   ): void {
     const book = this.quests;
     if (!book) return;
-    const changed = book.record(kind, target, count, this.changedQuests, source);
+    const changed = book.record(kind, target, count, this.changedQuests, source, charge);
     if (changed.length === 0) return;
     if (!quiet) for (const def of changed) this.announceQuestProgress(def);
     this.refreshQuestMarkers();
@@ -1998,9 +2053,72 @@ export class WorldState implements GameState, InstanceHost {
     if (!book || !session || !bag) return;
     for (const def of book.defs) {
       if (def.giver || book.status(def.id, session.progress.level, bag) !== 'available') continue;
-      book.accept(def.id);
+      this.acceptQuest(def);
       this.questStarted(def.id);
     }
+  }
+
+  /**
+   * Starts a quest and hands over what its giver gives with it (`grants`, fase 3.8): a teacher
+   * gives you your sword or your staff before he asks you to practise with it, and a mage's
+   * staff comes with the Crystal Ceremony. False when the quest was already running.
+   */
+  private acceptQuest(def: QuestDef): boolean {
+    const book = this.quests;
+    if (!book?.accept(def.id)) return false;
+    const grants = def.grants;
+    if (!grants) return true;
+    for (const stack of grants.items) this.gainItem(stack.item, stack.count);
+    if (grants.equip) {
+      // Practising without the weapon in your hands makes no sense, so it goes on at once.
+      for (const stack of grants.items) {
+        if (this.items.get(stack.item)?.weapon) this.equipItem(stack.item);
+      }
+    }
+    if (grants.ceremony) this.crystalCeremony();
+    this.applyGear(true);
+    this.updatePlayerGear();
+    return true;
+  }
+
+  /**
+   * The Crystal Ceremony (fase 3.8): your teacher's crystal picks you. Master Brink's vault
+   * draws one of its four elements, Wizard Sam has only Dark. The element is kept in the save
+   * (a reload never redraws it), the crystal goes into your bag and the spell that belongs to
+   * it is the one your staff casts. A stripcutscene shows it, once.
+   */
+  private crystalCeremony(): void {
+    const data = this.ctx.data;
+    const session = this.ctx.session;
+    const character = session?.character;
+    const path = session?.path ?? null;
+    if (!data || !character || !path) return;
+    const bonus = data.player.paths[path];
+    const crystalId = bonus.crystal;
+    const crystal = crystalId ? this.items.get(crystalId) : undefined;
+    const elements = crystal?.crystal?.elements ?? [];
+    if (!crystalId || elements.length === 0) return;
+    // Already been here (a replay of the quest): keep the crystal you were given.
+    const drawn =
+      character.crystal && elements.includes(character.crystal)
+        ? character.crystal
+        : this.lootRng.pick(elements);
+    character.crystal = drawn;
+    this.gainItem(crystalId, 1);
+    const spell = data.spells.spells.find((entry) => entry.element === drawn);
+    if (spell && !character.spells.includes(spell.id)) character.spells.push(spell.id);
+    this.ctx.persist();
+    const elementName = data.spells.elements.find((entry) => entry.id === drawn)?.name ?? drawn;
+    const params = {
+      element: elementName,
+      spell: spell?.name ?? '',
+      crystal: crystal?.name ?? '',
+    };
+    const cutscene = bonus.ceremony;
+    if (!cutscene) return;
+    // Queued, never played on the spot: your teacher first says his lines (he hands you the
+    // staff while talking), and the comic would land on top of the dialogue window.
+    this.pendingCutscene = { id: cutscene, params };
   }
 
   /** "New quest: Defeat Sultan" and what to do; saved at once. */
@@ -2066,8 +2184,14 @@ export class WorldState implements GameState, InstanceHost {
     const session = this.ctx.session;
     if (!data) return;
     const points = session?.character?.stats ?? {};
-    computeStatEffects(data.stats, points, session?.path ?? null, this.statEffects);
+    const path = session?.path ?? null;
+    computeStatEffects(data.stats, points, path, this.statEffects);
+    // Your path and its perks come on top of your points (fase 3.8).
+    const bonus = applyPath(data.player, data.skills, data.stats, path, this.statEffects);
     applyStatsToCombat(data.stats, this.statEffects, c, this.gearStatsOut.damageReductionPercent);
+    c.hasMana = bonus.hasMana;
+    // A sword fighter never sees a mana bar.
+    this.hud?.setBarUsed('mana', bonus.hasMana);
   }
 
   /** Worn gear → extra max HP / mana and damage factors (no level or load changes). */
@@ -2104,7 +2228,12 @@ export class WorldState implements GameState, InstanceHost {
     this.carriedKg = carriedWeight(character.inventory, this.items);
     this.maxLoadKg = maxLoad(data.player.load, c.level, this.statEffects.carryKg);
     const tier = loadTier(data.player.load, this.carriedKg, this.maxLoadKg);
-    loadedMovement(baseMovement, tier, this.gearStatsOut.moveSpeedPercent, movement);
+    loadedMovement(
+      baseMovement,
+      tier,
+      this.gearStatsOut.moveSpeedPercent + this.statEffects.moveSpeedPercent,
+      movement,
+    );
     // Regen: energy comes back faster (the HP and mana part is in `stepRegen`).
     movement.energyPerSecond =
       baseMovement.energyPerSecond * (1 + this.statEffects.energyRegenPercent / 100);
@@ -3114,6 +3243,38 @@ export class WorldState implements GameState, InstanceHost {
       book.accept(def.id);
       // The quest has no giver, so counting the boss hands it in at once.
       this.recordQuest('boss', 'sultan', 1);
+    }
+  }
+
+  /**
+   * Debug: hands in your own three Entrance Exams at once, in order, with everything they give
+   * you (the sword, or the staff and the Crystal Ceremony). After this the city gate is open.
+   */
+  private skipExams(): void {
+    const book = this.quests;
+    const session = this.ctx.session;
+    const bag = session?.character?.inventory;
+    if (!book || !session || !bag) return;
+    // In order, because every exam needs the one before it.
+    for (let round = 0; round < book.defs.length; round++) {
+      const next = book.defs.find(
+        (def) =>
+          def.requires.path !== undefined &&
+          book.status(def.id, session.progress.level, bag) === 'available',
+      );
+      if (!next) break;
+      this.acceptQuest(next);
+      for (const objective of next.objectives) {
+        const need = 'count' in objective ? objective.count : 1;
+        if (objective.type === 'train') {
+          this.recordQuest('train', objective.monster, need, undefined, true, 1);
+        } else if (objective.type === 'kill') {
+          this.recordQuest('kill', objective.monster, need, undefined, true);
+        } else if (objective.type === 'talk') {
+          this.recordQuest('talk', objective.npc, 1, undefined, true);
+        }
+      }
+      this.completeQuest(next);
     }
   }
 

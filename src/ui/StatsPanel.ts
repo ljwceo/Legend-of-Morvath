@@ -117,7 +117,7 @@ export function statSummary(
   const t = ctx.i18n.t.bind(ctx.i18n);
   const box = el('div', { className: 'ui-stat-summary' });
   if (!file || !player) return box;
-  const p = statPreview(player, file, points, path, level);
+  const p = statPreview(player, file, points, path, level, ctx.data?.skills);
   const n = (value: number, digits = 0): string =>
     value.toLocaleString(ctx.i18n.language, { maximumFractionDigits: digits });
   const lines: string[] = [

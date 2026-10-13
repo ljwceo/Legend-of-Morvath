@@ -84,6 +84,8 @@ export class QuestTexts {
         });
       case 'buy':
         return t('quest.ui.objective.buy', { item: this.itemName(objective.item), ...counts });
+      case 'train':
+        return t(objective.text, counts);
       case 'rest':
       case 'visit':
       case 'choosePath':
