@@ -42,6 +42,8 @@ export interface CheatPanelHandlers {
   path(): PlayerPath | null;
   /** Sets the path or clears it (the teachers ask again). */
   setPath(path: PlayerPath | null): void;
+  /** Hands in the three Entrance Exams of your own path at once (fase 3.8): the gate opens. */
+  skipExams(): void;
 }
 
 type SaveTool = 'none' | 'export' | 'import';
@@ -345,6 +347,10 @@ export class CheatPanel {
               this.rebuild();
             }),
           ),
+          chip(t('cheats.examsDone'), false, () => {
+            this.handlers.skipExams();
+            this.rebuild();
+          }),
         ),
       ),
       section(

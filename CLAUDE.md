@@ -375,6 +375,7 @@ Definition of Done:
 - [ ] 60/120 fps gelijk; tests (puntentelling, zachte grenzen, HP/mana/schade-formules, migratie) en de DataValidator slagen.
 
 ### Fase 3.8 – Entrance Exams, je pad en de stadspoort
+Status: gebouwd op 2026-10-13 (negen exams, `train`-doel, pad-effecten met de drie perks, Crystal Ceremony per leraar, poort na Sultan + exam, save 12); wacht op spelen door Bo en Lucas. Details in `docs/PROGRESS.md`.
 Doel: na mijn keuze doe ik de Entrance Exam van mijn leraar tot level 5, krijg wat mijn pad me geeft, en daarna gaat de stadspoort open.
 Bouwen: **drie exam-quests per leraar** (9 in totaal, alleen voor je eigen pad, elk de volgende pas na de vorige, in EN en NL; opbouw: iets leren bij je leraar → het gebruiken in de Greenwood → terugkomen en voordoen), één nieuw doel-type `train` ("raak de trainingspop N keer", bij Brink en Sam met een opgeladen spreuk); **pad-effecten**: zwaardvechter een beter zwaard, geen mana (manabalk weg), 115% kracht en de perks Iron Body / Battle Hardened / Swift Blade (bestaan al als data, werken nog niet; `attackSpeedPercent` moet in de zwaai-tijden), mage de **Mage Staff** + **Crystal Ceremony** als stripcutscene (Brink: willekeurig Water/Fire/Nature/Wind, Sam: Dark) met het kristal in de save; `canLeaveCity` wordt **Sultan verslagen + exam klaar**.
 Data: `quests.json` (9 exams), `npcs.json`, `items.json` (beter zwaard), `skills.json` (perks aan), `cutscenes.json` (Crystal Ceremony), `spells.json`, `triggers.json` (`canLeaveCity`), `lang/*.json`, save versie +1 (kristal).

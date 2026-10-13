@@ -233,6 +233,319 @@
       }
     },
     {
+      "id": "first_form",
+      "name": "First Form",
+      "kind": "main",
+      "giver": "sir_garrick",
+      "description": "quest.first_form.desc",
+      "objectives": [
+        {
+          "type": "train",
+          "monster": "training_dummy",
+          "count": 12,
+          "text": "quest.first_form.objective.train"
+        }
+      ],
+      "requires": {
+        "quests": ["your_resolve"],
+        "path": "sword"
+      },
+      "grants": {
+        "items": [
+          {
+            "item": "academy_blade",
+            "count": 1
+          }
+        ],
+        "equip": true
+      },
+      "dialogue": {
+        "offer": ["quest.first_form.offer.1", "quest.first_form.offer.2"],
+        "progress": ["quest.first_form.progress.1"],
+        "complete": ["quest.first_form.complete.1", "quest.first_form.complete.2"]
+      },
+      "rewards": {
+        "xp": 70,
+        "gold": 0,
+        "items": []
+      }
+    },
+    {
+      "id": "blade_in_the_woods",
+      "name": "Blade in the Woods",
+      "kind": "main",
+      "giver": "sir_garrick",
+      "description": "quest.blade_in_the_woods.desc",
+      "objectives": [
+        {
+          "type": "kill",
+          "monster": "goblin",
+          "count": 4
+        },
+        {
+          "type": "kill",
+          "monster": "green_slime",
+          "count": 4
+        }
+      ],
+      "requires": {
+        "quests": ["first_form"],
+        "path": "sword"
+      },
+      "dialogue": {
+        "offer": ["quest.blade_in_the_woods.offer.1", "quest.blade_in_the_woods.offer.2"],
+        "progress": ["quest.blade_in_the_woods.progress.1"],
+        "complete": ["quest.blade_in_the_woods.complete.1", "quest.blade_in_the_woods.complete.2"]
+      },
+      "rewards": {
+        "xp": 150,
+        "gold": 30,
+        "items": []
+      }
+    },
+    {
+      "id": "prove_your_edge",
+      "name": "Prove Your Edge",
+      "kind": "main",
+      "giver": "sir_garrick",
+      "description": "quest.prove_your_edge.desc",
+      "objectives": [
+        {
+          "type": "train",
+          "monster": "training_dummy",
+          "count": 15,
+          "text": "quest.prove_your_edge.objective.train"
+        }
+      ],
+      "requires": {
+        "quests": ["blade_in_the_woods"],
+        "path": "sword"
+      },
+      "dialogue": {
+        "offer": ["quest.prove_your_edge.offer.1", "quest.prove_your_edge.offer.2"],
+        "progress": ["quest.prove_your_edge.progress.1"],
+        "complete": ["quest.prove_your_edge.complete.1", "quest.prove_your_edge.complete.2"]
+      },
+      "rewards": {
+        "xp": 180,
+        "gold": 50,
+        "items": []
+      }
+    },
+    {
+      "id": "the_arcane_shard",
+      "name": "The Arcane Shard",
+      "kind": "main",
+      "giver": "master_brink",
+      "description": "quest.the_arcane_shard.desc",
+      "objectives": [
+        {
+          "type": "train",
+          "monster": "training_dummy",
+          "count": 8,
+          "text": "quest.the_arcane_shard.objective.train"
+        }
+      ],
+      "requires": {
+        "quests": ["your_resolve"],
+        "path": "light"
+      },
+      "grants": {
+        "items": [
+          {
+            "item": "mage_staff",
+            "count": 1
+          }
+        ],
+        "equip": true,
+        "ceremony": true
+      },
+      "dialogue": {
+        "offer": ["quest.the_arcane_shard.offer.1", "quest.the_arcane_shard.offer.2"],
+        "progress": ["quest.the_arcane_shard.progress.1"],
+        "complete": ["quest.the_arcane_shard.complete.1", "quest.the_arcane_shard.complete.2"]
+      },
+      "rewards": {
+        "xp": 70,
+        "gold": 0,
+        "items": []
+      }
+    },
+    {
+      "id": "sparks_in_the_greenwood",
+      "name": "Sparks in the Greenwood",
+      "kind": "main",
+      "giver": "master_brink",
+      "description": "quest.sparks_in_the_greenwood.desc",
+      "objectives": [
+        {
+          "type": "kill",
+          "monster": "green_slime",
+          "count": 4
+        },
+        {
+          "type": "kill",
+          "monster": "goblin",
+          "count": 4
+        }
+      ],
+      "requires": {
+        "quests": ["the_arcane_shard"],
+        "path": "light"
+      },
+      "dialogue": {
+        "offer": ["quest.sparks_in_the_greenwood.offer.1", "quest.sparks_in_the_greenwood.offer.2"],
+        "progress": ["quest.sparks_in_the_greenwood.progress.1"],
+        "complete": [
+          "quest.sparks_in_the_greenwood.complete.1",
+          "quest.sparks_in_the_greenwood.complete.2"
+        ]
+      },
+      "rewards": {
+        "xp": 150,
+        "gold": 30,
+        "items": []
+      }
+    },
+    {
+      "id": "show_me_your_focus",
+      "name": "Show Me Your Focus",
+      "kind": "main",
+      "giver": "master_brink",
+      "description": "quest.show_me_your_focus.desc",
+      "objectives": [
+        {
+          "type": "train",
+          "monster": "training_dummy",
+          "count": 5,
+          "minCharge": 0.5,
+          "text": "quest.show_me_your_focus.objective.train"
+        }
+      ],
+      "requires": {
+        "quests": ["sparks_in_the_greenwood"],
+        "path": "light"
+      },
+      "dialogue": {
+        "offer": ["quest.show_me_your_focus.offer.1", "quest.show_me_your_focus.offer.2"],
+        "progress": ["quest.show_me_your_focus.progress.1"],
+        "complete": ["quest.show_me_your_focus.complete.1", "quest.show_me_your_focus.complete.2"]
+      },
+      "rewards": {
+        "xp": 180,
+        "gold": 50,
+        "items": []
+      }
+    },
+    {
+      "id": "the_first_shadow",
+      "name": "The First Shadow",
+      "kind": "main",
+      "giver": "wizard_sam",
+      "description": "quest.the_first_shadow.desc",
+      "objectives": [
+        {
+          "type": "train",
+          "monster": "training_dummy",
+          "count": 8,
+          "text": "quest.the_first_shadow.objective.train"
+        }
+      ],
+      "requires": {
+        "quests": ["your_resolve"],
+        "path": "dark"
+      },
+      "grants": {
+        "items": [
+          {
+            "item": "mage_staff",
+            "count": 1
+          }
+        ],
+        "equip": true,
+        "ceremony": true
+      },
+      "dialogue": {
+        "offer": ["quest.the_first_shadow.offer.1", "quest.the_first_shadow.offer.2"],
+        "progress": ["quest.the_first_shadow.progress.1"],
+        "complete": ["quest.the_first_shadow.complete.1", "quest.the_first_shadow.complete.2"]
+      },
+      "rewards": {
+        "xp": 70,
+        "gold": 0,
+        "items": []
+      }
+    },
+    {
+      "id": "shadows_in_the_greenwood",
+      "name": "Shadows in the Greenwood",
+      "kind": "main",
+      "giver": "wizard_sam",
+      "description": "quest.shadows_in_the_greenwood.desc",
+      "objectives": [
+        {
+          "type": "kill",
+          "monster": "goblin",
+          "count": 4
+        },
+        {
+          "type": "kill",
+          "monster": "green_slime",
+          "count": 4
+        }
+      ],
+      "requires": {
+        "quests": ["the_first_shadow"],
+        "path": "dark"
+      },
+      "dialogue": {
+        "offer": [
+          "quest.shadows_in_the_greenwood.offer.1",
+          "quest.shadows_in_the_greenwood.offer.2"
+        ],
+        "progress": ["quest.shadows_in_the_greenwood.progress.1"],
+        "complete": [
+          "quest.shadows_in_the_greenwood.complete.1",
+          "quest.shadows_in_the_greenwood.complete.2"
+        ]
+      },
+      "rewards": {
+        "xp": 150,
+        "gold": 30,
+        "items": []
+      }
+    },
+    {
+      "id": "show_me_your_shadow",
+      "name": "Show Me Your Shadow",
+      "kind": "main",
+      "giver": "wizard_sam",
+      "description": "quest.show_me_your_shadow.desc",
+      "objectives": [
+        {
+          "type": "train",
+          "monster": "training_dummy",
+          "count": 5,
+          "minCharge": 0.5,
+          "text": "quest.show_me_your_shadow.objective.train"
+        }
+      ],
+      "requires": {
+        "quests": ["shadows_in_the_greenwood"],
+        "path": "dark"
+      },
+      "dialogue": {
+        "offer": ["quest.show_me_your_shadow.offer.1", "quest.show_me_your_shadow.offer.2"],
+        "progress": ["quest.show_me_your_shadow.progress.1"],
+        "complete": ["quest.show_me_your_shadow.complete.1", "quest.show_me_your_shadow.complete.2"]
+      },
+      "rewards": {
+        "xp": 180,
+        "gold": 50,
+        "items": []
+      }
+    },
+    {
       "id": "first_harvest",
       "name": "First Harvest",
       "kind": "side",

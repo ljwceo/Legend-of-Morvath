@@ -632,6 +632,26 @@ class CrossChecker {
       this.issue(f, 'staff.shard.manaCost', 'the Arcane Shard costs no mana (concept)');
     }
     this.checkTouchButtons(f, player.controls.touch);
+    // Every path: its perks, its crystal and its ceremony cutscene must exist (fase 3.8).
+    for (const [pathId, bonus] of Object.entries(player.paths)) {
+      const at = `paths.${pathId}`;
+      bonus.perks.forEach((perkId, i) => {
+        const perk = this.data.skills.perks.find((entry) => entry.id === perkId);
+        if (!perk) this.issue(f, `${at}.perks[${i}]`, `unknown perk "${perkId}"`);
+        else if (perk.path !== undefined && perk.path !== pathId) {
+          this.issue(f, `${at}.perks[${i}]`, `perk "${perkId}" belongs to path "${perk.path}"`);
+        }
+      });
+      if (bonus.crystal !== null) this.ref('item', f, `${at}.crystal`, bonus.crystal);
+      if (bonus.ceremony !== null) {
+        if (!this.data.cutscenes.cutscenes.some((entry) => entry.id === bonus.ceremony)) {
+          this.issue(f, `${at}.ceremony`, `unknown cutscene "${bonus.ceremony}"`);
+        }
+        if (bonus.crystal === null) {
+          this.issue(f, `${at}.ceremony`, 'a ceremony without a crystal to give');
+        }
+      }
+    }
   }
 
   /**
@@ -1040,7 +1060,76 @@ class CrossChecker {
       quest.rewards.items.forEach((stack, r) =>
         this.ref('item', f, `${p}.rewards.items[${r}].item`, stack.item),
       );
+      this.checkQuestPath(f, p, quest);
+      this.checkQuestGrants(f, p, quest);
     });
+  }
+
+  /**
+   * An exam quest belongs to one path (fase 3.8): only its own teacher may give it, otherwise
+   * the player would never see it (his path locks it) or see someone else's.
+   */
+  private checkQuestPath(
+    f: 'quests',
+    p: string,
+    quest: GameData['quests']['quests'][number],
+  ): void {
+    const path = quest.requires.path;
+    if (path === undefined) return;
+    const giver = this.data.npcs.npcs.find((npc) => npc.id === quest.giver);
+    if (!giver) return;
+    if (giver.teaches && giver.teaches.path !== path) {
+      this.issue(
+        f,
+        `${p}.requires.path`,
+        `"${giver.id}" teaches "${giver.teaches.path}", so he cannot give a "${path}" quest`,
+      );
+    }
+  }
+
+  /** What a giver hands over with a quest: the items exist, and a ceremony fits the path. */
+  private checkQuestGrants(
+    f: 'quests',
+    p: string,
+    quest: GameData['quests']['quests'][number],
+  ): void {
+    const grants = quest.grants;
+    if (!grants) return;
+    grants.items.forEach((stack, g) =>
+      this.ref('item', f, `${p}.grants.items[${g}].item`, stack.item),
+    );
+    if (grants.equip && !grants.items.some((stack) => this.isWeapon(stack.item))) {
+      this.issue(f, `${p}.grants.equip`, 'nothing to put on: no weapon among the granted items');
+    }
+    if (!grants.ceremony) return;
+    const path = quest.requires.path;
+    const crystal = path ? this.data.player.paths[path].crystal : null;
+    if (!path) {
+      this.issue(f, `${p}.grants.ceremony`, 'a Crystal Ceremony needs requires.path');
+    } else if (!crystal) {
+      this.issue(f, `${p}.grants.ceremony`, `path "${path}" has no crystal in player.json`);
+    } else if (!this.data.player.paths[path].ceremony) {
+      this.issue(f, `${p}.grants.ceremony`, `path "${path}" has no ceremony cutscene`);
+    } else {
+      const def = this.data.items.items.find((item) => item.id === crystal);
+      const elements = def?.crystal?.elements ?? [];
+      if (elements.length === 0) {
+        this.issue(f, `${p}.grants.ceremony`, `"${crystal}" has no elements to draw from`);
+      }
+      for (const element of elements) {
+        if (!this.data.spells.spells.some((spell) => spell.element === element)) {
+          this.issue(
+            f,
+            `${p}.grants.ceremony`,
+            `element "${element}" of "${crystal}" has no spell to learn`,
+          );
+        }
+      }
+    }
+  }
+
+  private isWeapon(itemId: string): boolean {
+    return this.data.items.items.some((item) => item.id === itemId && item.weapon);
   }
 
   private checkSpells(): void {

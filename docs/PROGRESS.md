@@ -642,6 +642,29 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - **Niet gedaan (bewust):** de joystick zelf verandert niet van grootte (de grootte van de knoppen is wat gevraagd is), en de pauze-, tas- en cheat-knop in de hoeken houden hun maat. Zeg het als die ook mee moeten.
 - **Tijdelijke namen:** geen nieuwe.
 
+### Fase 3.8 – Entrance Exams, je pad en de stadspoort (2026-10-13)
+**Status:** gebouwd op 2026-10-13; wacht op spelen door Bo en Lucas.
+**Gebouwd:**
+- **Negen exam-quests** in `quests.json`, drie per leraar, alleen voor je eigen pad (`requires.path`) en elk pas na de vorige. De opbouw is overal dezelfde: *iets leren bij je leraar* → *het gebruiken in de Greenwood* → *terugkomen en voordoen*.
+
+  | Pad | 1. leren | 2. gebruiken | 3. voordoen |
+  |---|---|---|---|
+  | Zwaard (Sir Garrick) | First Form (12× de pop raken) | Blade in the Woods (4 Goblins, 4 Green Slimes) | Prove Your Edge (15× de pop) |
+  | Licht (Master Brink) | The Arcane Shard (8× de pop) | Sparks in the Greenwood (4 slimes, 4 goblins) | Show Me Your Focus (5× met een opgeladen spreuk) |
+  | Duister (Wizard Sam) | The First Shadow (8× de pop) | Shadows in the Greenwood (4 goblins, 4 slimes) | Show Me Your Shadow (5× met een opgeladen spreuk) |
+
+  XP: 70 + 150 + 180 = 400 uit de quests plus 120 uit de vijanden = **520**, precies wat je van level 3 naar level 5 brengt (getest).
+- **Nieuw doeltype `train`**: "raak de trainingspop N keer". Werkt met het zwaard, met de Arcane Shard en met spreuken; met `minCharge` (0,5) tellen alleen **opgeladen** spreuken, en dat is de laatste exam van Brink en Sam. De drie trainingspoppen stonden al op het trainingsveld bij de Academy en staan na 3 s weer recht, dus je kunt altijd oefenen.
+- **Je leraar geeft je je wapen bij de quest** (nieuw veld `grants` in `quests.json`: items, meteen aandoen, en de ceremonie). Oefenen zonder wapen heeft geen zin, dus het komt vóór het eerste doel in plaats van als beloning erna. Zwaardvechter: de nieuwe **Academy Blade** (+5 schade, +5% schade, 5 kg). Mage: de **Mage Staff** + de **Crystal Ceremony**.
+- **Crystal Ceremony** als stripcutscene van vier panelen, één keer, overslaanbaar, met je eigen leraar aan het woord (`crystal_ceremony_light` = Master Brink, `crystal_ceremony_dark` = Wizard Sam). Brink trekt willekeurig Water, Fire, Nature of Wind uit zijn kluis; Sam heeft alleen Dark. Het element staat in de save (`character.crystal`), dus herladen trekt nooit opnieuw; het kristal gaat in je tas en de bijbehorende spreuk is de spreuk die je staf kan dragen. De cutscene **wacht tot je leraar klaar is met praten**, zodat de strip nooit over het dialoogvenster valt.
+- **Pad-effecten** (`player.json` → `paths`, met de perks uit `skills.json`): **zwaardvechter** 115% kracht op normale aanvallen, **geen mana** (de manabalk is weg in plaats van leeg) en de perks **Iron Body** (+30% HP), **Battle Hardened** (−15% schade die je krijgt) en **Swift Blade** (+20% aanvalssnelheid, dus echt kortere zwaai-, cast- en laadtijden). De zachte grenzen van `stats.json` gelden ook voor perks, dus een perk kan een stat nooit over zijn plafond duwen. Mage: mana blijft, de krachtcurve van licht/duister doet zijn werk (al sinds 3.5).
+- **De stadspoort** (`canLeaveCity`) is nu **Sultan verslagen + de laatste exam van je eigen leraar**. Daarvoor krijg je de bestaande melding "Je bent nog niet klaar om de stad te verlaten."; teleporteren in het cheatmenu blijft altijd werken. Nieuw cheat-chipje **Exams klaar** doet je eigen drie exams in één keer, inclusief wat ze geven.
+- **Save versie 12:** `character.crystal`. Een oude save krijgt `null` en houdt zijn spreuken.
+- **Getest:** 555 tests (nieuw: pad-effecten en perks tegen de echte gevechtscode, Swift Blade in de zwaai-tijden, zachte grenzen met perks, de negen exams en hun volgorde, alleen je eigen pad, wat exam 1 geeft, een tik telt niet waar een opgeladen spreuk moet, een volle lading is te betalen met de mana van een beginnende mage, de XP-rekening naar level 5, de poortvoorwaarde, save 11 → 12), lint, opmaak, typecheck, build en de DataValidator (die controleert nu ook de perks, het kristal en de ceremonie per pad, en of een exam-quest bij zijn eigen leraar hoort).
+- **Headless Chromium (pc 1280×800, NL), echt doorgespeeld:** zwaardvechter — manabalk weg zodra je kiest, statusvenster 130 HP / mana 0 / zwaard 12-18-29 / −16,5% schade / +22% aanvalssnelheid; Sir Garrick biedt First Form aan met de checklist "Raak de trainingspop 0/12", de Academy Blade zit meteen in je hand, en op de pop slaan laat de teller oplopen. Mage — in de toren van Brink praat hij zijn twee regels, daarna speelt de Crystal Ceremony (Nature → Wizard Crystal → Thorn Shot; bij Sam Dark → Dark Crystal → Shadow Bolt), op het veld tellen Shards én opgeladen spreuken mee. Poort: met de exam nog open "Je bent nog niet klaar om de stad te verlaten", na de exam geen melding meer. Geen fouten in de console.
+- **Tijdelijke namen (alleen in data):** Academy Blade, en de negen questnamen (First Form, Blade in the Woods, Prove Your Edge, The Arcane Shard, Sparks in the Greenwood, Show Me Your Focus, The First Shadow, Shadows in the Greenwood, Show Me Your Shadow).
+- **Nog niet gemeten:** fps op de pc en de iPhone (zoals heel fase 2 en 3); deze stap voegt geen werk per frame toe behalve één null-check.
+
 ## Besluiten
 
 | Datum | Besluit | Waarom |
@@ -837,6 +860,14 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 | 2026-10-12 | De grootte geldt voor alle vijf de knoppen samen (70–160%), niet per knop | Simpel genoeg om op de telefoon in één sleepbeweging te doen; per knop kan er later bij |
 | 2026-10-12 | Elk venster heeft een ✕ linksboven; een ja/nee-vraag niet | Op een liggende telefoon valt de eigen Sluiten-knop van een lang venster buiten beeld. Een vraag hoort beantwoord te worden |
 | 2026-10-12 | Een tik op een knop mag een venster nooit laten schuiven; een tik in een tekstveld wel | Het "omhoog gegooid worden" kwam van de browser die een knop met focus in beeld schuift. Bij een tekstveld wil je dat juist, anders dekt het toetsenbord je naam af |
+| 2026-10-13 | Je leraar geeft je je wapen **bij het aannemen** van de eerste exam (`grants`), niet als beloning erna | Anders moet een mage zijn eerste exam doen zonder staf. Zo is "iets leren bij je leraar" ook echt het begin |
+| 2026-10-13 | De exams gebruiken de trainingspoppen op het veld bij de Academy, ook die van Brink en Sam | De poppen staan er al en komen na 3 s weer recht. Monsters in een instance (de toren, de kelder) zou een heel nieuw stuk techniek zijn voor dezelfde oefening |
+| 2026-10-13 | Een opgeladen spreuk telt vanaf **halve lading** (`minCharge` 0,5) | Een volle lading kost 3× mana; met 30 basismana kan een beginnende mage die niet betalen (de Shadow Bolt zou onhaalbaar zijn). Bij 0,5 haalt elke build het |
+| 2026-10-13 | Pad-effecten staan in `player.json` → `paths` (met perk-ids uit `skills.json`), niet als vlag in `skills.json` | Eén plek waar staat wat een pad geeft: kracht, mana, kristal, ceremonie en perks. De skill tree van fase 4 blijft los |
+| 2026-10-13 | De zwaardvechter heeft **geen manabalk** in plaats van een lege balk | Verzoek uit het concept: hij heeft geen mana. Een balk op 0 blijft vragen oproepen |
+| 2026-10-13 | Elke leraar heeft zijn **eigen** Crystal Ceremony-cutscene (zelfde tekstkeys, eigen naam) | Zo staat er Master Brink of Wizard Sam boven de tekstballon in plaats van een algemeen "Teacher" |
+| 2026-10-13 | De ceremonie-cutscene wacht tot het gesprek klaar is | De strip viel anders over het dialoogvenster en at de E-toets op (gemerkt tijdens het testen in de toren) |
+| 2026-10-13 | De poort gaat open na **Sultan + de laatste exam**, niet op level 5 | Zo bepaalt het verhaal de poort, niet een getal; de exams brengen je toch naar level 5 |
 
 ## Sessielog
 
@@ -903,3 +934,6 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 | 11 | Klooster, Monastery Garden en (later) Academy als **eigen zones**: kerkportaal = Greyhaven ↔ klooster, oostdeur van de oostvleugel = klooster ↔ tuin (markers `MON_Zone_*`, `MON_GardenGate_*`). via het kerkportaal (`MON_Zone_Door`) laad je `Monastery.blend` als eigen .glb en wordt de rest niet getekend (idee van Bo) | Game: `instances` kunnen nu alleen een stuk van `greyhaven.glb` tonen; nodig is een instance met een eigen model. Greyhaven krijgt een simpele buitenkant van het klooster. Zie `docs/MONASTERY.md` |
 - Fase 3 opgesplitst na nieuwe wensen van Bo: **fase 3.6** (buttonmapping + lock-on als Elden Ring: wit puntje op de vijand, lock stopt als er iets tussen de camera en de vijand komt), **3.7** (stats en builds: 20 startpunten, 1 punt per level, tien stats met zachte grenzen, geen automatische groei meer, gold alleen voor spullen, `core` uit `skills.json`), **3.8** (de oude stap 3.6: exams, pad-effecten, Crystal Ceremony, poort), **3.9** (10 eieren bij eenmalige mini-bosses + het ei van Sultan, herverdelen bij Sultan) en **3.10** (de oude stap 3.7: afronden). De blokken staan onderaan `CLAUDE.md`, de prompts per chat hierboven. Daarna fase 3.6 gebouwd (zie hierboven): buttonmapping en de nieuwe lock-on.
 - Tussendoor (verzoek van Bo, telefoon): panelen springen niet meer naar boven bij het verdelen van je punten, elk venster heeft een ✕ linksboven (de tas was op de telefoon niet te sluiten), en de knoppen op het scherm zijn nu zelf neer te zetten en groter te maken (als Brawl Stars) met een scheidslijn op 45% en een links-/rechtshandige stand. Save versie 11. Zie het blok "Telefoon: knoppen zelf neerzetten…" hierboven. Volgende stap: fase 3.8 (Entrance Exams, pad-effecten, stadspoort).
+
+### 2026-10-13
+- Fase 3.8 gebouwd: negen Entrance Exams (drie per leraar, alleen je eigen pad), het nieuwe doeltype `train` op de trainingspoppen, je leraar geeft je zijn wapen bij de quest, de Crystal Ceremony per leraar met een willekeurig element bij Brink, de pad-effecten met de drie zwaardperks (en de manabalk weg voor een zwaardvechter), en de stadspoort die opengaat na Sultan + je laatste exam. Save versie 12. Details in het blok "Fase 3.8" hierboven. Volgende stap: fase 3.9 (eieren, mini-bosses en opnieuw verdelen).

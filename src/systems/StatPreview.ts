@@ -1,4 +1,5 @@
-import type { PlayerConfig, PlayerPath, StatsFile } from '../data/types';
+import type { PlayerConfig, PlayerPath, SkillsFile, StatsFile } from '../data/types';
+import { applyPath } from './Paths';
 import { applyStats, CombatState, fastHitDamage, heavyHitDamage, swordConfig } from './Combat';
 import { maxLoad } from './Gear';
 import { applyStatsToCombat, computeStatEffects, emptyStatEffects, type StatPoints } from './Stats';
@@ -34,16 +35,23 @@ export interface StatPreview {
   potionPercent: number;
 }
 
+/**
+ * @param skills pass skills.json to count your path's perks as well (the status window does;
+ *   the character creator has no path yet, so it leaves this out).
+ */
 export function statPreview(
   player: PlayerConfig,
   file: StatsFile,
   points: Readonly<StatPoints>,
   path: PlayerPath | null,
   level = 1,
+  skills?: SkillsFile,
 ): StatPreview {
   const effects = computeStatEffects(file, points, path, emptyStatEffects());
+  const bonus = skills ? applyPath(player, skills, file, path, effects) : null;
   const c = new CombatState();
   applyStatsToCombat(file, effects, c);
+  if (bonus) c.hasMana = bonus.hasMana;
   applyStats(c, player, level);
   const sword = swordConfig(player);
   const shard = player.staff.shard.damage;

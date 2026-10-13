@@ -4,6 +4,7 @@ import {
   monstersFileSchema,
   playerFileSchema,
   questsFileSchema,
+  spellsFileSchema,
   zonesFileSchema,
 } from '../data/schemas';
 import type { PlayerConfig, QuestDef } from '../data/types';
@@ -18,6 +19,7 @@ const player = playerFileSchema.parse(readPublicJson('data/player.json')) as Pla
 const monsters = monstersFileSchema.parse(readPublicJson('data/monsters.json')).monsters;
 const zones = zonesFileSchema.parse(readPublicJson('data/zones.json')).zones;
 const items = itemsFileSchema.parse(readPublicJson('data/items.json')).items;
+const spells = spellsFileSchema.parse(readPublicJson('data/spells.json'));
 
 function freshSave(): SaveQuests {
   return { active: [], completed: [] };
@@ -191,5 +193,129 @@ describe('the first day in Greyhaven (quests.json)', () => {
     book.accept(tale.id);
     book.record('talk', 'bertha', 1, []);
     expect(book.status(tale.id, 1, [])).toBe('ready');
+  });
+});
+
+describe('the Entrance Exams (fase 3.8)', () => {
+  /** The three exams of one teacher, in the order you do them. */
+  function examsOf(path: 'sword' | 'light' | 'dark'): QuestDef[] {
+    return quests.filter((quest) => quest.requires.path === path);
+  }
+
+  /** Walks a path's exams the way the world does: accept, do everything, hand in. */
+  function runExams(path: 'sword' | 'light' | 'dark', charge: number): QuestDef[] {
+    const save = freshSave();
+    save.completed.push('defeat_sultan', 'your_resolve');
+    const book = new QuestBook(quests, save);
+    book.path = path;
+    const bag: ItemStack[] = [];
+    const done: QuestDef[] = [];
+    for (let round = 0; round < 5; round++) {
+      const next = quests.find(
+        (quest) => quest.requires.path === path && book.status(quest.id, 5, bag) === 'available',
+      );
+      if (!next) break;
+      book.accept(next.id);
+      for (const objective of next.objectives) {
+        if (objective.type === 'train') {
+          book.record('train', objective.monster, objective.count, [], undefined, charge);
+        } else if (objective.type === 'kill') {
+          book.record('kill', objective.monster, objective.count, []);
+        }
+      }
+      if (!book.isReady(next, bag)) break;
+      book.complete(next.id, bag);
+      done.push(next);
+    }
+    return done;
+  }
+
+  it('gives every path three exams, each one after the other', () => {
+    for (const path of ['sword', 'light', 'dark'] as const) {
+      const exams = examsOf(path);
+      expect(exams).toHaveLength(3);
+      expect(exams[0]?.requires.quests).toEqual(['your_resolve']);
+      expect(exams[1]?.requires.quests).toEqual([exams[0]?.id]);
+      expect(exams[2]?.requires.quests).toEqual([exams[1]?.id]);
+    }
+  });
+
+  it('only shows you your own teacher: another path stays locked', () => {
+    const save = freshSave();
+    save.completed.push('defeat_sultan', 'your_resolve');
+    const book = new QuestBook(quests, save);
+    book.path = 'sword';
+    const mine = examsOf('sword')[0] as QuestDef;
+    const other = examsOf('dark')[0] as QuestDef;
+    expect(book.status(mine.id, 3, [])).toBe('available');
+    expect(book.status(other.id, 3, [])).toBe('locked');
+    // Without a path (before Your Resolve) nobody's exam is open.
+    book.path = null;
+    expect(book.status(mine.id, 3, [])).toBe('locked');
+  });
+
+  it("the first exam hands you your teacher's weapon", () => {
+    for (const path of ['sword', 'light', 'dark'] as const) {
+      const first = examsOf(path)[0] as QuestDef;
+      const granted = first.grants?.items ?? [];
+      expect(granted).toHaveLength(1);
+      const def = items.find((item) => item.id === granted[0]?.item);
+      expect(def?.weapon?.kind).toBe(path === 'sword' ? 'sword' : 'staff');
+      expect(first.grants?.equip).toBe(true);
+      // Only a mage goes through the Crystal Ceremony.
+      expect(first.grants?.ceremony ?? false).toBe(path !== 'sword');
+    }
+  });
+
+  it('a tap does not count where a charged spell is asked for', () => {
+    const save = freshSave();
+    save.completed.push('defeat_sultan', 'your_resolve');
+    const book = new QuestBook(quests, save);
+    book.path = 'light';
+    const last = examsOf('light')[2] as QuestDef;
+    const objective = last.objectives[0];
+    expect(objective?.type).toBe('train');
+    if (objective?.type !== 'train') return;
+    expect(objective.minCharge).toBeGreaterThan(0);
+    book.accept(last.id);
+    // An Arcane Shard or a tapped spell: nothing counts.
+    book.record('train', objective.monster, 3, [], undefined, 0);
+    expect(book.progress(last, 0, [], { have: 0, need: 0 }).have).toBe(0);
+    // Charged enough: it counts.
+    book.record('train', objective.monster, objective.count, [], undefined, 1);
+    expect(book.isReady(last, [])).toBe(true);
+  });
+
+  it('a charged spell can be paid for with the mana a fresh mage has', () => {
+    // The exam would be impossible if a full charge cost more mana than a mage can hold.
+    for (const path of ['light', 'dark'] as const) {
+      const last = examsOf(path)[2] as QuestDef;
+      const objective = last.objectives[0];
+      if (objective?.type !== 'train' || objective.minCharge === undefined) continue;
+      for (const spell of spells.spells) {
+        const factor = spell.charge?.manaFactor ?? 1;
+        const cost = spell.manaCost * (1 + (factor - 1) * objective.minCharge);
+        expect(cost).toBeLessThanOrEqual(player.base.mana);
+      }
+    }
+  });
+
+  it('walks a path from level 3 to level 5 (520 XP), kills included', () => {
+    for (const path of ['sword', 'light', 'dark'] as const) {
+      const done = runExams(path, 1);
+      expect(done).toHaveLength(3);
+      let xp = done.reduce((sum, quest) => sum + quest.rewards.xp, 0);
+      for (const quest of done) {
+        for (const objective of quest.objectives) {
+          if (objective.type !== 'kill') continue;
+          const monster = monsters.find((entry) => entry.id === objective.monster);
+          xp += (monster?.xp ?? 0) * objective.count;
+        }
+      }
+      // From level 3 with nothing to spare: 220 + 300 XP brings you to level 5.
+      const state: LevelState = { level: 3, xp: 0 };
+      addXp(player, state, xp);
+      expect(state.level).toBeGreaterThanOrEqual(5);
+    }
   });
 });

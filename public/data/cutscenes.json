@@ -49,20 +49,35 @@
           "id": "tower",
           "caption": "cutscene.brink_tower.caption1",
           "background": "magieblauw",
-          "lines": [{ "speaker": "Master Brink", "text": "cutscene.brink_tower.1" }]
+          "lines": [
+            {
+              "speaker": "Master Brink",
+              "text": "cutscene.brink_tower.1"
+            }
+          ]
         },
         {
           "id": "crystals",
           "caption": "cutscene.brink_tower.caption2",
           "background": "ornamentgoud",
           "zoom": true,
-          "lines": [{ "speaker": "Master Brink", "text": "cutscene.brink_tower.2" }]
+          "lines": [
+            {
+              "speaker": "Master Brink",
+              "text": "cutscene.brink_tower.2"
+            }
+          ]
         },
         {
           "id": "patience",
           "caption": "cutscene.brink_tower.caption3",
           "background": "schemerviolet",
-          "lines": [{ "speaker": "Master Brink", "text": "cutscene.brink_tower.3" }]
+          "lines": [
+            {
+              "speaker": "Master Brink",
+              "text": "cutscene.brink_tower.3"
+            }
+          ]
         }
       ]
     },
@@ -75,21 +90,36 @@
           "id": "cellar",
           "caption": "cutscene.sam_cellar.caption1",
           "background": "nachtinkt",
-          "lines": [{ "speaker": "Wizard Sam", "text": "cutscene.sam_cellar.1" }]
+          "lines": [
+            {
+              "speaker": "Wizard Sam",
+              "text": "cutscene.sam_cellar.1"
+            }
+          ]
         },
         {
           "id": "circle",
           "caption": "cutscene.sam_cellar.caption2",
           "background": "spreukviolet",
           "shake": true,
-          "lines": [{ "speaker": "Wizard Sam", "text": "cutscene.sam_cellar.2" }]
+          "lines": [
+            {
+              "speaker": "Wizard Sam",
+              "text": "cutscene.sam_cellar.2"
+            }
+          ]
         },
         {
           "id": "warning",
           "caption": "cutscene.sam_cellar.caption3",
           "background": "schemerviolet",
           "zoom": true,
-          "lines": [{ "speaker": "Wizard Sam", "text": "cutscene.sam_cellar.3" }]
+          "lines": [
+            {
+              "speaker": "Wizard Sam",
+              "text": "cutscene.sam_cellar.3"
+            }
+          ]
         }
       ]
     },
@@ -149,6 +179,112 @@
             {
               "speaker": "Sultan",
               "text": "cutscene.pringle.5"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crystal_ceremony_light",
+      "skippable": true,
+      "playOnce": true,
+      "panels": [
+        {
+          "id": "vault",
+          "caption": "cutscene.crystal_ceremony.caption1",
+          "background": "magieblauw",
+          "lines": [
+            {
+              "speaker": "Master Brink",
+              "text": "cutscene.crystal_ceremony.1"
+            }
+          ]
+        },
+        {
+          "id": "choosing",
+          "caption": "cutscene.crystal_ceremony.caption2",
+          "background": "ornamentgoud",
+          "zoom": true,
+          "lines": [
+            {
+              "speaker": "Master Brink",
+              "text": "cutscene.crystal_ceremony.2"
+            }
+          ]
+        },
+        {
+          "id": "bond",
+          "caption": "cutscene.crystal_ceremony.caption3",
+          "background": "spreukviolet",
+          "shake": true,
+          "lines": [
+            {
+              "speaker": "Master Brink",
+              "text": "cutscene.crystal_ceremony.3"
+            }
+          ]
+        },
+        {
+          "id": "spell",
+          "caption": "cutscene.crystal_ceremony.caption4",
+          "background": "schemerviolet",
+          "lines": [
+            {
+              "speaker": "Master Brink",
+              "text": "cutscene.crystal_ceremony.4"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crystal_ceremony_dark",
+      "skippable": true,
+      "playOnce": true,
+      "panels": [
+        {
+          "id": "vault",
+          "caption": "cutscene.crystal_ceremony.caption1",
+          "background": "magieblauw",
+          "lines": [
+            {
+              "speaker": "Wizard Sam",
+              "text": "cutscene.crystal_ceremony.1"
+            }
+          ]
+        },
+        {
+          "id": "choosing",
+          "caption": "cutscene.crystal_ceremony.caption2",
+          "background": "ornamentgoud",
+          "zoom": true,
+          "lines": [
+            {
+              "speaker": "Wizard Sam",
+              "text": "cutscene.crystal_ceremony.2"
+            }
+          ]
+        },
+        {
+          "id": "bond",
+          "caption": "cutscene.crystal_ceremony.caption3",
+          "background": "spreukviolet",
+          "shake": true,
+          "lines": [
+            {
+              "speaker": "Wizard Sam",
+              "text": "cutscene.crystal_ceremony.3"
+            }
+          ]
+        },
+        {
+          "id": "spell",
+          "caption": "cutscene.crystal_ceremony.caption4",
+          "background": "schemerviolet",
+          "lines": [
+            {
+              "speaker": "Wizard Sam",
+              "text": "cutscene.crystal_ceremony.4"
             }
           ]
         }

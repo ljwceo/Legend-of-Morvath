@@ -494,6 +494,25 @@ export const npcsFileSchema = z.strictObject({
 export const TOUCH_BUTTONS = ['attack', 'heavy', 'dash', 'potion', 'lock'] as const;
 export type TouchButtonId = (typeof TOUCH_BUTTONS)[number];
 
+/**
+ * What one path gives you (fase 3.8): the sword fighter hits harder and has no mana at all, a
+ * mage gets the crystal of his teacher in the Crystal Ceremony. `perks` are ids from
+ * skills.json; they come with the path, not with the skill tree.
+ */
+const pathBonusSchema = z.strictObject({
+  /** Extra percent on every normal attack (sword swings and the Arcane Shard). */
+  normalAttackPercent: range(-50, 100),
+  /** Extra percent on spells (0 for now; light and dark use their power curve). */
+  spellPercent: optional(range(-50, 100)),
+  /** True for the sword fighter: no mana, so no mana bar either. */
+  noMana: z.boolean(),
+  perks: z.array(id),
+  /** The crystal the Crystal Ceremony gives (items.json), or null for a path without one. */
+  crystal: z.nullable(id),
+  /** The cutscene of that ceremony (cutscenes.json): every teacher does it his own way. */
+  ceremony: z.nullable(id),
+});
+
 export const playerFileSchema = z.strictObject({
   base: z.strictObject({ hp: positive, mana: nonNegative, energy: positive }),
   maxLevel: level,
@@ -743,6 +762,12 @@ export const playerFileSchema = z.strictObject({
     gold: nonNegInt,
     items: z.array(itemStack),
     equipment: z.record(id, id),
+  }),
+  /** What each path gives you once you have chosen it (fase 3.8). */
+  paths: z.strictObject({
+    sword: pathBonusSchema,
+    light: pathBonusSchema,
+    dark: pathBonusSchema,
   }),
 });
 
@@ -1120,6 +1145,17 @@ const objectiveSchema = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('visit'), trigger: id, text: textKey }),
   /** Say yes (twice) to a teacher: your path is chosen (main quest Your Resolve). */
   z.strictObject({ type: z.literal('choosePath'), text: textKey }),
+  /**
+   * Practise on a training dummy (the Entrance Exams, fase 3.8): hit `monster` `count` times.
+   * With `minCharge` only a charged spell counts, which is how Brink and Sam teach.
+   */
+  z.strictObject({
+    type: z.literal('train'),
+    monster: id,
+    count: posInt,
+    minCharge: optional(fraction),
+    text: textKey,
+  }),
 ]);
 
 export const questsFileSchema = z.strictObject({
@@ -1135,7 +1171,22 @@ export const questsFileSchema = z.strictObject({
         level: optional(level),
         quests: optional(z.array(id)),
         items: optional(z.array(itemStack)),
+        /** Only on this path (the Entrance Exams are your own teacher's, fase 3.8). */
+        path: optional(z.enum(PLAYER_PATHS)),
       }),
+      /**
+       * What the giver hands you the moment he gives you the quest (fase 3.8): a teacher gives
+       * you your sword or your staff before he asks you to practise with it.
+       */
+      grants: optional(
+        z.strictObject({
+          items: z.array(itemStack),
+          /** Put the weapon on straight away (there is no point in practising without it). */
+          equip: optional(z.boolean()),
+          /** The Crystal Ceremony: your crystal, the spell that comes with it, the cutscene. */
+          ceremony: optional(z.boolean()),
+        }),
+      ),
       /**
        * What the giver says: when offering the quest (it starts right away), while it is not
        * done yet (with a list of what is still missing), and when you hand it in.

@@ -239,6 +239,16 @@
       "2": "Mijn magie komt van Lucael en Baelor zelf. Ik dien ze niet. Ik gebruik hun eigen kracht tegen ze.",
       "caption3": "De rook is weg. Sam kijkt je aan.",
       "3": "Duistere magie is sterk, en snel. Maar onthoud: het is een duistere weg."
+    },
+    "crystal_ceremony": {
+      "1": "Niet pakken. Een kristal wordt niet genomen; het wordt gegeven.",
+      "2": "Daar — {element}. Die heeft zijn besluit over jou genomen.",
+      "3": "Blijf stil staan. Dit stuk prikt altijd een beetje.",
+      "4": "Je {crystal} zit vast. Hij draagt {spell}; de rest moet je zelf verdienen.",
+      "caption1": "Een kluis vol kristallen, die zacht zoemen in het donker.",
+      "caption2": "Eén kristal komt los, draait, en kiest.",
+      "caption3": "Het licht zakt weg in de kop van de staf.",
+      "caption4": "De staf is nu warm, en kent één spreuk."
     }
   },
   "hud": {
@@ -469,6 +479,9 @@
     },
     "herb_seeds": {
       "desc": "Zaadjes van Rose. Later kun je ze planten op je stukje grond."
+    },
+    "academy_blade": {
+      "desc": "Een rechte, goed uitgebalanceerde kling uit de wapenkamer van de Academy. Zwaarder dan je oude zwaard, en dat merk je."
     }
   },
   "quest": {
@@ -596,6 +609,150 @@
       "complete": {
         "1": "Ga hem maar gedag zeggen. Praat met hem, dan kun je je reservespullen op hem laden of er weer af halen.",
         "2": "Onthoud wel: wat Biscuit draagt, kun jij niet gebruiken. Haal het eerst uit zijn tas. En niet midden in een gevecht!"
+      }
+    },
+    "first_form": {
+      "complete": {
+        "1": "Hm. Slordig bij de derde, maar je voeten bleven staan waar ze horen.",
+        "2": "Dat is de eerste vorm. Ga hem nu gebruiken op iets dat beweegt."
+      },
+      "desc": "Sir Garrick gaf je de Academy Blade. Raak de trainingspop op het veld 12 keer, zoals hij het voordeed.",
+      "objective": {
+        "train": "Raak de trainingspop {have}/{need}"
+      },
+      "offer": {
+        "1": "Dus je koos het zwaard. Goed. Handen vooruit — nee, zó. Een kling is geen stok.",
+        "2": "Pak deze Academy Blade aan; dat oude ding van je mag boven je bed hangen. Twaalf schone treffers op de pop en ik geloof dat je hebt opgelet."
+      },
+      "progress": {
+        "1": "De pop staat daar en slaat zichzelf niet. Twaalf, zei ik."
+      }
+    },
+    "blade_in_the_woods": {
+      "complete": {
+        "1": "Geen nieuwe schrammen? Of je bent voorzichtig, of je liegt tegen me.",
+        "2": "Hoe dan ook: je kunt vechten. Nog één test en de Academy is achter de rug."
+      },
+      "desc": "Sir Garrick wil het in het echt zien: versla 4 Goblins en 4 Green Slimes in The Greenwood of Aerandir.",
+      "offer": {
+        "1": "Een pop slaat nooit terug, dus die leert je niets over angst. De Greenwood wel.",
+        "2": "Vier goblins, vier slimes. Kom terug en vertel me welke je verkeerd inschatte."
+      },
+      "progress": {
+        "1": "Er is nog werk in het bos. Vier goblins en vier slimes."
+      }
+    },
+    "prove_your_edge": {
+      "complete": {
+        "1": "Goed. Dat is genoeg voor de weg, en de weg leert je de rest.",
+        "2": "Je bent geslaagd. De stadspoort staat voor je open — pas op wat erachter ligt."
+      },
+      "desc": "De laatste exam: 15 treffers op de trainingspop, met Sir Garrick die meekijkt.",
+      "objective": {
+        "train": "Raak de trainingspop {have}/{need}"
+      },
+      "offer": {
+        "1": "De laatste. Vijftien treffers, en ik kijk bij elke mee.",
+        "2": "Niet haasten. Eén snelle slag die raakt is meer dan drie die missen."
+      },
+      "progress": {
+        "1": "Vijftien. Ik kijk nog steeds."
+      }
+    },
+    "the_arcane_shard": {
+      "complete": {
+        "1": "Acht uit acht, neem ik aan? De pop vertelt me het tegendeel wel.",
+        "2": "Goed. Nu iets dat beweegt, voordat je mikken te gemakkelijk wordt."
+      },
+      "desc": "Master Brink gaf je een Mage Staff en je kristal. Raak de trainingspop op het veld 8 keer met de Arcane Shard.",
+      "objective": {
+        "train": "Raak de trainingspop {have}/{need}"
+      },
+      "offer": {
+        "1": "Licht is niet hard. Het is precies. Houd de staf — nee, losjes. Het is nog geen wapen.",
+        "2": "Je kristal is nu van jou. Eerst de Arcane Shard: acht treffers op de pop bij het trainingsveld. Hij kost je niets, dus er is geen excuus."
+      },
+      "progress": {
+        "1": "Acht shards op de pop bij het trainingsveld. De Shard kost geen mana; oefen hem."
+      }
+    },
+    "sparks_in_the_greenwood": {
+      "complete": {
+        "1": "En je komt terug met mana over? Dát is de les, niet het aantal.",
+        "2": "Nog één exam. Deze keer wil ik een opgeladen spreuk zien."
+      },
+      "desc": "Master Brink wil het gebruikt zien: versla 4 Green Slimes en 4 Goblins in The Greenwood of Aerandir.",
+      "offer": {
+        "1": "Een doel dat stilstaat leert je afstand. Een doel dat wegloopt leert je timing.",
+        "2": "Vier slimes, vier goblins, in de Greenwood. Houd je mana in de gaten, niet alleen je vijand."
+      },
+      "progress": {
+        "1": "Vier slimes en vier goblins. Let op je mana."
+      }
+    },
+    "show_me_your_focus": {
+      "complete": {
+        "1": "Zo. Dát is focus. Houd die vast als je bang bent en je houdt je leven vast.",
+        "2": "Je bent geslaagd. De poort is open; het oosten niet. Nog niet."
+      },
+      "desc": "De laatste exam: raak de trainingspop 5 keer met een opgeladen spreuk terwijl Master Brink meekijkt.",
+      "objective": {
+        "train": "Raak de trainingspop met een opgeladen spreuk {have}/{need}"
+      },
+      "offer": {
+        "1": "Houd de castknop vast. Voel hem vollopen. Te vroeg loslaten is een vonk; vasthouden is een les.",
+        "2": "Vijf opgeladen treffers op de pop. Ik merk het als je alleen tikt."
+      },
+      "progress": {
+        "1": "Opgeladen, zei ik. Houd de knop vast tot het licht groeit, vijf keer."
+      }
+    },
+    "the_first_shadow": {
+      "complete": {
+        "1": "Hahaa — het stro smeult. Dat is de Shard.",
+        "2": "Nu het bos. Schaduwen staan toch mooier tussen bomen."
+      },
+      "desc": "Wizard Sam gaf je een Mage Staff en een Dark Crystal. Raak de trainingspop op het veld 8 keer met de Arcane Shard.",
+      "objective": {
+        "train": "Raak de trainingspop {have}/{need}"
+      },
+      "offer": {
+        "1": "Duister is in het begin heel vriendelijk. Precies daarom vertrouwt niemand het, heh.",
+        "2": "Staf, kristal en de Arcane Shard. Acht treffers op die arme pop boven bij het veld. Ga maar."
+      },
+      "progress": {
+        "1": "Acht shards op de pop bij het trainingsveld. Het kost niets, dus niet zeuren."
+      }
+    },
+    "shadows_in_the_greenwood": {
+      "complete": {
+        "1": "Levend! En er is niets met je meegelopen. Grotendeels.",
+        "2": "Nog één. Deze keer opgeladen — écht opgeladen."
+      },
+      "desc": "Wizard Sam wil het uitgeprobeerd zien: versla 4 Goblins en 4 Green Slimes in The Greenwood of Aerandir.",
+      "offer": {
+        "1": "Ga eens iets bang maken. Vier goblins, vier slimes, in de Greenwood.",
+        "2": "En onthoud: nu sterk, later zwakker. Gebruik je voorsprong zolang je hem hebt."
+      },
+      "progress": {
+        "1": "Vier goblins en vier slimes. De Greenwood ligt in het noordoosten."
+      }
+    },
+    "show_me_your_shadow": {
+      "complete": {
+        "1": "Hah! Voelde je dat? Zo voelden de Lords of Morvath zich ook, ooit.",
+        "2": "Je bent geslaagd, leerling. De poort is open. Word geen verhaal dat ik later vertel."
+      },
+      "desc": "De laatste exam: raak de trainingspop 5 keer met een opgeladen spreuk terwijl Wizard Sam meekijkt.",
+      "objective": {
+        "train": "Raak de trainingspop met een opgeladen spreuk {have}/{need}"
+      },
+      "offer": {
+        "1": "Vasthouden. Laat het zwaar worden. Duister wil altijd té lang vastgehouden worden — laat dat niet gebeuren.",
+        "2": "Vijf opgeladen treffers. Als die pop daarna nog staat, ben ik zwaar teleurgesteld."
+      },
+      "progress": {
+        "1": "Opgeladen, niet getikt. Houd de knop vast tot hij groeit, vijf keer."
       }
     }
   },
@@ -762,7 +919,8 @@
     "lockRange": "Lock-on bereik",
     "homing": "Schoten krommen",
     "lockSight": "Zicht-tolerantie",
-    "lockSightNote": "Hoe lang een vergrendelde vijand uit het zicht mag zijn voordat de lock losgaat (0× = meteen)."
+    "lockSightNote": "Hoe lang een vergrendelde vijand uit het zicht mag zijn voordat de lock losgaat (0× = meteen).",
+    "examsDone": "Exams klaar"
   },
   "bag": {
     "title": "Tas",

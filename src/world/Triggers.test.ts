@@ -30,10 +30,22 @@ describe('evaluateCondition', () => {
     ).toBe(true);
   });
 
-  it('keeps the city gate open in phase 1 (canLeaveCity is always true)', () => {
+  it('opens the city gate after Sultan and your own Entrance Exam (fase 3.8)', () => {
     const file = triggersFileSchema.parse(readPublicJson('data/triggers.json'));
     const condition = file.conditions.canLeaveCity;
-    expect(condition && evaluateCondition(condition, noQuests)).toBe(true);
+    expect(condition).toBeDefined();
+    if (!condition) return;
+    expect(evaluateCondition(condition, noQuests)).toBe(false);
+    // Sultan alone is not enough any more: the exam of your own teacher has to be done.
+    const afterSultan = { level: 3, completedQuests: new Set(['defeat_sultan']) };
+    expect(evaluateCondition(condition, afterSultan)).toBe(false);
+    for (const exam of ['prove_your_edge', 'show_me_your_focus', 'show_me_your_shadow']) {
+      const done = { level: 5, completedQuests: new Set(['defeat_sultan', exam]) };
+      expect(evaluateCondition(condition, done)).toBe(true);
+    }
+    // An exam without Sultan cannot happen, but the gate stays shut all the same.
+    const examOnly = { level: 5, completedQuests: new Set(['prove_your_edge']) };
+    expect(evaluateCondition(condition, examOnly)).toBe(false);
   });
 });
 

@@ -86,6 +86,12 @@ export class CombatState {
   /** Chance (0-1) that a hit is critical (Luck), and what a critical hit multiplies by. */
   critChance = 0;
   critFactor = 1.5;
+  /**
+   * Your path's perks on top of everything else (fase 3.8): max HP as a factor (Iron Body),
+   * and whether you have mana at all (a sword fighter has none).
+   */
+  hpFactor = 1;
+  hasMana = true;
   hp = 0;
   maxHp = 0;
   mana = 0;
@@ -122,8 +128,9 @@ export class CombatState {
  */
 export function applyStats(c: CombatState, player: PlayerConfig, level: number): void {
   c.level = level;
-  c.maxHp = Math.max(1, Math.round(player.base.hp + c.statHp + c.gearHp));
-  c.maxMana = Math.max(0, Math.round(player.base.mana + c.statMana + c.gearMana));
+  c.maxHp = Math.max(1, Math.round((player.base.hp + c.statHp + c.gearHp) * c.hpFactor));
+  // A sword fighter has no mana at all (his path, fase 3.8), so his bar is simply gone.
+  c.maxMana = c.hasMana ? Math.max(0, Math.round(player.base.mana + c.statMana + c.gearMana)) : 0;
   c.hp = Math.min(c.hp, c.maxHp);
   c.mana = Math.min(c.mana, c.maxMana);
 }

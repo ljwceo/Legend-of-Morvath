@@ -59,6 +59,22 @@
       }
     },
     {
+      "id": "academy_blade",
+      "name": "Academy Blade",
+      "type": "weapon",
+      "rarity": "rare",
+      "tradeable": true,
+      "weight": 5,
+      "description": "item.academy_blade.desc",
+      "weapon": {
+        "kind": "sword",
+        "damageBonus": 5
+      },
+      "stats": {
+        "damagePercent": 5
+      }
+    },
+    {
       "id": "travel_mantle",
       "name": "Travel Mantle",
       "type": "armor",

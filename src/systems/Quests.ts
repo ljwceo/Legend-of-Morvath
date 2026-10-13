@@ -1,4 +1,4 @@
-import type { QuestDef, QuestObjective } from '../data/types';
+import type { PlayerPath, QuestDef, QuestObjective } from '../data/types';
 import type { SaveQuests } from '../save/SaveData';
 import { countItem, type ItemStack, removeItem } from './Inventory';
 
@@ -13,7 +13,7 @@ import { countItem, type ItemStack, removeItem } from './Inventory';
 export type QuestStatus = 'locked' | 'available' | 'active' | 'ready' | 'done';
 
 /** Counted things that happen in the world (events), matched against objectives. */
-export type QuestEventKind = 'talk' | 'kill' | 'boss' | 'buy' | 'rest' | 'visit' | 'path';
+export type QuestEventKind = 'talk' | 'kill' | 'boss' | 'buy' | 'rest' | 'visit' | 'path' | 'train';
 
 /** How far one objective is: `have` of `need` (capped at `need`). */
 export interface ObjectiveProgress {
@@ -42,6 +42,8 @@ function eventTarget(objective: QuestObjective, kind: QuestEventKind): string | 
     case 'choosePath':
       // Any path counts (the target is the chosen path).
       return undefined;
+    case 'train':
+      return objective.monster;
     default:
       return null;
   }
@@ -61,6 +63,12 @@ export function objectiveNeed(objective: QuestObjective): number {
  * delivered items leave the bag when you hand the quest in.
  */
 export class QuestBook {
+  /**
+   * The path the player walks (Your Resolve). An exam quest of another teacher stays locked,
+   * so you only ever see your own three (fase 3.8). The world keeps this up to date.
+   */
+  path: PlayerPath | null = null;
+
   private readonly byId: ReadonlyMap<string, QuestDef>;
   private readonly completedSet = new Set<string>();
 
@@ -104,6 +112,7 @@ export class QuestBook {
 
   requirementsMet(def: QuestDef, level: number, bag: readonly ItemStack[]): boolean {
     const r = def.requires;
+    if (r.path !== undefined && r.path !== this.path) return false;
     if (r.level !== undefined && level < r.level) return false;
     if (r.quests?.some((quest) => !this.completedSet.has(quest))) return false;
     if (r.items?.some((stack) => countItem(bag, stack.item) < stack.count)) return false;
@@ -120,8 +129,9 @@ export class QuestBook {
 
   /**
    * Something happened in the world (talked to an NPC, defeated a monster, bought an item,
-   * rested, walked into a place). Counts it for every running quest that waits for it and
-   * returns those quests (in `out`, reused). `source` is the shop's NPC for purchases.
+   * rested, walked into a place, hit the training dummy). Counts it for every running quest
+   * that waits for it and returns those quests (in `out`, reused). `source` is the shop's NPC
+   * for purchases, `charge` how far a spell was charged (a mage's exam asks for a full one).
    */
   record(
     kind: QuestEventKind,
@@ -129,6 +139,7 @@ export class QuestBook {
     count: number,
     out: QuestDef[],
     source?: string,
+    charge?: number,
   ): QuestDef[] {
     out.length = 0;
     for (const entry of this.save.active) {
@@ -141,6 +152,14 @@ export class QuestBook {
         // A buy objective can be bound to one shop.
         if (objective.type === 'buy' && objective.npc !== undefined && objective.npc !== source)
           continue;
+        // A mage's exam only counts a charged spell, not a tap.
+        if (
+          objective.type === 'train' &&
+          objective.minCharge !== undefined &&
+          (charge ?? 0) < objective.minCharge
+        ) {
+          continue;
+        }
         const need = objectiveNeed(objective);
         const before = entry.counts[i] ?? 0;
         if (before >= need) continue;
