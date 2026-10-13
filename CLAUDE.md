@@ -543,7 +543,7 @@ De tweede exam van elk pad stuurde je naar de Greenwood, maar de stadspoort gaat
 2. **Drie waves**, elke zwaarder dan de vorige, met een instelbare pauze ertussen (`pauseSeconds` in de data). Nieuw doel-type **`waves`** met voortgang "Wave 2/3" in de questlijst.
 3. **Per leraar een andere soort slime:** Sir Garrick gewone Green Slimes en Big Slimes, Master Brink elementaire slimes (per slime willekeurig Water / Fire / Nature / Wind), Wizard Sam Dark Slimes. Alle soorten zijn dezelfde HP, schade en XP waard, dus de exam is op elk pad hetzelfde waard.
 4. **Statuseffecten zijn een herbruikbaar systeem** (`monsters.json` → `statusEffects`, een monster noemt ze in `onHit`): **Chilled** (slow, Water), **Burning** (schade over tijd, Fire), leech (Nature heelt van wat hij doet), een duidelijk hogere en verdere sprong (Wind) en **Weakened** (je eigen treffers doen minder, Dark). Later krijgt elk ander monster ze zonder nieuwe code.
-5. **Dood gaan of van het veld lopen** = de drill begint opnieuw bij wave 1, net als een herkansing bij Sultan.
+5. **Dood gaan of van het veld lopen** = de drill begint opnieuw bij wave 1, net als een herkansing bij Sultan. Een stap over de lijn is vergeven (`leaveSeconds`, nu 3 s), want in wave 3 duwen de grote slimes je rond.
 6. **De Greenwood-quests blijven bestaan** als side quest bij dezelfde leraar, pas als de poort open is (Sultan verslagen + je laatste exam), met gear als beloning. Ze tellen niet meer mee voor de exam.
 7. `canLeaveCity` blijft Sultan verslagen + de laatste exam van je eigen leraar, en de XP-rekening blijft 520 van level 3 naar level 5.
 

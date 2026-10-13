@@ -6,7 +6,7 @@
       "area": "academy_training_field",
       "spawnRadius": 7,
       "pauseSeconds": 4,
-      "leaveSeconds": 1.5,
+      "leaveSeconds": 3,
       "lines": {
         "start": "fight.garrick_field_drill.start",
         "wave": ["fight.garrick_field_drill.wave.2", "fight.garrick_field_drill.wave.3"],
@@ -50,7 +50,7 @@
       "area": "academy_training_field",
       "spawnRadius": 7,
       "pauseSeconds": 4,
-      "leaveSeconds": 1.5,
+      "leaveSeconds": 3,
       "lines": {
         "start": "fight.brink_field_drill.start",
         "wave": ["fight.brink_field_drill.wave.2", "fight.brink_field_drill.wave.3"],
@@ -99,7 +99,7 @@
       "area": "academy_training_field",
       "spawnRadius": 7,
       "pauseSeconds": 4,
-      "leaveSeconds": 1.5,
+      "leaveSeconds": 3,
       "lines": {
         "start": "fight.sam_field_drill.start",
         "wave": ["fight.sam_field_drill.wave.2", "fight.sam_field_drill.wave.3"],
