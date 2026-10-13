@@ -4,12 +4,13 @@
 # - Headless: blender -b Greyhaven.blend --python 01_prep_mixamo.py -- <OUT folder>
 # <OUT folder> defaults to a folder "Mixamo" next to Greyhaven.blend.
 #
-# - Copies the body pieces of the "StartCharacter" collection (modifiers applied, curves as mesh)
-#   and joins them into one mesh "Body". Hair, Hat*, Cloak*, Collar_Trim and Sword_* stay out;
-#   they come back in chat 2 (stiff on a bone, or the cape on its own bones).
-# - Arms, legs, torso and neck get extra edge rings (RINGS), so they can bend.
-# - Arms that hang straight down are turned out to an A-pose (ARM_ANGLE), around the shoulder:
-#   Mixamo then finds the elbows and wrists.
+# - Copies the body of the "StartCharacter" collection (modifiers applied, curves as mesh): the one
+#   mesh "Body" made by 00_build_character.py (already in an A-pose, with edge rings at the joints).
+#   Hair, Face, Hat*, Cloak*, Collar_Trim and Sword_* stay out; they come back in chat 2 (stiff on a
+#   bone, or the cape on its own bones).
+# - For a body made of several pieces (list them in BODY), the pieces are joined into "Body",
+#   pieces named in RINGS get extra edge rings, and arms in ARMS that hang straight down are turned
+#   out to an A-pose (ARM_ANGLE), around the shoulder: Mixamo then finds the elbows and wrists.
 # - The copy faces Blender -Y (Mixamo's front), feet at z = 0, centred on the torso, transforms
 #   applied, meters. The original collection is not touched. Material names (Skin, ...) are kept;
 #   the inverted-hull outline (material "Outline") is left out and comes back in chat 2.
@@ -40,14 +41,18 @@ def tell(title, lines, icon):
     bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
 
 
-BODY = ['Torso', 'Neck', 'Head', 'Shoulder_L', 'Shoulder_R', 'Arm_L', 'Arm_R', 'Hand_L', 'Hand_R',
-        'Belt', 'Leg_L', 'Leg_R', 'Boot_L', 'Boot_R']
-ARMS = {'L': ('Shoulder_L', ['Arm_L', 'Hand_L']), 'R': ('Shoulder_R', ['Arm_R', 'Hand_R'])}
+BODY = ['Body']           # the first one is the core: the copy is centred on it
+# For the old figure of separate pieces this was:
+#   BODY = ['Torso', 'Neck', 'Head', 'Shoulder_L', 'Shoulder_R', 'Arm_L', 'Arm_R', 'Hand_L', 'Hand_R',
+#           'Belt', 'Leg_L', 'Leg_R', 'Boot_L', 'Boot_R']
+#   ARMS = {'L': ('Shoulder_L', ['Arm_L', 'Hand_L']), 'R': ('Shoulder_R', ['Arm_R', 'Hand_R'])}
+#   RINGS = {'Arm_L': 8, 'Arm_R': 8, 'Leg_L': 8, 'Leg_R': 8, 'Torso': 6, 'Neck': 2}
+ARMS = {}                 # Body is built in an A-pose already
 ARM_ANGLE = 45.0          # degrees from straight down
 STRAIGHT_DOWN = 20.0      # an arm closer than this to vertical counts as "hanging down"
 # Extra edge rings across the height, so elbows, knees and the spine can bend (the pieces are
 # simple cylinders with rings only at the ends).
-RINGS = {'Arm_L': 8, 'Arm_R': 8, 'Leg_L': 8, 'Leg_R': 8, 'Torso': 6, 'Neck': 2}
+RINGS = {}                # Body has its rings already
 
 def main():
     P('start', bpy.app.version_string, 'out', OUT)
@@ -115,7 +120,7 @@ def main():
         bm.free()
         me.update()
     P('edge rings', RINGS)
-    torso = center([parts['Torso']])
+    torso = center([parts[BODY[0]]])
 
     # ---------- face Blender -Y ----------
     # The cloak hangs on the back: the side it sits on is the back. Without a cloak: trust the model.
@@ -161,20 +166,26 @@ def main():
 
     # ---------- feet on 0, centred on the torso ----------
     lo, hi = bounds(everything)
-    torso = center([parts['Torso']])
+    torso = center([parts[BODY[0]]])
     offset = Vector((-torso.x, -torso.y, -lo.z))
     transform(everything, Matrix.Translation(offset))
 
     # ---------- join into "Body" ----------
-    for o in vl.objects:
-        o.select_set(False)
-    for o in everything:
-        o.select_set(True)
-    vl.objects.active = parts['Torso']
-    with bpy.context.temp_override(active_object=parts['Torso'], selected_objects=everything,
-                                   selected_editable_objects=everything):
-        bpy.ops.object.join()
-    body = parts['Torso']
+    body = parts[BODY[0]]
+    if len(everything) > 1:
+        for o in vl.objects:
+            o.select_set(False)
+        for o in everything:
+            o.select_set(True)
+        vl.objects.active = body
+        with bpy.context.temp_override(active_object=body, selected_objects=everything,
+                                       selected_editable_objects=everything):
+            bpy.ops.object.join()
+    # The export is called "Body"; the original "Body" steps aside until the copy is gone.
+    src_body = bpy.data.objects.get('Body')
+    if src_body:
+        src_body.name = 'Body_src'
+        RESTORE.append(src_body)
     body.name = 'Body'
     body.data.name = 'Body'
     # Overlapping pieces stay separate shells (Mixamo copes); only weld exact duplicates.
@@ -222,8 +233,18 @@ def main():
     P('DONE')
 
 
+RESTORE = []
+
+
 try:
-    main()
+    try:
+        main()
+    finally:
+        for o in RESTORE:
+            left = bpy.data.objects.get('Body')
+            if left and left != o:   # a copy left behind by an error
+                left.name = 'Body_prep_failed'
+            o.name = 'Body'
 except Exception as e:
     P('ERROR', repr(e))
     tell('Mixamo prep failed', [str(e), 'Details: ' + os.path.join(OUT, 'log_prep.txt')], 'ERROR')

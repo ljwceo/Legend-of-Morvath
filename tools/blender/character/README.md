@@ -1,10 +1,12 @@
 # Personage – Blender-scripts (Fase A)
 
 Bron: `Greyhaven.blend` (staat niet in de repo; Bo heeft hem lokaal), collectie `StartCharacter`.
-De scripts draaien zonder venster en **slaan het .blend-bestand nooit op**.
+`00_build_character.py` verandert de scène (daarna zelf opslaan); `01_prep_mixamo.py` laat de scène
+zoals hij was en slaat het .blend-bestand nooit op.
 
 | Bestand | Chat | Wat |
 |---|---|---|
+| `00_build_character.py` | voorbereiding | Het echte startpersonage maken in `StartCharacter` (het oude poppetje gaat naar een verborgen collectie) |
 | `01_prep_mixamo.py` | 1 | Lijf klaarmaken voor Mixamo → `body_for_mixamo.fbx` |
 | `02_import_mixamo.py` | 2 | (komt nog) Mixamo-rig + animaties terug in Blender, cape-botten, export naar `player.glb` |
 
@@ -14,19 +16,50 @@ uiteindelijke `public/zones/greyhaven/player.glb` gaat in git.
 
 ---
 
-## Eerst: het echte personage maken (besluit 2026-10-13)
+## Eerst: het echte personage maken – `00_build_character.py`
 
-Het huidige poppetje is van losse cilinders en bolletjes. Bo maakt eerst de looks; daarna draait
-`01_prep_mixamo.py` op het nieuwe model. Zo werkt Mixamo er straks goed mee:
-- Het **lijf als één geheel** (armen, benen, romp, hoofd aan elkaar), in de collectie `StartCharacter`.
-- **Armen schuin naar beneden** (A-pose), handen een stukje van het lijf.
-- **Extra ringen (loop cuts) bij ellebogen, knieën, schouders en heupen.**
-- **Hoed, haar, cape en zwaard als losse delen** (die komen in Chat 2 aan het skelet).
-- Materiaalnamen houden: `Skin`, `Hair`, `Cloak_Navy`, `Hat_Navy`, `Gold_Trim` (de character creator kleurt die), en `Outline` voor de omlijning.
-- Maximaal ±30.000 driehoeken in totaal.
+Besluit 2026-10-13: eerst de looks, daarna Mixamo. Lengte: **1,70 m** zonder hoed (stijlgids, gekozen door Bo).
 
-Let op: het script zoekt nu nog naar de oude stukken (`Torso`, `Arm_L`, ...). Heeft het nieuwe lijf
-andere namen, dan passen we de lijst `BODY` in het script aan (zeg het in de chat).
+![Voorbeeld](preview_00.png)
+
+*(Voorbeeld uit een test-render zonder cel-shading en omlijning; die doet de game.)*
+
+**Draaien in Blender:**
+1. Open `Greyhaven.blend`. Bewaar eerst een kopie van het bestand (voor de zekerheid).
+2. Tabblad **Scripting** → **New** → plak `tools/blender/character/00_build_character.py`
+   (op GitHub: **Copy raw file**) → klik op **▶** (Run Script). Het duurt een paar seconden.
+3. Er verschijnt een melding met de lengte en het aantal driehoeken. Bij een fout staat de
+   reden in de melding en in `Mixamo\log_build.txt` (naast `Greyhaven.blend`).
+4. Kijk in de Viewport (bijv. numpad 1, 3 en 7). Tevreden? **Opslaan met Ctrl+S.** Niet tevreden?
+   Niet opslaan en het bestand opnieuw openen; dan is alles weer zoals het was.
+
+**Zonder venster:** `blender -b Greyhaven.blend --python tools/blender/character/00_build_character.py -- --save`
+
+Wat het script doet:
+- Het oude poppetje (losse cilinders en bolletjes) gaat naar de verborgen collectie
+  **`StartCharacter_Old`**, met `_Old` achter elke naam. Niets wordt weggegooid.
+- Het nieuwe personage komt in **`StartCharacter`**, op de plek van de empty `Player` en met dezelfde
+  kijkrichting (en, als de oude stukken aan `Player` hingen, ook aan `Player`).
+- **`Body`**: romp, nek, hoofd, armen, handen, benen en laarzen als **één gesloten mesh**, armen in
+  A-pose (45°), handen los van het lijf, benen iets uit elkaar, extra ringen bij schouders,
+  ellebogen, polsen, heupen, knieën, enkels en langs de rug/buik.
+- Losse objecten: `Hair`, `Face` (ogen en mond; hangt straks net als het haar aan het hoofdbot),
+  `Hat`, `Hat_Band`, `Hat_Brim`, `Cloak`, `Cloak_Trim` (gouden zoom + kompasster op de rug),
+  `Collar_Trim`, `Sword_Blade`, `Sword_Grip`, `Sword_Guard` (in de rechterhand).
+- Materialen: `Skin`, `Hair`, `Cloak_Navy`, `Hat_Navy`, `Gold_Trim` (de character creator kleurt
+  die), `Tunic`, `Pants`, `Leather`, `Boots`, `Old_Steel`, en `Outline` als omlijning (een Solidify
+  met omgedraaide normalen, zoals bij het oude poppetje). Nieuw: `Eye_White`, `Eye`, `Eye_Line`
+  voor het gezicht. Bestaat een materiaal al, dan gebruikt het script dat.
+- Driehoeken (met de omlijning meegeteld): lijf + haar + mantel ±15.500, alles samen ±20.000.
+  Zonder omlijning is dat ±7.700 en ±10.000.
+
+Let op:
+- **Nog een keer draaien** bouwt het nieuwe personage opnieuw op dezelfde plek. Wat je er met de
+  hand aan veranderd hebt, is dan weg. Het oude poppetje blijft in `StartCharacter_Old`.
+- Wil je iets anders (lengte, hoed, mouwen, ...)? De getallen staan bovenaan en per onderdeel in
+  het script (`HEIGHT`, `ARM_ANGLE`, `CLOAK`, ...); zeg het in de chat, dan pas ik het aan.
+- `export_web.py` en de game zijn nog niet aangepast: `player.glb` opnieuw exporteren doen we pas na
+  Chat 2. Tot dan staat in de game het oude poppetje.
 
 ---
 
@@ -48,12 +81,12 @@ Gaat er iets mis? Kijk in *Window → Toggle System Console* of stuur `Mixamo\lo
 `blender -b Greyhaven.blend --python tools/blender/character/01_prep_mixamo.py -- <uitvoermap>`
 
 Wat het script doet:
-- Kopieert de lijfstukken (Torso, Neck, Head, Shoulder_L/R, Arm_L/R, Hand_L/R, Belt, Leg_L/R,
-  Boot_L/R) en voegt ze samen tot één mesh `Body`. Haar, hoed, cape, kraag en zwaard blijven
-  eruit (die komen in Chat 2 terug). De zwarte omlijning (`Outline`) ook.
-- Snijdt extra ringen in de armen, benen, romp en nek, zodat ellebogen, knieën en rug kunnen buigen.
-- Zet de armen in een A-pose (45° naar buiten, rond de schouder).
+- Kopieert het lijf `Body` (gemaakt door `00_build_character.py`; al in A-pose en met ringen).
+  Haar, gezicht, hoed, cape, kraag en zwaard blijven eruit (die komen in Chat 2 terug). De zwarte
+  omlijning (`Outline`) ook.
 - Draait het lijf met het gezicht naar Blender −Y (de voorkant voor Mixamo), voeten op 0, in het midden.
+- (Voor een lijf van losse stukken kan het ook de stukken samenvoegen, ringen snijden en de armen
+  in A-pose zetten: zie `BODY`, `RINGS` en `ARMS` in het script.)
 
 Wat eruit komt (in de uitvoermap):
 - `body_for_mixamo.fbx` – dit upload je naar Mixamo.
@@ -61,7 +94,7 @@ Wat eruit komt (in de uitvoermap):
 - `log_prep.txt` – maten, aantal driehoeken, materialen. Bij een fout staat hier waar het misging.
 
 Controle (optioneel): open een leeg Blender, *File → Import → FBX*, kies `body_for_mixamo.fbx`.
-Je ziet één poppetje zonder hoed/haar/cape, armen schuin naar beneden, voeten op de grond.
+Je ziet één poppetje zonder hoed/haar/cape/gezicht, armen schuin naar beneden, voeten op de grond.
 
 ---
 
@@ -72,7 +105,7 @@ Je ziet één poppetje zonder hoed/haar/cape, armen schuin naar beneden, voeten 
    - Staat het poppetje met zijn rug naar je toe of ligt het? Draai het in de eerste stap met
      de draai-knoppen tot je het van voren ziet, en klik dan *Next*.
 3. **Auto-Rigger:** sleep de bolletjes naar kin, polsen, ellebogen, knieën en kruis.
-   - *Skeleton LOD*: **No Fingers** (de handen zijn bolletjes, vingers zijn niet nodig).
+   - *Skeleton LOD*: **No Fingers** (de handen zijn wantjes, vingers zijn niet nodig).
    - Klik *Next* en kijk in de preview of de armen en benen netjes buigen (geen rare uitrekkingen).
      Dat is meteen de Definition of Done van Chat 1: lukt dit, laat het weten.
 4. **Gerigd poppetje downloaden:** zonder animatie (*T-Pose*), *Format: FBX Binary*,
