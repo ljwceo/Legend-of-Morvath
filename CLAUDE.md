@@ -411,7 +411,7 @@ Definition of Done:
 - [ ] Alle tests, de taal-key-check en de DataValidator slagen; de documentatie klopt met de code.
 
 ### Fase A – Personage-animaties (Mixamo + eigen cape)
-Status: prompt opgeslagen (2026-10-12, Bo). Chat 1 gebouwd (2026-10-13): `tools/blender/character/01_prep_mixamo.py`; wacht op Bo (script draaien + Deel B in Mixamo). Elke chat een eigen branch + pull request.
+Status: prompt opgeslagen (2026-10-12, Bo). Chat 1 gebouwd (2026-10-13): `tools/blender/character/01_prep_mixamo.py` (draait ook in Blender via het Scripting-tabblad). **Besluit Bo (2026-10-13): eerst de looks van het personage maken in Blender**, daarna Chat 1 + Deel B opnieuw op het echte model; Chat 2 pas daarna. Chat 5 mag intussen. Elke chat een eigen branch + pull request.
 Werkwijze: begin een chat met *"Lees CLAUDE.md. We doen Fase A, Chat X."* Volgorde: Chat 1 → (Bo: Mixamo, Deel B in `tools/blender/character/README.md`, komt in Chat 1) → Chat 2 → Chat 3 → Chat 4. Chat 5 (rennen + springen) heeft geen Blender nodig en mag al eerder of tegelijk.
 
 #### Deel A – Context (geldt voor elke chat van fase A)

@@ -14,6 +14,22 @@ uiteindelijke `public/zones/greyhaven/player.glb` gaat in git.
 
 ---
 
+## Eerst: het echte personage maken (besluit 2026-10-13)
+
+Het huidige poppetje is van losse cilinders en bolletjes. Bo maakt eerst de looks; daarna draait
+`01_prep_mixamo.py` op het nieuwe model. Zo werkt Mixamo er straks goed mee:
+- Het **lijf als één geheel** (armen, benen, romp, hoofd aan elkaar), in de collectie `StartCharacter`.
+- **Armen schuin naar beneden** (A-pose), handen een stukje van het lijf.
+- **Extra ringen (loop cuts) bij ellebogen, knieën, schouders en heupen.**
+- **Hoed, haar, cape en zwaard als losse delen** (die komen in Chat 2 aan het skelet).
+- Materiaalnamen houden: `Skin`, `Hair`, `Cloak_Navy`, `Hat_Navy`, `Gold_Trim` (de character creator kleurt die), en `Outline` voor de omlijning.
+- Maximaal ±30.000 driehoeken in totaal.
+
+Let op: het script zoekt nu nog naar de oude stukken (`Torso`, `Arm_L`, ...). Heeft het nieuwe lijf
+andere namen, dan passen we de lijst `BODY` in het script aan (zeg het in de chat).
+
+---
+
 ## Deel A – `01_prep_mixamo.py` draaien (Chat 1)
 
 **In Blender (makkelijkst):**
