@@ -353,6 +353,23 @@
         "confirm": "npc.sultan.reset.confirm",
         "accepted": ["npc.sultan.reset.accepted"],
         "declined": ["npc.sultan.reset.declined"]
+      },
+      "finder": {
+        "when": "sultanDefeated",
+        "greeting": "npc.sultan.find.greeting",
+        "ask": "npc.sultan.find.ask",
+        "talk": "npc.sultan.find.talk",
+        "resetChoice": "npc.sultan.find.reset",
+        "question": "npc.sultan.find.question",
+        "which": "npc.sultan.find.which",
+        "nothing": "npc.sultan.find.nothing",
+        "lines": {
+          "monster": "npc.sultan.find.monster",
+          "boss": "npc.sultan.find.boss",
+          "shop": "npc.sultan.find.shop",
+          "quest": "npc.sultan.find.quest",
+          "questFrom": "npc.sultan.find.questFrom"
+        }
       }
     },
     {

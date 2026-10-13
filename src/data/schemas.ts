@@ -454,6 +454,34 @@ const npcSchema = z.strictObject({
       declined: atLeast(z.array(textKey)),
     }),
   ),
+  /**
+   * Asking where an item is (Sultan, after his fight): while `when` holds, talking starts with
+   * `greeting` and a small menu: `ask` ("Where can I find…?" → a kind of item → the item),
+   * the egg reset when you carry an egg (`resetChoice`), `talk` (his usual lines) or goodbye.
+   * The answer comes from the data (ItemSources: drops, shops, quest rewards), one `lines`
+   * entry per source, plus the item's own hint `item.<id>.hint` when lang has one.
+   */
+  finder: optional(
+    z.strictObject({
+      when: name,
+      greeting: textKey,
+      ask: textKey,
+      talk: textKey,
+      resetChoice: textKey,
+      /** "What are you looking for?" (the kinds) and "Which one?" (the items of a kind). */
+      question: textKey,
+      which: textKey,
+      /** No source at all (nothing drops, sells or gives it yet). */
+      nothing: textKey,
+      lines: z.strictObject({
+        monster: textKey,
+        boss: textKey,
+        shop: textKey,
+        quest: textKey,
+        questFrom: textKey,
+      }),
+    }),
+  ),
   /** A pack animal (Biscuit): carries up to `maxKg` of your gear (interaction "pack"). */
   pack: optional(z.strictObject({ maxKg: range(1, 10_000) })),
   /** A simple shop that opens after talking (Marco): items and their price in gold. */
@@ -892,6 +920,26 @@ const bossSchema = z.strictObject({
   guardHint: optional(textKey),
   /** A short floating word when a hit is dodged ("Dodged!"). */
   guardText: textKey,
+  /**
+   * The end of the fight as a cinematic (cutscenes.json): which one plays depends on the
+   * killing blow, a swing of the sword or a shot from the staff. Without it the old ending
+   * (`winLine`) plays. Needs `lastStand` (the ending is filmed there).
+   */
+  ending: optional(
+    z.strictObject({
+      sword: id,
+      staff: id,
+      /** Where you stand for the ending (and after it), facing the last stand. */
+      player: z.strictObject({ x: coord, z: coord }),
+    }),
+  ),
+  /**
+   * Low on HP the boss backs off to this spot after every attack (Sultan with his back to the
+   * barrel at the gate wall), so where the ending plays makes sense.
+   */
+  lastStand: optional(z.strictObject({ belowHpFraction: fraction, x: coord, z: coord })),
+  /** A prop in the world until the boss is beaten (the barrel Sultan crashes through). */
+  prop: optional(z.strictObject({ model: z.enum(['prop:barrel']), x: coord, z: coord })),
 });
 
 /**
@@ -1533,15 +1581,27 @@ export const combosFileSchema = z.strictObject({
 
 /**
  * What a cinematic actor looks like: `player` is your own character (player.glb in Greyhaven,
- * with your colors and gear), `fx:smoke` a cloud of purple smoke, the rest are NPC placeholder
- * models (NpcFactory). Real glTF models replace the placeholders later.
+ * with your colors and gear), `fx:smoke` a cloud of purple smoke, `fx:slash` a streak of light
+ * behind a sword, `fx:bolt` a spell flying, `fx:glow` a glowing crystal, `fx:eyes` two golden
+ * eyes in the dark, `fx:splinters` a burst of wood (its `scale` is how far it flew: 0 → 1),
+ * `prop:barrel` and `prop:plank` simple wooden props; the rest are NPC placeholder models
+ * (NpcFactory). Real glTF models replace the placeholders later.
  */
 export const CINEMATIC_MODELS = [
   'player',
   'fx:smoke',
+  'fx:slash',
+  'fx:bolt',
+  'fx:glow',
+  'fx:eyes',
+  'fx:splinters',
+  'prop:barrel',
+  'prop:plank',
   'placeholder:cat',
   'placeholder:catman',
 ] as const;
+/** How the player holds the weapon in a cinematic (the same poses as in a fight). */
+export const CINEMATIC_WEAPON_POSES = ['rest', 'windup', 'fast', 'heavy', 'cast'] as const;
 export const CINEMATIC_EASES = ['linear', 'in', 'out', 'inOut'] as const;
 
 /** A point in a cinematic: world x / z, and y in meters above the ground (see `anchor`). */
@@ -1583,6 +1643,16 @@ const cinematicActorMove = z.strictObject({
   lookAt: optional(id),
   scaleFrom: optional(max(positive, 20)),
   scaleTo: optional(max(positive, 20)),
+  /** Rolls over sideways (degrees around its own forward axis): a plank rolling away. */
+  rollFrom: optional(range(-3600, 3600)),
+  rollTo: optional(range(-3600, 3600)),
+  /** See-through 0–1 (only effects and props; the player is always solid). */
+  opacityFrom: optional(fraction),
+  opacityTo: optional(fraction),
+  /** Shakes its head: turns left and right this many degrees, calming down by the end. */
+  wobble: optional(range(0, 90)),
+  /** The player: how the weapon is held (`fast` = the slash, `cast` = the staff raised). */
+  pose: optional(z.enum(CINEMATIC_WEAPON_POSES)),
   ease,
 });
 
@@ -1606,6 +1676,15 @@ const cinematicShot = z.strictObject({
   tint: optional(z.strictObject({ color: colorToken, amount: fraction })),
   /** A boss name card in the middle of the screen (the name stays English). */
   nameCard: optional(z.strictObject({ name, title: optional(textKey) })),
+  /**
+   * Slow motion: the shot's `seconds` of action play this much slower (0.25 = four times as
+   * long on screen). Everything in it slows down together, the camera too.
+   */
+  speed: optional(range(0.05, 1)),
+  /** After the action the picture stands still this many seconds (and loses some color). */
+  freeze: optional(max(positive, 10)),
+  /** All sound falls away during this shot (a hook: there is no audio yet). */
+  silence: optional(z.boolean()),
 });
 
 export const cutscenesFileSchema = z.strictObject({
@@ -1638,7 +1717,10 @@ export const cutscenesFileSchema = z.strictObject({
           z.strictObject({
             id,
             model: z.enum(CINEMATIC_MODELS),
-            /** Fur / robe color of a placeholder (its tinted parts). */
+            /**
+             * Fur / robe color of a placeholder (its tinted parts), or the color of an effect.
+             * `element` = the color of the player's crystal (spells.json), or spell violet.
+             */
             color: optional(colorToken),
             scale: optional(max(positive, 20)),
           }),
@@ -1646,6 +1728,11 @@ export const cutscenesFileSchema = z.strictObject({
       ),
       /** Cinematic: the shots, one after the other. */
       shots: optional(atLeast(z.array(cinematicShot))),
+      /**
+       * Cinematic: goes on with the shots of this cutscene, without a break (one timeline, the
+       * bars stay). Its actors join in; two cutscenes can share their ending like this.
+       */
+      then: optional(id),
       /**
        * Later: a camera animation made in Blender (glTF file in public/, path from there). When
        * it is played, it replaces the `camera` of the shots. Not used yet.

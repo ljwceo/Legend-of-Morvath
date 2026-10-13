@@ -523,6 +523,1078 @@
           ]
         }
       ]
+    },
+    {
+      "id": "sultan_end_sword",
+      "type": "cinematic",
+      "skippable": true,
+      "anchor": {
+        "x": -1550.6,
+        "z": -47.0
+      },
+      "actors": [
+        {
+          "id": "player",
+          "model": "player"
+        },
+        {
+          "id": "sultan",
+          "model": "placeholder:catman"
+        },
+        {
+          "id": "slash",
+          "model": "fx:slash",
+          "color": "zonlicht"
+        }
+      ],
+      "shots": [
+        {
+          "id": "lunge",
+          "seconds": 0.5,
+          "speed": 0.25,
+          "silence": true,
+          "camera": {
+            "from": {
+              "x": -1551.6,
+              "y": 0.5,
+              "z": -51.6
+            },
+            "to": {
+              "x": -1551.9,
+              "y": 0.55,
+              "z": -51.2
+            },
+            "lookFrom": {
+              "x": -1552.8,
+              "y": 1.5,
+              "z": -47.6
+            },
+            "lookTo": {
+              "x": -1553.0,
+              "y": 1.7,
+              "z": -47.7
+            },
+            "fovFrom": 60,
+            "fovTo": 54,
+            "ease": "out"
+          },
+          "actors": [
+            {
+              "actor": "player",
+              "from": {
+                "x": -1555.0,
+                "z": -48.2
+              },
+              "lookAt": "sultan",
+              "pose": "windup"
+            },
+            {
+              "actor": "sultan",
+              "visible": true,
+              "from": {
+                "x": -1550.6,
+                "z": -47.0
+              },
+              "to": {
+                "x": -1552.6,
+                "z": -47.55
+              },
+              "liftFrom": 0,
+              "liftTo": 0.6,
+              "ease": "out"
+            }
+          ],
+          "fade": {
+            "from": 0.6,
+            "to": 0,
+            "seconds": 0.5
+          }
+        },
+        {
+          "id": "slash",
+          "seconds": 0.3,
+          "speed": 0.2,
+          "freeze": 1.0,
+          "silence": true,
+          "camera": {
+            "from": {
+              "x": -1552.7,
+              "y": 0.45,
+              "z": -50.5
+            },
+            "to": {
+              "x": -1552.9,
+              "y": 0.45,
+              "z": -50.3
+            },
+            "lookFrom": {
+              "x": -1554.0,
+              "y": 1.5,
+              "z": -47.9
+            },
+            "fovFrom": 52,
+            "fovTo": 48
+          },
+          "actors": [
+            {
+              "actor": "player",
+              "lookAt": "sultan",
+              "pose": "fast"
+            },
+            {
+              "actor": "sultan",
+              "from": {
+                "x": -1552.6,
+                "z": -47.55
+              },
+              "to": {
+                "x": -1553.3,
+                "z": -47.75
+              },
+              "liftFrom": 0.6,
+              "liftTo": 0.55,
+              "heading": 270
+            },
+            {
+              "actor": "slash",
+              "visible": true,
+              "from": {
+                "x": -1555.0,
+                "z": -48.2
+              },
+              "heading": 70,
+              "scaleFrom": 0.7,
+              "scaleTo": 1.15,
+              "opacityFrom": 1,
+              "opacityTo": 0.85,
+              "ease": "out"
+            }
+          ]
+        }
+      ],
+      "then": "sultan_end_shared"
+    },
+    {
+      "id": "sultan_end_staff",
+      "type": "cinematic",
+      "skippable": true,
+      "anchor": {
+        "x": -1550.6,
+        "z": -47.0
+      },
+      "actors": [
+        {
+          "id": "player",
+          "model": "player"
+        },
+        {
+          "id": "sultan",
+          "model": "placeholder:catman"
+        },
+        {
+          "id": "crystal",
+          "model": "fx:glow",
+          "color": "element"
+        },
+        {
+          "id": "bolt",
+          "model": "fx:bolt",
+          "color": "element"
+        }
+      ],
+      "shots": [
+        {
+          "id": "plant",
+          "seconds": 1.8,
+          "camera": {
+            "from": {
+              "x": -1553.0,
+              "y": 1.0,
+              "z": -51.7
+            },
+            "to": {
+              "x": -1553.4,
+              "y": 0.95,
+              "z": -51.2
+            },
+            "lookFrom": {
+              "x": -1554.6,
+              "y": 1.2,
+              "z": -48.4
+            },
+            "fovFrom": 45,
+            "fovTo": 38,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "player",
+              "from": {
+                "x": -1555.0,
+                "z": -48.2
+              },
+              "lookAt": "sultan",
+              "pose": "cast"
+            },
+            {
+              "actor": "sultan",
+              "visible": true,
+              "from": {
+                "x": -1550.6,
+                "z": -47.0
+              },
+              "lookAt": "player"
+            },
+            {
+              "actor": "crystal",
+              "visible": true,
+              "from": {
+                "x": -1554.6,
+                "z": -48.55
+              },
+              "liftFrom": 1.15,
+              "scaleFrom": 0.2,
+              "scaleTo": 0.55,
+              "opacityFrom": 0,
+              "opacityTo": 1,
+              "ease": "out"
+            }
+          ],
+          "fade": {
+            "from": 0.6,
+            "to": 0,
+            "seconds": 0.5
+          }
+        },
+        {
+          "id": "leap",
+          "seconds": 0.6,
+          "speed": 0.35,
+          "silence": true,
+          "camera": {
+            "from": {
+              "x": -1551.6,
+              "y": 0.5,
+              "z": -51.6
+            },
+            "to": {
+              "x": -1551.9,
+              "y": 0.55,
+              "z": -51.2
+            },
+            "lookFrom": {
+              "x": -1552.6,
+              "y": 1.5,
+              "z": -47.5
+            },
+            "lookTo": {
+              "x": -1552.9,
+              "y": 1.7,
+              "z": -47.6
+            },
+            "fovFrom": 60,
+            "fovTo": 54
+          },
+          "actors": [
+            {
+              "actor": "sultan",
+              "from": {
+                "x": -1550.6,
+                "z": -47.0
+              },
+              "to": {
+                "x": -1552.4,
+                "z": -47.5
+              },
+              "liftFrom": 0,
+              "liftTo": 0.55,
+              "ease": "out"
+            },
+            {
+              "actor": "crystal",
+              "scaleFrom": 0.55,
+              "scaleTo": 0.8
+            }
+          ]
+        },
+        {
+          "id": "release",
+          "seconds": 0.4,
+          "speed": 0.25,
+          "freeze": 1.0,
+          "silence": true,
+          "camera": {
+            "from": {
+              "x": -1553.4,
+              "y": 0.8,
+              "z": -51.2
+            },
+            "lookFrom": {
+              "x": -1553.4,
+              "y": 1.5,
+              "z": -47.9
+            },
+            "fovFrom": 50
+          },
+          "actors": [
+            {
+              "actor": "sultan",
+              "from": {
+                "x": -1552.4,
+                "z": -47.5
+              },
+              "liftFrom": 0.55,
+              "heading": 270
+            },
+            {
+              "actor": "bolt",
+              "visible": true,
+              "from": {
+                "x": -1554.4,
+                "z": -48.35
+              },
+              "to": {
+                "x": -1552.75,
+                "z": -47.6
+              },
+              "liftFrom": 0.15,
+              "liftTo": 0.25
+            },
+            {
+              "actor": "crystal",
+              "scaleFrom": 0.8,
+              "scaleTo": 0.4,
+              "opacityFrom": 1,
+              "opacityTo": 0.6
+            }
+          ]
+        }
+      ],
+      "then": "sultan_end_shared"
+    },
+    {
+      "id": "sultan_end_shared",
+      "type": "cinematic",
+      "skippable": true,
+      "anchor": {
+        "x": -1550.6,
+        "z": -47.0
+      },
+      "actors": [
+        {
+          "id": "player",
+          "model": "player"
+        },
+        {
+          "id": "sultan",
+          "model": "placeholder:catman"
+        },
+        {
+          "id": "barrel",
+          "model": "prop:barrel"
+        },
+        {
+          "id": "splinters",
+          "model": "fx:splinters"
+        },
+        {
+          "id": "plank",
+          "model": "prop:plank"
+        },
+        {
+          "id": "smoke",
+          "model": "fx:smoke"
+        },
+        {
+          "id": "eyes",
+          "model": "fx:eyes",
+          "color": "zonlicht",
+          "scale": 1.6
+        },
+        {
+          "id": "pringle",
+          "model": "placeholder:cat",
+          "color": "zonsondergang"
+        },
+        {
+          "id": "egg",
+          "model": "fx:glow",
+          "color": "ornamentgoud",
+          "scale": 0.18
+        }
+      ],
+      "shots": [
+        {
+          "id": "hit",
+          "seconds": 0.45,
+          "flash": 0.45,
+          "shake": 0.22,
+          "camera": {
+            "from": {
+              "x": -1553.0,
+              "y": 1.3,
+              "z": -51.6
+            },
+            "to": {
+              "x": -1552.6,
+              "y": 1.2,
+              "z": -51.2
+            },
+            "lookFrom": {
+              "x": -1549.6,
+              "y": 0.9,
+              "z": -46.8
+            },
+            "fovFrom": 52,
+            "fovTo": 50
+          },
+          "actors": [
+            {
+              "actor": "player",
+              "pose": "rest",
+              "lookAt": "sultan"
+            },
+            {
+              "actor": "barrel",
+              "visible": true,
+              "from": {
+                "x": -1548.3,
+                "z": -46.4
+              },
+              "heading": 20
+            },
+            {
+              "actor": "sultan",
+              "from": {
+                "x": -1552.75,
+                "z": -47.6
+              },
+              "to": {
+                "x": -1548.3,
+                "z": -46.4
+              },
+              "liftFrom": 0.55,
+              "liftTo": 0.6,
+              "heading": 270,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "id": "burst",
+          "seconds": 1.3,
+          "shake": 0.12,
+          "actors": [
+            {
+              "actor": "barrel",
+              "visible": false
+            },
+            {
+              "actor": "splinters",
+              "visible": true,
+              "from": {
+                "x": -1548.3,
+                "z": -46.4
+              },
+              "scaleFrom": 0.01,
+              "scaleTo": 1,
+              "ease": "out"
+            },
+            {
+              "actor": "smoke",
+              "visible": true,
+              "from": {
+                "x": -1548.3,
+                "z": -46.4
+              },
+              "scaleFrom": 0.2,
+              "scaleTo": 1.3,
+              "ease": "out"
+            },
+            {
+              "actor": "plank",
+              "visible": true,
+              "from": {
+                "x": -1548.3,
+                "z": -46.4
+              },
+              "heading": 300
+            },
+            {
+              "actor": "sultan",
+              "from": {
+                "x": -1548.3,
+                "z": -46.4
+              },
+              "to": {
+                "x": -1546.4,
+                "z": -45.85
+              },
+              "liftFrom": 0.6,
+              "liftTo": 0,
+              "heading": 270,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "id": "silence",
+          "seconds": 3.0,
+          "silence": true,
+          "camera": {
+            "from": {
+              "x": -1552.9,
+              "y": 0.35,
+              "z": -44.6
+            },
+            "to": {
+              "x": -1552.7,
+              "y": 0.35,
+              "z": -44.75
+            },
+            "lookFrom": {
+              "x": -1550.2,
+              "y": 0.3,
+              "z": -45.6
+            },
+            "lookTo": {
+              "x": -1549.4,
+              "y": 0.45,
+              "z": -46.1
+            },
+            "fovFrom": 42,
+            "fovTo": 40,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "sultan",
+              "visible": false
+            },
+            {
+              "actor": "plank",
+              "from": {
+                "x": -1548.7,
+                "z": -46.1
+              },
+              "to": {
+                "x": -1551.0,
+                "z": -45.3
+              },
+              "rollFrom": 0,
+              "rollTo": 900,
+              "ease": "out"
+            },
+            {
+              "actor": "smoke",
+              "scaleFrom": 1.3,
+              "scaleTo": 1.15
+            }
+          ]
+        },
+        {
+          "id": "eyes",
+          "seconds": 2.6,
+          "silence": true,
+          "camera": {
+            "from": {
+              "x": -1552.3,
+              "y": 0.35,
+              "z": -47.3
+            },
+            "to": {
+              "x": -1551.3,
+              "y": 0.32,
+              "z": -47.0
+            },
+            "lookFrom": {
+              "x": -1549.5,
+              "y": 0.5,
+              "z": -46.7
+            },
+            "fovFrom": 40,
+            "fovTo": 30,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "eyes",
+              "visible": true,
+              "from": {
+                "x": -1549.5,
+                "z": -46.7
+              },
+              "heading": 255,
+              "opacityFrom": 0,
+              "opacityTo": 1,
+              "ease": "in"
+            },
+            {
+              "actor": "smoke",
+              "opacityFrom": 1,
+              "opacityTo": 0.45
+            }
+          ],
+          "tint": {
+            "color": "spreukviolet",
+            "amount": 0.18
+          }
+        },
+        {
+          "id": "shake",
+          "seconds": 1.4,
+          "camera": {
+            "from": {
+              "x": 0.45,
+              "y": 0.3,
+              "z": 1.3
+            },
+            "to": {
+              "x": 0.4,
+              "y": 0.28,
+              "z": 1.1
+            },
+            "follow": "pringle",
+            "followHeight": 0.28,
+            "relative": true,
+            "fovFrom": 40,
+            "fovTo": 36
+          },
+          "actors": [
+            {
+              "actor": "eyes",
+              "visible": false
+            },
+            {
+              "actor": "pringle",
+              "visible": true,
+              "from": {
+                "x": -1549.3,
+                "z": -46.65
+              },
+              "to": {
+                "x": -1549.9,
+                "z": -46.8
+              },
+              "wobble": 40
+            },
+            {
+              "actor": "smoke",
+              "scaleFrom": 1.15,
+              "scaleTo": 0.9,
+              "opacityFrom": 0.45,
+              "opacityTo": 0.4
+            }
+          ]
+        },
+        {
+          "id": "walk",
+          "seconds": 3.4,
+          "camera": {
+            "from": {
+              "x": 0.3,
+              "y": 0.32,
+              "z": -1.5
+            },
+            "to": {
+              "x": 0.25,
+              "y": 0.34,
+              "z": -1.3
+            },
+            "follow": "pringle",
+            "followHeight": 0.25,
+            "relative": true,
+            "fovFrom": 50,
+            "fovTo": 50
+          },
+          "actors": [
+            {
+              "actor": "pringle",
+              "from": {
+                "x": -1549.9,
+                "z": -46.8
+              },
+              "to": {
+                "x": -1553.2,
+                "z": -47.7
+              }
+            },
+            {
+              "actor": "smoke",
+              "scaleFrom": 0.9,
+              "scaleTo": 0.3,
+              "opacityFrom": 0.4,
+              "opacityTo": 0
+            },
+            {
+              "actor": "player",
+              "lookAt": "pringle"
+            }
+          ]
+        },
+        {
+          "id": "meow",
+          "seconds": 2.4,
+          "camera": {
+            "from": {
+              "x": 1.7,
+              "y": 0.45,
+              "z": 1.0
+            },
+            "to": {
+              "x": 1.5,
+              "y": 0.45,
+              "z": 0.9
+            },
+            "follow": "pringle",
+            "followHeight": 0.3,
+            "relative": true,
+            "fovFrom": 44,
+            "fovTo": 42
+          },
+          "actors": [
+            {
+              "actor": "smoke",
+              "visible": false
+            },
+            {
+              "actor": "pringle",
+              "from": {
+                "x": -1553.2,
+                "z": -47.7
+              },
+              "lookAt": "player",
+              "scaleFrom": 1,
+              "scaleTo": 0.9
+            },
+            {
+              "actor": "player",
+              "lookAt": "pringle"
+            }
+          ],
+          "subtitle": {
+            "speaker": "Pringle",
+            "text": "cutscene.pringle.1"
+          }
+        },
+        {
+          "id": "change",
+          "seconds": 2.4,
+          "shake": 0.08,
+          "camera": {
+            "from": {
+              "x": -1551.6,
+              "y": 1.4,
+              "z": -52.4
+            },
+            "to": {
+              "x": -1551.8,
+              "y": 1.35,
+              "z": -52.0
+            },
+            "lookFrom": {
+              "x": -1553.6,
+              "y": 1.0,
+              "z": -47.9
+            },
+            "fovFrom": 48,
+            "fovTo": 46
+          },
+          "actors": [
+            {
+              "actor": "smoke",
+              "visible": true,
+              "from": {
+                "x": -1553.2,
+                "z": -47.7
+              },
+              "scaleFrom": 0.3,
+              "scaleTo": 1.1,
+              "opacityFrom": 1,
+              "opacityTo": 1,
+              "ease": "out"
+            },
+            {
+              "actor": "pringle",
+              "scaleFrom": 0.9,
+              "scaleTo": 2.2,
+              "ease": "in"
+            }
+          ],
+          "tint": {
+            "color": "spreukviolet",
+            "amount": 0.25
+          }
+        },
+        {
+          "id": "dust",
+          "seconds": 2.6,
+          "camera": {
+            "from": {
+              "x": -1.3,
+              "y": 1.2,
+              "z": 2.4
+            },
+            "to": {
+              "x": -1.1,
+              "y": 1.3,
+              "z": 2.0
+            },
+            "follow": "sultan",
+            "followHeight": 1.45,
+            "relative": true,
+            "fovFrom": 46,
+            "fovTo": 42,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "pringle",
+              "visible": false
+            },
+            {
+              "actor": "sultan",
+              "visible": true,
+              "from": {
+                "x": -1553.2,
+                "z": -47.7
+              },
+              "liftFrom": 0,
+              "lookAt": "player",
+              "wobble": 12
+            },
+            {
+              "actor": "smoke",
+              "scaleFrom": 1.1,
+              "scaleTo": 0.05,
+              "ease": "out"
+            },
+            {
+              "actor": "player",
+              "lookAt": "sultan"
+            }
+          ]
+        },
+        {
+          "id": "claws",
+          "seconds": 3.2,
+          "camera": {
+            "from": {
+              "x": -0.55,
+              "y": 1.7,
+              "z": -1.3
+            },
+            "to": {
+              "x": -0.5,
+              "y": 1.7,
+              "z": -1.15
+            },
+            "follow": "player",
+            "followHeight": 1.5,
+            "relative": true,
+            "fovFrom": 45,
+            "fovTo": 43
+          },
+          "actors": [
+            {
+              "actor": "smoke",
+              "visible": false
+            },
+            {
+              "actor": "sultan",
+              "lookAt": "player"
+            },
+            {
+              "actor": "player",
+              "lookAt": "sultan"
+            }
+          ],
+          "subtitle": {
+            "speaker": "Sultan",
+            "text": "cutscene.sultanEnd.claws"
+          }
+        },
+        {
+          "id": "watch",
+          "seconds": 3.2,
+          "camera": {
+            "from": {
+              "x": 0.5,
+              "y": 1.45,
+              "z": 1.9
+            },
+            "to": {
+              "x": 0.4,
+              "y": 1.5,
+              "z": 1.6
+            },
+            "follow": "sultan",
+            "followHeight": 1.6,
+            "relative": true,
+            "fovFrom": 40,
+            "fovTo": 36
+          },
+          "subtitle": {
+            "speaker": "Sultan",
+            "text": "cutscene.sultanEnd.watch"
+          }
+        },
+        {
+          "id": "ask",
+          "seconds": 6.0,
+          "camera": {
+            "from": {
+              "x": -1555.3,
+              "y": 1.4,
+              "z": -45.3
+            },
+            "to": {
+              "x": -1555.1,
+              "y": 1.4,
+              "z": -45.6
+            },
+            "lookFrom": {
+              "x": -1554.1,
+              "y": 1.3,
+              "z": -47.95
+            },
+            "fovFrom": 44,
+            "fovTo": 42,
+            "ease": "inOut"
+          },
+          "subtitle": {
+            "speaker": "Sultan",
+            "text": "cutscene.sultanEnd.ask"
+          }
+        },
+        {
+          "id": "cats",
+          "seconds": 2.6,
+          "camera": {
+            "from": {
+              "x": 0.35,
+              "y": 1.55,
+              "z": 1.4
+            },
+            "follow": "sultan",
+            "followHeight": 1.65,
+            "relative": true,
+            "fovFrom": 34
+          },
+          "subtitle": {
+            "speaker": "Sultan",
+            "text": "cutscene.sultanEnd.cats"
+          }
+        },
+        {
+          "id": "egg",
+          "seconds": 3.8,
+          "camera": {
+            "from": {
+              "x": -1553.6,
+              "y": 1.3,
+              "z": -51.0
+            },
+            "to": {
+              "x": -1553.7,
+              "y": 1.25,
+              "z": -50.6
+            },
+            "lookFrom": {
+              "x": -1554.0,
+              "y": 1.1,
+              "z": -47.95
+            },
+            "fovFrom": 40,
+            "fovTo": 34,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "egg",
+              "visible": true,
+              "from": {
+                "x": -1553.6,
+                "z": -47.8
+              },
+              "to": {
+                "x": -1554.45,
+                "z": -48.05
+              },
+              "liftFrom": 1.05,
+              "liftTo": 1.0,
+              "opacityFrom": 0,
+              "opacityTo": 1,
+              "ease": "inOut"
+            }
+          ],
+          "subtitle": {
+            "speaker": "Sultan",
+            "text": "cutscene.sultanEnd.egg"
+          }
+        },
+        {
+          "id": "leave",
+          "seconds": 6.4,
+          "camera": {
+            "from": {
+              "x": 0.6,
+              "y": 1.75,
+              "z": -1.6
+            },
+            "to": {
+              "x": 0.5,
+              "y": 1.8,
+              "z": -1.8
+            },
+            "follow": "player",
+            "followHeight": 1.3,
+            "relative": true,
+            "fovFrom": 48,
+            "fovTo": 50
+          },
+          "actors": [
+            {
+              "actor": "egg",
+              "visible": false
+            },
+            {
+              "actor": "player",
+              "lookAt": "sultan"
+            },
+            {
+              "actor": "sultan",
+              "from": {
+                "x": -1553.2,
+                "z": -47.7
+              },
+              "to": {
+                "x": -1539.0,
+                "z": -46.5
+              },
+              "ease": "inOut"
+            }
+          ]
+        },
+        {
+          "id": "turn",
+          "seconds": 1.2,
+          "actors": [
+            {
+              "actor": "sultan",
+              "from": {
+                "x": -1539.0,
+                "z": -46.5
+              },
+              "heading": 270
+            },
+            {
+              "actor": "player",
+              "lookAt": "sultan"
+            }
+          ]
+        }
+      ]
     }
   ],
   "fights": [

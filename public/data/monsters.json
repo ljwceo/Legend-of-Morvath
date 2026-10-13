@@ -734,7 +734,14 @@
         },
         "strikeHint": "boss.sultan.hint.strike",
         "guardHint": "boss.sultan.hint.guard",
-        "guardText": "boss.dodged"
+        "guardText": "boss.dodged",
+        "ending": {
+          "sword": "sultan_end_sword",
+          "staff": "sultan_end_staff",
+          "player": { "x": -1555.0, "z": -48.2 }
+        },
+        "lastStand": { "belowHpFraction": 0.25, "x": -1550.6, "z": -47.0 },
+        "prop": { "model": "prop:barrel", "x": -1548.3, "z": -46.4 }
       },
       "attacks": [
         {

@@ -1,6 +1,6 @@
 import type { Object3D, PerspectiveCamera } from 'three';
 import { numberToHex, resolveColorToken } from '../render/palette';
-import { CinematicStage } from '../render/cinematic/CinematicStage';
+import { CinematicStage, type WeaponPoser } from '../render/cinematic/CinematicStage';
 import {
   type ActorPose,
   barHeight,
@@ -18,6 +18,8 @@ const SVG_NS = 'http://www.w3.org/2000/svg';
 /** Radius of the skip ring in its 40 × 40 viewBox. */
 const RING_RADIUS = 16;
 const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
+/** How much color a freeze-frame takes away (0–1): most, not all. */
+const STILL_STRENGTH = 0.8;
 
 /** What a cinematic needs from the scene it plays in. */
 export interface CinematicHost {
@@ -32,6 +34,12 @@ export interface CinematicHost {
   t(key: string): string;
   /** Touch screen: the skip button says "hold" instead of "hold Esc". */
   touch: boolean;
+  /** The color of the player's crystal (actors with `color: "element"`). */
+  element: number;
+  /** Sets how the player holds the weapon (shots with a `pose`), or null. */
+  poseWeapon: WeaponPoser | null;
+  /** All sound falls away (`silence` shots) and comes back. A hook: there is no audio yet. */
+  silence?(on: boolean): void;
 }
 
 /**
@@ -61,6 +69,7 @@ export class CinematicCutscene {
   private readonly fadeLayer: HTMLElement;
   private readonly flashLayer: HTMLElement;
   private readonly tintLayer: HTMLElement;
+  private readonly stillLayer: HTMLElement;
   private readonly subtitle: HTMLElement;
   private readonly speaker: HTMLElement;
   private readonly line: HTMLElement;
@@ -76,6 +85,9 @@ export class CinematicCutscene {
   private shownFade = -1;
   private shownFlash = -1;
   private shownTint = -1;
+  private shownStill = -1;
+  private shownSlow = false;
+  private shownSilent = false;
   private shownRing = -1;
   private shownFov = Number.NaN;
 
@@ -101,10 +113,17 @@ export class CinematicCutscene {
     });
     this.timeline = new CinematicTimeline(cutscene, settings, initial, host.ground);
     this.sample = newSample(actors.length);
-    this.stage = new CinematicStage(actors, host.parent, host.playerRoot);
+    this.stage = new CinematicStage(
+      actors,
+      host.parent,
+      host.playerRoot,
+      host.element,
+      host.poseWeapon,
+    );
     this.skipper = new HoldToSkip(settings.holdToSkipSeconds, settings.holdReleaseFactor);
 
     this.tintLayer = el('div', { className: 'ui-cine-layer ui-cine-tint' });
+    this.stillLayer = el('div', { className: 'ui-cine-layer ui-cine-still' });
     this.fadeLayer = el('div', { className: 'ui-cine-layer ui-cine-fade' });
     this.flashLayer = el('div', { className: 'ui-cine-layer ui-cine-flash' });
     this.barTop = el('div', { className: 'ui-cine-bar ui-cine-bar-top' });
@@ -151,6 +170,7 @@ export class CinematicCutscene {
       'div',
       { className: 'ui-cine' },
       this.tintLayer,
+      this.stillLayer,
       this.fadeLayer,
       this.barTop,
       this.barBottom,
@@ -217,6 +237,7 @@ export class CinematicCutscene {
       camera.updateProjectionMatrix();
     }
     this.stage.dispose();
+    if (this.shownSilent) this.host.silence?.(false);
     this.root.remove();
   }
 
@@ -241,6 +262,15 @@ export class CinematicCutscene {
     this.shownFade = setOpacity(this.fadeLayer, s.fade, this.shownFade);
     this.shownFlash = setOpacity(this.flashLayer, s.flash, this.shownFlash);
     this.shownTint = setOpacity(this.tintLayer, s.tint, this.shownTint);
+    this.shownStill = setOpacity(this.stillLayer, s.still * STILL_STRENGTH, this.shownStill);
+    if (s.slow !== this.shownSlow) {
+      this.shownSlow = s.slow;
+      this.root.classList.toggle('ui-cine-slow', s.slow);
+    }
+    if (s.silent !== this.shownSilent) {
+      this.shownSilent = s.silent;
+      this.host.silence?.(s.silent);
+    }
     const ring = Math.round(this.skipper.progress * 100) / 100;
     if (ring !== this.shownRing) {
       this.shownRing = ring;
@@ -253,6 +283,8 @@ export class CinematicCutscene {
   private showShot(index: number): void {
     this.shownShot = index;
     const shot = this.timeline.shotDef(index);
+    // Which shot is on screen (handy for tests and for looking at it in the browser).
+    this.root.dataset.shot = shot?.id ?? '';
     const sub = shot?.subtitle;
     if (sub) {
       this.speaker.textContent = sub.speaker;

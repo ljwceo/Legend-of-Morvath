@@ -84,11 +84,21 @@ export class HUD {
    */
   readonly hiddenBy = new HudVisibility();
   private hiddenShown = false;
-  /** Big words after beating a boss ("BOND FORGED") with a small line under them. */
+  /**
+   * Victory words after beating a boss ("BOND FORGED"), in gold where the zone name shows,
+   * with a small line under them. Messages wait until they are gone.
+   */
   private readonly victory: HTMLElement;
   private readonly victoryTitle: HTMLElement;
   private readonly victorySubtitle: HTMLElement;
   private victoryLeft = 0;
+  /** An item handed to you (Sultan's egg): a small card like in the bag, its name under it. */
+  private readonly item: HTMLElement;
+  private readonly itemCard: HTMLElement;
+  private readonly itemName: HTMLElement;
+  private itemLeft = 0;
+  /** An item card waiting for the victory words to fade first. */
+  private pendingItem: { card: HTMLElement; name: string; seconds: number } | null = null;
 
   constructor(
     private readonly cfg: HudConfig,
@@ -159,6 +169,10 @@ export class HUD {
       this.victorySubtitle,
     );
 
+    this.itemCard = el('div', { className: 'ui-hud-item-card' });
+    this.itemName = el('p', { className: 'ui-hud-item-name' });
+    this.item = el('div', { className: 'ui-hud-item' }, this.itemCard, this.itemName);
+
     this.hurtGlow = el('div', { className: 'ui-hud-hurt' });
     this.blackoutTitle = el('p', { className: 'ui-hud-blackout-title' });
     this.blackoutText = el('p', { className: 'ui-hud-blackout-text' });
@@ -181,6 +195,7 @@ export class HUD {
       this.hint,
       this.subtitle,
       this.victory,
+      this.item,
       this.blackout,
     );
     this.root.style.setProperty('--hud-fade', `${cfg.fadeSeconds}s`);
@@ -321,13 +336,32 @@ export class HUD {
     this.hintLeft = seconds;
   }
 
-  /** The big victory words after a boss, for `seconds` (they fade in and out). */
+  /**
+   * The victory words after a boss, in gold in the zone banner's place, for `seconds` (they
+   * fade in and out). The time only runs while the HUD is visible, so after a cinematic they
+   * show once you can walk again. An item card and messages wait until they are gone.
+   */
   showVictory(title: string, subtitle: string | null, seconds: number): void {
     this.victoryTitle.textContent = title;
     this.victorySubtitle.textContent = subtitle ?? '';
     this.victorySubtitle.hidden = subtitle === null;
     this.victory.classList.add('ui-hud-victory-on');
     this.victoryLeft = seconds;
+    this.banner.visibility.hide('zone');
+  }
+
+  /**
+   * An item handed to you: `card` (the item the way the bag shows it) small in the middle,
+   * `name` under it, for `seconds`. After the victory words when those are on screen; messages
+   * wait until it is gone.
+   */
+  showItem(card: HTMLElement, name: string, seconds: number): void {
+    this.pendingItem = { card, name, seconds };
+  }
+
+  /** True while victory words or an item card are on screen (or an item card waits). */
+  get presenting(): boolean {
+    return this.victoryLeft > 0 || this.itemLeft > 0 || this.pendingItem !== null;
   }
 
   /** A short red glow at the screen edges: the player was hit. */
@@ -343,11 +377,8 @@ export class HUD {
       this.hiddenShown = hidden;
       this.root.classList.toggle('ui-hud-hidden', hidden);
     }
-    if (!hidden) this.updateMessages(seconds);
-    if (this.victoryLeft > 0) {
-      this.victoryLeft -= seconds;
-      if (this.victoryLeft <= 0) this.victory.classList.remove('ui-hud-victory-on');
-    }
+    if (!hidden) this.updatePresentation(seconds);
+    if (!hidden && !this.presenting) this.updateMessages(seconds);
     if (this.subtitleLeft > 0) {
       this.subtitleLeft -= seconds;
       if (this.subtitleLeft <= 0) this.subtitle.classList.remove('ui-fight-show');
@@ -373,6 +404,34 @@ export class HUD {
   dispose(): void {
     this.root.remove();
     this.queue.length = 0;
+  }
+
+  /** Victory words, then the item card: one after the other, never under a cinematic. */
+  private updatePresentation(seconds: number): void {
+    if (this.victoryLeft > 0) {
+      this.victoryLeft -= seconds;
+      if (this.victoryLeft > 0) return;
+      this.victory.classList.remove('ui-hud-victory-on');
+      this.messageGap = this.cfg.fadeSeconds;
+    }
+    if (this.itemLeft > 0) {
+      this.itemLeft -= seconds;
+      if (this.itemLeft > 0) return;
+      this.item.classList.remove('ui-hud-item-on');
+      this.messageGap = this.cfg.fadeSeconds;
+    }
+    const next = this.pendingItem;
+    if (!next) return;
+    // Let the victory words fade out first.
+    if (this.messageGap > 0) {
+      this.messageGap -= seconds;
+      return;
+    }
+    this.pendingItem = null;
+    this.itemCard.replaceChildren(next.card);
+    this.itemName.textContent = next.name;
+    this.item.classList.add('ui-hud-item-on');
+    this.itemLeft = next.seconds;
   }
 
   private updateMessages(seconds: number): void {

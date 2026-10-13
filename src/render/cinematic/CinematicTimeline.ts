@@ -4,6 +4,7 @@ export type CutsceneDef = CutscenesFile['cutscenes'][number];
 export type CinematicSettings = CutscenesFile['cinematic'];
 export type CinematicShot = NonNullable<CutsceneDef['shots']>[number];
 export type CinematicEase = NonNullable<NonNullable<CinematicShot['camera']>['ease']>;
+export type WeaponPose = NonNullable<NonNullable<CinematicShot['actors']>[number]['pose']>;
 
 /** Height (m) above an actor's feet the camera looks at when it follows without a number. */
 const DEFAULT_FOLLOW_HEIGHT = 1;
@@ -12,6 +13,10 @@ const SHAKE_X = 37.1;
 const SHAKE_Y = 29.3;
 const SHAKE_Z = 23.7;
 const DEG = Math.PI / 180;
+/** A head shake (`wobble`): this many times left and right over the shot. */
+const WOBBLE_TURNS = 3;
+/** A freeze-frame fades its "still" look in over this many seconds (no hard jump). */
+const STILL_FADE_SECONDS = 0.08;
 
 /** Easing 0–1 → 0–1: `in` starts slow, `out` ends slow, `inOut` both (smooth). */
 export function ease(kind: CinematicEase | undefined, u: number): number {
@@ -62,10 +67,29 @@ export interface ActorPose {
   /** Radians, 0 = facing +z (like the player). */
   heading: number;
   scale: number;
+  /** Radians rolled over sideways (a plank rolling away). */
+  roll: number;
+  /** 0–1: how solid it is (effects and props fade). */
+  opacity: number;
+  /** The player: how the weapon is held, and how far along that move it is (0–1). */
+  pose: WeaponPose;
+  poseT: number;
 }
 
 export function newPose(): ActorPose {
-  return { visible: false, x: 0, y: 0, z: 0, lift: 0, heading: 0, scale: 1 };
+  return {
+    visible: false,
+    x: 0,
+    y: 0,
+    z: 0,
+    lift: 0,
+    heading: 0,
+    scale: 1,
+    roll: 0,
+    opacity: 1,
+    pose: 'rest',
+    poseT: 0,
+  };
 }
 
 function copyPose(from: ActorPose, to: ActorPose): void {
@@ -76,6 +100,10 @@ function copyPose(from: ActorPose, to: ActorPose): void {
   to.lift = from.lift;
   to.heading = from.heading;
   to.scale = from.scale;
+  to.roll = from.roll;
+  to.opacity = from.opacity;
+  to.pose = from.pose;
+  to.poseT = from.poseT;
 }
 
 /** Everything a cinematic shows at one moment. Reused: `sample` writes into it. */
@@ -104,6 +132,12 @@ export interface CinematicSample {
   flash: number;
   /** 0–1: how strong the shot's tint is (its color is in the shot). */
   tint: number;
+  /** 0–1: the picture stands still (a freeze-frame: less color, a soft vignette). */
+  still: number;
+  /** Slow motion in this shot (its `speed` < 1). */
+  slow: boolean;
+  /** All sound is gone (a hook for when there is audio). */
+  silent: boolean;
 }
 
 export function newSample(actorCount: number): CinematicSample {
@@ -127,7 +161,48 @@ export function newSample(actorCount: number): CinematicSample {
     fade: 0,
     flash: 0,
     tint: 0,
+    still: 0,
+    slow: false,
+    silent: false,
   };
+}
+
+/** Seconds a shot lasts on screen: its action (slowed down by `speed`) plus the freeze. */
+export function shotWallSeconds(shot: CinematicShot): number {
+  return shot.seconds / (shot.speed ?? 1) + (shot.freeze ?? 0);
+}
+
+/**
+ * A cutscene with its `then` chain filled in: the shots of every following cutscene come
+ * after its own, and their actors join (an actor id that is already there is the same actor).
+ * One timeline, so the black bars stay and holding skip skips everything. A loop in the chain
+ * stops at the first repeat (the validator reports it).
+ */
+export function resolveCutscene(cutscene: CutsceneDef, all: readonly CutsceneDef[]): CutsceneDef {
+  if (!cutscene.then) return cutscene;
+  const actors = [...(cutscene.actors ?? [])];
+  const shots = [...(cutscene.shots ?? [])];
+  const seen = new Set([cutscene.id]);
+  let next = all.find((c) => c.id === cutscene.then);
+  while (next && !seen.has(next.id)) {
+    seen.add(next.id);
+    for (const actor of next.actors ?? []) {
+      if (!actors.some((a) => a.id === actor.id)) actors.push(actor);
+    }
+    // Whoever the next part does not know leaves the picture when it starts (the streak of
+    // the last slash, the spell), so it never hangs around in the shots after.
+    const known = new Set((next.actors ?? []).map((a) => a.id));
+    const gone = actors.filter((a) => !known.has(a.id)).map((a) => a.id);
+    const [first, ...rest] = next.shots ?? [];
+    if (first) {
+      const moves = [...(first.actors ?? [])];
+      for (const id of gone) moves.push({ actor: id, visible: false });
+      shots.push({ ...first, actors: moves }, ...rest);
+    }
+    const id = next.then;
+    next = id ? all.find((c) => c.id === id) : undefined;
+  }
+  return { ...cutscene, actors, shots, then: undefined };
 }
 
 type ActorMove = NonNullable<CinematicShot['actors']>[number];
@@ -186,7 +261,7 @@ export class CinematicTimeline {
     let lastCamera = -1;
     this.shots.forEach((shot, s) => {
       this.starts.push(start);
-      start += shot.seconds;
+      start += shotWallSeconds(shot);
       if (shot.camera) lastCamera = s;
       this.cameraShot.push(Math.max(0, lastCamera));
       const moves: (ActorMove | null)[] = [];
@@ -248,9 +323,17 @@ export class CinematicTimeline {
     if (!shot) return;
     const local = time - (this.starts[s] as number);
     out.shotTime = local;
-    const u = local / shot.seconds;
+    // Slow motion: the action takes `1 / speed` times as long; then the picture may freeze.
+    const speed = shot.speed ?? 1;
+    const action = local * speed;
+    const u = Math.min(1, action / shot.seconds);
     this.posesAt(s, u, out.actors);
     this.cameraAt(s, u, out);
+    out.slow = speed < 1;
+    out.silent = shot.silence === true;
+    out.still = shot.freeze
+      ? Math.min(1, Math.max(0, (action - shot.seconds) / speed / STILL_FADE_SECONDS))
+      : 0;
 
     const amp = (shot.shake ?? 0) * (1 - Math.min(1, u));
     out.shakeX = amp * Math.sin(time * SHAKE_X);
@@ -299,6 +382,18 @@ export class CinematicTimeline {
         p.scale = lerp(from, move.scaleTo ?? from, e);
       }
       if (move.heading !== undefined) p.heading = move.heading * DEG;
+      if (move.rollFrom !== undefined || move.rollTo !== undefined) {
+        const from = move.rollFrom !== undefined ? move.rollFrom * DEG : p.roll;
+        p.roll = lerp(from, move.rollTo !== undefined ? move.rollTo * DEG : from, e);
+      }
+      if (move.opacityFrom !== undefined || move.opacityTo !== undefined) {
+        const from = move.opacityFrom ?? p.opacity;
+        p.opacity = lerp(from, move.opacityTo ?? from, e);
+      }
+      if (move.pose !== undefined) {
+        p.pose = move.pose;
+        p.poseT = e;
+      }
     }
     // Feet on the ground, then turn towards whoever they look at (now that all stand).
     for (let a = 0; a < moves.length; a++) {
@@ -313,6 +408,14 @@ export class CinematicTimeline {
       if (other && (other.x !== p.x || other.z !== p.z)) {
         p.heading = Math.atan2(other.x - p.x, other.z - p.z);
       }
+    }
+    // A head shake on top of where it faces, calming down to nothing by the end of the shot
+    // (so the next shot starts facing straight again).
+    for (let a = 0; a < moves.length; a++) {
+      const wobble = moves[a]?.wobble;
+      if (!wobble) continue;
+      const p = out[a] as ActorPose;
+      p.heading += wobble * DEG * (1 - u) * Math.sin(u * WOBBLE_TURNS * 2 * Math.PI);
     }
   }
 

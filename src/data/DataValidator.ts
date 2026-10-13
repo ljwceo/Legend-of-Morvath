@@ -1,6 +1,7 @@
 import type { z } from 'zod/mini';
 import { boxContains, emptyBox, pointInShape, shapeBounds } from '../world/Shapes';
 import { DEFAULT_CAMERA_SENSITIVITY } from '../save/SaveData';
+import { shotWallSeconds } from '../render/cinematic/CinematicTimeline';
 import {
   CONTROL_ACTIONS,
   dataFileNames,
@@ -517,6 +518,27 @@ class CrossChecker {
         }
       }
 
+      const finder = npc.finder;
+      if (finder) {
+        const fp = `${p}.finder`;
+        this.ref('condition', f, `${fp}.when`, finder.when);
+        for (const key of [
+          'greeting',
+          'ask',
+          'talk',
+          'resetChoice',
+          'question',
+          'which',
+          'nothing',
+        ] as const) {
+          this.text(f, `${fp}.${key}`, finder[key]);
+        }
+        for (const [kind, key] of Object.entries(finder.lines)) {
+          this.text(f, `${fp}.lines.${kind}`, key);
+        }
+        if (npc.interaction !== 'talk') this.issue(f, fp, 'asking needs an NPC you can talk to');
+      }
+
       npc.shop?.items.forEach((entry, e) => {
         this.ref('item', f, `${p}.shop.items[${e}].item`, entry.item);
         if (entry.item === 'gold') this.issue(f, `${p}.shop.items[${e}].item`, 'gold is not sold');
@@ -851,8 +873,39 @@ class CrossChecker {
           }
         }
         if (!monster.attacks?.length) this.issue(f, `${p}.attacks`, 'a boss needs attacks');
+        this.checkBossEnding(boss, `${p}.boss`);
       }
     });
+  }
+
+  /**
+   * A boss's ending: both cinematics exist and are cinematics, it has a last stand inside the
+   * arena to film it at, and you stand inside the arena for it; a prop stands inside it too.
+   */
+  private checkBossEnding(
+    boss: NonNullable<GameData['monsters']['monsters'][number]['boss']>,
+    p: string,
+  ): void {
+    const f = 'monsters';
+    const a = boss.arena;
+    const inside = (q: { x: number; z: number }): boolean =>
+      Math.hypot(q.x - a.x, q.z - a.z) <= a.radius - 0.5;
+    const ending = boss.ending;
+    if (ending) {
+      for (const by of ['sword', 'staff'] as const) {
+        this.ref('cutscene', f, `${p}.ending.${by}`, ending[by]);
+        const cutscene = this.data.cutscenes.cutscenes.find((c) => c.id === ending[by]);
+        if (cutscene && cutscene.type !== 'cinematic') {
+          this.issue(f, `${p}.ending.${by}`, `"${ending[by]}" is not a cinematic`);
+        }
+      }
+      if (!boss.lastStand) this.issue(f, `${p}.ending`, 'an ending needs a lastStand to film at');
+      if (!inside(ending.player)) this.issue(f, `${p}.ending.player`, 'must lie inside the arena');
+    }
+    if (boss.lastStand && !inside(boss.lastStand)) {
+      this.issue(f, `${p}.lastStand`, 'must lie inside the arena');
+    }
+    if (boss.prop && !inside(boss.prop)) this.issue(f, `${p}.prop`, 'must lie inside the arena');
   }
 
   /**
@@ -986,6 +1039,13 @@ class CrossChecker {
 
   private checkItems(): void {
     const f = 'items';
+    // Sultan's own hints (`item.<id>.hint` in lang): only for items that exist.
+    for (const key of this.options.textKeys ?? []) {
+      const hint = /^item\.(.+)\.hint$/.exec(key);
+      if (hint && !this.data.items.items.some((item) => item.id === hint[1])) {
+        this.issue('lang', key, `a hint for "${hint[1]}", which is not in items.json`);
+      }
+    }
     this.data.items.rarities.forEach((rarity, i) => {
       this.color(f, `rarities[${i}].color`, rarity.color);
       if (rarity.glowColor) this.color(f, `rarities[${i}].glowColor`, rarity.glowColor);
@@ -1485,8 +1545,13 @@ class CrossChecker {
     this.unique(ns, f, `${at}.actors`, actors);
     this.unique(`shot:${cutscene.id}`, f, `${at}.shots`, shots);
     actors.forEach((actor, n) => {
-      if (actor.color) this.color(f, `${at}.actors[${n}].color`, actor.color);
+      // `element`: the color of the player's crystal, known only while playing.
+      if (actor.color && actor.color !== 'element') {
+        this.color(f, `${at}.actors[${n}].color`, actor.color);
+      }
     });
+    this.checkCinematicChain(cutscene, at);
+    const modelOf = new Map(actors.map((actor) => [actor.id, actor.model]));
     shots.forEach((shot, n) => {
       const p = `${at}.shots[${n}]`;
       const camera = shot.camera;
@@ -1506,14 +1571,60 @@ class CrossChecker {
         if (move.lookAt === move.actor)
           this.issue(f, `${mp}.lookAt`, 'an actor cannot look at itself');
         if (move.to && !move.from) this.issue(f, `${mp}.to`, 'a walk needs a from');
+        const model = modelOf.get(move.actor);
+        if (move.pose !== undefined && model !== 'player') {
+          this.issue(f, `${mp}.pose`, 'only the player holds a weapon');
+        }
+        const fades = move.opacityFrom !== undefined || move.opacityTo !== undefined;
+        if (
+          model === 'player' &&
+          (fades || move.rollFrom !== undefined || move.rollTo !== undefined)
+        ) {
+          this.issue(f, mp, 'the player cannot fade or roll over');
+        }
       });
       if (shot.subtitle) this.text(f, `${p}.subtitle.text`, shot.subtitle.text);
       if (shot.tint) this.color(f, `${p}.tint.color`, shot.tint.color);
       this.text(f, `${p}.nameCard.title`, shot.nameCard?.title);
-      if (shot.fade?.seconds !== undefined && shot.fade.seconds > shot.seconds) {
+      if (shot.fade?.seconds !== undefined && shot.fade.seconds > shotWallSeconds(shot)) {
         this.issue(f, `${p}.fade.seconds`, 'is longer than the shot');
       }
     });
+  }
+
+  /**
+   * `then`: the next cutscene exists, is a cinematic, the chain never comes back to itself, and
+   * an actor id the two share is the same kind of actor (it is one actor on one timeline).
+   */
+  private checkCinematicChain(
+    cutscene: GameData['cutscenes']['cutscenes'][number],
+    at: string,
+  ): void {
+    if (!cutscene.then) return;
+    const f = 'cutscenes';
+    const all = this.data.cutscenes.cutscenes;
+    this.ref('cutscene', f, `${at}.then`, cutscene.then);
+    const seen = new Set([cutscene.id]);
+    let next = all.find((c) => c.id === cutscene.then);
+    while (next) {
+      if (seen.has(next.id)) {
+        this.issue(f, `${at}.then`, `the chain comes back to "${next.id}"`);
+        return;
+      }
+      seen.add(next.id);
+      if (next.type !== 'cinematic') {
+        this.issue(f, `${at}.then`, `"${next.id}" is not a cinematic`);
+        return;
+      }
+      for (const actor of next.actors ?? []) {
+        const mine = cutscene.actors?.find((a) => a.id === actor.id);
+        if (mine && mine.model !== actor.model) {
+          this.issue(f, `${at}.then`, `actor "${actor.id}" is a different model in "${next.id}"`);
+        }
+      }
+      const id = next.then;
+      next = id ? all.find((c) => c.id === id) : undefined;
+    }
   }
 }
 

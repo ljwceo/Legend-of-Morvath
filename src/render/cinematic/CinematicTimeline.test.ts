@@ -12,6 +12,8 @@ import {
   HoldToSkip,
   newPose,
   newSample,
+  resolveCutscene,
+  shotWallSeconds,
   shouldPlayCutscene,
 } from './CinematicTimeline';
 
@@ -69,12 +71,55 @@ function timeline(def: CutsceneDef = scene): CinematicTimeline {
   return new CinematicTimeline(def, settings, [hero, newPose()], flat);
 }
 
-function realPringle(): CutsceneDef {
-  const { data } = validateGameData(readAllData());
-  const pringle = data?.cutscenes.cutscenes.find((c) => c.id === 'pringle');
-  if (!pringle) throw new Error('no pringle cutscene');
-  return pringle;
+const realData = validateGameData(readAllData()).data;
+
+function realCutscene(id: string): CutsceneDef {
+  const found = realData?.cutscenes.cutscenes.find((c) => c.id === id);
+  if (!found) throw new Error(`no cutscene ${id}`);
+  return found;
 }
+
+function realPringle(): CutsceneDef {
+  return realCutscene('pringle');
+}
+
+/** Sultan's ending (sword or mage) with the shared part after it, as it plays. */
+function realEnding(id: 'sultan_end_sword' | 'sultan_end_staff'): CutsceneDef {
+  return resolveCutscene(realCutscene(id), realData?.cutscenes.cutscenes ?? []);
+}
+
+/** A cat leaps in slow motion, the picture freezes; a plank rolls, a spark fades. */
+const slowScene: CutsceneDef = {
+  id: 'slow',
+  type: 'cinematic',
+  skippable: true,
+  anchor: { x: 0, z: 0 },
+  actors: [
+    { id: 'hero', model: 'player' },
+    { id: 'plank', model: 'prop:plank' },
+  ],
+  shots: [
+    {
+      id: 'leap',
+      seconds: 1,
+      speed: 0.25,
+      freeze: 1,
+      silence: true,
+      camera: { from: { x: 0, y: 2, z: -10 }, lookFrom: { x: 0, y: 1, z: 0 } },
+      actors: [
+        { actor: 'plank', visible: true, from: { x: 0, z: 0 }, to: { x: 4, z: 0 } },
+        { actor: 'hero', pose: 'fast' },
+      ],
+    },
+    {
+      id: 'roll',
+      seconds: 2,
+      actors: [
+        { actor: 'plank', rollFrom: 0, rollTo: 360, opacityFrom: 1, opacityTo: 0, wobble: 30 },
+      ],
+    },
+  ],
+};
 
 describe('CinematicTimeline', () => {
   it('plays the shots one after the other', () => {
@@ -181,6 +226,151 @@ describe('CinematicTimeline', () => {
     const at60 = run(60);
     const at120 = run(120);
     // Every 60 fps frame is shown at the same moment as every other 120 fps frame.
+    for (let i = 0; i < at60.length; i++) {
+      const a = at60[i] as number[];
+      const b = at120[i * 2] as number[];
+      for (let k = 0; k < a.length; k++) expect(b[k]).toBeCloseTo(a[k] as number, 6);
+    }
+  });
+});
+
+describe('slow motion, freeze-frames and props', () => {
+  it('stretches a slow shot and holds the freeze on top of it', () => {
+    const t = timeline(slowScene);
+    const leap = slowScene.shots?.[0];
+    if (!leap) throw new Error('no shot');
+    expect(shotWallSeconds(leap)).toBe(5);
+    expect(t.total).toBe(7);
+    expect(t.shotStart(1)).toBe(5);
+  });
+
+  it('moves at a quarter speed, then stands still and loses its color', () => {
+    const t = timeline(slowScene);
+    const s = newSample(2);
+    t.sample(2, s);
+    expect(s.actors[1]?.x).toBeCloseTo(2);
+    expect(s.slow).toBe(true);
+    expect(s.silent).toBe(true);
+    expect(s.still).toBe(0);
+    expect(s.actors[0]?.pose).toBe('fast');
+    expect(s.actors[0]?.poseT).toBeCloseTo(0.5);
+    t.sample(4.5, s);
+    expect(s.actors[1]?.x).toBeCloseTo(4);
+    expect(s.still).toBe(1);
+    t.sample(5.5, s);
+    expect(s.slow).toBe(false);
+    expect(s.silent).toBe(false);
+    expect(s.still).toBe(0);
+  });
+
+  it('rolls and fades a prop, and a head shake ends facing straight', () => {
+    const t = timeline(slowScene);
+    const s = newSample(2);
+    t.sample(6, s);
+    expect(s.actors[1]?.roll).toBeCloseTo(Math.PI);
+    expect(s.actors[1]?.opacity).toBeCloseTo(0.5);
+    t.sample(7, s);
+    expect(s.actors[1]?.roll).toBeCloseTo(2 * Math.PI);
+    expect(s.actors[1]?.opacity).toBeCloseTo(0);
+    // Walking to +x left it facing +x; the shake calms down to exactly that.
+    expect(s.actors[1]?.heading).toBeCloseTo(Math.PI / 2);
+  });
+
+  it('chains cutscenes into one timeline, sharing actors by id', () => {
+    const first: CutsceneDef = { ...slowScene, id: 'a', then: 'b' };
+    const second: CutsceneDef = {
+      ...scene,
+      id: 'b',
+      then: 'a',
+      actors: [
+        { id: 'hero', model: 'player' },
+        { id: 'cat', model: 'placeholder:cat' },
+      ],
+    };
+    const joined = resolveCutscene(first, [first, second]);
+    expect(joined.actors?.map((a) => a.id)).toEqual(['hero', 'plank', 'cat']);
+    // a, then b; the loop back to a stops there.
+    expect(joined.shots?.length).toBe(5);
+    expect(joined.then).toBeUndefined();
+    // The plank is not in b: it leaves when b starts; the hero (in both) stays.
+    const firstOfB = joined.shots?.[2]?.actors ?? [];
+    expect(firstOfB).toContainEqual({ actor: 'plank', visible: false });
+    expect(firstOfB.some((m) => m.actor === 'hero' && m.visible === false)).toBe(false);
+    expect(resolveCutscene(scene, [scene])).toBe(scene);
+  });
+});
+
+describe("Sultan's ending", () => {
+  it('starts with the killing blow, then goes on with the shared part', () => {
+    for (const id of ['sultan_end_sword', 'sultan_end_staff'] as const) {
+      const ending = realEnding(id);
+      const ids = ending.shots?.map((shot) => shot.id) ?? [];
+      expect(ids.slice(-4)).toEqual(['cats', 'egg', 'leave', 'turn']);
+      expect(ids).toContain('silence');
+      expect(ending.shots?.some((shot) => shot.freeze)).toBe(true);
+      expect(ending.shots?.some((shot) => (shot.speed ?? 1) < 1)).toBe(true);
+    }
+  });
+
+  it('says the lines in order, ending with the egg', () => {
+    const keys = realEnding('sultan_end_sword')
+      .shots?.map((shot) => shot.subtitle?.text)
+      .filter(Boolean);
+    expect(keys).toEqual([
+      'cutscene.pringle.1',
+      'cutscene.sultanEnd.claws',
+      'cutscene.sultanEnd.watch',
+      'cutscene.sultanEnd.ask',
+      'cutscene.sultanEnd.cats',
+      'cutscene.sultanEnd.egg',
+    ]);
+  });
+
+  it('leaves Sultan standing on his own spot by the gate, facing west', () => {
+    const ending = realEnding('sultan_end_staff');
+    const npc = realData?.npcs.npcs.find((n) => n.id === 'sultan');
+    const actors = ending.actors ?? [];
+    const t = new CinematicTimeline(
+      ending,
+      settings,
+      actors.map(() => newPose()),
+      flat,
+    );
+    const s = newSample(actors.length);
+    t.sample(t.total, s);
+    const sultan = s.actors[actors.findIndex((a) => a.id === 'sultan')];
+    expect(sultan?.visible).toBe(true);
+    expect(sultan?.x).toBeCloseTo(npc?.position.x ?? 0);
+    expect(sultan?.z).toBeCloseTo(npc?.position.z ?? 0);
+    expect(sultan?.heading).toBeCloseTo((npc?.heading ?? 0) * (Math.PI / 180));
+  });
+
+  it('plays exactly the same on 60 and 120 fps, slow motion and freeze included', () => {
+    const ending = realEnding('sultan_end_sword');
+    const count = ending.actors?.length ?? 0;
+    const run = (fps: number): number[][] => {
+      const t = new CinematicTimeline(
+        ending,
+        settings,
+        Array.from({ length: count }, () => newPose()),
+        flat,
+      );
+      const s: CinematicSample = newSample(count);
+      const frames: number[][] = [];
+      const loop = new GameLoop({
+        update: (dt) => t.step(dt),
+        render: (alpha) => {
+          t.sample(t.renderTime(alpha), s);
+          const a = s.actors;
+          frames.push([s.camX, s.camZ, s.lookX, s.still, a[1]?.x ?? 0, a[1]?.lift ?? 0]);
+        },
+      });
+      const frameMs = 1000 / fps;
+      for (let i = 0; i <= fps * 12; i++) loop.tick(i * frameMs);
+      return frames;
+    };
+    const at60 = run(60);
+    const at120 = run(120);
     for (let i = 0; i < at60.length; i++) {
       const a = at60[i] as number[];
       const b = at120[i * 2] as number[];

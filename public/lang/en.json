@@ -251,7 +251,14 @@
       "caption4": "The staff is warm now, and it knows one spell."
     },
     "holdToSkip": "Hold Esc to skip",
-    "holdToSkipTouch": "Hold to skip"
+    "holdToSkipTouch": "Hold to skip",
+    "sultanEnd": {
+      "claws": "Heh… you've got claws after all.",
+      "watch": "From now on, I'll keep an eye on you.",
+      "ask": "Lost? Can't find something you need? Come and ask me. I know every corner of this land… and where everything in it is hidden.",
+      "cats": "Cats always know.",
+      "egg": "Here. Keep this. You'll understand later."
+    }
   },
   "hud": {
     "checkpointSet": "Checkpoint set",
@@ -288,7 +295,9 @@
       "yes": "Yes",
       "no": "No",
       "sure": "Yes, I'm sure",
-      "notYet": "No, not yet"
+      "notYet": "No, not yet",
+      "bye": "Goodbye",
+      "back": "Back"
     }
   },
   "path": {
@@ -412,6 +421,20 @@
         "confirm": "Once more: the egg is mine and your build comes apart. Sure?",
         "accepted": "Hold still. There. Now build yourself again.",
         "declined": "Keep your egg then. I am not going anywhere."
+      },
+      "find": {
+        "greeting": "Back again? Cats always know. Ask.",
+        "ask": "Where can I find something?",
+        "talk": "Tell me something",
+        "reset": "Spread my points again",
+        "question": "What are you looking for?",
+        "which": "Which one?",
+        "nothing": "That one? Nobody has it yet. Not even me. Come back another time.",
+        "monster": "{item}? Any {monster} might carry it. Look in {zone}.",
+        "boss": "{item}? {monster} guards it, in {zone}. Bring your claws.",
+        "shop": "{item}? {npc} sells it, in {zone}. For gold, of course.",
+        "quest": "{item}? Finish {quest}, and it is yours.",
+        "questFrom": "{item}? {npc} gives it to whoever finishes {quest}."
       }
     }
   },
@@ -528,7 +551,7 @@
       "desc": "An egg with a dark glow. Sultan wants it, and nobody asks why."
     },
     "sultan_egg": {
-      "desc": "Sultan's own egg. He gave it to you after the fight, grinning."
+      "desc": "Sultan's own egg. He gave it to you after the fight: \"You'll understand later.\""
     }
   },
   "quest": {
@@ -1023,7 +1046,9 @@
     "eggs": "Eggs",
     "eggGive": "Give an egg",
     "eggForget": "Forget found eggs",
-    "eggsFound": "Found: {found} of {total}."
+    "eggsFound": "Found: {found} of {total}.",
+    "bossEndingSword": "Ending: sword",
+    "bossEndingStaff": "Ending: mage"
   },
   "bag": {
     "title": "Bag",
@@ -1066,7 +1091,18 @@
       "quests": "Quests"
     },
     "expand": "Fill the screen",
-    "collapse": "Smaller window"
+    "collapse": "Smaller window",
+    "type": {
+      "potion": "Potions",
+      "weapon": "Weapons",
+      "armor": "Gear",
+      "crystal": "Crystals",
+      "egg": "Eggs",
+      "quest": "Quest items",
+      "recipe": "Recipes",
+      "resource": "Materials",
+      "currency": "Money"
+    }
   },
   "load": {
     "light": "Light",
