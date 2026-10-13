@@ -1,7 +1,8 @@
 # Phase A, chat 1: the body of the starting character, ready for Mixamo's auto-rigger.
-# Run headless (the .blend is never saved):
-#   blender -b Greyhaven.blend --python tools/blender/character/01_prep_mixamo.py -- <OUT folder>
-# <OUT folder> defaults to art-source/character next to this repo (git-ignored).
+# Two ways to run it (the .blend is never saved; the scene is left as it was):
+# - In Blender: open Greyhaven.blend, Scripting tab, open (or paste) this script, press Run.
+# - Headless: blender -b Greyhaven.blend --python 01_prep_mixamo.py -- <OUT folder>
+# <OUT folder> defaults to a folder "Mixamo" next to Greyhaven.blend.
 #
 # - Copies the body pieces of the "StartCharacter" collection (modifiers applied, curves as mesh)
 #   and joins them into one mesh "Body". Hair, Hat*, Cloak*, Collar_Trim and Sword_* stay out;
@@ -17,9 +18,8 @@ import bpy, bmesh, os, sys, json, math
 from mathutils import Matrix, Vector
 
 ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
-OUT = ARGS[0] if ARGS else os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), '..', '..', '..', 'art-source', 'character')
-OUT = os.path.abspath(OUT)
+OUT = os.path.abspath(ARGS[0] if ARGS else os.path.join(
+    os.path.dirname(bpy.data.filepath) or os.path.expanduser('~'), 'Mixamo'))
 os.makedirs(OUT, exist_ok=True)
 log = open(os.path.join(OUT, 'log_prep.txt'), 'w')
 
@@ -40,11 +40,13 @@ RINGS = {'Arm_L': 8, 'Arm_R': 8, 'Leg_L': 8, 'Leg_R': 8, 'Torso': 6, 'Neck': 2}
 
 P('start', bpy.app.version_string, 'out', OUT)
 vl = bpy.context.view_layer
+if bpy.context.object and bpy.context.object.mode != 'OBJECT':
+    bpy.ops.object.mode_set(mode='OBJECT')
 src = bpy.data.collections['StartCharacter']
 by_name = {o.name.split('.')[0]: o for o in src.all_objects if o.type in ('MESH', 'CURVE')}
 missing = [n for n in BODY if n not in by_name]
 if missing:
-    raise SystemExit('StartCharacter is missing: ' + ', '.join(missing))
+    raise RuntimeError('StartCharacter is missing: ' + ', '.join(missing))
 P('skipped (chat 2):', sorted(n for n in by_name if n not in BODY))
 
 # ---------- world-space copies (modifiers applied) ----------
@@ -200,4 +202,10 @@ json.dump({'turnDegreesZ': turn, 'arms': arm_info, 'offset': list(offset),
            'size': list(hi - lo), 'triangles': tris, 'materials': mats},
           open(os.path.join(OUT, 'prep_info.json'), 'w'), indent=2)
 P('exported', fbx, os.path.getsize(fbx), 'bytes')
+# Leave the open scene as it was (matters when run inside Blender).
+mesh = body.data
+bpy.data.objects.remove(body)
+bpy.data.meshes.remove(mesh)
+bpy.data.collections.remove(work)
 P('DONE')
+log.close()
