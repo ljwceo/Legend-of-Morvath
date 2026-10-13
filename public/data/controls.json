@@ -57,6 +57,10 @@
       "keys": ["Enter", "NumpadEnter"]
     },
     {
+      "id": "close",
+      "keys": ["KeyF"]
+    },
+    {
       "id": "down",
       "keys": ["ShiftLeft", "KeyC"],
       "debugOnly": true

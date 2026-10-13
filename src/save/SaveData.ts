@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 13;
+export const SAVE_VERSION = 14;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -27,6 +27,8 @@ export const saveDataSchema = z.object({
     /** How fast dragging turns the camera, as a fraction (0.3 = 30%). */
     cameraSensitivity: z.number().check(z.minimum(0.05), z.maximum(2)),
     debug: z.boolean(),
+    /** True while the bag fills the whole playing field (the ⤢ button in the bag). */
+    bagFullscreen: z.boolean(),
     /**
      * Your own keys and mouse buttons (Settings -> Controls): action id -> codes. Empty means
      * the defaults from controls.json; unknown actions and codes are skipped on loading.
@@ -151,6 +153,7 @@ export function createNewSave(language: Language, now: Date = new Date()): SaveD
       volume: 0.8,
       cameraSensitivity: DEFAULT_CAMERA_SENSITIVITY,
       debug: false,
+      bagFullscreen: false,
       keybindings: {},
       touchControls: { size: 1, mirrored: false, layout: {} },
     },
@@ -226,6 +229,11 @@ export const migrations: Readonly<Record<number, Migration>> = {
   },
   // v13 (fase 3.9): the eggs you already found; nobody had met a mini-boss yet.
   12: (save) => ({ ...save, version: 13, foundEggs: [] }),
+  // v14 (2026-10-13): the bag can fill the screen; everyone starts on the small window.
+  13: (save) => {
+    const settings = (save.settings ?? {}) as Record<string, unknown>;
+    return { ...save, version: 14, settings: { ...settings, bagFullscreen: false } };
+  },
   // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged
   // them). Everyone starts on the default size and the default places.
   10: (save) => {

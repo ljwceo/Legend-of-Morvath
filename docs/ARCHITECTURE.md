@@ -310,6 +310,12 @@ Een zone met een blok `scene` in `zones.json` komt uit Blender in plaats van uit
 - **Validator:** een `egg` verwijst naar een bestaand item van de soort `egg`, alleen een mini-boss of baas draagt er een, elk ei hoort bij precies één monster, elk ei in `items.json` heeft een drager, een drager die geen baas is moet ergens in de wereld staan (anders is zijn ei nooit te vinden), en een `eggReset` heeft bestaande teksten, een bestaande voorwaarde en een prijs die het spel kan betalen.
 - **Cheats:** sectie **Eieren** met "Geef een ei" (het eerste nog niet gevonden ei), "Vergeet gevonden eieren" en de teller "Gevonden: x van 11".
 
+## Tas, statusvenster en sluiten (2026-10-13)
+
+- **Eén scrollgebied per paneel.** De spullenlijst van de tas heeft geen eigen maximale hoogte meer: in het kleine venster scrolt `.ui-panel` als geheel, en als de tas het speelveld vult (`.ui-bag-full`, het ⤢-knopje) scrolt alleen `.ui-bag-content`, zodat de titel en de tabs blijven staan. De keuze staat in de save (`settings.bagFullscreen`, versie 14).
+- **Tabs** in `BagPanel`: een `BagTab` in de closure van het paneel, dus hij overleeft elke rebuild (een item erbij, een andere taal) maar begint weer op "Tas" als je de tas opnieuw opent.
+- **Sluiten zonder knop:** `Panel.closeActions` noemt de acties die dat paneel dichtdoen (de tas `bag`, het statusvenster `status`). `Overlays` krijgt de `Bindings` mee en sluit het bovenste paneel op Escape, op de nieuwe actie `close` (standaard **F**, in te stellen zoals elke andere knop) of op een van die `closeActions`. De toets die een paneel opent kan het dus ook weer sluiten, zonder dat de wereld (die op pauze staat) iets hoeft te doen. In een gesprek sluit `close` het dialoogvenster.
+
 ## Liggend spelen en de telefoon (2026-10-12)
 
 - **Eén speelveld** (`src/ui/Stage.ts`, puur en getest): `stageBox` rekent het grootste vak uit met een toegestane verhouding (**4:3 tot 21:9**) en zet dat in CSS-variabelen op `<html>`. `#app` is dat vak, dus de canvas, de HUD, het debugvenster en het cheatmenu zitten er allemaal in; wat overblijft is zwart. Een telefoon liggend (19,5:9) past er precies in, een hele brede monitor krijgt balken links en rechts, en niets wordt ooit uitgerekt (de camera volgt de echte verhouding).

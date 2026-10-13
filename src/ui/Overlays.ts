@@ -1,3 +1,4 @@
+import type { Action, Bindings } from '../core/Bindings';
 import type { GameEventBus } from '../core/events';
 import type { I18n } from '../i18n/I18n';
 import { el } from './dom';
@@ -14,10 +15,16 @@ export interface Panel {
    * hidden for it. Escape still works, like in any browser dialog.
    */
   closable?: boolean;
+  /**
+   * Actions that close this panel besides `close` itself: the key that opened it closes it
+   * again (the bag key on the bag, the status key on the status window).
+   */
+  closeActions?: readonly Action[];
 }
 
 /**
- * Stack of overlay panels above the current screen. Escape closes the top panel, and so does
+ * Stack of overlay panels above the current screen. Escape closes the top panel, and so do the
+ * key bound to `close` and the key a panel was opened with (`closeActions`), and so does
  * the close button in the top left corner of the screen — on a phone the Close button at the
  * bottom of a long panel (the bag) is below the edge, so there is always one you can reach
  * (Bo, 2026-10-12). Panels rebuild their text when the language changes and keep their scroll
@@ -31,6 +38,8 @@ export class Overlays {
     private readonly layer: HTMLElement,
     events: GameEventBus,
     private readonly i18n?: I18n,
+    /** The player's own keys, so the close key (and the key that opened a panel) works here. */
+    private readonly bindings?: Bindings,
   ) {
     this.closeButton = el('button', {
       className: 'ui-overlay-close',
@@ -109,10 +118,21 @@ export class Overlays {
   }
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (event.code === 'Escape' && this.stack.length > 0) {
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      this.close();
-    }
+    const top = this.stack[this.stack.length - 1];
+    if (!top || !this.closesOn(event.code, top.panel)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    this.close();
   };
+
+  /**
+   * Does this key close the top panel? Escape always does (like any browser dialog), and so do
+   * the player's own keys for `close` and for whatever opened this panel.
+   */
+  private closesOn(code: string, panel: Panel): boolean {
+    if (code === 'Escape') return true;
+    const action = this.bindings?.actionFor(code);
+    if (!action) return false;
+    return action === 'close' || (panel.closeActions?.includes(action) ?? false);
+  }
 }

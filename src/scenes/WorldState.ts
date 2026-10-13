@@ -839,6 +839,11 @@ export class WorldState implements GameState, InstanceHost {
       input.consumePressed('status');
       input.consumePressed('lock');
       input.consumePressed('lockSwitch');
+      // The close key shuts the dialogue window, like the ✕ on a panel.
+      if (input.consumePressed('close')) {
+        this.dialog.close();
+        return;
+      }
       if (input.consumePressed('confirm') || next || dash) this.dialog.advance();
       // Answers ("Yes" / "No"): W/S, A/D, arrows or the joystick move the highlight, one step
       // per push.
@@ -848,6 +853,8 @@ export class WorldState implements GameState, InstanceHost {
       this.clearAttackInput();
     } else {
       input.consumePressed('confirm');
+      // Nothing to close out here; the panels handle it themselves (Overlays).
+      input.consumePressed('close');
       // Interaction: E (or tapping the icon): talk to / pet an NPC, or rest at a checkpoint.
       if (input.consumePressed('interact')) this.interact();
       // Lock-on on its own key or button (pressing again lets go), and "next target" on its own.

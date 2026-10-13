@@ -226,6 +226,21 @@ describe('migrate', () => {
     expect(result.save.character?.spells).toEqual(['fireball']);
   });
 
+  it('upgrades a version 13 save: the bag starts as a small window', () => {
+    const current = sampleSave();
+    const settings: Record<string, unknown> = { ...current.settings, volume: 0.3 };
+    delete settings.bagFullscreen;
+    const v13 = { ...current, version: 13, settings };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v13));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.settings.bagFullscreen).toBe(false);
+    expect(result.save.settings.volume).toBe(0.3);
+  });
+
   it('upgrades a version 12 save: no eggs found yet; the rest stays', () => {
     const current = sampleSave();
     const v12: Record<string, unknown> = { ...current, version: 12 };

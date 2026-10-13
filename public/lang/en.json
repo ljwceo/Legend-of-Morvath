@@ -847,7 +847,8 @@
       "lockSwitch": "Next target",
       "confirm": "Confirm",
       "down": "Fly down (debug)",
-      "status": "Status window"
+      "status": "Status window",
+      "close": "Close a window"
     }
   },
   "touch": {
@@ -1010,7 +1011,13 @@
       "damagePercent": "+{n}% damage",
       "damageReductionPercent": "−{n}% damage taken",
       "moveSpeedPercent": "+{n}% speed"
-    }
+    },
+    "tab": {
+      "items": "Bag",
+      "quests": "Quests"
+    },
+    "expand": "Fill the screen",
+    "collapse": "Smaller window"
   },
   "load": {
     "light": "Light",

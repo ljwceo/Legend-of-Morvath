@@ -847,7 +847,8 @@
       "lockSwitch": "Volgend doel",
       "confirm": "Bevestigen",
       "down": "Omlaag vliegen (debug)",
-      "status": "Statusvenster"
+      "status": "Statusvenster",
+      "close": "Venster sluiten"
     }
   },
   "touch": {
@@ -1010,7 +1011,13 @@
       "damagePercent": "+{n}% schade",
       "damageReductionPercent": "−{n}% schade ontvangen",
       "moveSpeedPercent": "+{n}% snelheid"
-    }
+    },
+    "tab": {
+      "items": "Tas",
+      "quests": "Quests"
+    },
+    "expand": "Scherm vullen",
+    "collapse": "Kleiner venster"
   },
   "load": {
     "light": "Licht",

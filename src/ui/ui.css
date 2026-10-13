@@ -1502,6 +1502,88 @@
   width: min(420px, 100%);
 }
 
+/*
+ * The bag filling the whole playing field (the ⤢ button, remembered in the save). Only the
+ * content scrolls then, so the title and the tabs stay where they are; in the small window the
+ * panel itself scrolls as one (Bo, 2026-10-13: no little scroll box inside a window).
+ */
+.ui-bag-full {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Room for the round ✕ in the screen corner, so it never lies on a tab. */
+.ui-bag-full .ui-bag-head {
+  min-height: var(--touch-size);
+}
+
+.ui-bag-full .ui-bag-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.ui-bag-head {
+  display: grid;
+  grid-template-columns: var(--touch-size) 1fr var(--touch-size);
+  align-items: center;
+  gap: 8px;
+}
+
+/* The heading sits between the ✕ in the corner and the ⤢ button, so nothing overlaps. */
+.ui-bag-head .ui-heading {
+  grid-column: 2;
+  margin: 0;
+}
+
+.ui-bag-expand {
+  grid-column: 3;
+  justify-self: end;
+  width: 36px;
+  height: 36px;
+  font: 700 18px var(--gh-font-stats);
+  color: var(--gh-tekst);
+  background: transparent;
+  border: 1px solid var(--gh-koper);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ui-bag-expand:active {
+  background: color-mix(in srgb, var(--gh-lantaarnamber) 35%, transparent);
+}
+
+.ui-bag-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.ui-bag-tab {
+  flex: 1;
+  min-height: 40px;
+  padding: 8px 12px;
+  font: 600 15px var(--gh-font-tekst);
+  color: var(--gh-tekst-zacht);
+  background: transparent;
+  border: 1px solid var(--gh-rand);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.ui-bag-tab-active {
+  color: var(--gh-ornamentgoud);
+  border-color: var(--gh-ornamentgoud);
+  background: color-mix(in srgb, var(--gh-ornamentgoud) 12%, transparent);
+}
+
+.ui-bag-content,
+.ui-bag-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .ui-bag-stats {
   display: flex;
   justify-content: space-between;
@@ -1521,10 +1603,8 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  max-height: min(50vh, 360px);
   margin: 0;
   padding: 0;
-  overflow-y: auto;
   list-style: none;
 }
 
@@ -1918,7 +1998,7 @@
  */
 .ui-panel,
 .ui-screen,
-.ui-bag-list,
+.ui-bag-content,
 .ui-stats,
 .ui-cheats,
 .debug-overlay {
@@ -1928,7 +2008,7 @@
 
 .ui-panel::-webkit-scrollbar,
 .ui-screen::-webkit-scrollbar,
-.ui-bag-list::-webkit-scrollbar,
+.ui-bag-content::-webkit-scrollbar,
 .ui-stats::-webkit-scrollbar,
 .ui-cheats::-webkit-scrollbar,
 .debug-overlay::-webkit-scrollbar {
@@ -1938,7 +2018,7 @@
 
 .ui-panel::-webkit-scrollbar-track,
 .ui-screen::-webkit-scrollbar-track,
-.ui-bag-list::-webkit-scrollbar-track,
+.ui-bag-content::-webkit-scrollbar-track,
 .ui-stats::-webkit-scrollbar-track,
 .ui-cheats::-webkit-scrollbar-track,
 .debug-overlay::-webkit-scrollbar-track {
@@ -1948,7 +2028,7 @@
 
 .ui-panel::-webkit-scrollbar-thumb,
 .ui-screen::-webkit-scrollbar-thumb,
-.ui-bag-list::-webkit-scrollbar-thumb,
+.ui-bag-content::-webkit-scrollbar-thumb,
 .ui-stats::-webkit-scrollbar-thumb,
 .ui-cheats::-webkit-scrollbar-thumb,
 .debug-overlay::-webkit-scrollbar-thumb {

@@ -1,10 +1,13 @@
 import type { GameContext } from '../../core/GameContext';
 import type { ItemDef } from '../../data/types';
 import { EQUIPMENT_SLOTS, type EquipmentSlot, isGear, wornCount } from '../../systems/Gear';
-import { button, el } from '../dom';
+import { el } from '../dom';
 import type { QuestSummary } from '../questText';
 import type { Panel } from '../Overlays';
 import { bindT } from './ConfirmPanel';
+
+/** The two tabs of the bag: your things, and the quests you are running. */
+type BagTab = 'items' | 'quests';
 
 /** Bag rows are sorted by item type in this order (then as they were picked up). */
 const TYPE_ORDER: readonly ItemDef['type'][] = [
@@ -38,10 +41,15 @@ const STAT_KEYS = [
 ] as const;
 
 /**
- * The simple bag (I / B or the bag button): gold, level and XP, equip load, what you wear (6
- * slots), every item with its count and description, and the running quests with what is still
- * missing. Potions have a Drink button, gear a Wear button (and worn gear Take off). Item names stay English in both languages
- * (CLAUDE.md §2.6). The game is paused while the bag is open.
+ * The bag (I / B or the bag button), in two tabs: **Bag** (gold, level and XP, equip load, the
+ * six worn slots and every item with its count and description) and **Quests** (the running
+ * quests with what is still missing). Potions have a Drink button, gear a Wear button (and worn
+ * gear Take off). Item names stay English in both languages (CLAUDE.md §2.6).
+ *
+ * The ⤢ button next to the title makes the bag fill the whole playing field (remembered in the
+ * save), and the lists scroll as one, so a long bag is never a tiny box inside a window
+ * (Bo, 2026-10-13). Closing is the ✕ in the corner, Escape, your own close key, or the bag key
+ * again — the panel has no Close button of its own. The game is paused while the bag is open.
  */
 export function bagPanel(
   ctx: GameContext,
@@ -51,9 +59,14 @@ export function bagPanel(
   gear: BagGear,
   onClose: () => void,
 ): Panel {
+  // Which tab is open; it survives a rebuild (another item, another language).
+  let tab: BagTab = 'items';
   return {
+    closeActions: ['bag'],
     build: () => {
       const { t } = bindT(ctx);
+      const settings = ctx.session?.settings;
+      const full = settings?.bagFullscreen ?? false;
       const character = ctx.session?.character;
       const data = ctx.data;
       const items = new Map(data?.items.items.map((item) => [item.id, item]) ?? []);
@@ -140,35 +153,82 @@ export function bagPanel(
             : null,
         );
       });
+      const expand = el('button', {
+        className: 'ui-bag-expand',
+        text: full ? '⤡' : '⤢',
+        attrs: {
+          type: 'button',
+          'aria-label': t(full ? 'bag.collapse' : 'bag.expand'),
+          title: t(full ? 'bag.collapse' : 'bag.expand'),
+        },
+        onClick: () => {
+          if (!settings) return;
+          settings.bagFullscreen = !settings.bagFullscreen;
+          ctx.persist();
+          ctx.overlays.refreshTop();
+        },
+      });
+      const tabButton = (id: BagTab, label: string): HTMLElement =>
+        el('button', {
+          className: tab === id ? 'ui-bag-tab ui-bag-tab-active' : 'ui-bag-tab',
+          text: label,
+          attrs: { type: 'button', role: 'tab', 'aria-selected': String(tab === id) },
+          onClick: () => {
+            tab = id;
+            ctx.overlays.refreshTop();
+          },
+        });
       return el(
         'div',
-        { className: 'ui-panel ui-menu ui-bag', attrs: { role: 'dialog' } },
-        el('h2', { className: 'ui-heading', text: t('bag.title') }),
+        {
+          className: full ? 'ui-panel ui-menu ui-bag ui-bag-full' : 'ui-panel ui-menu ui-bag',
+          attrs: { role: 'dialog' },
+        },
         el(
           'div',
-          { className: 'ui-bag-stats' },
-          el(
-            'span',
-            { className: 'ui-bag-gold' },
-            el('span', { className: 'ui-hud-gold-coin' }),
-            // "Gold" is a temporary name and stays English (data, not a text key).
-            `${character?.gold ?? 0} ${items.get('gold')?.name ?? 'Gold'}`,
-          ),
-          el('span', { className: 'ui-bag-level', text: xpLine() }),
+          { className: 'ui-bag-head' },
+          el('h2', { className: 'ui-heading', text: t('bag.title') }),
+          expand,
         ),
         el(
-          'p',
-          { className: `ui-bag-load ui-bag-load-${load.tierId}` },
-          t('bag.load', { kg: kg(load.kg), max: kg(load.maxKg), tier: t(load.tierLabel) }),
+          'div',
+          { className: 'ui-bag-tabs', attrs: { role: 'tablist' } },
+          tabButton('items', t('bag.tab.items')),
+          tabButton('quests', t('bag.tab.quests')),
         ),
-        el('h3', { className: 'ui-bag-subheading', text: t('bag.equipment') }),
-        el('ul', { className: 'ui-bag-slots' }, ...slots),
-        el('h3', { className: 'ui-bag-subheading', text: t('bag.items') }),
-        rows.length > 0
-          ? el('ul', { className: 'ui-bag-list' }, ...rows)
-          : el('p', { className: 'ui-note', text: t('bag.empty') }),
-        questList(quests(), t),
-        button(t('common.close'), () => ctx.overlays.close(), true),
+        el(
+          'div',
+          { className: 'ui-bag-content' },
+          tab === 'quests'
+            ? questList(quests(), t)
+            : el(
+                'div',
+                { className: 'ui-bag-pane' },
+                el(
+                  'div',
+                  { className: 'ui-bag-stats' },
+                  el(
+                    'span',
+                    { className: 'ui-bag-gold' },
+                    el('span', { className: 'ui-hud-gold-coin' }),
+                    // "Gold" is a temporary name and stays English (data, not a text key).
+                    `${character?.gold ?? 0} ${items.get('gold')?.name ?? 'Gold'}`,
+                  ),
+                  el('span', { className: 'ui-bag-level', text: xpLine() }),
+                ),
+                el(
+                  'p',
+                  { className: `ui-bag-load ui-bag-load-${load.tierId}` },
+                  t('bag.load', { kg: kg(load.kg), max: kg(load.maxKg), tier: t(load.tierLabel) }),
+                ),
+                el('h3', { className: 'ui-bag-subheading', text: t('bag.equipment') }),
+                el('ul', { className: 'ui-bag-slots' }, ...slots),
+                el('h3', { className: 'ui-bag-subheading', text: t('bag.items') }),
+                rows.length > 0
+                  ? el('ul', { className: 'ui-bag-list' }, ...rows)
+                  : el('p', { className: 'ui-note', text: t('bag.empty') }),
+              ),
+        ),
       );
     },
     onClose,
