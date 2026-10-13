@@ -2088,6 +2088,7 @@ export class WorldState implements GameState, InstanceHost {
           t,
           touch: (this.input?.usedTouch ?? false) || this.coarsePointer,
           element: crystal ? this.shotColor(crystal, data) : palette.spreukviolet,
+          canvas: this.ctx.renderer.three.domElement,
           // `cast` holds the staff up like gathering a spell; the rest are the sword's poses.
           poseWeapon: (pose, u) => model.setSwordPose(pose === 'cast' ? 'windup' : pose, u),
         },

@@ -2347,13 +2347,6 @@
   mix-blend-mode: soft-light;
 }
 
-/* A freeze-frame: the picture stands still and loses most of its color (a grey laid on
-   with the saturation blend mode keeps the light but takes the color; works everywhere). */
-.ui-cine-still {
-  background: var(--gh-steengrijs);
-  mix-blend-mode: saturation;
-}
-
 /* Slow motion: a soft dark edge closes in a little. */
 .ui-cine::after {
   content: '';
@@ -2530,7 +2523,9 @@
   position: absolute;
   top: max(64px, calc(env(safe-area-inset-top) + 52px));
   left: 50%;
-  max-width: calc(100vw - 32px);
+  /* Like the zone name: clear of the buttons in the top corners. */
+  max-width: calc(100vw - 140px);
+  box-sizing: border-box;
   padding: 4px 56px;
   text-align: center;
   background:
@@ -2548,8 +2543,8 @@
 
 .ui-hud-victory-title {
   margin: 0;
-  font: clamp(24px, 4.8vw, 40px) var(--gh-font-titel);
-  letter-spacing: 0.14em;
+  font: clamp(20px, 3.6vw, 40px) var(--gh-font-titel);
+  letter-spacing: 0.12em;
   white-space: nowrap;
   color: var(--gh-ornamentgoud);
   text-shadow:

@@ -38,6 +38,8 @@ export interface CinematicHost {
   element: number;
   /** Sets how the player holds the weapon (shots with a `pose`), or null. */
   poseWeapon: WeaponPoser | null;
+  /** The game's canvas: a freeze-frame takes the color out of it (a CSS filter), or null. */
+  canvas: HTMLElement | null;
   /** All sound falls away (`silence` shots) and comes back. A hook: there is no audio yet. */
   silence?(on: boolean): void;
 }
@@ -69,7 +71,6 @@ export class CinematicCutscene {
   private readonly fadeLayer: HTMLElement;
   private readonly flashLayer: HTMLElement;
   private readonly tintLayer: HTMLElement;
-  private readonly stillLayer: HTMLElement;
   private readonly subtitle: HTMLElement;
   private readonly speaker: HTMLElement;
   private readonly line: HTMLElement;
@@ -123,7 +124,6 @@ export class CinematicCutscene {
     this.skipper = new HoldToSkip(settings.holdToSkipSeconds, settings.holdReleaseFactor);
 
     this.tintLayer = el('div', { className: 'ui-cine-layer ui-cine-tint' });
-    this.stillLayer = el('div', { className: 'ui-cine-layer ui-cine-still' });
     this.fadeLayer = el('div', { className: 'ui-cine-layer ui-cine-fade' });
     this.flashLayer = el('div', { className: 'ui-cine-layer ui-cine-flash' });
     this.barTop = el('div', { className: 'ui-cine-bar ui-cine-bar-top' });
@@ -170,7 +170,6 @@ export class CinematicCutscene {
       'div',
       { className: 'ui-cine' },
       this.tintLayer,
-      this.stillLayer,
       this.fadeLayer,
       this.barTop,
       this.barBottom,
@@ -238,6 +237,7 @@ export class CinematicCutscene {
     }
     this.stage.dispose();
     if (this.shownSilent) this.host.silence?.(false);
+    if (this.host.canvas) this.host.canvas.style.filter = '';
     this.root.remove();
   }
 
@@ -262,7 +262,14 @@ export class CinematicCutscene {
     this.shownFade = setOpacity(this.fadeLayer, s.fade, this.shownFade);
     this.shownFlash = setOpacity(this.flashLayer, s.flash, this.shownFlash);
     this.shownTint = setOpacity(this.tintLayer, s.tint, this.shownTint);
-    this.shownStill = setOpacity(this.stillLayer, s.still * STILL_STRENGTH, this.shownStill);
+    // A freeze-frame: the 3D picture itself loses most of its color (the overlay sits in its
+    // own layer, so a blend mode there would not reach the canvas).
+    const still = Math.round(s.still * 20) / 20;
+    if (still !== this.shownStill && this.host.canvas) {
+      this.shownStill = still;
+      this.host.canvas.style.filter =
+        still > 0 ? `saturate(${1 - STILL_STRENGTH * still}) contrast(${1 + 0.12 * still})` : '';
+    }
     if (s.slow !== this.shownSlow) {
       this.shownSlow = s.slow;
       this.root.classList.toggle('ui-cine-slow', s.slow);

@@ -908,8 +908,8 @@
         {
           "id": "eyes",
           "model": "fx:eyes",
-          "color": "zonlicht",
-          "scale": 1.6
+          "color": "ornamentgoud",
+          "scale": 1.1
         },
         {
           "id": "pringle",
