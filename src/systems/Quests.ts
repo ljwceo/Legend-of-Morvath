@@ -13,15 +13,7 @@ import { countItem, type ItemStack, removeItem } from './Inventory';
 export type QuestStatus = 'locked' | 'available' | 'active' | 'ready' | 'done';
 
 /** Counted things that happen in the world (events), matched against objectives. */
-export type QuestEventKind =
-  | 'talk'
-  | 'kill'
-  | 'boss'
-  | 'buy'
-  | 'rest'
-  | 'visit'
-  | 'path'
-  | 'train';
+export type QuestEventKind = 'talk' | 'kill' | 'boss' | 'buy' | 'rest' | 'visit' | 'path' | 'train';
 
 /** How far one objective is: `have` of `need` (capped at `need`). */
 export interface ObjectiveProgress {

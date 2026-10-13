@@ -130,9 +130,7 @@ export function applyStats(c: CombatState, player: PlayerConfig, level: number):
   c.level = level;
   c.maxHp = Math.max(1, Math.round((player.base.hp + c.statHp + c.gearHp) * c.hpFactor));
   // A sword fighter has no mana at all (his path, fase 3.8), so his bar is simply gone.
-  c.maxMana = c.hasMana
-    ? Math.max(0, Math.round(player.base.mana + c.statMana + c.gearMana))
-    : 0;
+  c.maxMana = c.hasMana ? Math.max(0, Math.round(player.base.mana + c.statMana + c.gearMana)) : 0;
   c.hp = Math.min(c.hp, c.maxHp);
   c.mana = Math.min(c.mana, c.maxMana);
 }
