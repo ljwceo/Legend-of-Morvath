@@ -8,6 +8,12 @@ export interface LockTarget {
   readonly x: number;
   readonly z: number;
   readonly hittable: boolean;
+  /**
+   * Worth locking on to. A training dummy is hittable but never a target: it stands in the
+   * middle of the Academy field where the second Entrance Exam is fought, and locking on to
+   * straw while slimes jump at you is no fun.
+   */
+  readonly lockable: boolean;
 }
 
 /** player.json `lockOn`, ready for the fixed step (radians). */
@@ -56,7 +62,7 @@ export function pickLockTarget<T extends LockTarget>(
   let bestScore = Infinity;
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i] as T;
-    if (!target.hittable || target === skip) continue;
+    if (!target.hittable || !target.lockable || target === skip) continue;
     const dx = target.x - px;
     const dz = target.z - pz;
     const distance = Math.sqrt(dx * dx + dz * dz);

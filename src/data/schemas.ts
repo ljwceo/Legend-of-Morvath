@@ -790,6 +790,40 @@ export const playerFileSchema = z.strictObject({
 
 // ---------------------------------------------------------------- monsters.json
 
+/**
+ * A status effect a hit can leave on the player (monsters.json `statusEffects`, referred to by
+ * a monster's `onHit`). Reusable on purpose: the elemental slimes of the second Entrance Exam
+ * are the first to use them, later monsters get the same ones. The kind says what it does:
+ * `slow` walks slower, `burning` keeps hurting for a while, `weaken` makes your own hits softer.
+ */
+const statusEffectSchema = z.strictObject({
+  id,
+  name,
+  kind: z.enum(['slow', 'burning', 'weaken']),
+  /** How long it lasts (s). A fresh hit sets the timer back to this, it never stacks. */
+  seconds: max(positive, 60),
+  /** `slow`: how much slower you walk (%, 0-90). */
+  slowPercent: optional(range(0, 90)),
+  /** `burning`: damage per second, dealt in lumps of `tickSeconds`. */
+  damagePerSecond: optional(max(positive, 100)),
+  tickSeconds: optional(max(positive, 10)),
+  /** `weaken`: how much softer your own hits are (%, 0-90). */
+  weakenPercent: optional(range(0, 90)),
+  /** Color of the floating text and (later) the glow; a token from the art style guide. */
+  color: colorToken,
+});
+
+/** What a monster's hit does besides damage (status effects, and healing itself). */
+const onHitSchema = z.strictObject({
+  /** Status effect ids from `statusEffects` that this hit leaves on the player. */
+  effects: optional(z.array(id)),
+  /**
+   * Leech (the Nature slime): the monster heals this share of the damage it actually dealt,
+   * never above its own max HP.
+   */
+  leechFraction: optional(fraction),
+});
+
 const attackSchema = z.strictObject({
   id,
   name,
@@ -873,7 +907,14 @@ const monsterAiSchema = z.strictObject({
   /** Ranged monsters step back when the player comes closer than this. */
   keepDistance: optional(max(positive, 50)),
   /** Moves in hops (slimes): `seconds` in the air, then `pauseSeconds` on the ground. */
-  hop: optional(z.strictObject({ seconds: max(positive, 5), pauseSeconds: max(nonNegative, 5) })),
+  hop: optional(
+    z.strictObject({
+      seconds: max(positive, 5),
+      pauseSeconds: max(nonNegative, 5),
+      /** How high the hop looks (1 = a normal slime); the Wind slime jumps clearly higher. */
+      heightFactor: optional(range(0.1, 5)),
+    }),
+  ),
   attack: z.strictObject({
     style: z.enum(['strike', 'lunge', 'shoot']),
     range: max(positive, 50),
@@ -904,6 +945,10 @@ const monsterSchema = z.strictObject({
   scale: optional(range(0.1, 10)),
   /** Area ids (zones.json) where this monster can never be attacked (and stops fighting). */
   safeAreas: optional(z.array(id)),
+  /** Its element (spells.json): the elemental slimes of the second Entrance Exam. */
+  element: optional(id),
+  /** What its hit does besides damage: status effects, leech (see onHitSchema). */
+  onHit: optional(onHitSchema),
   /** Walking, noticing and attacking; required for melee and ranged monsters. */
   ai: optional(monsterAiSchema),
   /** A defeated dummy stands up again (full HP) after this many seconds. */
@@ -937,6 +982,8 @@ const monsterSchema = z.strictObject({
 export const monstersFileSchema = z.strictObject({
   /** Meters per second for each speed class used in the concept ("slow", "fast", ...). */
   speedClasses: z.record(z.string(), max(positive, 30)),
+  /** Status effects monsters can leave on you, referred to by a monster's `onHit`. */
+  statusEffects: z.array(statusEffectSchema),
   /** Enemy AI numbers shared by all monsters (the same on every graphics preset). */
   settings: z.strictObject({
     /** Monsters move and fight only within this distance (m) of the player. */
@@ -1192,9 +1239,62 @@ const objectiveSchema = z.discriminatedUnion('type', [
     minCharge: optional(fraction),
     text: textKey,
   }),
+  /**
+   * Beat the waves of a scripted fight (`waveFights` below): your teacher calls monsters onto
+   * the Academy training field. `count` is how many waves, which the validator keeps equal to
+   * the fight's own list.
+   */
+  z.strictObject({ type: z.literal('waves'), fight: id, count: posInt, text: textKey }),
 ]);
 
+/**
+ * A fight in waves on a marked piece of ground (the second Entrance Exam, one per teacher).
+ * Your teacher calls the monsters of wave 1 the moment you stand in `area`, says a line, and
+ * sends the next wave `pauseSeconds` after you cleared the one before. Every wave is heavier
+ * than the last. Walking out of `area` (or going down) clears the field and the drill starts
+ * again from wave 1, like a rematch with a boss.
+ */
+const waveFightSchema = z.strictObject({
+  id,
+  /** The teacher who runs it (his name is on the lines he says). */
+  teacher: id,
+  /** Area id (zones.json `areas`): the field. Monsters appear in it, and you must stay in it. */
+  area: id,
+  /** Monsters appear this far (m) from the middle of the field, in a ring around you. */
+  spawnRadius: max(positive, 60),
+  /** Seconds between clearing a wave and the next one arriving (and before wave 1). */
+  pauseSeconds: max(nonNegative, 60),
+  /** You may step off the field this long (s) before the drill gives up and resets. */
+  leaveSeconds: max(positive, 30),
+  lines: z.strictObject({
+    /** Said when the drill starts. */
+    start: textKey,
+    /** Said before wave 2, 3, ... (one per wave after the first). */
+    wave: z.array(textKey),
+    /** Said when the last wave is down. */
+    end: textKey,
+    /** Said when you leave the field or go down, and the drill resets. */
+    reset: textKey,
+  }),
+  waves: atLeast(
+    z.array(
+      z.strictObject({
+        /**
+         * The monsters of this wave. Each entry puts `count` of them on the field; `monsters`
+         * lists what each one may be, rolled per monster (Master Brink's elemental slimes are
+         * each one of four), so every id in one entry must be worth the same XP.
+         */
+        monsters: atLeast(
+          z.array(z.strictObject({ monsters: atLeast(z.array(id)), count: posInt })),
+        ),
+      }),
+    ),
+  ),
+});
+
 export const questsFileSchema = z.strictObject({
+  /** Fights in waves a `waves` objective points at (the second Entrance Exam). */
+  waveFights: z.array(waveFightSchema),
   quests: z.array(
     z.strictObject({
       id,

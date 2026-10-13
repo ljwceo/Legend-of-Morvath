@@ -249,6 +249,10 @@
           "id": "greyhaven_city",
           "shape": { "type": "rect", "minX": -1940, "minZ": -380, "maxX": -1520, "maxZ": 340 },
           "noScatter": true
+        },
+        {
+          "id": "academy_training_field",
+          "shape": { "type": "circle", "x": -1702.1, "z": -68.6, "radius": 9 }
         }
       ],
       "instances": [

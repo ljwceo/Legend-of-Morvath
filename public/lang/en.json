@@ -278,7 +278,8 @@
     "statPoints": "You have {n} stat points. Open your status window with {keyStatus}.",
     "statsReturned": "Levels no longer grow by themselves: your {n} points are yours to spend ({keyStatus}).",
     "eggFound": "You found the {name}. Sultan trades an egg for a new build.",
-    "statsReset": "Your {n} points are free again. Spread them as you like."
+    "statsReset": "Your {n} points are free again. Spread them as you like.",
+    "drillLeft": "You left the field, so the drill starts again. Step back onto it when you are ready."
   },
   "dialog": {
     "next": "Continue",
@@ -677,12 +678,12 @@
     "blade_in_the_woods": {
       "complete": {
         "1": "No new scars? Either you are careful or you are lying to me.",
-        "2": "Either way: you can fight. One more test and the Academy is behind you."
+        "2": "Keep the mantle. Out there, padding is worth more than my praise."
       },
-      "desc": "Sir Garrick wants to see it work: defeat 4 Goblins and 4 Green Slimes in the Greenwood of Aerandir.",
+      "desc": "Side quest: now the gate is open, Sir Garrick wants it done in the real woods — defeat 4 Goblins and 4 Green Slimes in the Greenwood of Aerandir.",
       "offer": {
-        "1": "A dummy never hits back, so it teaches you nothing about fear. The Greenwood does.",
-        "2": "Four goblins, four slimes. Come back and tell me which one you misjudged."
+        "1": "The gate is open, so here is the lesson I could not give you inside the walls.",
+        "2": "Four goblins, four slimes, out in the Greenwood. There is a padded mantle in it for you."
       },
       "progress": {
         "1": "Still work left in the woods. Four goblins and four slimes."
@@ -724,13 +725,13 @@
     },
     "sparks_in_the_greenwood": {
       "complete": {
-        "1": "And you came back with mana to spare? That is the lesson, not the kills.",
-        "2": "One exam left. This time I want to see a charged spell."
+        "1": "The woods are not a training field. You noticed, I can tell.",
+        "2": "The ring is yours. Light travels faster when the hand does."
       },
-      "desc": "Master Brink wants it used: defeat 4 Green Slimes and 4 Goblins in the Greenwood of Aerandir.",
+      "desc": "Side quest: now the gate is open, Master Brink wants it used in the wild — defeat 4 Green Slimes and 4 Goblins in the Greenwood of Aerandir.",
       "offer": {
-        "1": "A target that stands still teaches you distance. A target that runs teaches you timing.",
-        "2": "Four slimes, four goblins, in the Greenwood. Keep an eye on your mana, not only on your enemy."
+        "1": "You have passed, so this one is not an exam. It is a favour, and it pays.",
+        "2": "Four slimes, four goblins, in the Greenwood. There is a swift ring in my drawer with almost your name on it."
       },
       "progress": {
         "1": "Four slimes and four goblins. Watch your mana."
@@ -756,7 +757,7 @@
     "the_first_shadow": {
       "complete": {
         "1": "Hahaa — the straw is smoking. That is the Shard.",
-        "2": "Now the woods. Shadows look better between trees anyway."
+        "2": "Now something that moves. I have just the thing in the cellar."
       },
       "desc": "Wizard Sam gave you a Mage Staff and a Dark Crystal. Hit the training dummy on the field 8 times with the Arcane Shard.",
       "objective": {
@@ -772,13 +773,13 @@
     },
     "shadows_in_the_greenwood": {
       "complete": {
-        "1": "Alive! And nothing followed you home. Mostly.",
-        "2": "One more. This time I want it charged — properly charged."
+        "1": "Back already? And in one piece, more or less.",
+        "2": "Here. It rattles when something dark is near. Probably."
       },
-      "desc": "Wizard Sam wants it tried out: defeat 4 Goblins and 4 Green Slimes in the Greenwood of Aerandir.",
+      "desc": "Side quest: now the gate is open, Wizard Sam wants it tried out for real — defeat 4 Goblins and 4 Green Slimes in the Greenwood of Aerandir.",
       "offer": {
-        "1": "Go frighten something. Four goblins, four slimes, in the Greenwood.",
-        "2": "And remember: strong now, weaker later. Use the head start while you have it."
+        "1": "No exam this time. Just me, curious about what the woods do to you.",
+        "2": "Four goblins, four slimes. I will trade you a goblin tooth necklace for the story."
       },
       "progress": {
         "1": "Four goblins and four slimes. The Greenwood is northeast."
@@ -799,6 +800,57 @@
       },
       "progress": {
         "1": "Charged, not tapped. Hold the button until it swells, five times."
+      }
+    },
+    "hold_the_line": {
+      "desc": "Sir Garrick calls slimes onto the training field. Hold the field through three waves.",
+      "objective": {
+        "waves": "Wave {have}/{need}"
+      },
+      "offer": {
+        "1": "A dummy never hits back, so it teaches you nothing about fear. These will.",
+        "2": "I keep a few in a barrel behind the Academy. Three waves, each one worse than the last. Stay on the field."
+      },
+      "progress": {
+        "1": "Three waves, on the field. Step off it and we start again."
+      },
+      "complete": {
+        "1": "Three waves and you are still on your feet. That is what the field is for.",
+        "2": "One more test and the Academy is behind you."
+      }
+    },
+    "sparks_on_the_field": {
+      "desc": "Master Brink calls elemental slimes onto the training field. Hold the field through three waves.",
+      "objective": {
+        "waves": "Wave {have}/{need}"
+      },
+      "offer": {
+        "1": "A target that stands still teaches you distance. A target that bites teaches you timing.",
+        "2": "Water, fire, nature, wind — and you will not know which until it touches you. Three waves. Stay on the field."
+      },
+      "progress": {
+        "1": "Three waves on the field. Watch your mana, not only your enemy."
+      },
+      "complete": {
+        "1": "And you came back with mana to spare? That is the lesson, not the kills.",
+        "2": "One exam left. This time I want to see a charged spell."
+      }
+    },
+    "shadows_on_the_field": {
+      "desc": "Wizard Sam calls dark slimes onto the training field. Hold the field through three waves.",
+      "objective": {
+        "waves": "Wave {have}/{need}"
+      },
+      "offer": {
+        "1": "Slimes. I know, I know. But these have been sitting in my cellar, and the cellar changes things.",
+        "2": "Three waves, up on the field. Do not step off it, or we do the whole thing again."
+      },
+      "progress": {
+        "1": "Three waves of dark slimes, on the field. They sap you — so hit first."
+      },
+      "complete": {
+        "1": "Alive! And nothing followed you home. Mostly.",
+        "2": "One more. This time I want it charged — properly charged."
       }
     }
   },
@@ -1083,6 +1135,35 @@
   "world": {
     "loading": "Loading…",
     "loadFailed": "This place could not be loaded. Check your connection and try again."
+  },
+  "fight": {
+    "garrick_field_drill": {
+      "start": "Barrel is open. Feet apart, eyes up — here they come.",
+      "wave": {
+        "2": "That was the warm-up. The next one is bigger.",
+        "3": "Last wave, and I put the fat one in. Do not back into a dummy."
+      },
+      "end": "Field is yours. Good.",
+      "reset": "Off the field, off the exam. Come back and we start at the first wave."
+    },
+    "brink_field_drill": {
+      "start": "Four elements, and I never tell them which to send. Begin.",
+      "wave": {
+        "2": "Again, and more of them. Keep your distance; distance is the spell before the spell.",
+        "3": "The big one carries the same element as the small ones. Learn it before it touches you."
+      },
+      "end": "Clean. Mana left, feet dry, and you are still standing.",
+      "reset": "You left the field, so the lesson left with you. From the first wave, please."
+    },
+    "sam_field_drill": {
+      "start": "Up you go, little ones. Do try to hurt the student.",
+      "wave": {
+        "2": "More! They get braver when there are more of them. So do people.",
+        "3": "And the fat one. When it pops you get two more — that is the joke."
+      },
+      "end": "Hah! Not one of them left. I liked those slimes.",
+      "reset": "Oh, you walked away. Fine, fine. From the beginning then."
+    }
   },
   "victory": {
     "gods": {

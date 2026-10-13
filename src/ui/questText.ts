@@ -86,6 +86,9 @@ export class QuestTexts {
         return t('quest.ui.objective.buy', { item: this.itemName(objective.item), ...counts });
       case 'train':
         return t(objective.text, counts);
+      // "Wave 2/3" while your teacher's drill runs.
+      case 'waves':
+        return t(objective.text, counts);
       case 'rest':
       case 'visit':
       case 'choosePath':

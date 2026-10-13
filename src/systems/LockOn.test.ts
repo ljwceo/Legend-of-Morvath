@@ -20,8 +20,9 @@ function monster(
   x: number,
   z: number,
   hittable = true,
-): { x: number; z: number; hittable: boolean } {
-  return { x, z, hittable };
+  lockable = hittable,
+): { x: number; z: number; hittable: boolean; lockable: boolean } {
+  return { x, z, hittable, lockable };
 }
 
 describe('picking a target', () => {
@@ -41,6 +42,14 @@ describe('picking a target', () => {
     expect(pickLockTarget(0, 0, 0, [monster(0, 10, false)], cfg)).toBeNull();
     expect(pickLockTarget(0, 0, 0, [monster(0, cfg.range + 1)], cfg)).toBeNull();
     expect(pickLockTarget(0, 0, 0, [monster(0, -10)], cfg)).toBeNull();
+  });
+
+  it('skips a training dummy: you can hit it, but it is no target to lock on to', () => {
+    const dummy = monster(0, 4, true, false);
+    const slime = monster(0, 12);
+    expect(pickLockTarget(0, 0, 0, [dummy], cfg)).toBeNull();
+    // Even though the dummy is nearer and straighter ahead, the slime wins.
+    expect(pickLockTarget(0, 0, 0, [dummy, slime], cfg)).toBe(slime);
   });
 
   it('follows where the camera looks, not where the player faces', () => {
