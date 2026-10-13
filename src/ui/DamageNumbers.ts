@@ -48,8 +48,11 @@ export class DamageNumbers {
     this.spawnText(x, y, z, String(Math.round(amount)), kind);
   }
 
-  /** Shows a short text ("+10 XP", "+1 Slime Gel") at a world position (meters). */
-  spawnText(x: number, y: number, z: number, text: string, kind: DamageKind): void {
+  /**
+   * Shows a short text ("+10 XP", "+1 Slime Gel") at a world position (meters). `color` (a CSS
+   * color) overrules the color of `kind`, e.g. a status effect in the color of its element.
+   */
+  spawnText(x: number, y: number, z: number, text: string, kind: DamageKind, color?: string): void {
     const slot = this.slots[this.next] as Slot;
     this.next = (this.next + 1) % this.slots.length;
     slot.x = x;
@@ -60,6 +63,7 @@ export class DamageNumbers {
     slot.offsetX = ((this.next * 37) % 40) - 20;
     slot.element.textContent = text;
     slot.element.className = `ui-damage ui-damage-${kind}`;
+    slot.element.style.color = color ?? '';
     slot.element.hidden = false;
   }
 

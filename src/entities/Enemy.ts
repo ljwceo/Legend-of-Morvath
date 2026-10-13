@@ -166,6 +166,11 @@ export class Enemy implements SwordTarget, ShotTarget {
     this.prevY = this.y;
   }
 
+  /** The heading was just turned by hand (a wave spawning): no interpolation from the old one. */
+  settleHeading(): void {
+    this.prevHeading = this.heading;
+  }
+
   drawX(alpha: number): number {
     return this.prevX + (this.x - this.prevX) * alpha;
   }

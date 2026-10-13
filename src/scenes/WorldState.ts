@@ -52,7 +52,7 @@ import { Player } from '../entities/Player';
 import { PropLibrary } from '../entities/PropFactory';
 import { CameraRig, metersPerPixel } from '../render/CameraRig';
 import { NpcRenderer } from '../render/NpcRenderer';
-import { colorTokens, palette, resolveColorToken } from '../render/palette';
+import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
 import { Cheats, stepFlying } from '../systems/Cheats';
 import {
   applyStats,
@@ -116,7 +116,16 @@ import {
 import { moveFromPack, moveToPack } from '../systems/PackAnimal';
 import { choosePath, teacherOffer } from '../systems/PathChoice';
 import { eggOffer, eggReward, handInEggs } from '../systems/Eggs';
-import { QuestBook, type QuestEventKind } from '../systems/Quests';
+import { type ObjectiveProgress, QuestBook, type QuestEventKind } from '../systems/Quests';
+import {
+  emptyStatusTotals,
+  leechHeal,
+  slowFactor,
+  StatusEffects,
+  type StatusTotals,
+  weakenFactor,
+} from '../systems/StatusEffects';
+import { WaveFight, type WaveResetReason } from '../systems/WaveFight';
 import { addXp, deathGoldLoss, xpFraction, xpToNext } from '../systems/Progression';
 import type { EnemyTarget } from '../systems/EnemyAI';
 import { keepInArena } from '../systems/BossAI';
@@ -191,7 +200,14 @@ import { Triggers } from '../world/Triggers';
 import { type StreamerStats, WorldStreamer } from '../world/WorldStreamer';
 import { ZoneLocator } from '../world/ZoneLocator';
 import { normalizeAppearance } from './creator';
-import type { InstanceDef, SceneDef, Zone } from '../data/types';
+import type {
+  InstanceDef,
+  SceneDef,
+  Shape,
+  StatusEffectDef,
+  WaveFightDef,
+  Zone,
+} from '../data/types';
 import { placeAtStart } from './flow';
 
 const DEG = Math.PI / 180;
@@ -209,6 +225,7 @@ const DEBUG_KEYS = [
   'combat',
   'load',
   'enemies',
+  'effects',
   'quests',
   'camera',
   'daynight',
@@ -255,6 +272,10 @@ const ICON_MARGIN = 60;
 const WATER_SCALE = 3;
 /** The interaction icon floats this far (m) above an NPC's head. */
 const ICON_ABOVE_HEAD = 0.35;
+/** The name of a status effect floats this far (m) above the player's feet. */
+const EFFECT_TEXT_HEIGHT = 2.4;
+/** Seconds a teacher's line during a drill (the second Entrance Exam) stays on screen. */
+const TEACHER_LINE_SECONDS = 3.5;
 /** A conversation ends by itself when the player is this many interact ranges away. */
 const TALK_BREAK_RANGES = 3;
 /** "Protected here" shows at most this often (s) while you keep hitting a protected monster. */
@@ -382,6 +403,27 @@ export class WorldState implements GameState, InstanceHost {
   private items: ReadonlyMap<string, ItemDef> = new Map();
   /** Seconds until "protected here" may show again. */
   private protectedMessageTimer = 0;
+  /**
+   * What monster hits left on you (fase 3.8: the elemental slimes of the second Entrance Exam):
+   * slow, burning and weaken from monsters.json `statusEffects`. Null until the world is built.
+   */
+  private status: StatusEffects | null = null;
+  /** What those effects add up to this step (a reused object). */
+  private statusTotals: StatusTotals = emptyStatusTotals();
+  /** Your own damage multiplied by this while you are weakened (1 = normal). */
+  private statusDamageFactor = 1;
+  /** The effects on you right now (reused, for the debug line). */
+  private readonly statusActive: StatusEffectDef[] = [];
+  /** Effects a hit just put on you (reused): their name floats above your head. */
+  private readonly freshEffects: StatusEffectDef[] = [];
+  /** Fights in waves of this zone (the second Entrance Exam), by fight id. */
+  private readonly waveFights = new Map<string, WaveFight>();
+  /** The drill that is running now, with the quest it belongs to; null when none is. */
+  private runningDrill: { fight: WaveFight; questId: string } | null = null;
+  /** Reused while looking up how far a drill is (no allocation on the fixed step). */
+  private readonly drillProgress: ObjectiveProgress = { have: 0, need: 0 };
+  /** Reused list of running quests (same reason). */
+  private readonly activeQuests: QuestDef[] = [];
   /** Seconds since the world was entered (drawing only: pulsing warnings). */
   private time = 0;
   private damageNumbers: DamageNumbers | null = null;
@@ -797,6 +839,9 @@ export class WorldState implements GameState, InstanceHost {
     this.targetNpc = null;
     this.encounter?.dispose();
     this.encounter = null;
+    this.abortWaveFight();
+    this.waveFights.clear();
+    this.status = null;
     this.cutscenePlaying = false;
     this.quests = null;
     this.questTexts = null;
@@ -890,6 +935,8 @@ export class WorldState implements GameState, InstanceHost {
     }
 
     player.beginStep();
+    // What monster hits left on you (slow, burning, weaken) before you walk and fight.
+    this.stepStatusEffects(dt);
     const s = player.state;
     const fromX = s.x;
     const fromZ = s.z;
@@ -946,6 +993,7 @@ export class WorldState implements GameState, InstanceHost {
     this.updateShots(dt);
     this.updateLock(dt);
     this.encounter?.step(dt);
+    this.stepWaveFights(dt);
     this.updateCombatHud();
     this.hud?.rules.setEnergyFraction(s.energy / movement.maxEnergy);
     this.hud?.setBar('energy', s.energy / movement.maxEnergy);
@@ -994,7 +1042,10 @@ export class WorldState implements GameState, InstanceHost {
     const windingUp = c.heavyWindup > 0;
     if (windingUp) this.command.dash = false;
     movement.walkSpeed =
-      this.baseWalkSpeed * this.cheats.speed * (windingUp ? sword.heavyMoveFactor : 1);
+      this.baseWalkSpeed *
+      this.cheats.speed *
+      (windingUp ? sword.heavyMoveFactor : 1) *
+      slowFactor(this.statusTotals.slowPercent);
     stepMovement(s, this.command, movement, dt, mover);
     this.stepRegen(c, dt);
   }
@@ -1027,7 +1078,9 @@ export class WorldState implements GameState, InstanceHost {
       dt,
       this.staffResult,
     );
-    if (result.shot) this.fireShot(result.shot, result.damage, result.charge, result.crit);
+    if (result.shot) {
+      this.fireShot(result.shot, this.weakened(result.damage), result.charge, result.crit);
+    }
     if (state.noMana) this.sayNoMana();
 
     const casting = state.casting;
@@ -1035,7 +1088,10 @@ export class WorldState implements GameState, InstanceHost {
     if (casting) c.sinceCombat = 0;
     if (casting) this.command.dash = false;
     movement.walkSpeed =
-      this.baseWalkSpeed * this.cheats.speed * (casting ? staff.castMoveFactor : 1);
+      this.baseWalkSpeed *
+      this.cheats.speed *
+      (casting ? staff.castMoveFactor : 1) *
+      slowFactor(this.statusTotals.slowPercent);
     stepMovement(s, this.command, movement, dt, mover);
     this.stepRegen(c, dt);
   }
@@ -1284,10 +1340,15 @@ export class WorldState implements GameState, InstanceHost {
    * or the Arcane Shard), so a mage's exam only counts a real, charged spell.
    */
   private recordTraining(e: Enemy, charge = 0): void {
-    if (!this.quests?.activeDefs().some((def) => def.objectives.some((o) => o.type === 'train'))) {
-      return;
-    }
+    const running = this.quests?.activeDefsInto(this.activeQuests);
+    if (!running?.some((def) => def.objectives.some((o) => o.type === 'train'))) return;
     this.recordQuest('train', e.def.id, 1, undefined, false, charge);
+  }
+
+  /** Your own damage after a weaken (the Dark slime); at least 1 for any hit that lands. */
+  private weakened(damage: number): number {
+    if (this.statusDamageFactor >= 1 || damage <= 0) return damage;
+    return Math.max(1, Math.round(damage * this.statusDamageFactor));
   }
 
   /** Applies a landed swing to every enemy in its arc, with damage numbers. */
@@ -1295,6 +1356,7 @@ export class WorldState implements GameState, InstanceHost {
     const { player, sword, enemies, enemyRenderer } = this;
     if (!player || !sword || !enemies) return;
     const s = player.state;
+    const damage = this.weakened(result.damage);
     let hitAny = false;
     for (let i = 0; i < enemies.shown.length; i++) {
       const e = enemies.shown[i];
@@ -1307,7 +1369,7 @@ export class WorldState implements GameState, InstanceHost {
         else this.showProtected(e);
         continue;
       }
-      const defeated = enemies.hit(e, result.damage);
+      const defeated = enemies.hit(e, damage);
       hitAny = true;
       // Practising at the training field (the Entrance Exams, fase 3.8).
       this.recordTraining(e);
@@ -1319,7 +1381,7 @@ export class WorldState implements GameState, InstanceHost {
           : result.combo
             ? 'combo'
             : 'normal';
-      this.damageNumbers?.spawn(e.x, top, e.z, result.damage, kind);
+      this.damageNumbers?.spawn(e.x, top, e.z, damage, kind);
       if (defeated) this.defeated(e, top);
     }
     if (hitAny) player.combat.sinceCombat = 0;
@@ -1357,8 +1419,13 @@ export class WorldState implements GameState, InstanceHost {
     if (this.knockedOut) this.startDying();
   }
 
-  /** A monster or an arrow hits the player: HP down, a red number and glow, maybe knocked out. */
-  private readonly hurtPlayer = (damage: number): void => {
+  /**
+   * A monster or an arrow hits the player: HP down, a red number and glow, maybe knocked out.
+   * `from` is the monster that hit (not set for an arrow or for burning): its hit leaves its
+   * status effects on you, and a leeching monster (the Nature slime) heals from the damage it
+   * really dealt.
+   */
+  private readonly hurtPlayer = (damage: number, from?: Enemy): void => {
     const player = this.player;
     if (!player || damage <= 0) return;
     const c = player.combat;
@@ -1369,8 +1436,167 @@ export class WorldState implements GameState, InstanceHost {
     c.sinceCombat = 0;
     this.damageNumbers?.spawn(s.x, s.y + 2, s.z, taken, 'player');
     this.hud?.hurt();
+    if (from) this.applyOnHit(from, taken);
     if (c.hp <= 0) this.knockedOut = true;
   };
+
+  /** What a monster's hit leaves behind: its status effects, and leech for itself. */
+  private applyOnHit(e: Enemy, taken: number): void {
+    const s = this.player?.state;
+    // An effect that was not on you yet floats above your head in its element's color, so you
+    // can see what that slime did to you (the HUD itself stays empty, as the concept asks).
+    const fresh = this.status?.applyAll(e.def, this.freshEffects);
+    if (s && fresh) {
+      for (const def of fresh) {
+        this.damageNumbers?.spawnText(
+          s.x,
+          s.y + EFFECT_TEXT_HEIGHT,
+          s.z,
+          def.name,
+          'player',
+          numberToHex(resolveColorToken(def.color)),
+        );
+      }
+    }
+    const healed = leechHeal(e, taken);
+    if (healed < 1) return;
+    const top = e.y + (this.enemyRenderer?.heightOf(e) ?? 1.5);
+    this.damageNumbers?.spawnText(e.x, top, e.z, `+${Math.round(healed)}`, 'heal');
+  }
+
+  /**
+   * The effects on you for one step: slow, weaken and the damage burning does (through the
+   * normal damage path, so gear and Defense still soften it). Allocation-free.
+   */
+  private stepStatusEffects(dt: number): void {
+    const status = this.status;
+    if (!status) return;
+    const totals = status.step(dt);
+    this.statusTotals = totals;
+    this.statusDamageFactor = weakenFactor(totals.weakenPercent);
+    if (totals.damage > 0) this.hurtPlayer(totals.damage);
+  }
+
+  /**
+   * The drills of this zone (quests.json `waveFights`): the second Entrance Exam, where your
+   * teacher calls monsters onto the Academy training field. One per teacher, so only your own
+   * path's drill is ever reachable.
+   */
+  private buildWaveFights(
+    fights: readonly WaveFightDef[],
+    areas: ReadonlyMap<string, Shape>,
+  ): void {
+    this.waveFights.clear();
+    this.runningDrill = null;
+    for (const def of fights) {
+      const field = areas.get(def.area);
+      if (!field) continue;
+      // The middle of the field, worked out once: the monsters of a wave ring around it.
+      const box = shapeBounds(field, emptyBox());
+      const cx = (box.minX + box.maxX) / 2;
+      const cz = (box.minZ + box.maxZ) / 2;
+      this.waveFights.set(
+        def.id,
+        new WaveFight(def, {
+          alive: () => this.enemies?.waveAlive(def.id) ?? 0,
+          spawnWave: (index) =>
+            void this.enemies?.spawnWave(def.id, index, cx, cz, def.spawnRadius),
+          clear: () => this.enemies?.clearWave(def.id),
+          inArea: () => {
+            const s = this.player?.state;
+            return s !== undefined && pointInShape(field, s.x, s.z);
+          },
+          say: (key) => this.sayTeacher(def.teacher, key),
+          waveCleared: () => this.recordQuest('waves', def.id, 1),
+          finished: () => {},
+          reset: (reason) => this.drillReset(def.id, reason),
+        }),
+      );
+    }
+  }
+
+  /** Your teacher's voice during a drill (he is on the field, or it carries from his tower). */
+  private sayTeacher(npcId: string, key: string): void {
+    const name = this.ctx.data?.npcs.npcs.find((npc) => npc.id === npcId)?.name ?? npcId;
+    this.hud?.say(name, this.ctx.i18n.t(key), TEACHER_LINE_SECONDS);
+  }
+
+  /**
+   * One fixed step of the second Entrance Exam. The drill of the running exam starts by itself
+   * the moment you stand on the field (your teacher calls the first wave), so it works whether
+   * your teacher stands next to you (Sir Garrick) or stays in his tower or cellar. A drill
+   * whose quest is no longer running stops.
+   */
+  private stepWaveFights(dt: number): void {
+    const running = this.runningDrill;
+    const wanted = this.drillForActiveQuest();
+    if (running && (!wanted || wanted.fight !== running.fight)) {
+      running.fight.abort();
+      this.runningDrill = null;
+    }
+    if (!wanted) return;
+    const { fight, questId, cleared } = wanted;
+    if (!fight.running) {
+      // Not on the field, in a conversation, dying or in a cutscene: nothing starts.
+      if (fight.state !== 'idle' || !fight.onField || !this.canStartDrill()) return;
+      fight.start(cleared);
+      this.runningDrill = { fight, questId };
+      return;
+    }
+    this.runningDrill = { fight, questId };
+    fight.step(dt);
+    if (!fight.running) this.runningDrill = null;
+  }
+
+  /** The drill of the exam you are doing now, with how many waves you already cleared. */
+  private drillForActiveQuest(): { fight: WaveFight; questId: string; cleared: number } | null {
+    const book = this.quests;
+    const bag = this.ctx.session?.character?.inventory;
+    if (!book || !bag || this.waveFights.size === 0) return null;
+    for (const def of book.activeDefsInto(this.activeQuests)) {
+      for (let i = 0; i < def.objectives.length; i++) {
+        const objective = def.objectives[i];
+        if (objective?.type !== 'waves') continue;
+        const fight = this.waveFights.get(objective.fight);
+        if (!fight) continue;
+        const progress = book.progress(def, i, bag, this.drillProgress);
+        if (progress.have >= progress.need) continue;
+        return { fight, questId: def.id, cleared: progress.have };
+      }
+    }
+    return null;
+  }
+
+  /** True while a drill may start or run (not talking, not dying, not in a cutscene). */
+  private canStartDrill(): boolean {
+    const s = this.player?.state;
+    if (!s || this.paused || this.travelling || this.cutscenePlaying) return false;
+    if (this.deathTimer !== NOT_DYING || this.knockedOut) return false;
+    if (this.dialog?.isOpen) return false;
+    return this.encounter?.fighting !== true;
+  }
+
+  /**
+   * The drill gave up (you walked off the field, or you went down): the waves you had already
+   * beaten are forgotten, so it starts again at wave 1 next time you stand on the field.
+   */
+  private drillReset(fightId: string, reason: WaveResetReason): void {
+    const running = this.runningDrill;
+    this.runningDrill = null;
+    const questId = running?.questId;
+    if (questId) this.quests?.resetObjectives(questId, 'waves');
+    this.refreshQuestMarkers();
+    if (reason === 'left') {
+      this.hud?.showMessage(this.ctx.i18n.t('hud.drillLeft'));
+    }
+    void fightId;
+  }
+
+  /** Walking out of the zone (or a teleport): a running drill stops and the field is cleared. */
+  private abortWaveFight(): void {
+    this.runningDrill?.fight.abort();
+    this.runningDrill = null;
+  }
 
   /**
    * HP reached 0 (concept "Doodgaan"): the screen fades to black, you lose 10% of your gold
@@ -1387,6 +1613,8 @@ export class WorldState implements GameState, InstanceHost {
     const t = this.ctx.i18n;
     this.deathTimer = 0;
     this.encounter?.abort();
+    this.runningDrill?.fight.knockedOut();
+    this.status?.clear();
     this.deathGoldLost = deathGoldLoss(
       session.character?.gold ?? 0,
       data.player.death.goldLossFraction,
@@ -1434,6 +1662,7 @@ export class WorldState implements GameState, InstanceHost {
     this.projectiles?.clear();
     this.shots?.clear();
     this.staffState.reset();
+    this.status?.clear();
     this.locked = null;
     this.placePlayer(this.respawn.x, this.respawn.z);
     const c = player.combat;
@@ -3256,6 +3485,7 @@ export class WorldState implements GameState, InstanceHost {
     const spawn = zone?.spawnPoints[0];
     if (!zone || !spawn) return;
     this.encounter?.abort();
+    this.abortWaveFight();
     const heading = (spawn.headingDegrees ?? 0) * DEG;
     if (zone.scene || this.sceneZone) {
       if (zone.id !== this.sceneZoneDef?.id || this.instanceDef) {
@@ -3459,11 +3689,13 @@ export class WorldState implements GameState, InstanceHost {
     const session = this.ctx.session;
     const bag = session?.character?.inventory;
     if (!book || !session || !bag) return;
-    // In order, because every exam needs the one before it.
+    // In order, because every exam needs the one before it. Only the exams themselves: the
+    // Greenwood side quests of the same teacher stay for you to play once the gate is open.
     for (let round = 0; round < book.defs.length; round++) {
       const next = book.defs.find(
         (def) =>
           def.requires.path !== undefined &&
+          def.kind === 'main' &&
           book.status(def.id, session.progress.level, bag) === 'available',
       );
       if (!next) break;
@@ -3476,6 +3708,9 @@ export class WorldState implements GameState, InstanceHost {
           this.recordQuest('kill', objective.monster, need, undefined, true);
         } else if (objective.type === 'talk') {
           this.recordQuest('talk', objective.npc, 1, undefined, true);
+        } else if (objective.type === 'waves') {
+          this.abortWaveFight();
+          this.recordQuest('waves', objective.fight, need, undefined, true);
         }
       }
       this.completeQuest(next);
@@ -3653,6 +3888,9 @@ export class WorldState implements GameState, InstanceHost {
     const safeAreas = new Map(
       data.zones.zones.flatMap((entry) => entry.areas.map((area) => [area.id, area.shape])),
     );
+    // Only the drills whose field lies in a zone that is being played need pooled monsters.
+    const fieldIds = new Set(playedZones.flatMap((entry) => entry.areas.map((area) => area.id)));
+    const playedFights = data.quests.waveFights.filter((fight) => fieldIds.has(fight.area));
     // Monsters appear at the same distance as NPCs, on every graphics preset.
     this.enemies = new Enemies(
       playedZones,
@@ -3661,7 +3899,10 @@ export class WorldState implements GameState, InstanceHost {
       safeAreas,
       world.nightSpawning,
       world.seed,
+      playedFights,
     );
+    this.status = new StatusEffects(data.monsters.statusEffects);
+    this.buildWaveFights(playedFights, safeAreas);
     this.enemyRenderer = new EnemyRenderer(this.enemies.list, worldRoot);
     this.warningRenderer = new WarningRenderer(worldRoot, this.groundHeight);
     const projectiles = new Projectiles();
@@ -3678,7 +3919,7 @@ export class WorldState implements GameState, InstanceHost {
     this.enemiesWorld = {
       mover: this.mover as Mover,
       heightAt: this.groundHeight,
-      hitPlayer: (_e, damage) => this.hurtPlayer(damage),
+      hitPlayer: (e, damage) => this.hurtPlayer(damage, e),
       shoot: (e, tx, tz, speed, damage) =>
         projectiles.fire(
           e.x,
@@ -4058,6 +4299,7 @@ export class WorldState implements GameState, InstanceHost {
         `${s.recoverTime > 0 ? ' · getting up' : ''} · dmg ×${c.damageFactor.toFixed(2)} taken ×${c.damageTakenFactor.toFixed(2)}`,
     );
     debug.lines.set('enemies', this.enemyDebugLine(s.x, s.z));
+    debug.lines.set('effects', this.effectsDebugLine());
     debug.lines.set('lock', this.lockDebugLine(s.x, s.z));
     const quests = this.ctx.session?.quests;
     debug.lines.set(
@@ -4116,6 +4358,28 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /** Debug: monsters shown / in the world / in the pool, fighting, arrows, the nearest one. */
+  /** Debug: what is on you (slow, burning, weaken) and how the drill of your exam stands. */
+  private effectsDebugLine(): string {
+    const status = this.status;
+    const effects = status
+      ? status
+          .active(this.statusActive)
+          .map((def) => `${def.id} ${status.secondsLeft(def.id).toFixed(1)}s`)
+          .join(' ') || 'none'
+      : '-';
+    const totals = this.statusTotals;
+    const running = this.runningDrill;
+    let drills = '';
+    for (const [id, fight] of this.waveFights) {
+      drills += ` · ${id} ${fight.state}${fight.onField ? ' (on field)' : ''}`;
+    }
+    const drill = running
+      ? ` · drill wave ${running.fight.wave}/${running.fight.def.waves.length}` +
+        ` · field ${this.enemies?.waveAlive(running.fight.def.id) ?? 0}`
+      : '';
+    return `${effects} · slow ${totals.slowPercent}% weaken ${totals.weakenPercent}%${drill}${drills}`;
+  }
+
   private enemyDebugLine(px: number, pz: number): string {
     const enemies = this.enemies;
     if (!enemies) return '-';

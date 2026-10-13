@@ -8,8 +8,8 @@
 |---|---|
 | **Huidige fase** | Fase 3.9 – Eieren, mini-bosses en opnieuw verdelen |
 | **Status** | **Fase 3.9 gebouwd (2026-10-13):** tien mini-bosses met elk eenmalig een ei, het ei van Sultan uit zijn baasgevecht, en inleveren bij Sultan om al je punten opnieuw te verdelen (save versie 13). Daarvoor: fase 3.8 (Entrance Exams, pad-effecten, stadspoort), 3.7 (stats en builds), 3.6 (buttonmapping + lock-on) en stap 3.0 t/m 3.5. Fase 2, 3.7, 3.8 en het Blender-Greyhaven wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
-| **Volgende stap** | **Fase 3.10 – Afronden fase 3** in een nieuwe chat (balans nameten, Meet 20 s op Low/Mid/High, geheugen, documentatie). Bo/Lucas: 3.8 en 3.9 spelen — zijn de tien mini-bosses sterk genoeg, en staan ze op leuke plekken? |
-| **Laatste sessie** | 2026-10-13: fase 3.9 (eieren, mini-bosses, opnieuw verdelen bij Sultan) en daarna de tas (tabs, scherm vullen, sluiten met je eigen toets) |
+| **Volgende stap** | **Fase 3.10 – Afronden fase 3** in een nieuwe chat (balans nameten, Meet 20 s op Low/Mid/High, geheugen, documentatie). Bo/Lucas: 3.8 en 3.9 spelen — zijn de tien mini-bosses sterk genoeg, is de nieuwe tweede exam (drie waves slimes op het veld) zwaar genoeg, en klopt het effect dat ik voor de Dark Slime koos? |
+| **Laatste sessie** | 2026-10-13: de tweede Entrance Exam van elk pad is een slime-gevecht in drie waves op het trainingsveld geworden (binnen de stad), met herbruikbare statuseffecten en elementaire slimes; de Greenwood-tochten zijn side quests voor na de poort (save 15) |
 
 ### Liggend spelen op de telefoon (Bo, 2026-10-12)
 
@@ -19,6 +19,8 @@ Na het spelen op de telefoon: de game speel je **alleen liggend**. Het beeld hou
 
 | # | Vraag | Stand nu |
 |---|---|---|
+| 15 | Wat doet een **Dark Slime** als hij je raakt? (de andere vier elementen zijn afgesproken) | Voorstel van Claude en nu in de data: **Weakened** — 4 s lang doen je eigen treffers 25% minder. Past bij duister, werkt voor zwaard én mage; mana stelen zou niets doen bij een zwaardvechter. Eén regel in `monsters.json` anders als Bo iets anders wil |
+| 16 | Een **zwaardvechter** kan de nieuwe tweede exam ook halen door alleen de knop in te houden (slimes zijn geen muur voor een zwaai die ze allemaal raakt) | Hij komt er wel met duidelijk minder HP uit. Meer slimes passen niet binnen de 520 XP; wil Bo dat een zwaardvechter ook kan zakken, dan moet er een ander soort vijand bij (bijvoorbeeld een goblin-boogschutter). Alleen data |
 | 1 | Wat gebeurt er overdag met mobs die er 's nachts al zijn? (verdwijnen, wegvluchten, blijven?) | Ze **blijven** voorlopig staan (test in `NightSpawns.test.ts`). Eén regel in `Enemies.stepSpawning` als het anders moet |
 | 2 | Blijft Greyhaven altijd in het gouden uur, of krijgt de stad ook dag en nacht? (open vraag uit het spelconcept) | Staat op `"lighting": "cycle"` in `zones.json`; `"goldenHour"` is één woord in de data |
 | 3 | Kloppen de plekken in het Blender-Greyhaven? | **Opgemeten in het model** (2026-10-11): smidse (aambeeld + vuur), markt, Monastery, haven, Academy met trainingsveld, toren van Brink, kelder van Sam. Golden Kettle en Alchemy Lab zijn niet te herkennen (gewone huizen bij de markt), de Garden (binnentuin van het Monastery) is dicht, dus Rose staat aan de rivieroever ernaast. Alleen data |
@@ -705,10 +707,55 @@ Na het spelen van fase 3.9: de spullenlijst in de tas was een klein scrollvakje 
 - **Getest:** 572 tests (nieuw: de sluittoets zit standaard op F en is net als elke andere te verzetten, save 13 → 14), lint, opmaak, typecheck, build en de DataValidator. In headless Chromium (pc 1280×800 en iPhone-13-formaat 844×390, NL): de tabs wisselen, ⤢ maakt de tas schermvullend (1248 × 768) met één scrollgebied, de keuze staat in de save, en sluiten werkt met I, met F en met de ✕. Het statusvenster heeft geen knop meer en gaat dicht met P. Geen fouten in de console.
 - **Niet gedaan (bewust):** de Close-knop in de winkel, de tas van Biscuit, Settings en het pauzemenu staat er nog; daar hoort hij bij de andere knoppen. Zeg het als die ook weg moeten.
 
+### Fase 3.8-aanpassing: de tweede exam is een slime-gevecht op het trainingsveld (Bo, 2026-10-13)
+
+**Het probleem:** de tweede exam van elk pad (`blade_in_the_woods`, `sparks_in_the_greenwood`, `shadows_in_the_greenwood`) stuurde je naar de Greenwood, maar de stadspoort gaat pas open na de **laatste** exam. Je zat dus vast in Greyhaven. De tweede exam is daarom naar binnen gehaald en de Greenwood-tocht wordt een side quest voor later.
+
+**Gebouwd:**
+- **Drie nieuwe tweede exams**, één per leraar, op dezelfde plek in de volgorde: **Hold the Line** (Sir Garrick), **Sparks on the Field** (Master Brink), **Shadows on the Field** (Wizard Sam). Nieuw doeltype **`waves`** met voortgang *"Wave 2/3"* in de questlijst.
+- **Het veld** is een eigen gebied in `zones.json`: `academy_training_field`, een cirkel van 9 m om de middelste trainingspop (−1702,1; −68,6). Het ligt binnen de veilige zone van Greyhaven; deze slimes zijn daar een **bewuste uitzondering** op: ze komen alleen tijdens de exam en alleen op het veld, en ze worden alleen door de drill neergezet (het nacht-spawnen slaat veilige zones over, dus daar verandert niets).
+- **Drie waves, elke zwaarder dan de vorige**, met 4 s pauze ertussen en vóór de eerste (`pauseSeconds`, in de data): **3 kleine slimes → 5 kleine → 3 grote + 2 kleine**, en elke grote splitst nog in twee kleine (90 / 150 / 300 HP). Ze verschijnen in een ring van 7 m om het midden van het veld, kijken naar binnen en gaan meteen voor je.
+- **Per leraar een andere soort** (tien nieuwe monsters in `monsters.json`): Sir Garrick gewone **Green Slimes** en **Big Slimes**; Master Brink **elementaire slimes**, per slime willekeurig Water / Fire / Nature / Wind; Wizard Sam **Dark Slimes**. Alle nieuwe soorten hebben dezelfde HP, schade en XP als de gewone slimes, dus de exam is op elk pad precies hetzelfde waard (test). Ze gebruiken het bestaande slime-model in de kleur van hun element, dus er is geen nieuwe art nodig.
+- **Statuseffecten zijn nu een eigen, herbruikbaar systeem** (`monsters.json` → `statusEffects`, `src/systems/StatusEffects.ts`): een monster zegt in `onHit` welke effecten zijn treffer achterlaat, en de getallen staan bij het effect. Later krijgt elk ander monster ze zonder een regel nieuwe code. Een effect stapelt nooit: een nieuwe treffer zet alleen de klok terug.
+
+  | Element | Effect | Wat het doet |
+  |---|---|---|
+  | Water | **Chilled** (slow) | je loopt 1,5 s lang 25% langzamer |
+  | Fire | **Burning** | 3 s lang 1,5 schade per seconde, in tikken van 1 s — door je gear en Defense heen gerekend, zoals elke treffer |
+  | Nature | *leech* | de slime geneest 25% van de schade die hij echt doet, nooit boven zijn eigen max HP |
+  | Wind | hogere sprong | springt 2,2× zo hoog en 1,5× zo ver als een gewone slime (en zijn hop duurt iets langer) |
+  | Dark | **Weakened** | 4 s lang doen je eigen treffers 25% minder schade |
+
+- **Dood gaan of van het veld lopen** = de drill begint opnieuw bij **wave 1**: de slimes zijn weg, je leraar zegt er iets over en zodra je weer op het veld staat begint wave 1. Dat is hetzelfde "loop terug en probeer het nog eens" als bij Sultan — het eenvoudigste dat er al was. Een stap over de lijn is vergeven: je mag er 1,5 s af zijn (`leaveSeconds`).
+- **De drill begint zodra je op het veld staat** met de exam open, niet als je uitgepraat bent. Dat moest, want Sir Garrick staat náást het veld maar Master Brink staat in zijn toren en Wizard Sam in zijn kelder; zo roept je leraar de slimes op dezelfde manier voor alle drie.
+- **De Greenwood-quests blijven**, maar als **side quest** bij dezelfde leraar, die je pas krijgt als de poort open is (`requires`: Sultan verslagen + je eigen laatste exam — precies wat `canLeaveCity` vraagt). Beloning per pad, uit bestaande items: Garrick de **Padded Mantle** + 2 Greater Health Potions, Brink de **Swift Ring** + 2 Greater Mana Potions, Sam het **Goblin Tooth Necklace** + 2 Greater Mana Potions (elk 150 XP en 30 gold).
+- **De XP-rekening blijft 520** (level 3 → 5): de drie exams geven nu **70 + 80 + 120 = 270** en de slimes van de drill **250** samen. De bestaande test rekent het na en eist nu precies 520 en precies level 5 zonder XP over.
+- **Save versie 15:** wie de oude tweede exam **nog open** had, raakt die quest kwijt — zijn leraar biedt in plaats daarvan de drill aan. Wie hem **al ingeleverd** had, krijgt de nieuwe tweede exam als afgerond, dus niemand doet een exam twee keer; de Greenwood-tocht zelf komt later als side quest terug (met beloning). Level, pad, gear en de rest van de quests blijven gelijk.
+
+**Balans gemeten** (de bestaande aanpak van `Balance.test.ts`: echte gevechtscode, echte vijand-AI, echte statuseffecten, een nagebootste speler met de startverdeling van zijn pad op level 3 **en** 4, 8 seeds, 16 runs per pad):
+
+| Pad | Speelt netjes (afstand houden / uit de sprong stappen) | Alleen de knop inhouden |
+|---|---|---|
+| Zwaard | 16/16 gehaald, ±25 s, 82 van 130 HP over, 48 schade geslikt | 8/8 gehaald, 70 HP over, **60 schade** |
+| Licht | 16/16 gehaald, ±70 s, 30 van 77 HP over, 46 schade | **0/8 gehaald** (komt wave 1 niet door) |
+| Duister | 16/16 gehaald, ±56 s, 66 van 76 HP over, 10 schade | **0/8 gehaald** |
+
+- Een gewone speler haalt het op elk pad, maar het kost hem echt HP — bij licht blijft er maar ±30 HP over, dus drankjes zijn er voor.
+- Een mage die tussen de slimes gaat staan komt er niet uit: afstand houden **is** de les van Brinks en Sams exam.
+- **Bevinding (voor Bo):** voor een **zwaardvechter** zijn slimes geen muur. Zijn zwaai raakt ze allemaal tegelijk, en met Iron Body heeft hij 130 HP, dus hij haalt het ook door alleen de knop in te houden — hij komt er wel met duidelijk minder HP uit (70 tegen 82) en slikt 60 in plaats van 48 schade. Meer of grotere slimes passen niet binnen de 520 XP. Wil je dat ook een zwaardvechter kan zakken, dan moet er een ander soort vijand bij (bijvoorbeeld een goblin-boogschutter die van afstand prikt). Zeg het en het is alleen data.
+
+**Open vraag (nieuw):** het effect van de **Dark Slime** heb ik zelf gekozen: **Weakened**, 4 s lang −25% op je eigen schade. Het past bij duister (hij zuigt je kracht weg), werkt voor een zwaardvechter én een mage, en is klein genoeg om later ook bij andere duistere vijanden te passen. Mana stelen zou mooier klinken, maar doet niets bij een zwaardvechter (die heeft geen mana). Zeg het als je iets anders wilt.
+
 ## Besluiten
 
 | Datum | Besluit | Waarom |
 |---|---|---|
+| 2026-10-13 | De tweede exam van elk pad is een slime-gevecht in drie waves op het trainingsveld in plaats van een tocht naar de Greenwood | De stadspoort gaat pas open na de laatste exam, dus de oude tweede exam liet je vastlopen in Greyhaven (Bo) |
+| 2026-10-13 | De slimes van de exam zijn een bewuste uitzondering op de veilige zone van Greyhaven — alleen tijdens de exam en alleen op het veld | Het trainingsveld ligt binnen de stadsmuren, en dáár hoort de exam |
+| 2026-10-13 | Statuseffecten (slow, burning, weaken) zijn een eigen systeem in `monsters.json` → `statusEffects`, met `onHit` per monster | Later krijgen andere vijanden ze ook; dan is het alleen data |
+| 2026-10-13 | De drill begint zodra je met de exam open op het veld staat, niet aan het eind van het gesprek | Sir Garrick staat naast het veld, maar Brink en Sam staan in een instance; zo werkt het voor alle drie hetzelfde |
+| 2026-10-13 | Van het veld lopen of doodgaan zet de drill terug op wave 1 (geen aparte straf) | Het eenvoudigste dat er al was: hetzelfde "loop terug en probeer het nog eens" als bij Sultan |
+| 2026-10-13 | De Greenwood-tochten blijven bestaan als side quest bij dezelfde leraar, met gear als beloning, pas na de poort | Zo gaat de inhoud niet verloren en heb je er na de exams nog iets aan |
 | 2026-10-13 | De tas en het statusvenster hebben geen eigen Close-knop meer; sluiten gaat via de ✕ in de hoek, Escape, de nieuwe sluittoets of de toets waarmee je ze opende | Bo: "die close weg naar dat close in de hoek, en dat je m kan button mappen" |
 | 2026-10-13 | De tas kan het hele speelveld vullen (⤢), en die keuze blijft in de save staan | Bo: het lijstje was een klein scrollvakje; nu kun je fullscreen |
 | 2026-10-13 | Defense blijft zoals hij is (open vraag 14) | Bo: er komen items die je omdoet voor defense-buffs, dus Defense groeit met je gear mee |

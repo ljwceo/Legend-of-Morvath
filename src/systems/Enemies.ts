@@ -5,6 +5,7 @@ import type {
   MonstersFile,
   NightSpawnDef,
   Shape,
+  WaveFightDef,
   Zone,
   ZonesFile,
 } from '../data/types';
@@ -65,6 +66,32 @@ interface Pack {
   wanderRadius: number;
   /** Filled by night spawning (stepSpawning), not by the normal respawn. */
   night: boolean;
+  /**
+   * Part of a scripted fight in waves (the second Entrance Exam): only `spawnWave` puts it in
+   * the world and only `clearWave` (or a knock-out) takes it out again. Never respawns.
+   */
+  scripted: boolean;
+}
+
+/** One monster slot of a wave: its pool slot and the pack that holds its split children. */
+interface WaveSlot {
+  pack: Pack;
+  enemy: Enemy;
+}
+
+/** One entry of one wave: `count` monsters, each rolled from the entry's candidate list. */
+interface WaveEntry {
+  count: number;
+  /** Pooled slots per candidate monster, `count` of each (so any roll always has a slot). */
+  candidates: WaveSlot[][];
+}
+
+/** The pooled monsters of one scripted fight (quests.json `waveFights`). */
+interface WaveSet {
+  /** Per wave, its entries. */
+  waves: WaveEntry[][];
+  /** Which monster will be rolled; seeded from the fight id, so a replay is repeatable. */
+  rng: Random;
 }
 
 /** Night spawning rules (zones.json `world.nightSpawning`). */
@@ -124,6 +151,8 @@ export class Enemies {
   readonly bosses: Enemy[] = [];
   private readonly packs: Pack[] = [];
   private readonly nightAreas: NightArea[] = [];
+  /** Scripted fights in waves (quests.json `waveFights`), by fight id. */
+  private readonly waveSets = new Map<string, WaveSet>();
   private readonly safeZones: Shape[] = [];
   private readonly packOf = new Map<Enemy, Pack>();
   private readonly speeds: Readonly<Record<string, number>>;
@@ -141,6 +170,7 @@ export class Enemies {
     private readonly safeAreas: ReadonlyMap<string, Shape> = new Map(),
     private readonly rules: NightSpawnRules | null = null,
     seed = 0,
+    waveFights: readonly WaveFightDef[] = [],
   ) {
     this.ai = enemyAiConfig(monsters);
     this.speeds = monsters.speedClasses;
@@ -163,6 +193,7 @@ export class Enemies {
           respawnSeconds: spawn.respawnSeconds ?? Infinity,
           fixed: true,
           night: false,
+          scripted: false,
         });
       }
       for (const area of zone.spawnAreas ?? []) {
@@ -176,6 +207,7 @@ export class Enemies {
             respawnSeconds: area.respawnSeconds,
             fixed: false,
             night: false,
+            scripted: false,
           });
         }
       }
@@ -184,8 +216,9 @@ export class Enemies {
         for (const area of zone.nightSpawns ?? []) this.addNightArea(zone, area, find, byId, seed);
       }
     }
+    for (const fight of waveFights) this.addWaveSet(fight, byId);
     for (const pack of this.packs) {
-      if (pack.night) this.clearPack(pack);
+      if (pack.night || pack.scripted) this.clearPack(pack);
       else this.spawnPack(pack);
     }
     for (const def of monsters.monsters) {
@@ -221,6 +254,87 @@ export class Enemies {
     e.active = false;
     e.shown = false;
     e.guarded = false;
+  }
+
+  /**
+   * Puts wave `index` (0-based) of a scripted fight on the field: every monster of the wave in
+   * a ring of `radius` m around (x, z), facing the middle. Each slot's monster is rolled from
+   * the entry's candidate list (Master Brink's elemental slimes), and they come for you right
+   * away. Returns how many monsters it put down.
+   */
+  spawnWave(fightId: string, index: number, x: number, z: number, radius: number): number {
+    const set = this.waveSets.get(fightId);
+    const wave = set?.waves[index];
+    if (!set || !wave) return 0;
+    let total = 0;
+    for (let e = 0; e < wave.length; e++) total += (wave[e] as WaveEntry).count;
+    if (total === 0) return 0;
+    let placed = 0;
+    for (let e = 0; e < wave.length; e++) {
+      const entry = wave[e] as WaveEntry;
+      for (let i = 0; i < entry.count; i++) {
+        const list = entry.candidates[set.rng.int(0, entry.candidates.length - 1)] as WaveSlot[];
+        const slot = list[i] as WaveSlot;
+        // Spread them evenly around the field, with a little jitter so it never looks drawn.
+        const angle = ((placed + 0.5) / total) * Math.PI * 2 + (set.rng.next() - 0.5) * 0.4;
+        const r = radius * (0.7 + 0.3 * set.rng.next());
+        slot.pack.x = x + Math.sin(angle) * r;
+        slot.pack.z = z + Math.cos(angle) * r;
+        slot.enemy.homeX = slot.pack.x;
+        slot.enemy.homeZ = slot.pack.z;
+        this.spawnPack(slot.pack);
+        // They look at the middle of the field and fight at once: no sneaking up on you.
+        slot.enemy.heading = Math.atan2(x - slot.enemy.x, z - slot.enemy.z);
+        slot.enemy.settleHeading();
+        engage(slot.enemy);
+        if (this.world) {
+          slot.enemy.y = this.world.heightAt(slot.enemy.x, slot.enemy.z);
+          slot.enemy.settleY();
+        }
+        placed++;
+      }
+    }
+    return placed;
+  }
+
+  /** Monsters of a scripted fight that are still in the world (alive or lying down). */
+  waveAlive(fightId: string): number {
+    const set = this.waveSets.get(fightId);
+    if (!set) return 0;
+    let n = 0;
+    for (const wave of set.waves) {
+      for (const entry of wave) {
+        for (const list of entry.candidates) {
+          for (const slot of list) {
+            if (slot.enemy.alive) n++;
+            n += countAlive(slot.pack.children);
+          }
+        }
+      }
+    }
+    return n;
+  }
+
+  /** Takes every monster of a scripted fight off the field (the drill resets, or you went down). */
+  clearWave(fightId: string): void {
+    const set = this.waveSets.get(fightId);
+    if (!set) return;
+    for (const wave of set.waves) {
+      for (const entry of wave) {
+        for (const list of entry.candidates) {
+          for (const slot of list) this.clearPack(slot.pack);
+        }
+      }
+    }
+  }
+
+  /** Heals a monster, never above its max HP (leech, see StatusEffects). Returns what it healed. */
+  heal(e: Enemy, amount: number): number {
+    if (!e.alive || amount <= 0) return 0;
+    const healed = Math.min(e.maxHp - e.hp, amount);
+    if (healed <= 0) return 0;
+    e.hp += healed;
+    return healed;
   }
 
   /** Number of monsters fighting the player right now (debug). */
@@ -436,7 +550,7 @@ export class Enemies {
    */
   resetAll(): void {
     for (const pack of this.packs) {
-      if (pack.night) this.clearPack(pack);
+      if (pack.night || pack.scripted) this.clearPack(pack);
       else this.spawnPack(pack);
     }
     for (const boss of this.bosses) this.endBoss(boss);
@@ -446,7 +560,10 @@ export class Enemies {
     id: string,
     def: MonsterDef,
     byId: ReadonlyMap<string, MonsterDef>,
-    where: Pick<Pack, 'x' | 'z' | 'radius' | 'wanderRadius' | 'respawnSeconds' | 'fixed' | 'night'>,
+    where: Pick<
+      Pack,
+      'x' | 'z' | 'radius' | 'wanderRadius' | 'respawnSeconds' | 'fixed' | 'night' | 'scripted'
+    >,
   ): Pack {
     const seed = hashSeed(...Array.from(id, (c) => c.charCodeAt(0)));
     const size = def.groupSize?.max ?? 1;
@@ -533,7 +650,12 @@ export class Enemies {
   private stepPacks(dt: number, px: number, pz: number): void {
     for (let i = 0; i < this.packs.length; i++) {
       const pack = this.packs[i] as Pack;
-      if (pack.night || pack.def.behavior === 'static' || !Number.isFinite(pack.respawnSeconds)) {
+      if (
+        pack.night ||
+        pack.scripted ||
+        pack.def.behavior === 'static' ||
+        !Number.isFinite(pack.respawnSeconds)
+      ) {
         continue;
       }
       if (anyActive(pack.members) || anyActive(pack.children)) {
@@ -548,6 +670,39 @@ export class Enemies {
       if (dx * dx + dz * dz < away * away) continue;
       this.spawnPack(pack);
     }
+  }
+
+  /**
+   * The pooled monsters of one scripted fight: per wave, per entry, `count` slots for every
+   * monster the entry may roll. They start out of the world; `spawnWave` puts a wave down.
+   */
+  private addWaveSet(fight: WaveFightDef, byId: ReadonlyMap<string, MonsterDef>): void {
+    const seed = hashSeed(...Array.from(fight.id, (c) => c.charCodeAt(0)));
+    const waves = fight.waves.map((wave, w) =>
+      wave.monsters.map((entry, m) => ({
+        count: entry.count,
+        candidates: entry.monsters.map((monsterId, c) => {
+          const def = byId.get(monsterId);
+          if (!def) throw new Error(`Unknown monster "${monsterId}" in wave fight ${fight.id}`);
+          const slots: WaveSlot[] = [];
+          for (let i = 0; i < entry.count; i++) {
+            const pack = this.addPack(`${fight.id}_${w}_${m}_${c}_${i}`, def, byId, {
+              x: 0,
+              z: 0,
+              radius: 0,
+              wanderRadius: 0,
+              respawnSeconds: Infinity,
+              fixed: true,
+              night: false,
+              scripted: true,
+            });
+            slots.push({ pack, enemy: pack.members[0] as Enemy });
+          }
+          return slots;
+        }),
+      })),
+    );
+    this.waveSets.set(fight.id, { waves, rng: new Random(seed) });
   }
 
   /** A night area: `maxAlive` pooled packs per monster entry, all out of the world at first. */
@@ -573,6 +728,7 @@ export class Enemies {
             respawnSeconds: def.respawnSeconds,
             fixed: true,
             night: true,
+            scripted: false,
           }),
         );
       }

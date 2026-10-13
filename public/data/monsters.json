@@ -5,6 +5,33 @@
     "normal": 3,
     "fast": 4.5
   },
+  "statusEffects": [
+    {
+      "id": "chilled",
+      "name": "Chilled",
+      "kind": "slow",
+      "seconds": 1.5,
+      "slowPercent": 25,
+      "color": "magieblauw"
+    },
+    {
+      "id": "burning",
+      "name": "Burning",
+      "kind": "burning",
+      "seconds": 3,
+      "damagePerSecond": 1.5,
+      "tickSeconds": 1,
+      "color": "lantaarnamber"
+    },
+    {
+      "id": "weakened",
+      "name": "Weakened",
+      "kind": "weaken",
+      "seconds": 4,
+      "weakenPercent": 25,
+      "color": "schemerviolet"
+    }
+  ],
   "settings": {
     "simulateRadius": 60,
     "turnDegreesPerSecond": 420,
@@ -114,6 +141,324 @@
           "seconds": 0.6,
           "pauseSeconds": 0.4
         },
+        "attack": {
+          "style": "lunge",
+          "range": 1.6,
+          "windupSeconds": 0.8,
+          "strikeSeconds": 0.3,
+          "lungeDistance": 2.8,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.5
+        }
+      }
+    },
+    {
+      "id": "water_slime",
+      "name": "Water Slime",
+      "levelRange": [1, 2],
+      "hp": 30,
+      "damage": { "min": 5, "max": 5 },
+      "speed": "slow",
+      "xp": 10,
+      "behavior": "melee",
+      "element": "water",
+      "onHit": { "effects": ["chilled"] },
+      "drops": [{ "item": "slime_gel", "chance": 0.5, "min": 1, "max": 1 }],
+      "model": "placeholder:slime_water",
+      "radius": 0.45,
+      "ai": {
+        "aggroRadius": 9,
+        "leashRadius": 25,
+        "hop": { "seconds": 0.45, "pauseSeconds": 0.3 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.4,
+          "windupSeconds": 0.6,
+          "strikeSeconds": 0.25,
+          "lungeDistance": 2.2,
+          "recoverySeconds": 0.7,
+          "cooldownSeconds": 1.2
+        }
+      }
+    },
+    {
+      "id": "water_big_slime",
+      "name": "Water Big Slime",
+      "levelRange": [3, 4],
+      "hp": 80,
+      "damage": { "min": 10, "max": 10 },
+      "speed": "slow",
+      "xp": 30,
+      "behavior": "melee",
+      "element": "water",
+      "onHit": { "effects": ["chilled"] },
+      "splitsInto": { "monster": "water_slime", "count": 2 },
+      "drops": [
+        { "item": "slime_gel", "chance": 0.75, "min": 1, "max": 2 },
+        { "item": "health_potion", "chance": 0.15, "min": 1, "max": 1 },
+        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 }
+      ],
+      "model": "placeholder:slime_water",
+      "radius": 0.8,
+      "scale": 1.8,
+      "ai": {
+        "aggroRadius": 10,
+        "leashRadius": 25,
+        "hop": { "seconds": 0.6, "pauseSeconds": 0.4 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.6,
+          "windupSeconds": 0.8,
+          "strikeSeconds": 0.3,
+          "lungeDistance": 2.8,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.5
+        }
+      }
+    },
+    {
+      "id": "fire_slime",
+      "name": "Fire Slime",
+      "levelRange": [1, 2],
+      "hp": 30,
+      "damage": { "min": 5, "max": 5 },
+      "speed": "slow",
+      "xp": 10,
+      "behavior": "melee",
+      "element": "fire",
+      "onHit": { "effects": ["burning"] },
+      "drops": [{ "item": "slime_gel", "chance": 0.5, "min": 1, "max": 1 }],
+      "model": "placeholder:slime_fire",
+      "radius": 0.45,
+      "ai": {
+        "aggroRadius": 9,
+        "leashRadius": 25,
+        "hop": { "seconds": 0.45, "pauseSeconds": 0.3 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.4,
+          "windupSeconds": 0.6,
+          "strikeSeconds": 0.25,
+          "lungeDistance": 2.2,
+          "recoverySeconds": 0.7,
+          "cooldownSeconds": 1.2
+        }
+      }
+    },
+    {
+      "id": "fire_big_slime",
+      "name": "Fire Big Slime",
+      "levelRange": [3, 4],
+      "hp": 80,
+      "damage": { "min": 10, "max": 10 },
+      "speed": "slow",
+      "xp": 30,
+      "behavior": "melee",
+      "element": "fire",
+      "onHit": { "effects": ["burning"] },
+      "splitsInto": { "monster": "fire_slime", "count": 2 },
+      "drops": [
+        { "item": "slime_gel", "chance": 0.75, "min": 1, "max": 2 },
+        { "item": "health_potion", "chance": 0.15, "min": 1, "max": 1 },
+        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 }
+      ],
+      "model": "placeholder:slime_fire",
+      "radius": 0.8,
+      "scale": 1.8,
+      "ai": {
+        "aggroRadius": 10,
+        "leashRadius": 25,
+        "hop": { "seconds": 0.6, "pauseSeconds": 0.4 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.6,
+          "windupSeconds": 0.8,
+          "strikeSeconds": 0.3,
+          "lungeDistance": 2.8,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.5
+        }
+      }
+    },
+    {
+      "id": "nature_slime",
+      "name": "Nature Slime",
+      "levelRange": [1, 2],
+      "hp": 30,
+      "damage": { "min": 5, "max": 5 },
+      "speed": "slow",
+      "xp": 10,
+      "behavior": "melee",
+      "element": "nature",
+      "onHit": { "leechFraction": 0.25 },
+      "drops": [{ "item": "slime_gel", "chance": 0.5, "min": 1, "max": 1 }],
+      "model": "placeholder:slime_nature",
+      "radius": 0.45,
+      "ai": {
+        "aggroRadius": 9,
+        "leashRadius": 25,
+        "hop": { "seconds": 0.45, "pauseSeconds": 0.3 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.4,
+          "windupSeconds": 0.6,
+          "strikeSeconds": 0.25,
+          "lungeDistance": 2.2,
+          "recoverySeconds": 0.7,
+          "cooldownSeconds": 1.2
+        }
+      }
+    },
+    {
+      "id": "nature_big_slime",
+      "name": "Nature Big Slime",
+      "levelRange": [3, 4],
+      "hp": 80,
+      "damage": { "min": 10, "max": 10 },
+      "speed": "slow",
+      "xp": 30,
+      "behavior": "melee",
+      "element": "nature",
+      "onHit": { "leechFraction": 0.25 },
+      "splitsInto": { "monster": "nature_slime", "count": 2 },
+      "drops": [
+        { "item": "slime_gel", "chance": 0.75, "min": 1, "max": 2 },
+        { "item": "health_potion", "chance": 0.15, "min": 1, "max": 1 },
+        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 }
+      ],
+      "model": "placeholder:slime_nature",
+      "radius": 0.8,
+      "scale": 1.8,
+      "ai": {
+        "aggroRadius": 10,
+        "leashRadius": 25,
+        "hop": { "seconds": 0.6, "pauseSeconds": 0.4 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.6,
+          "windupSeconds": 0.8,
+          "strikeSeconds": 0.3,
+          "lungeDistance": 2.8,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.5
+        }
+      }
+    },
+    {
+      "id": "wind_slime",
+      "name": "Wind Slime",
+      "levelRange": [1, 2],
+      "hp": 30,
+      "damage": { "min": 5, "max": 5 },
+      "speed": "slow",
+      "xp": 10,
+      "behavior": "melee",
+      "element": "wind",
+      "drops": [{ "item": "slime_gel", "chance": 0.5, "min": 1, "max": 1 }],
+      "model": "placeholder:slime_wind",
+      "radius": 0.45,
+      "ai": {
+        "aggroRadius": 9,
+        "leashRadius": 25,
+        "hop": { "seconds": 0.52, "pauseSeconds": 0.3, "heightFactor": 2.2 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.4,
+          "windupSeconds": 0.6,
+          "strikeSeconds": 0.25,
+          "lungeDistance": 3.3,
+          "recoverySeconds": 0.7,
+          "cooldownSeconds": 1.2
+        }
+      }
+    },
+    {
+      "id": "wind_big_slime",
+      "name": "Wind Big Slime",
+      "levelRange": [3, 4],
+      "hp": 80,
+      "damage": { "min": 10, "max": 10 },
+      "speed": "slow",
+      "xp": 30,
+      "behavior": "melee",
+      "element": "wind",
+      "splitsInto": { "monster": "wind_slime", "count": 2 },
+      "drops": [
+        { "item": "slime_gel", "chance": 0.75, "min": 1, "max": 2 },
+        { "item": "health_potion", "chance": 0.15, "min": 1, "max": 1 },
+        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 }
+      ],
+      "model": "placeholder:slime_wind",
+      "radius": 0.8,
+      "scale": 1.8,
+      "ai": {
+        "aggroRadius": 10,
+        "leashRadius": 25,
+        "hop": { "seconds": 0.7, "pauseSeconds": 0.4, "heightFactor": 2.2 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.6,
+          "windupSeconds": 0.8,
+          "strikeSeconds": 0.3,
+          "lungeDistance": 4.2,
+          "recoverySeconds": 0.9,
+          "cooldownSeconds": 1.5
+        }
+      }
+    },
+    {
+      "id": "dark_slime",
+      "name": "Dark Slime",
+      "levelRange": [1, 2],
+      "hp": 30,
+      "damage": { "min": 5, "max": 5 },
+      "speed": "slow",
+      "xp": 10,
+      "behavior": "melee",
+      "element": "dark",
+      "onHit": { "effects": ["weakened"] },
+      "drops": [{ "item": "slime_gel", "chance": 0.5, "min": 1, "max": 1 }],
+      "model": "placeholder:slime_dark",
+      "radius": 0.45,
+      "ai": {
+        "aggroRadius": 9,
+        "leashRadius": 25,
+        "hop": { "seconds": 0.45, "pauseSeconds": 0.3 },
+        "attack": {
+          "style": "lunge",
+          "range": 1.4,
+          "windupSeconds": 0.6,
+          "strikeSeconds": 0.25,
+          "lungeDistance": 2.2,
+          "recoverySeconds": 0.7,
+          "cooldownSeconds": 1.2
+        }
+      }
+    },
+    {
+      "id": "dark_big_slime",
+      "name": "Dark Big Slime",
+      "levelRange": [3, 4],
+      "hp": 80,
+      "damage": { "min": 10, "max": 10 },
+      "speed": "slow",
+      "xp": 30,
+      "behavior": "melee",
+      "element": "dark",
+      "onHit": { "effects": ["weakened"] },
+      "splitsInto": { "monster": "dark_slime", "count": 2 },
+      "drops": [
+        { "item": "slime_gel", "chance": 0.75, "min": 1, "max": 2 },
+        { "item": "health_potion", "chance": 0.15, "min": 1, "max": 1 },
+        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 }
+      ],
+      "model": "placeholder:slime_dark",
+      "radius": 0.8,
+      "scale": 1.8,
+      "ai": {
+        "aggroRadius": 10,
+        "leashRadius": 25,
+        "hop": { "seconds": 0.6, "pauseSeconds": 0.4 },
         "attack": {
           "style": "lunge",
           "range": 1.6,

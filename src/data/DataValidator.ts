@@ -107,6 +107,7 @@ class CrossChecker {
     this.checkSeasons();
     this.checkTriggers();
     this.checkQuests();
+    this.checkWaveFights();
     this.checkSpells();
     this.checkSkills();
     this.checkControls();
@@ -285,6 +286,7 @@ class CrossChecker {
     this.unique('stat', 'stats', 'stats', d.stats.stats);
     this.unique('statPreset', 'stats', 'presets', d.stats.presets);
     this.unique('monster', 'monsters', 'monsters', d.monsters.monsters);
+    this.unique('statusEffect', 'monsters', 'statusEffects', d.monsters.statusEffects);
     this.unique('rarity', 'items', 'rarities', d.items.rarities);
     this.unique('item', 'items', 'items', d.items.items);
     this.unique('crystalSize', 'items', 'crystalSizes', d.items.crystalSizes.map(toEntry));
@@ -297,6 +299,7 @@ class CrossChecker {
     this.unique('season', 'seasons', 'seasons', d.seasons.seasons);
     this.unique('trigger', 'triggers', 'triggers', d.triggers.triggers);
     this.unique('quest', 'quests', 'quests', d.quests.quests);
+    this.unique('waveFight', 'quests', 'waveFights', d.quests.waveFights);
     this.unique('element', 'spells', 'elements', d.spells.elements);
     this.unique('spell', 'spells', 'spells', d.spells.spells);
     this.unique('branch', 'skills', 'branches', d.skills.branches);
@@ -754,6 +757,7 @@ class CrossChecker {
   private checkMonsters(): void {
     const f = 'monsters';
     const speedClasses = this.data.monsters.speedClasses;
+    this.checkStatusEffects();
     this.range(f, 'settings.wanderPauseSeconds', ...this.data.monsters.settings.wanderPauseSeconds);
     this.data.monsters.monsters.forEach((monster, i) => {
       const p = `monsters[${i}]`;
@@ -782,6 +786,16 @@ class CrossChecker {
         }
       }
       this.ref('item', f, `${p}.egg`, monster.egg);
+      this.ref('element', f, `${p}.element`, monster.element);
+      const onHit = monster.onHit;
+      if (onHit) {
+        onHit.effects?.forEach((effect, e) =>
+          this.ref('statusEffect', f, `${p}.onHit.effects[${e}]`, effect),
+        );
+        if (!onHit.effects?.length && !onHit.leechFraction) {
+          this.issue(f, `${p}.onHit`, 'does nothing: give it effects or a leechFraction');
+        }
+      }
       monster.safeAreas?.forEach((area, a) => this.ref('area', f, `${p}.safeAreas[${a}]`, area));
       if (monster.groupSize)
         this.range(f, `${p}.groupSize`, monster.groupSize.min, monster.groupSize.max);
@@ -844,6 +858,97 @@ class CrossChecker {
    * not a boss stands somewhere in the world (otherwise its egg can never be found), and every
    * egg in items.json is carried by somebody.
    */
+  /**
+   * Status effects (monsters.json `statusEffects`): every kind needs its own numbers, and its
+   * colour must be a token from the art style guide.
+   */
+  private checkStatusEffects(): void {
+    const f = 'monsters';
+    this.data.monsters.statusEffects.forEach((effect, i) => {
+      const p = `statusEffects[${i}]`;
+      this.color(f, `${p}.color`, effect.color);
+      if (effect.kind === 'slow' && !effect.slowPercent) {
+        this.issue(f, `${p}.slowPercent`, 'a slow needs a slowPercent above 0');
+      }
+      if (effect.kind === 'weaken' && !effect.weakenPercent) {
+        this.issue(f, `${p}.weakenPercent`, 'a weaken needs a weakenPercent above 0');
+      }
+      if (effect.kind === 'burning') {
+        if (!effect.damagePerSecond) {
+          this.issue(f, `${p}.damagePerSecond`, 'burning needs damage per second');
+        }
+        const tick = effect.tickSeconds;
+        if (tick !== undefined && tick > effect.seconds) {
+          this.issue(f, `${p}.tickSeconds`, 'longer than the effect lasts, so it never hurts');
+        }
+      }
+    });
+  }
+
+  /**
+   * Fights in waves (quests.json `waveFights`, the second Entrance Exam): the teacher, the
+   * field and every monster exist, each wave is heavier than the one before, the candidates of
+   * one entry are worth the same XP (so the exam gives the same XP whatever is rolled), and
+   * there is a line for every wave after the first.
+   */
+  private checkWaveFights(): void {
+    const f = 'quests';
+    const byId = new Map(this.data.monsters.monsters.map((monster) => [monster.id, monster]));
+    this.data.quests.waveFights.forEach((fight, i) => {
+      const p = `waveFights[${i}]`;
+      this.ref('npc', f, `${p}.teacher`, fight.teacher);
+      const teacher = this.data.npcs.npcs.find((npc) => npc.id === fight.teacher);
+      if (teacher && !teacher.teaches) {
+        this.issue(f, `${p}.teacher`, `"${fight.teacher}" is no teacher, so he has no exam`);
+      }
+      this.ref('area', f, `${p}.area`, fight.area);
+      this.text(f, `${p}.lines.start`, fight.lines.start);
+      this.text(f, `${p}.lines.end`, fight.lines.end);
+      this.text(f, `${p}.lines.reset`, fight.lines.reset);
+      fight.lines.wave.forEach((key, w) => this.text(f, `${p}.lines.wave[${w}]`, key));
+      if (fight.lines.wave.length < fight.waves.length - 1) {
+        this.issue(
+          f,
+          `${p}.lines.wave`,
+          `${fight.waves.length} waves need ${fight.waves.length - 1} lines`,
+        );
+      }
+      let previous = 0;
+      fight.waves.forEach((wave, w) => {
+        const wp = `${p}.waves[${w}]`;
+        let hp = 0;
+        wave.monsters.forEach((entry, m) => {
+          const ep = `${wp}.monsters[${m}]`;
+          let xp: number | null = null;
+          let worst = 0;
+          entry.monsters.forEach((monsterId, c) => {
+            this.ref('monster', f, `${ep}.monsters[${c}]`, monsterId);
+            const def = byId.get(monsterId);
+            if (!def) return;
+            if (!def.ai) {
+              this.issue(f, `${ep}.monsters[${c}]`, `"${monsterId}" has no ai, so it never fights`);
+            }
+            if (xp === null) xp = def.xp;
+            else if (xp !== def.xp) {
+              this.issue(
+                f,
+                `${ep}.monsters[${c}]`,
+                `"${monsterId}" gives ${def.xp} XP, the first candidate gives ${xp}: ` +
+                  'the exam would give a different amount every time',
+              );
+            }
+            worst = Math.max(worst, def.hp);
+          });
+          hp += worst * entry.count;
+        });
+        if (w > 0 && hp <= previous) {
+          this.issue(f, `${wp}`, 'is not heavier than the wave before it');
+        }
+        previous = hp;
+      });
+    });
+  }
+
   private checkEggs(): void {
     const f = 'monsters';
     const carriers = new Map<string, number>();
@@ -1078,6 +1183,24 @@ class CrossChecker {
         if (objective.type === 'visit') this.ref('trigger', f, `${op}.trigger`, objective.trigger);
         if (objective.type === 'rest')
           this.ref('checkpoint', f, `${op}.checkpoint`, objective.checkpoint);
+        if (objective.type === 'waves') {
+          this.ref('waveFight', f, `${op}.fight`, objective.fight);
+          const fight = this.data.quests.waveFights.find((entry) => entry.id === objective.fight);
+          if (fight && fight.waves.length !== objective.count) {
+            this.issue(
+              f,
+              `${op}.count`,
+              `"${fight.id}" has ${fight.waves.length} waves, not ${objective.count}`,
+            );
+          }
+          if (fight && quest.giver !== undefined && fight.teacher !== quest.giver) {
+            this.issue(
+              f,
+              `${op}.fight`,
+              `"${fight.id}" is run by "${fight.teacher}", not by "${quest.giver}"`,
+            );
+          }
+        }
         if (objective.type === 'buy') {
           const shops = this.data.npcs.npcs.filter(
             (npc) =>
