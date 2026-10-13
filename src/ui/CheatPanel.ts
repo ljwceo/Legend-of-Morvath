@@ -32,6 +32,8 @@ export interface CheatPanelHandlers {
   bossFight(): void;
   /** Counts Sultan as defeated without the fight (the teachers ask right away). */
   skipBoss(): void;
+  /** Plays Sultan's ending on its own (no fight, no rewards): the sword or the mage version. */
+  bossEnding(by: 'sword' | 'staff'): void;
   /** The spells from spells.json, for picking one to carry (step 3.5). */
   spells(): readonly { id: string; name: string }[];
   /** The spell the staff carries now, null = none. */
@@ -340,6 +342,8 @@ export class CheatPanel {
           { className: 'ui-chips' },
           chip(t('cheats.bossSultan'), false, () => this.handlers.bossFight()),
           chip(t('cheats.bossSkip'), false, () => this.handlers.skipBoss()),
+          chip(t('cheats.bossEndingSword'), false, () => this.handlers.bossEnding('sword')),
+          chip(t('cheats.bossEndingStaff'), false, () => this.handlers.bossEnding('staff')),
         ),
       ),
       section(

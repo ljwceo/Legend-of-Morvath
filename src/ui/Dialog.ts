@@ -8,11 +8,18 @@ export interface ChecklistRow {
   done: boolean;
 }
 
-/** An answer button under the last line ("Yes" / "No"); `label` is a text key. */
+/**
+ * An answer button under the last line ("Yes" / "No"); `label` is a text key, or `text` a
+ * ready text (an item's name, which stays English).
+ */
 export interface DialogChoice {
-  label: string;
+  label?: string;
+  text?: string;
   pick: () => void;
 }
+
+/** A line: a text key, or a ready text (Sultan's answer, filled in with names). */
+export type DialogLine = string | { readonly text: string };
 
 export interface DialogOptions {
   /** What a quest still needs, shown with the last line. */
@@ -44,7 +51,7 @@ export class Dialog {
   private selected = 0;
   private checklist: (() => readonly ChecklistRow[]) | null = null;
   private speaker = '';
-  private lines: readonly string[] = [];
+  private lines: readonly DialogLine[] = [];
   private index = 0;
   private onClose: ((finished: boolean) => void) | null = null;
 
@@ -91,7 +98,7 @@ export class Dialog {
    */
   open(
     speaker: string,
-    lines: readonly string[],
+    lines: readonly DialogLine[],
     onClose: (finished: boolean) => void,
     options: DialogOptions = {},
   ): void {
@@ -162,7 +169,8 @@ export class Dialog {
   private render(): void {
     const last = this.index >= this.lines.length - 1;
     this.nameEl.textContent = this.speaker;
-    this.textEl.textContent = this.t(this.lines[this.index] as string);
+    const line = this.lines[this.index] as DialogLine;
+    this.textEl.textContent = typeof line === 'string' ? this.t(line) : line.text;
     const counter = this.lines.length > 1 ? `${this.index + 1}/${this.lines.length}` : '';
     const choosing = this.showingChoices;
     this.moreEl.textContent = choosing
@@ -173,12 +181,16 @@ export class Dialog {
         el('button', {
           className:
             i === this.selected ? 'ui-dialog-choice ui-dialog-choice-selected' : 'ui-dialog-choice',
-          text: this.t(choice.label),
+          text: choice.text ?? this.t(choice.label ?? ''),
           attrs: { type: 'button', 'data-choice': String(i), tabindex: '-1' },
         }),
       ),
     );
     this.choicesEl.hidden = !choosing;
+    // Moving the highlight with the keys keeps it in view in a long list.
+    if (choosing) {
+      this.choicesEl.children[this.selected]?.scrollIntoView?.({ block: 'nearest' });
+    }
     const rows = last && this.checklist ? this.checklist() : [];
     this.listEl.replaceChildren(
       ...rows.map((row) =>

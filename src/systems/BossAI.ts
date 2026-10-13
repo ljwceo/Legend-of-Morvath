@@ -17,6 +17,8 @@ const BACK_OFF_FACTOR = 0.8;
 const GIVE_UP_EXTRA_SECONDS = 2;
 /** A pounce stops this far (m) before your body, so the two do not overlap. */
 const POUNCE_CONTACT = 0.1;
+/** The leap back to its last stand flies this fast (m/s), so a long leap takes longer. */
+const LAST_STAND_LEAP_SPEED = 18;
 
 export type BossAttack = NonNullable<MonsterDef['attacks']>[number];
 export type BossDef = NonNullable<MonsterDef['boss']>;
@@ -374,9 +376,17 @@ function finishAttack(e: Enemy, boss: BossState, target: EnemyTarget): void {
     dz = -Math.cos(e.heading);
     d = 1;
   }
-  const away = boss.def.retreatGap + target.radius + e.radius;
   boss.fromX = e.x;
   boss.fromZ = e.z;
+  // Cornered: low on HP it leaps back to its last stand (its back to the wall), wherever you are.
+  const stand = boss.def.lastStand;
+  if (stand && e.hp < e.maxHp * stand.belowHpFraction) {
+    const far = Math.hypot(stand.x - e.x, stand.z - e.z);
+    boss.duration = Math.max(boss.def.retreatSeconds, far / LAST_STAND_LEAP_SPEED);
+    clampEnd(e, boss, stand.x, stand.z);
+    return;
+  }
+  const away = boss.def.retreatGap + target.radius + e.radius;
   clampEnd(e, boss, target.x + (dx / d) * away, target.z + (dz / d) * away);
 }
 

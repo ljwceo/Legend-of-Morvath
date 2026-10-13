@@ -3,7 +3,7 @@ import type { Enemy } from '../entities/Enemy';
 import type { Arena, BossAttack, BossEventKind } from '../systems/BossAI';
 import type { Enemies } from '../systems/Enemies';
 import type { QuestBook } from '../systems/Quests';
-import { ComicCutscene } from '../ui/ComicCutscene';
+import { type CutsceneDef, shouldPlayCutscene } from '../render/cinematic/CinematicTimeline';
 import type { HUD } from '../ui/HUD';
 
 /** Seconds a spoken line stays on screen. */
@@ -12,6 +12,19 @@ const LINE_SECONDS = 3.5;
 const HINT_SECONDS = 3;
 /** After winning, the boss bar stays a moment (empty) before it fades. */
 const WIN_BAR_SECONDS = 2.5;
+/** Seconds the victory words ("BOND FORGED") stay in the zone banner. */
+const VICTORY_SECONDS = 5;
+
+/** What landed the killing blow: a swing of the sword or a shot from the staff. */
+export type KillingBlow = 'sword' | 'staff';
+
+/** The ending cinematic for this killing blow (monsters.json `boss.ending`), or null. */
+export function endingCutscene(
+  def: Pick<NonNullable<Enemy['def']['boss']>, 'ending'> | undefined,
+  by: KillingBlow,
+): string | null {
+  return def?.ending?.[by] ?? null;
+}
 
 /** What the boss fight needs from the world scene. */
 export interface EncounterHost {
@@ -23,8 +36,11 @@ export interface EncounterHost {
   setHiddenNpcs(ids: ReadonlySet<string>): void;
   /** Puts the player at (x, z) facing `heading`, the camera behind them. */
   placePlayer(x: number, z: number, heading: number): void;
-  /** The world waits while a cutscene plays (and the mouse is released). */
-  setCutscenePlaying(playing: boolean): void;
+  /**
+   * Plays a cutscene (cinematic or comic; the world waits, the mouse is released), marks it
+   * seen and then calls `onDone`. False when it could not start.
+   */
+  playCutscene(cutscene: CutsceneDef, onDone: () => void): boolean;
   /** True while the player can start a fight (not dying, not talking, not paused). */
   canStart(): boolean;
   /** A short text floating above a point in the world ("Dodged!"). */
@@ -33,6 +49,8 @@ export interface EncounterHost {
   usesTouch(): boolean;
   /** A quest from the data started now (message, markers, save). */
   questStarted(questId: string): void;
+  /** Shows or hides the boss's prop (the barrel breaks in the ending; it has its own). */
+  showProp(monsterId: string, visible: boolean): void;
 }
 
 /**
@@ -49,7 +67,7 @@ export class BossEncounter {
   boss: Enemy | null = null;
   /** The ring nobody can leave during the fight, or null. */
   arena: Arena | null = null;
-  private comic: ComicCutscene | null = null;
+  private playing = false;
   private readonly hidden = new Set<string>();
   /** Seconds the boss bar stays after a win (counts down to hiding it). */
   private winTimer = 0;
@@ -58,17 +76,72 @@ export class BossEncounter {
   constructor(private readonly host: EncounterHost) {}
 
   get cutscenePlaying(): boolean {
-    return this.comic !== null;
+    return this.playing;
   }
 
   get fighting(): boolean {
     return this.boss !== null && !this.won;
   }
 
+  /**
+   * The boss of this fight fell (`by` = what hit it last). With an ending cinematic the fight
+   * stops right here: the boss leaves the world, the ending for that killing blow plays, and
+   * only then `rewards` runs (XP, loot, the quest, the egg), after the victory words. Returns
+   * false when there is no ending: the caller hands out the rewards now, as before.
+   */
+  takeDefeat(e: Enemy, by: KillingBlow, rewards: () => void): boolean {
+    const def = e.boss?.def;
+    const id = endingCutscene(def, by);
+    const cutscene = id ? this.host.ctx.data?.cutscenes.cutscenes.find((c) => c.id === id) : null;
+    if (!def || e !== this.boss || this.won || !cutscene) return false;
+    this.won = true;
+    this.arena = null;
+    this.host.enemies()?.endBoss(e);
+    this.host.hud()?.setBoss(null);
+    this.host.showProp(e.def.id, false);
+    this.placeForEnding(def);
+    const done = (): void => {
+      this.playing = false;
+      this.victory(def);
+      rewards();
+      this.finish();
+    };
+    this.playing = this.host.playCutscene(cutscene, done);
+    if (!this.playing) done();
+    return true;
+  }
+
+  /**
+   * Debug: plays an ending on its own (no fight, no rewards). Pringle and Sultan step out of
+   * the world meanwhile, so neither stands in the picture twice.
+   */
+  playEnding(monsterId: string, by: KillingBlow): boolean {
+    const e = this.host.enemies()?.bossOf(monsterId);
+    const def = e?.boss?.def;
+    const id = endingCutscene(def, by);
+    const cutscene = id ? this.host.ctx.data?.cutscenes.cutscenes.find((c) => c.id === id) : null;
+    if (!e || !def || !cutscene || this.boss || this.playing) return false;
+    this.hidden.clear();
+    if (e.def.transformsFrom) this.hidden.add(e.def.transformsFrom);
+    this.hidden.add(e.def.id);
+    this.host.setHiddenNpcs(this.hidden);
+    this.host.showProp(e.def.id, false);
+    this.placeForEnding(def);
+    const done = (): void => {
+      this.playing = false;
+      this.hidden.clear();
+      this.host.setHiddenNpcs(this.hidden);
+      this.host.showProp(e.def.id, true);
+    };
+    this.playing = this.host.playCutscene(cutscene, done);
+    if (!this.playing) done();
+    return this.playing;
+  }
+
   /** The player walked into a trigger: maybe a boss fight starts here. */
   onTrigger(triggerId: string): void {
     const enemies = this.host.enemies();
-    if (!enemies || this.boss || this.comic) return;
+    if (!enemies || this.boss || this.playing) return;
     for (const e of enemies.bosses) {
       if (e.boss?.def.trigger !== triggerId) continue;
       if (this.canFight(e)) this.begin(e);
@@ -79,7 +152,7 @@ export class BossEncounter {
   /** Debug: fights `monsterId` right away (no quest needed; the cutscene plays if unseen). */
   forceStart(monsterId: string): boolean {
     const e = this.host.enemies()?.bossOf(monsterId);
-    if (!e || this.boss || this.comic) return false;
+    if (!e || this.boss || this.playing) return false;
     this.begin(e);
     return true;
   }
@@ -91,7 +164,7 @@ export class BossEncounter {
     if (!boss || !hud) return;
     hud.setBossHp(boss.maxHp > 0 ? boss.hp / boss.maxHp : 0);
     if (!this.won && !boss.alive) this.win(boss);
-    if (!this.won) return;
+    if (!this.won || this.playing) return;
     this.winTimer -= dt;
     if (this.winTimer <= 0 && !boss.active) this.finish();
   }
@@ -121,8 +194,7 @@ export class BossEncounter {
   }
 
   dispose(): void {
-    this.comic?.dispose();
-    this.comic = null;
+    this.playing = false;
     this.boss = null;
     this.arena = null;
     this.hidden.clear();
@@ -144,24 +216,29 @@ export class BossEncounter {
     const book = this.host.quests();
     if (book?.accept(def.quest)) this.host.questStarted(def.quest);
     const cutscene = this.host.ctx.data?.cutscenes.cutscenes.find((c) => c.id === def.cutscene);
-    const seen = session.seenCutscenes.includes(def.cutscene);
-    if (!cutscene || (seen && cutscene.playOnce)) {
+    if (!cutscene || !shouldPlayCutscene(cutscene, session.seenCutscenes)) {
       this.startFight(e, true);
       return;
     }
-    this.host.setCutscenePlaying(true);
-    this.comic = new ComicCutscene(
-      cutscene,
-      (key) => this.host.ctx.i18n.t(key),
-      () => {
-        this.comic = null;
-        if (!session.seenCutscenes.includes(def.cutscene)) session.seenCutscenes.push(def.cutscene);
-        this.host.ctx.persist();
-        this.host.setCutscenePlaying(false);
-        this.startFight(e, false);
-      },
-    );
-    this.host.ctx.ui.append(this.comic.root);
+    // The stage for the cutscene: you stand where the fight starts, and Pringle is out of
+    // the world (the cutscene shows its own Pringle, who becomes Sultan).
+    this.stageFor(e);
+    this.playing = this.host.playCutscene(cutscene, () => {
+      this.playing = false;
+      this.startFight(e, false);
+    });
+    if (!this.playing) this.startFight(e, false);
+  }
+
+  /** Player at the start of the fight facing the boss; who the boss was is hidden. */
+  private stageFor(e: Enemy): void {
+    const def = e.boss?.def;
+    if (!def) return;
+    this.hidden.clear();
+    if (e.def.transformsFrom) this.hidden.add(e.def.transformsFrom);
+    this.host.setHiddenNpcs(this.hidden);
+    const p = def.playerStart;
+    this.host.placePlayer(p.x, p.z, Math.atan2(def.start.x - p.x, def.start.z - p.z));
   }
 
   private startFight(e: Enemy, rematch: boolean): void {
@@ -191,7 +268,26 @@ export class BossEncounter {
     this.winTimer = WIN_BAR_SECONDS;
     this.arena = null;
     this.say(e, def.winLine);
-    hud.showMessage(this.host.ctx.i18n.t('boss.defeated', { name: e.def.name }));
+    if (def.victory) this.victory(def);
+    else hud.showMessage(this.host.ctx.i18n.t('boss.defeated', { name: e.def.name }));
+  }
+
+  /** You stand where the ending is filmed, facing the boss's last stand. */
+  private placeForEnding(def: NonNullable<Enemy['def']['boss']>): void {
+    const at = def.ending?.player;
+    if (!at) return;
+    const look = def.lastStand ?? def.start;
+    this.host.placePlayer(at.x, at.z, Math.atan2(look.x - at.x, look.z - at.z));
+  }
+
+  /** The victory words in the zone banner, in gold; messages and rewards wait until they fade. */
+  private victory(def: NonNullable<Enemy['def']['boss']>): void {
+    const v = def.victory;
+    if (!v) return;
+    const t = this.host.ctx.i18n;
+    this.host
+      .hud()
+      ?.showVictory(t.t(v.title), v.subtitle ? t.t(v.subtitle) : null, VICTORY_SECONDS);
   }
 
   /** The fight is over (won or lost): bar gone, ring gone, hidden NPCs back (if present). */

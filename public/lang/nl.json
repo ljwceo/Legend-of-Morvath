@@ -221,12 +221,7 @@
       "1": "Miauw.",
       "2": "Dacht je echt dat je zomaar kon vertrekken?",
       "4": "Ik ben Sultan. Laat zien dat je klaar bent voor de wereld daarbuiten.",
-      "5": "Probeer me maar bij te houden!",
-      "caption1": "De stadspoort bij zonsondergang. Pringle zit midden op het pad.",
-      "caption2": "Close-up: Pringles ogen gloeien goud.",
-      "caption3": "Paarse rook en wind. Pringle groeit…",
-      "caption4": "In de rook staat een lange kattenman: kattenoren, een staart, gouden ogen.",
-      "caption5": "Sultan springt naar voren. Een flits!"
+      "5": "Probeer me maar bij te houden!"
     },
     "tapToContinue": "Tik of druk op spatie",
     "brink_tower": {
@@ -254,6 +249,15 @@
       "caption2": "Eén kristal komt los, draait, en kiest.",
       "caption3": "Het licht zakt weg in de kop van de staf.",
       "caption4": "De staf is nu warm, en kent één spreuk."
+    },
+    "holdToSkip": "Houd Esc ingedrukt om over te slaan",
+    "holdToSkipTouch": "Ingedrukt houden om over te slaan",
+    "sultanEnd": {
+      "claws": "Heh… je hebt toch klauwen.",
+      "watch": "Vanaf nu hou ik je in de gaten.",
+      "ask": "Verdwaald? Kun je iets niet vinden wat je nodig hebt? Kom het mij maar vragen. Ik ken elke hoek van dit land… en weet waar alles verstopt ligt.",
+      "cats": "Katten weten het altijd.",
+      "egg": "Hier. Hou dit maar. Later begrijp je het wel."
     }
   },
   "hud": {
@@ -291,7 +295,9 @@
       "yes": "Ja",
       "no": "Nee",
       "sure": "Ja, ik weet het zeker",
-      "notYet": "Nee, nog niet"
+      "notYet": "Nee, nog niet",
+      "bye": "Tot ziens",
+      "back": "Terug"
     }
   },
   "path": {
@@ -415,6 +421,20 @@
         "confirm": "Nog één keer: het ei is van mij en je build valt uit elkaar. Zeker?",
         "accepted": "Stil blijven staan. Zo. Bouw jezelf nu opnieuw.",
         "declined": "Hou je ei dan maar. Ik ga nergens heen."
+      },
+      "find": {
+        "greeting": "Ben je er weer? Katten weten het altijd. Vraag maar.",
+        "ask": "Waar vind ik iets?",
+        "talk": "Vertel eens wat",
+        "reset": "Mijn punten opnieuw verdelen",
+        "question": "Wat zoek je?",
+        "which": "Welke?",
+        "nothing": "Die? Die heeft nog niemand. Ik ook niet. Kom later nog eens terug.",
+        "monster": "{item}? Elke {monster} kan het bij zich hebben. Kijk in {zone}.",
+        "boss": "{item}? Dat bewaakt {monster}, in {zone}. Neem je klauwen mee.",
+        "shop": "{item}? Dat verkoopt {npc}, in {zone}. Voor gold, natuurlijk.",
+        "quest": "{item}? Maak {quest} af, dan is het van jou.",
+        "questFrom": "{item}? Dat geeft {npc} aan wie {quest} afmaakt."
       }
     }
   },
@@ -531,7 +551,7 @@
       "desc": "Een ei met een donkere gloed. Sultan wil het hebben, en niemand vraagt waarom."
     },
     "sultan_egg": {
-      "desc": "Het ei van Sultan zelf. Hij gaf het je na het gevecht, grijnzend."
+      "desc": "Het ei van Sultan zelf. Hij gaf het je na het gevecht: \"Later begrijp je het wel.\""
     }
   },
   "quest": {
@@ -1026,7 +1046,9 @@
     "eggs": "Eieren",
     "eggGive": "Geef een ei",
     "eggForget": "Vergeet gevonden eieren",
-    "eggsFound": "Gevonden: {found} van {total}."
+    "eggsFound": "Gevonden: {found} van {total}.",
+    "bossEndingSword": "Eindscène: zwaard",
+    "bossEndingStaff": "Eindscène: mage"
   },
   "bag": {
     "title": "Tas",
@@ -1069,7 +1091,18 @@
       "quests": "Quests"
     },
     "expand": "Scherm vullen",
-    "collapse": "Kleiner venster"
+    "collapse": "Kleiner venster",
+    "type": {
+      "potion": "Drankjes",
+      "weapon": "Wapens",
+      "armor": "Gear",
+      "crystal": "Kristallen",
+      "egg": "Eieren",
+      "quest": "Questitems",
+      "recipe": "Recepten",
+      "resource": "Materialen",
+      "currency": "Geld"
+    }
   },
   "load": {
     "light": "Licht",
@@ -1109,6 +1142,10 @@
         "strike": "Hij staat stil: nu slaan!",
         "strikeTouch": "Hij staat stil: tik nu op Slaan!",
         "guard": "Hij ontwijkt alles. Wacht tot hij stilstaat na een aanval."
+      },
+      "victory": {
+        "title": "BOND FORGED",
+        "subtitle": "Een beschermer heeft zijn gelijke gevonden"
       }
     },
     "defeated": "{name} is verslagen!"
@@ -1162,6 +1199,12 @@
       },
       "end": "Hah! Geen enkele meer over. Ik vond die slimes leuk.",
       "reset": "Oh, je liep weg. Goed, goed. Dan vanaf het begin."
+    }
+  },
+  "victory": {
+    "gods": {
+      "title": "GODS HAVE FALLEN",
+      "subtitle": "Zelfs aan goddelijkheid komt een eind."
     }
   }
 }

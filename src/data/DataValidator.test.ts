@@ -255,4 +255,89 @@ describe('validateGameData catches broken data', () => {
     expect(found).toContainEqual(expect.stringContaining('only weapons and armor have stats'));
     expect(found).toContainEqual(expect.stringContaining('from light to heavy'));
   });
+
+  it('checks cinematics: actors, shot fields, text keys and colors that exist', () => {
+    const raw = freshData();
+    const pringle = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle');
+    const [first, second, third] = pringle.shots;
+    first.actors.push({ actor: 'ghost', lookAt: 'nobody' });
+    first.subtitle.text = 'cutscene.pringle.nope';
+    first.tint.color = 'neonpink';
+    second.camera.follow = 'nobody';
+    third.nameCard = { name: 'Sultan', title: 'cutscene.pringle.missing_title' };
+    pringle.actors.push({ id: 'pringle', model: 'placeholder:cat' });
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('unknown actor:pringle "ghost"'));
+    expect(found).toContainEqual(expect.stringContaining('unknown actor:pringle "nobody"'));
+    expect(found).toContainEqual(expect.stringContaining('"cutscene.pringle.nope" is missing'));
+    expect(found).toContainEqual(expect.stringContaining('"cutscene.pringle.missing_title"'));
+    expect(found).toContainEqual(expect.stringContaining('unknown color token "neonpink"'));
+    expect(found).toContainEqual(expect.stringContaining('duplicate id "pringle"'));
+  });
+
+  it("checks Sultan's ending: chains, poses, the last stand and the finder", () => {
+    const raw = freshData();
+    const find = (id: string) => raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === id);
+    find('sultan_end_shared').then = 'sultan_end_sword';
+    find('sultan_end_staff').then = 'brink_tower';
+    find('sultan_end_sword').actors[1].model = 'placeholder:cat';
+    find('sultan_end_sword').shots[0].actors[1].pose = 'fast';
+    find('sultan_end_sword').shots[0].actors[0].opacityTo = 0.5;
+    const sultan = raw.monsters.monsters.find((m: { id: string }) => m.id === 'sultan');
+    sultan.boss.ending.staff = 'nowhere';
+    sultan.boss.prop.x = 0;
+    delete sultan.boss.lastStand;
+    const npc = raw.npcs.npcs.find((n: { id: string }) => n.id === 'sultan');
+    npc.finder.lines.shop = 'npc.sultan.find.nope';
+    npc.finder.when = 'neverEver';
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('the chain comes back to'));
+    expect(found).toContainEqual(expect.stringContaining('"brink_tower" is not a cinematic'));
+    expect(found).toContainEqual(expect.stringContaining('actor "sultan" is a different model'));
+    expect(found).toContainEqual(expect.stringContaining('only the player holds a weapon'));
+    expect(found).toContainEqual(expect.stringContaining('the player cannot fade or roll'));
+    expect(found).toContainEqual(expect.stringContaining('unknown cutscene "nowhere"'));
+    expect(found).toContainEqual(expect.stringContaining('an ending needs a lastStand'));
+    expect(found).toContainEqual(expect.stringContaining('boss.prop: must lie inside the arena'));
+    expect(found).toContainEqual(expect.stringContaining('"npc.sultan.find.nope" is missing'));
+    expect(found).toContainEqual(expect.stringContaining('unknown condition "neverEver"'));
+  });
+
+  it('only allows an item hint for an item that exists', () => {
+    const keys = new Set([...textKeys, 'item.dragon_scale.hint', 'item.wood.hint']);
+    const found = validateGameData(readAllData(), { textKeys: keys, colorTokens }).issues.map(
+      formatIssue,
+    );
+    expect(found).toEqual([expect.stringContaining('"dragon_scale", which is not in items.json')]);
+  });
+
+  it('rejects unknown shot fields and models, and mixing comics with cinematics', () => {
+    const misspelled = freshData();
+    const pringle = misspelled.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle');
+    pringle.shots[0].zoomz = true;
+    expect(messages(misspelled).join('\n')).toContain('zoomz');
+
+    const raw = freshData();
+    const cine = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle');
+    delete cine.shots[0].camera;
+    cine.panels = [{ id: 'oops' }];
+    const comic = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'brink_tower');
+    comic.shots = cine.shots;
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('the first shot needs a camera'));
+    expect(found).toContainEqual(expect.stringContaining('a cinematic has shots, not panels'));
+    expect(found).toContainEqual(expect.stringContaining('only a cinematic has shots'));
+
+    const model = freshData();
+    model.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle').actors[1].model =
+      'placeholder:dragon';
+    expect(messages(model).join('\n')).toContain('actors[1].model');
+  });
+
+  it('checks the victory words of a boss', () => {
+    const raw = freshData();
+    const sultan = raw.monsters.monsters.find((m: { id: string }) => m.id === 'sultan');
+    sultan.boss.victory.title = 'boss.sultan.victory.nope';
+    expect(messages(raw)).toContainEqual(expect.stringContaining('"boss.sultan.victory.nope"'));
+  });
 });
