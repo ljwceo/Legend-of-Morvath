@@ -161,7 +161,7 @@ export class IntroFightState implements GameState {
     const data = ctx.data;
     const intro = data?.cutscenes.cutscenes.find((entry) => entry.id === 'intro');
     this.panelIndex = ctx.introPanel;
-    const fightId = intro?.panels[this.panelIndex]?.fight;
+    const fightId = intro?.panels?.[this.panelIndex]?.fight;
     const fight = data?.cutscenes.fights.find((entry) => entry.id === fightId);
     if (!data || !fight) {
       ctx.reportProblem(`intro fight for panel ${this.panelIndex} missing`);

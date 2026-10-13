@@ -32,9 +32,9 @@ export class IntroState implements GameState {
       return;
     }
     this.cutscene = cutscene;
-    this.sequence = new PanelSequence(cutscene.panels.length, this.ctx.introPanel);
+    this.sequence = new PanelSequence((cutscene.panels ?? []).length, this.ctx.introPanel);
     // Coming back after the fight past the last panel: the intro is over.
-    if (this.ctx.introPanel >= cutscene.panels.length) {
+    if (this.ctx.introPanel >= (cutscene.panels ?? []).length) {
       this.done();
       return;
     }
@@ -64,7 +64,7 @@ export class IntroState implements GameState {
   /** Hands a playable panel to the fight scene; returns true when it did. */
   private playFight(): boolean {
     const index = this.sequence?.index ?? 0;
-    if (!this.cutscene?.panels[index]?.fight) return false;
+    if (!this.cutscene?.panels?.[index]?.fight) return false;
     this.ctx.introPanel = index;
     this.ctx.goto('introFight');
     return true;
@@ -76,7 +76,7 @@ export class IntroState implements GameState {
   }
 
   private build(): (Node | null)[] {
-    const panel = this.sequence && this.cutscene?.panels[this.sequence.index];
+    const panel = this.sequence && this.cutscene?.panels?.[this.sequence.index];
     if (!panel || !this.sequence) return [];
     const t = this.ctx.i18n.t.bind(this.ctx.i18n);
     const skip = button(t('intro.skip'), () => this.skip());

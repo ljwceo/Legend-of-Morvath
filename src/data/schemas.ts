@@ -851,6 +851,8 @@ const bossSchema = z.strictObject({
   enrageLine: optional(textKey),
   /** Spoken when you win. */
   winLine: textKey,
+  /** Big words in the middle of the screen when you win, with a small line under them. */
+  victory: optional(z.strictObject({ title: textKey, subtitle: optional(textKey) })),
   /** Tips shown the first time: "now strike!" (it can be hit) and "wait for it" (it dodged). */
   strikeHint: optional(textKey),
   guardHint: optional(textKey),
@@ -1429,13 +1431,127 @@ export const combosFileSchema = z.strictObject({
 
 // ---------------------------------------------------------------- cutscenes.json
 
+/**
+ * What a cinematic actor looks like: `player` is your own character (player.glb in Greyhaven,
+ * with your colors and gear), `fx:smoke` a cloud of purple smoke, the rest are NPC placeholder
+ * models (NpcFactory). Real glTF models replace the placeholders later.
+ */
+export const CINEMATIC_MODELS = [
+  'player',
+  'fx:smoke',
+  'placeholder:cat',
+  'placeholder:catman',
+] as const;
+export const CINEMATIC_EASES = ['linear', 'in', 'out', 'inOut'] as const;
+
+/** A point in a cinematic: world x / z, and y in meters above the ground (see `anchor`). */
+const cinematicPoint = z.strictObject({ x: coord, y: range(-50, 200), z: coord });
+const ease = optional(z.enum(CINEMATIC_EASES));
+
+/**
+ * The camera during one shot: it moves from `from` to `to` and looks from `lookFrom` to
+ * `lookTo` (or at the actor `follow`, `followHeight` m above its feet). With `relative` the
+ * positions are offsets around `follow` instead (x = to its right, z = in front of it), so the
+ * camera travels along with that actor. `fovFrom` / `fovTo` zoom (degrees).
+ */
+const cinematicCamera = z.strictObject({
+  from: cinematicPoint,
+  to: optional(cinematicPoint),
+  lookFrom: optional(cinematicPoint),
+  lookTo: optional(cinematicPoint),
+  follow: optional(id),
+  followHeight: optional(range(-5, 20)),
+  relative: optional(z.boolean()),
+  fovFrom: optional(range(10, 100)),
+  fovTo: optional(range(10, 100)),
+  ease,
+});
+
+/**
+ * What one actor does during a shot. Nothing here = it stays as the last shot left it.
+ * `from` → `to` walks or jumps it (x / z, `lift` m above the ground); `lookAt` turns it to
+ * another actor, otherwise it faces where it walks, or `heading` (degrees, 0 = +z).
+ */
+const cinematicActorMove = z.strictObject({
+  actor: id,
+  visible: optional(z.boolean()),
+  from: optional(pointSchema),
+  to: optional(pointSchema),
+  liftFrom: optional(range(-5, 50)),
+  liftTo: optional(range(-5, 50)),
+  heading: optional(range(-360, 360)),
+  lookAt: optional(id),
+  scaleFrom: optional(max(positive, 20)),
+  scaleTo: optional(max(positive, 20)),
+  ease,
+});
+
+/** One shot of a cinematic: everything in it runs from its start for `seconds`. */
+const cinematicShot = z.strictObject({
+  id,
+  seconds: max(positive, 30),
+  camera: optional(cinematicCamera),
+  actors: optional(z.array(cinematicActorMove)),
+  /** A spoken line at the bottom for the whole shot (the speaker's name stays English). */
+  subtitle: optional(z.strictObject({ speaker: name, text: textKey })),
+  /** Darkness 0–1 (nachtinkt over the picture), from → to over `seconds` (default: the shot). */
+  fade: optional(
+    z.strictObject({ from: fraction, to: fraction, seconds: optional(max(positive, 30)) }),
+  ),
+  /** The camera shakes this many meters, calming down to nothing by the end of the shot. */
+  shake: optional(max(nonNegative, 2)),
+  /** A bright flash at the start of the shot that fades in this many seconds. */
+  flash: optional(max(positive, 3)),
+  /** A color over the picture (soft light), e.g. the warm sunset at the gate. */
+  tint: optional(z.strictObject({ color: colorToken, amount: fraction })),
+  /** A boss name card in the middle of the screen (the name stays English). */
+  nameCard: optional(z.strictObject({ name, title: optional(textKey) })),
+});
+
 export const cutscenesFileSchema = z.strictObject({
+  /** How every cinematic looks and feels (`type: "cinematic"`). */
+  cinematic: z.strictObject({
+    /** Seconds the black bars take to slide in (start) and out (end). */
+    barsSeconds: max(positive, 3),
+    /** The picture between the bars has this width / height (2.39 = cinema)... */
+    barsAspect: range(1, 4),
+    /** ...but each bar is at least / at most this part of the screen height. */
+    barsMinFraction: range(0, 0.3),
+    barsMaxFraction: range(0, 0.3),
+    /** Seconds to hold Escape or the skip button to skip. */
+    holdToSkipSeconds: range(0.2, 5),
+    /** Letting go: the ring empties this many times faster than it fills. */
+    holdReleaseFactor: range(0.5, 10),
+  }),
   cutscenes: z.array(
     z.strictObject({
       id,
+      /** "cinematic": filmed in the 3D world (`shots`); without a type it is a comic (`panels`). */
+      type: optional(z.enum(['comic', 'cinematic'])),
       skippable: z.boolean(),
       playOnce: optional(z.boolean()),
-      panels: atLeast(
+      /** Cinematic: the camera's heights (`y`) are measured from the ground here. */
+      anchor: optional(pointSchema),
+      /** Cinematic: who plays in it (placed and moved by the shots). */
+      actors: optional(
+        z.array(
+          z.strictObject({
+            id,
+            model: z.enum(CINEMATIC_MODELS),
+            /** Fur / robe color of a placeholder (its tinted parts). */
+            color: optional(colorToken),
+            scale: optional(max(positive, 20)),
+          }),
+        ),
+      ),
+      /** Cinematic: the shots, one after the other. */
+      shots: optional(atLeast(z.array(cinematicShot))),
+      /**
+       * Later: a camera animation made in Blender (glTF file in public/, path from there). When
+       * it is played, it replaces the `camera` of the shots. Not used yet.
+       */
+      cameraClip: optional(z.string().check(z.regex(/^[a-zA-Z0-9_/.-]+\.(glb|gltf)$/))),
+      panels: optional(
         z.array(
           z.strictObject({
             id,

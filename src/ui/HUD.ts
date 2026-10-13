@@ -78,6 +78,17 @@ export class HUD {
   private xpFullTime = 0;
   /** The XP bar jumps (no animation) for one frame after a level up. */
   private xpInstant = false;
+  /**
+   * Reasons the whole HUD is hidden (a cinematic cutscene). Messages wait meanwhile, so none
+   * is missed.
+   */
+  readonly hiddenBy = new HudVisibility();
+  private hiddenShown = false;
+  /** Big words after beating a boss ("BOND FORGED") with a small line under them. */
+  private readonly victory: HTMLElement;
+  private readonly victoryTitle: HTMLElement;
+  private readonly victorySubtitle: HTMLElement;
+  private victoryLeft = 0;
 
   constructor(
     private readonly cfg: HudConfig,
@@ -139,6 +150,15 @@ export class HUD {
     );
     this.hint = el('div', { className: 'ui-fight-hint ui-hud-hint' });
 
+    this.victoryTitle = el('p', { className: 'ui-hud-victory-title' });
+    this.victorySubtitle = el('p', { className: 'ui-hud-victory-subtitle' });
+    this.victory = el(
+      'div',
+      { className: 'ui-hud-victory' },
+      this.victoryTitle,
+      this.victorySubtitle,
+    );
+
     this.hurtGlow = el('div', { className: 'ui-hud-hurt' });
     this.blackoutTitle = el('p', { className: 'ui-hud-blackout-title' });
     this.blackoutText = el('p', { className: 'ui-hud-blackout-text' });
@@ -160,6 +180,7 @@ export class HUD {
       this.boss,
       this.hint,
       this.subtitle,
+      this.victory,
       this.blackout,
     );
     this.root.style.setProperty('--hud-fade', `${cfg.fadeSeconds}s`);
@@ -300,6 +321,15 @@ export class HUD {
     this.hintLeft = seconds;
   }
 
+  /** The big victory words after a boss, for `seconds` (they fade in and out). */
+  showVictory(title: string, subtitle: string | null, seconds: number): void {
+    this.victoryTitle.textContent = title;
+    this.victorySubtitle.textContent = subtitle ?? '';
+    this.victorySubtitle.hidden = subtitle === null;
+    this.victory.classList.add('ui-hud-victory-on');
+    this.victoryLeft = seconds;
+  }
+
   /** A short red glow at the screen edges: the player was hit. */
   hurt(): void {
     this.hurtTime = HURT_SECONDS;
@@ -307,7 +337,17 @@ export class HUD {
 
   /** Call every rendered frame with real seconds (fades and timers are fps-independent). */
   update(seconds: number): void {
-    this.updateMessages(seconds);
+    this.hiddenBy.update(seconds);
+    const hidden = this.hiddenBy.visible;
+    if (hidden !== this.hiddenShown) {
+      this.hiddenShown = hidden;
+      this.root.classList.toggle('ui-hud-hidden', hidden);
+    }
+    if (!hidden) this.updateMessages(seconds);
+    if (this.victoryLeft > 0) {
+      this.victoryLeft -= seconds;
+      if (this.victoryLeft <= 0) this.victory.classList.remove('ui-hud-victory-on');
+    }
     if (this.subtitleLeft > 0) {
       this.subtitleLeft -= seconds;
       if (this.subtitleLeft <= 0) this.subtitle.classList.remove('ui-fight-show');

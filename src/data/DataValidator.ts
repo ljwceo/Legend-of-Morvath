@@ -827,6 +827,8 @@ class CrossChecker {
         ] as const)
           this.text(f, `${p}.boss.${key}`, boss[key]);
         this.text(f, `${p}.boss.guardText`, boss.guardText);
+        this.text(f, `${p}.boss.victory.title`, boss.victory?.title);
+        this.text(f, `${p}.boss.victory.subtitle`, boss.victory?.subtitle);
         const a = boss.arena;
         for (const point of ['start', 'playerStart'] as const) {
           const q = boss[point];
@@ -1285,9 +1287,24 @@ class CrossChecker {
     const f = 'cutscenes';
     const { cutscenes, fights } = this.data.cutscenes;
     this.unique('fight', f, 'fights', fights);
+    const bars = this.data.cutscenes.cinematic;
+    if (bars.barsMinFraction > bars.barsMaxFraction) {
+      this.issue(f, 'cinematic.barsMinFraction', 'is larger than barsMaxFraction');
+    }
     cutscenes.forEach((cutscene, i) => {
-      this.unique(`panel:${cutscene.id}`, f, `cutscenes[${i}].panels`, cutscene.panels);
-      cutscene.panels.forEach((panel, n) => {
+      if (cutscene.type === 'cinematic') {
+        this.checkCinematic(cutscene, `cutscenes[${i}]`);
+        return;
+      }
+      const panels = cutscene.panels ?? [];
+      if (panels.length === 0) this.issue(f, `cutscenes[${i}].panels`, 'a comic needs panels');
+      for (const field of ['shots', 'actors', 'anchor', 'cameraClip'] as const) {
+        if (cutscene[field] !== undefined) {
+          this.issue(f, `cutscenes[${i}].${field}`, `only a cinematic has ${field}`);
+        }
+      }
+      this.unique(`panel:${cutscene.id}`, f, `cutscenes[${i}].panels`, panels);
+      panels.forEach((panel, n) => {
         const p = `cutscenes[${i}].panels[${n}]`;
         this.text(f, `${p}.narration`, panel.narration);
         this.text(f, `${p}.caption`, panel.caption);
@@ -1323,6 +1340,56 @@ class CrossChecker {
           }
         });
       });
+    });
+  }
+
+  /**
+   * A cinematic (`type: "cinematic"`): it has shots and no comic panels, its actors are unique
+   * and known, and every shot only names actors, colors and text keys that exist.
+   */
+  private checkCinematic(cutscene: GameData['cutscenes']['cutscenes'][number], at: string): void {
+    const f = 'cutscenes';
+    const shots = cutscene.shots ?? [];
+    const actors = cutscene.actors ?? [];
+    if (shots.length === 0) this.issue(f, `${at}.shots`, 'a cinematic needs shots');
+    if (cutscene.panels !== undefined)
+      this.issue(f, `${at}.panels`, 'a cinematic has shots, not panels');
+    if (!cutscene.anchor) this.issue(f, `${at}.anchor`, 'a cinematic needs an anchor');
+    if (shots[0] && !shots[0].camera) {
+      this.issue(f, `${at}.shots[0].camera`, 'the first shot needs a camera');
+    }
+    const ns = `actor:${cutscene.id}`;
+    this.unique(ns, f, `${at}.actors`, actors);
+    this.unique(`shot:${cutscene.id}`, f, `${at}.shots`, shots);
+    actors.forEach((actor, n) => {
+      if (actor.color) this.color(f, `${at}.actors[${n}].color`, actor.color);
+    });
+    shots.forEach((shot, n) => {
+      const p = `${at}.shots[${n}]`;
+      const camera = shot.camera;
+      if (camera) {
+        this.ref(ns, f, `${p}.camera.follow`, camera.follow);
+        if (camera.relative && !camera.follow) {
+          this.issue(f, `${p}.camera.relative`, 'a relative camera needs an actor to follow');
+        }
+        if (!camera.follow && !camera.lookFrom) {
+          this.issue(f, `${p}.camera`, 'the camera needs lookFrom or an actor to follow');
+        }
+      }
+      shot.actors?.forEach((move, m) => {
+        const mp = `${p}.actors[${m}]`;
+        this.ref(ns, f, `${mp}.actor`, move.actor);
+        this.ref(ns, f, `${mp}.lookAt`, move.lookAt);
+        if (move.lookAt === move.actor)
+          this.issue(f, `${mp}.lookAt`, 'an actor cannot look at itself');
+        if (move.to && !move.from) this.issue(f, `${mp}.to`, 'a walk needs a from');
+      });
+      if (shot.subtitle) this.text(f, `${p}.subtitle.text`, shot.subtitle.text);
+      if (shot.tint) this.color(f, `${p}.tint.color`, shot.tint.color);
+      this.text(f, `${p}.nameCard.title`, shot.nameCard?.title);
+      if (shot.fade?.seconds !== undefined && shot.fade.seconds > shot.seconds) {
+        this.issue(f, `${p}.fade.seconds`, 'is longer than the shot');
+      }
     });
   }
 }
