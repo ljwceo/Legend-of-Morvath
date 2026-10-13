@@ -105,7 +105,7 @@ const ctx: GameContext = {
   perfText: () =>
     perf.running ? `measuring… ${Math.ceil(perf.remaining)} s` : perfLine || 'not measured yet',
   ui,
-  overlays: new Overlays(ui, events, i18n),
+  overlays: new Overlays(ui, events, i18n, bindings),
   params,
   data: null,
   seasons: null,

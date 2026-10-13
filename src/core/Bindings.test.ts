@@ -33,10 +33,20 @@ describe('bindings from controls.json', () => {
 
   it('binds a key in a slot and leaves the other slot alone', () => {
     const b = fresh();
-    expect(b.bind('dash', 1, 'KeyF')).toBe(null);
-    expect([...b.codesFor('dash')]).toEqual(['Space', 'KeyF']);
-    expect(b.actionFor('KeyF')).toBe('dash');
+    // KeyM is bound to nothing by default, so no other action loses it.
+    expect(b.bind('dash', 1, 'KeyM')).toBe(null);
+    expect([...b.codesFor('dash')]).toEqual(['Space', 'KeyM']);
+    expect(b.actionFor('KeyM')).toBe('dash');
     expect(b.isDefault()).toBe(false);
+  });
+
+  it('has its own key for closing a window, which can be rebound like any other', () => {
+    const b = fresh();
+    expect(b.actionFor('KeyF')).toBe('close');
+    // Giving it to another action takes it away from closing, with the usual message.
+    expect(b.bind('dash', 1, 'KeyF')).toBe('close');
+    expect(b.actionFor('KeyF')).toBe('dash');
+    expect([...b.codesFor('close')]).toEqual([]);
   });
 
   it('lets go of the key that was in the slot, so the old key does nothing', () => {

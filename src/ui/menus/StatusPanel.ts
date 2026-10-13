@@ -1,7 +1,7 @@
 import type { GameContext } from '../../core/GameContext';
 import { emptyGearStats, gearStats } from '../../systems/Gear';
 import type { StatPoints } from '../../systems/Stats';
-import { button, el } from '../dom';
+import { el } from '../dom';
 import type { Panel } from '../Overlays';
 import { pointsLeftText, statSummary, statsEditor } from '../StatsPanel';
 import { bindT } from './ConfirmPanel';
@@ -20,7 +20,8 @@ export interface StatusHandlers {
  * The status window (its own key, Settings → Controls): your level and XP, the points you
  * still have, the ten stats with what they give you, and what worn gear adds on top. Points
  * can be spent any time but not in a fight; a point you spent stays spent (until you hand an
- * egg to Sultan, fase 3.9). The game is paused while it is open.
+ * egg to Sultan, fase 3.9). The game is paused while it is open. It has no Close button of its
+ * own: the ✕ in the corner, Escape, your own close key or the status key again (Bo, 2026-10-13).
  */
 export function statusPanel(
   ctx: GameContext,
@@ -28,6 +29,7 @@ export function statusPanel(
   onClose: () => void,
 ): Panel {
   return {
+    closeActions: ['status'],
     build: () => {
       const { t } = bindT(ctx);
       const session = ctx.session;
@@ -36,7 +38,6 @@ export function statusPanel(
       const path = session?.path ?? null;
       const canSpend = handlers.canSpend();
       const left = pointsLeftText(ctx, level, points);
-      const close = button(t('common.close'), onClose, true);
       return el(
         'div',
         {
@@ -60,7 +61,6 @@ export function statusPanel(
         }),
         statSummary(ctx, points, level, path),
         gearLine(ctx),
-        close,
       );
     },
     onClose,

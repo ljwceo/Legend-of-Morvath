@@ -9,7 +9,7 @@
 | **Huidige fase** | Fase 3.9 – Eieren, mini-bosses en opnieuw verdelen |
 | **Status** | **Fase 3.9 gebouwd (2026-10-13):** tien mini-bosses met elk eenmalig een ei, het ei van Sultan uit zijn baasgevecht, en inleveren bij Sultan om al je punten opnieuw te verdelen (save versie 13). Daarvoor: fase 3.8 (Entrance Exams, pad-effecten, stadspoort), 3.7 (stats en builds), 3.6 (buttonmapping + lock-on) en stap 3.0 t/m 3.5. Fase 2, 3.7, 3.8 en het Blender-Greyhaven wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
 | **Volgende stap** | **Fase 3.10 – Afronden fase 3** in een nieuwe chat (balans nameten, Meet 20 s op Low/Mid/High, geheugen, documentatie). Bo/Lucas: 3.8 en 3.9 spelen — zijn de tien mini-bosses sterk genoeg, en staan ze op leuke plekken? |
-| **Laatste sessie** | 2026-10-13: fase 3.9 (eieren, mini-bosses, opnieuw verdelen bij Sultan); daarvoor fase 3.8 (Entrance Exams) |
+| **Laatste sessie** | 2026-10-13: fase 3.9 (eieren, mini-bosses, opnieuw verdelen bij Sultan) en daarna de tas (tabs, scherm vullen, sluiten met je eigen toets) |
 
 ### Liggend spelen op de telefoon (Bo, 2026-10-12)
 
@@ -695,10 +695,22 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - **Tijdelijke namen (alleen in data):** de tien mini-bosses (Mossback, Rootgnarl, Fenstalker, Bogmaw, Hoarfrost Warden, Hollow Whisperer, Dunmar Sentinel, Stonejaw, Windlash, Blightborn), hun aanvallen en de elf einamen.
 - **Nog niet gemeten:** fps op de pc en de iPhone (zoals heel fase 2 en 3); deze stap voegt per frame niets toe (tien vijanden extra in de pool, die alleen in de buurt van de speler meedoen).
 
+### Tas: tabs, scherm vullen en sluiten met je eigen toets (Bo, 2026-10-13)
+
+Na het spelen van fase 3.9: de spullenlijst in de tas was een klein scrollvakje binnen een venster dat zelf ook scrolde, de Close-knop onderin was dubbelop naast de ✕ in de hoek, en de quests stonden onder je spullen.
+- **Geen vakje in een vakje meer:** `ui-bag-list` heeft geen eigen maximale hoogte en geen eigen scrollbalk meer. In het kleine venster scrolt het hele paneel als één geheel.
+- **Scherm vullen (⤢):** naast de titel staat een knopje dat de tas zo groot maakt als het hele speelveld; dan blijven de titel en de tabs staan en scrolt alleen de inhoud. De keuze staat in de save (**versie 14**, `settings.bagFullscreen`), dus hij blijft zoals je hem zet. De kop houdt links en rechts ruimte vrij voor de ronde ✕ in de hoek en voor het knopje zelf.
+- **Twee tabs:** **Tas** (gold, level, draaglast, de zes gedragen slots en je spullen) en **Quests** (de lopende quests met wat er nog mist). Opnieuw openen begint weer op Tas.
+- **Sluiten:** de Close-knop onderin is weg uit de tas én het statusvenster; sluiten doe je met de **✕ in de hoek**, **Escape**, je eigen **sluittoets** (nieuwe actie `close`, standaard **F**, in te stellen in Settings → Besturing) of met **dezelfde toets waarmee je het opende** (I/B voor de tas, P voor het statusvenster). Panelen geven zelf aan met welke actie ze dichtgaan (`closeActions`), en `Overlays` luistert ernaar; in een gesprek sluit de sluittoets het dialoogvenster.
+- **Getest:** 572 tests (nieuw: de sluittoets zit standaard op F en is net als elke andere te verzetten, save 13 → 14), lint, opmaak, typecheck, build en de DataValidator. In headless Chromium (pc 1280×800 en iPhone-13-formaat 844×390, NL): de tabs wisselen, ⤢ maakt de tas schermvullend (1248 × 768) met één scrollgebied, de keuze staat in de save, en sluiten werkt met I, met F en met de ✕. Het statusvenster heeft geen knop meer en gaat dicht met P. Geen fouten in de console.
+- **Niet gedaan (bewust):** de Close-knop in de winkel, de tas van Biscuit, Settings en het pauzemenu staat er nog; daar hoort hij bij de andere knoppen. Zeg het als die ook weg moeten.
+
 ## Besluiten
 
 | Datum | Besluit | Waarom |
 |---|---|---|
+| 2026-10-13 | De tas en het statusvenster hebben geen eigen Close-knop meer; sluiten gaat via de ✕ in de hoek, Escape, de nieuwe sluittoets of de toets waarmee je ze opende | Bo: "die close weg naar dat close in de hoek, en dat je m kan button mappen" |
+| 2026-10-13 | De tas kan het hele speelveld vullen (⤢), en die keuze blijft in de save staan | Bo: het lijstje was een klein scrollvakje; nu kun je fullscreen |
 | 2026-10-13 | Defense blijft zoals hij is (open vraag 14) | Bo: er komen items die je omdoet voor defense-buffs, dus Defense groeit met je gear mee |
 | 2026-10-13 | De tien mini-bosses staan verspreid over alle zones (geen twee in Greyhaven) en komen na 10 minuten terug, hun ei maar één keer | Zo valt er in elke zone iets te halen en blijft een mini-boss ook later nog XP en buit waard, zonder dat je eieren kunt farmen |
 | 2026-10-13 | Een ei is een eigen itemsoort (`type: "egg"`) in plaats van een gewoon questitem | Dan weegt het automatisch niets, is het nergens te gebruiken, en weet het spel precies wat Sultan aanneemt |
