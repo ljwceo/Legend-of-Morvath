@@ -9,22 +9,27 @@ De scripts draaien zonder venster en **slaan het .blend-bestand nooit op**.
 | `02_import_mixamo.py` | 2 | (komt nog) Mixamo-rig + animaties terug in Blender, cape-botten, export naar `player.glb` |
 
 **Mixamo-licentie:** de bestanden uit Mixamo (en `body_for_mixamo.fbx`) gaan **nooit** in git.
-Ze staan in `art-source/` (staat in `.gitignore`) of in een map buiten de repo. Alleen de
+Ze staan in de map `Mixamo` naast `Greyhaven.blend` (buiten de repo) of in `art-source/` (in `.gitignore`). Alleen de
 uiteindelijke `public/zones/greyhaven/player.glb` gaat in git.
 
 ---
 
 ## Deel A – `01_prep_mixamo.py` draaien (Chat 1)
 
-Windows (pas de paden aan; Blender 4.x of 5.x):
+**In Blender (makkelijkst):**
+1. Open `Greyhaven.blend` in Blender zoals altijd.
+2. Klik bovenin op het tabblad **Scripting**.
+3. Klik in het tekstvak op **New**.
+4. Open op GitHub `tools/blender/character/01_prep_mixamo.py`, klik rechtsboven op **Copy raw file**
+   (het icoontje met de twee blaadjes) en plak het in Blender (Ctrl+V).
+5. Klik op **▶** (Run Script). Na een paar seconden is hij klaar.
+6. Naast `Greyhaven.blend` staat nu een map **`Mixamo`** met `body_for_mixamo.fbx`.
 
-```bat
-cd C:\pad\naar\Legend-of-Morvath
-"C:\Program Files\Blender Foundation\Blender 4.2\blender.exe" -b "C:\pad\naar\Greyhaven.blend" --python tools\blender\character\01_prep_mixamo.py
-```
+Het script verandert niets aan je scène. Opslaan hoeft niet, maar het kan ook geen kwaad.
+Gaat er iets mis? Kijk in *Window → Toggle System Console* of stuur `Mixamo\log_prep.txt`.
 
-Zonder map na `--` komt alles in `art-source\character\` in de repo (wordt niet meegecommit).
-Een andere map kan ook: `... --python tools\blender\character\01_prep_mixamo.py -- D:\Morvath\character`.
+**Zonder venster (voor wie dat wil):**
+`blender -b Greyhaven.blend --python tools/blender/character/01_prep_mixamo.py -- <uitvoermap>`
 
 Wat het script doet:
 - Kopieert de lijfstukken (Torso, Neck, Head, Shoulder_L/R, Arm_L/R, Hand_L/R, Belt, Leg_L/R,
@@ -83,11 +88,11 @@ Je ziet één poppetje zonder hoed/haar/cape, armen schuin naar beneden, voeten 
 | `Interact` | Button Pushing, Picking Up |
 
    Kies gerust op gevoel; Chat 2 kan clips inkorten, knippen en de horizontale beweging eruit halen.
-6. Zet alles in één map, bijvoorbeeld:
+6. Zet alles in de map `Mixamo` naast `Greyhaven.blend`, bijvoorbeeld:
    ```
-   art-source\character\mixamo\body_rigged.fbx
-   art-source\character\mixamo\Idle.fbx
-   art-source\character\mixamo\Walk.fbx
+   Mixamo\body_rigged.fbx
+   Mixamo\Idle.fbx
+   Mixamo\Walk.fbx
    ...
    ```
    Daarna: nieuwe chat, *"Lees CLAUDE.md. We doen Fase A, Chat 2."* Chat 2 maakt een script dat
