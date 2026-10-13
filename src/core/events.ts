@@ -24,6 +24,13 @@ export interface GameEvents {
   levelUp: { level: number };
   /** Points were spent in the status window (fase 3.7); quests can listen later. */
   statsSpent: { level: number };
+  /**
+   * An egg was handed in (fase 3.9): every point you ever spent came free, `points` of them.
+   * Level, path, gear and quests stay as they are.
+   */
+  statsReset: { npcId: string; eggs: readonly string[]; points: number };
+  /** The egg of a mini-boss (or Sultan) was found for the first time (fase 3.9). */
+  eggFound: { itemId: string; monsterId: string };
   /** Items (or gold, as item "gold") went into the bag: loot, rewards, purchases. */
   itemsGained: { itemId: string; count: number };
   potionDrunk: { itemId: string };

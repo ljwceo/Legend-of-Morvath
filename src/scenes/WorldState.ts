@@ -41,6 +41,7 @@ import type {
   PlayerPath,
   QualityPreset,
   QuestDef,
+  EggResetDef,
   TeachDef,
 } from '../data/types';
 import { chosenLevel, presetFor } from '../render/quality';
@@ -114,6 +115,7 @@ import {
 } from '../systems/Inventory';
 import { moveFromPack, moveToPack } from '../systems/PackAnimal';
 import { choosePath, teacherOffer } from '../systems/PathChoice';
+import { eggOffer, eggReward, handInEggs } from '../systems/Eggs';
 import { QuestBook, type QuestEventKind } from '../systems/Quests';
 import { addXp, deathGoldLoss, xpFraction, xpToNext } from '../systems/Progression';
 import type { EnemyTarget } from '../systems/EnemyAI';
@@ -156,12 +158,17 @@ import {
   applyStatsToCombat,
   computeStatEffects,
   emptyStatEffects,
+  emptyStatPoints,
+  normalizeStatPoints,
+  presetPoints,
+  randomStatPoints,
   spendMore,
   spentPoints,
   type StatEffects,
   type StatPoints,
   unspentPoints,
 } from '../systems/Stats';
+import { redistributePanel } from '../ui/menus/RedistributePanel';
 import { statusPanel } from '../ui/menus/StatusPanel';
 import type { Panel } from '../ui/Overlays';
 import { type TouchLabels, TouchControls } from '../ui/TouchControls';
@@ -406,6 +413,8 @@ export class WorldState implements GameState, InstanceHost {
   private dialog: Dialog | null = null;
   /** The NPC in the open dialogue window, or null. */
   private talkingTo: Npc | null = null;
+  /** True between Sultan taking the egg and his stat window opening (fase 3.9). */
+  private pendingRedistribute = false;
   /** Last direction pushed while picking an answer (W/S, arrows, joystick): one step per push. */
   private choiceAxis = 0;
   /** The NPC that E / the icon would use now (nearest in range), or null. */
@@ -651,6 +660,9 @@ export class WorldState implements GameState, InstanceHost {
           this.pathChanged(path);
         },
         skipExams: () => this.skipExams(),
+        eggs: () => this.eggTally(),
+        giveEgg: () => this.giveEgg(),
+        forgetEggs: () => this.forgetEggs(),
       },
     );
     // Next to the UI layer (not inside it), so it can sit above the debug overlay.
@@ -1451,8 +1463,9 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /**
-   * The player defeated a monster: XP (maybe a level up) and its loot straight into the bag,
-   * with short texts above the monster. Quests listen to `monsterDefeated`.
+   * The player defeated a monster: XP (maybe a level up), its loot straight into the bag and,
+   * from a mini-boss or Sultan, the egg it carries (once in the whole game), with short texts
+   * above the monster. Quests listen to `monsterDefeated`.
    */
   private defeated(e: Enemy, top: number): void {
     const data = this.ctx.data;
@@ -1475,6 +1488,27 @@ export class WorldState implements GameState, InstanceHost {
       this.damageNumbers?.spawnText(e.x, y, e.z, `+${drop.count} ${name}`, 'loot');
       y += LOOT_TEXT_SPACING;
     }
+    this.eggDropped(e, y);
+  }
+
+  /**
+   * The egg of a mini-boss (or Sultan): the first time only. `foundEggs` in the save remembers
+   * it, so a mini-boss that comes back gives nothing a second time. Saved at once, like a level
+   * up, so a reload can never farm the same egg.
+   */
+  private eggDropped(e: Enemy, y: number): void {
+    const session = this.ctx.session;
+    if (!session) return;
+    const egg = eggReward(e.def, session.foundEggs);
+    if (!egg) return;
+    session.foundEggs.push(egg);
+    this.gainItem(egg, 1);
+    const name = this.items.get(egg)?.name ?? egg;
+    this.damageNumbers?.spawnText(e.x, y, e.z, `+1 ${name}`, 'loot');
+    this.hud?.showMessage(this.ctx.i18n.t('hud.eggFound', { name }));
+    this.ctx.events.emit('eggFound', { itemId: egg, monsterId: e.def.id });
+    this.syncSave();
+    this.ctx.persist();
   }
 
   /**
@@ -1803,6 +1837,18 @@ export class WorldState implements GameState, InstanceHost {
       this.askToTrain(npc, teaches);
       return;
     }
+    // Sultan, with an egg in your bag: "Spread everything again? That costs one egg."
+    const reset = eggOffer(
+      npc.def,
+      data.triggers.conditions,
+      this.conditionContext,
+      session.character?.inventory ?? [],
+      this.items,
+    );
+    if (reset) {
+      this.askToRedistribute(npc, reset);
+      return;
+    }
     const talk = this.questConversation(npc.def);
     const lines =
       talk?.lines ?? dialogueLines(npc.def, data.triggers.conditions, this.conditionContext);
@@ -1829,7 +1875,18 @@ export class WorldState implements GameState, InstanceHost {
     this.targetNpc = null;
     // A key still held from walking up to the NPC must not move the highlight.
     this.choiceAxis = this.choiceAxisNow();
-    this.dialog?.open(npc.def.name, lines, () => (this.talkingTo = null), options);
+    this.dialog?.open(
+      npc.def.name,
+      lines,
+      () => {
+        this.talkingTo = null;
+        // Sultan took the egg: his stat window waits until he stops talking (fase 3.9).
+        if (!this.pendingRedistribute) return;
+        this.pendingRedistribute = false;
+        this.openRedistribute();
+      },
+      options,
+    );
   }
 
   /** Which way the walk keys or joystick push now, for picking answers: -1, 0 or +1. */
@@ -1871,6 +1928,112 @@ export class WorldState implements GameState, InstanceHost {
     this.ctx.events.emit('pathChosen', { path: teaches.path, teacherId: npc.id });
     this.hud?.showMessage(this.ctx.i18n.t(`path.chosen.${teaches.path}`));
     this.say(npc, teaches.accepted);
+  }
+
+  /**
+   * Sultan's offer (fase 3.9): his lines end with "Spread everything again? That costs one
+   * egg." No may always; yes asks once more. Never in a fight (you cannot spend points then
+   * either), and he says so instead.
+   */
+  private askToRedistribute(npc: Npc, reset: EggResetDef): void {
+    if (this.player?.combat.inCombat) {
+      this.say(npc, reset.offer);
+      this.hud?.showMessage(this.ctx.i18n.t('status.inCombat'));
+      return;
+    }
+    this.say(npc, [...reset.offer, reset.question], {
+      choices: [
+        { label: 'dialog.choice.yes', pick: () => this.confirmRedistribute(npc, reset) },
+        { label: 'dialog.choice.no', pick: () => this.say(npc, reset.declined) },
+      ],
+    });
+  }
+
+  /** "Are you sure?": "Not yet" is highlighted, so clicking through the lines never pays an egg. */
+  private confirmRedistribute(npc: Npc, reset: EggResetDef): void {
+    this.say(npc, [reset.confirm], {
+      choices: [
+        { label: 'dialog.choice.sure', pick: () => this.takeEgg(npc, reset) },
+        { label: 'dialog.choice.notYet', pick: () => this.say(npc, reset.declined) },
+      ],
+      selected: 1,
+    });
+  }
+
+  /**
+   * Yes, twice: the egg is gone and every point you ever spent is yours to divide again. Your
+   * level, path, gear and quests stay exactly as they are. Sultan says his line, and the window
+   * with the ten stats opens as soon as he is done talking.
+   */
+  private takeEgg(npc: Npc, reset: EggResetDef): void {
+    const data = this.ctx.data;
+    const character = this.ctx.session?.character;
+    if (!data || !character) return;
+    if (this.player?.combat.inCombat) {
+      this.hud?.showMessage(this.ctx.i18n.t('status.inCombat'));
+      return;
+    }
+    const result = handInEggs(
+      data.stats,
+      character.inventory,
+      this.items,
+      character.stats,
+      reset.cost,
+    );
+    if (!result) return;
+    character.stats = result.points;
+    this.applyGear(true);
+    this.refreshPotions();
+    this.ctx.events.emit('statsReset', { npcId: npc.id, eggs: result.paid, points: result.freed });
+    this.hud?.showMessage(this.ctx.i18n.t('hud.statsReset', { n: result.freed }));
+    this.syncSave();
+    this.ctx.persist();
+    this.pendingRedistribute = true;
+    this.say(npc, reset.accepted);
+  }
+
+  /** Opens the stat window Sultan's egg paid for, once he has finished talking. */
+  private openRedistribute(): void {
+    const data = this.ctx.data;
+    if (!data) return;
+    const level = this.ctx.session?.progress.level ?? 1;
+    this.openMenu((resume) =>
+      redistributePanel(
+        this.ctx,
+        {
+          change: (points) => this.redistribute(points),
+          preset: (presetId) => this.redistribute(presetPoints(data.stats, presetId, level)),
+          random: () => {
+            const random = new Random(Date.now());
+            this.redistribute(randomStatPoints(data.stats, level, () => random.next()));
+          },
+          clear: () => this.redistribute(emptyStatPoints(data.stats)),
+          xpLine: () => this.xpLine(),
+        },
+        resume,
+      ),
+    );
+  }
+
+  /**
+   * A new spread while Sultan's window is open: points may also come back out here (he freed
+   * them all), but never more than your level pays for. Outside this window `spendPoints` keeps
+   * the normal rule that a spent point stays spent.
+   */
+  private redistribute(points: StatPoints): void {
+    const data = this.ctx.data;
+    const character = this.ctx.session?.character;
+    if (!data || !character) return;
+    character.stats = normalizeStatPoints(
+      data.stats,
+      points,
+      this.ctx.session?.progress.level ?? 1,
+    );
+    this.applyGear(true);
+    this.ctx.events.emit('statsSpent', { level: this.ctx.session?.progress.level ?? 1 });
+    this.syncSave();
+    this.ctx.persist();
+    this.ctx.overlays.refreshTop();
   }
 
   /** The path changed (chosen, or a cheat): conditions, quests, markers and the save follow. */
@@ -3216,6 +3379,40 @@ export class WorldState implements GameState, InstanceHost {
       this.updatePlayerGear();
       return;
     }
+  }
+
+  /** Eggs found so far out of all the eggs in the game (cheat menu, fase 3.9). */
+  private eggTally(): { found: number; total: number } {
+    const total = this.ctx.data?.items.items.filter((item) => item.type === 'egg').length ?? 0;
+    return { found: this.ctx.session?.foundEggs.length ?? 0, total };
+  }
+
+  /**
+   * Debug: one egg that is still out there, straight into the bag (so Sultan's offer can be
+   * tested without walking to a mini-boss). Data-driven: the first egg in items.json you have
+   * not found yet, no name in code.
+   */
+  private giveEgg(): void {
+    const session = this.ctx.session;
+    if (!session) return;
+    for (const def of this.items.values()) {
+      if (def.type !== 'egg' || session.foundEggs.includes(def.id)) continue;
+      session.foundEggs.push(def.id);
+      this.gainItem(def.id, 1);
+      this.hud?.showMessage(this.ctx.i18n.t('hud.eggFound', { name: def.name }));
+      this.syncSave();
+      this.ctx.persist();
+      return;
+    }
+  }
+
+  /** Debug: forgets the found eggs, so every mini-boss gives its egg again. */
+  private forgetEggs(): void {
+    const session = this.ctx.session;
+    if (!session) return;
+    session.foundEggs.length = 0;
+    this.syncSave();
+    this.ctx.persist();
   }
 
   /**

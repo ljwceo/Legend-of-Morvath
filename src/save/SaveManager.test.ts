@@ -226,6 +226,20 @@ describe('migrate', () => {
     expect(result.save.character?.spells).toEqual(['fireball']);
   });
 
+  it('upgrades a version 12 save: no eggs found yet; the rest stays', () => {
+    const current = sampleSave();
+    const v12: Record<string, unknown> = { ...current, version: 12 };
+    delete v12.foundEggs;
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v12));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.foundEggs).toEqual([]);
+    expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
+  });
+
   it('upgrades a version 10 save: the default on-screen buttons; the other settings stay', () => {
     const current = sampleSave();
     const settings: Record<string, unknown> = { ...current.settings, volume: 0.4 };

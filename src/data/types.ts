@@ -46,3 +46,4 @@ export type { Condition, PathCheck, PlayerPath } from './schemas';
 export type QuestObjective = QuestDef['objectives'][number];
 export type ShopDef = NonNullable<NpcDef['shop']>;
 export type TeachDef = NonNullable<NpcDef['teaches']>;
+export type EggResetDef = NonNullable<NpcDef['eggReset']>;

@@ -114,6 +114,7 @@ class CrossChecker {
     this.checkCutscenes();
     this.checkDayNight();
     this.checkNightSpawns();
+    this.checkEggs();
   }
 
   /** Day and night: a look per phase, the golden hour look, known colors and text keys. */
@@ -495,6 +496,24 @@ class CrossChecker {
         }
       }
 
+      const eggReset = npc.eggReset;
+      if (eggReset) {
+        const ep = `${p}.eggReset`;
+        this.ref('condition', f, `${ep}.when`, eggReset.when);
+        eggReset.offer.forEach((key, l) => this.text(f, `${ep}.offer[${l}]`, key));
+        this.text(f, `${ep}.question`, eggReset.question);
+        this.text(f, `${ep}.confirm`, eggReset.confirm);
+        eggReset.accepted.forEach((key, l) => this.text(f, `${ep}.accepted[${l}]`, key));
+        eggReset.declined.forEach((key, l) => this.text(f, `${ep}.declined[${l}]`, key));
+        if (npc.interaction !== 'talk') {
+          this.issue(f, ep, 'handing in an egg needs an NPC you can talk to');
+        }
+        const eggs = this.data.items.items.filter((item) => item.type === 'egg').length;
+        if (eggs < eggReset.cost) {
+          this.issue(f, `${ep}.cost`, `only ${eggs} eggs exist in items.json`);
+        }
+      }
+
       npc.shop?.items.forEach((entry, e) => {
         this.ref('item', f, `${p}.shop.items[${e}].item`, entry.item);
         if (entry.item === 'gold') this.issue(f, `${p}.shop.items[${e}].item`, 'gold is not sold');
@@ -762,6 +781,7 @@ class CrossChecker {
           this.issue(f, `${p}.ai.aggroRadius`, 'only a neutral monster may have 0');
         }
       }
+      this.ref('item', f, `${p}.egg`, monster.egg);
       monster.safeAreas?.forEach((area, a) => this.ref('area', f, `${p}.safeAreas[${a}]`, area));
       if (monster.groupSize)
         this.range(f, `${p}.groupSize`, monster.groupSize.min, monster.groupSize.max);
@@ -816,6 +836,44 @@ class CrossChecker {
         }
         if (!monster.attacks?.length) this.issue(f, `${p}.attacks`, 'a boss needs attacks');
       }
+    });
+  }
+
+  /**
+   * Eggs (fase 3.9): every egg belongs to exactly one mini-boss or boss, an egg carrier that is
+   * not a boss stands somewhere in the world (otherwise its egg can never be found), and every
+   * egg in items.json is carried by somebody.
+   */
+  private checkEggs(): void {
+    const f = 'monsters';
+    const carriers = new Map<string, number>();
+    const spawned = new Set<string>();
+    for (const zone of this.data.zones.zones) {
+      for (const spawn of zone.spawns ?? []) spawned.add(spawn.monster);
+      for (const area of zone.spawnAreas ?? []) spawned.add(area.monster);
+    }
+    this.data.monsters.monsters.forEach((monster, i) => {
+      const egg = monster.egg;
+      if (!egg) return;
+      const p = `monsters[${i}]`;
+      const item = this.data.items.items.find((entry) => entry.id === egg);
+      if (item && item.type !== 'egg') {
+        this.issue(f, `${p}.egg`, `"${egg}" is not an item of type "egg"`);
+      }
+      if (!monster.rank) this.issue(f, `${p}.rank`, 'only a mini-boss or boss carries an egg');
+      if (!monster.boss && !spawned.has(monster.id)) {
+        this.issue(f, `${p}.egg`, `nothing spawns "${monster.id}", so its egg can never be found`);
+      }
+      const other = carriers.get(egg);
+      if (other !== undefined) {
+        this.issue(f, `${p}.egg`, `"${egg}" is already carried by monsters[${other}]`);
+      } else {
+        carriers.set(egg, i);
+      }
+    });
+    this.data.items.items.forEach((item, i) => {
+      if (item.type !== 'egg' || carriers.has(item.id)) return;
+      this.issue('items', `items[${i}]`, `no monster carries the egg "${item.id}"`);
     });
   }
 

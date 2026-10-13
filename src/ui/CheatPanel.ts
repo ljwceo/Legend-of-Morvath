@@ -44,6 +44,12 @@ export interface CheatPanelHandlers {
   setPath(path: PlayerPath | null): void;
   /** Hands in the three Entrance Exams of your own path at once (fase 3.8): the gate opens. */
   skipExams(): void;
+  /** Eggs found so far, and how many there are in the whole game (fase 3.9). */
+  eggs(): { found: number; total: number };
+  /** Puts one egg that is still out there in your bag (testing Sultan's offer). */
+  giveEgg(): void;
+  /** Forgets which eggs were found, so the mini-bosses give theirs again. */
+  forgetEggs(): void;
 }
 
 type SaveTool = 'none' | 'export' | 'import';
@@ -352,6 +358,22 @@ export class CheatPanel {
             this.rebuild();
           }),
         ),
+      ),
+      section(
+        t('cheats.eggs'),
+        el(
+          'div',
+          { className: 'ui-chips' },
+          chip(t('cheats.eggGive'), false, () => {
+            this.handlers.giveEgg();
+            this.rebuild();
+          }),
+          chip(t('cheats.eggForget'), false, () => {
+            this.handlers.forgetEggs();
+            this.rebuild();
+          }),
+        ),
+        el('p', { className: 'ui-note', text: t('cheats.eggsFound', this.handlers.eggs()) }),
       ),
       section(
         t('cheats.chunkLines'),

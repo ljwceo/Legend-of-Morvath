@@ -388,6 +388,7 @@ Definition of Done:
 - [ ] 60/120 fps gelijk; tests (exams, perks, kristal in de save, poortvoorwaarde) en de DataValidator slagen.
 
 ### Fase 3.9 – Eieren, mini-bosses en opnieuw verdelen
+Status: gebouwd op 2026-10-13 (tien mini-bosses met elk eenmalig een ei, het ei van Sultan uit zijn baasgevecht, inleveren bij Sultan om al je punten opnieuw te verdelen, save 13); wacht op spelen door Bo en Lucas. Details in `docs/PROGRESS.md`.
 Doel: ik vind eieren bij mini-bosses en lever er één in bij Sultan om mijn hele build opnieuw te verdelen.
 Bouwen: **10 vindbare eieren**, elk eenmalig bij een **mini-boss** op een vaste plek (data: plek, mini-boss, ei; eenmalig, dus in de save), plus het **ei van Sultan** uit het baasgevecht; eieren wegen niets en zijn niet te gebruiken, alleen in te leveren; **Sultan na zijn gevecht** (hij staat al bij de oostmuur): praat je met een ei in je tas, dan vraagt hij "Alles opnieuw verdelen? Dat kost één ei." met Ja/Nee en nog één keer bevestigen; hij geeft **al je punten vrij** (level, pad, gear en quests blijven) en je verdeelt ze opnieuw in hetzelfde venster als in de character creator; event `statsReset`.
 Data: `items.json` (eieren), `monsters.json` (mini-bosses), `zones.json` (hun plekken), `npcs.json` (Sultan als inleverpunt), `lang/*.json`, save versie +1 (welke eieren gevonden zijn).

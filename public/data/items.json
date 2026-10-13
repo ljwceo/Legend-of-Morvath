@@ -508,6 +508,94 @@
       "rarity": "common",
       "tradeable": true,
       "season": "spring"
+    },
+    {
+      "id": "mossback_egg",
+      "name": "Mossback Egg",
+      "type": "egg",
+      "rarity": "epic",
+      "tradeable": false,
+      "description": "item.mossback_egg.desc"
+    },
+    {
+      "id": "rootgnarl_egg",
+      "name": "Rootgnarl Egg",
+      "type": "egg",
+      "rarity": "epic",
+      "tradeable": false,
+      "description": "item.rootgnarl_egg.desc"
+    },
+    {
+      "id": "fenstalker_egg",
+      "name": "Fenstalker Egg",
+      "type": "egg",
+      "rarity": "epic",
+      "tradeable": false,
+      "description": "item.fenstalker_egg.desc"
+    },
+    {
+      "id": "bogmaw_egg",
+      "name": "Bogmaw Egg",
+      "type": "egg",
+      "rarity": "epic",
+      "tradeable": false,
+      "description": "item.bogmaw_egg.desc"
+    },
+    {
+      "id": "hoarfrost_egg",
+      "name": "Hoarfrost Egg",
+      "type": "egg",
+      "rarity": "epic",
+      "tradeable": false,
+      "description": "item.hoarfrost_egg.desc"
+    },
+    {
+      "id": "whisperer_egg",
+      "name": "Whisperer Egg",
+      "type": "egg",
+      "rarity": "epic",
+      "tradeable": false,
+      "description": "item.whisperer_egg.desc"
+    },
+    {
+      "id": "sentinel_egg",
+      "name": "Sentinel Egg",
+      "type": "egg",
+      "rarity": "epic",
+      "tradeable": false,
+      "description": "item.sentinel_egg.desc"
+    },
+    {
+      "id": "stonejaw_egg",
+      "name": "Stonejaw Egg",
+      "type": "egg",
+      "rarity": "epic",
+      "tradeable": false,
+      "description": "item.stonejaw_egg.desc"
+    },
+    {
+      "id": "windlash_egg",
+      "name": "Windlash Egg",
+      "type": "egg",
+      "rarity": "epic",
+      "tradeable": false,
+      "description": "item.windlash_egg.desc"
+    },
+    {
+      "id": "blightborn_egg",
+      "name": "Blightborn Egg",
+      "type": "egg",
+      "rarity": "epic",
+      "tradeable": false,
+      "description": "item.blightborn_egg.desc"
+    },
+    {
+      "id": "sultan_egg",
+      "name": "Sultan's Egg",
+      "type": "egg",
+      "rarity": "legendary",
+      "tradeable": false,
+      "description": "item.sultan_egg.desc"
     }
   ]
 }

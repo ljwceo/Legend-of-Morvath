@@ -344,7 +344,16 @@
       "behavior": "static",
       "heading": 270,
       "presentWhen": "sultanDefeated",
-      "dialogue": ["npc.sultan.1", "npc.sultan.2", "npc.sultan.3"]
+      "dialogue": ["npc.sultan.1", "npc.sultan.2", "npc.sultan.3", "npc.sultan.4"],
+      "eggReset": {
+        "when": "sultanDefeated",
+        "cost": 1,
+        "offer": ["npc.sultan.reset.1", "npc.sultan.reset.2"],
+        "question": "npc.sultan.reset.question",
+        "confirm": "npc.sultan.reset.confirm",
+        "accepted": ["npc.sultan.reset.accepted"],
+        "declined": ["npc.sultan.reset.declined"]
+      }
     },
     {
       "id": "biscuit",

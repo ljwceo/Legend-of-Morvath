@@ -437,6 +437,23 @@ const npcSchema = z.strictObject({
       declined: atLeast(z.array(textKey)),
     }),
   ),
+  /**
+   * Handing in an egg (fase 3.9): while `when` holds and you carry at least `cost` eggs,
+   * talking ends with "Spread everything again? That costs one egg." Yes asks `confirm` once
+   * more, then every point you ever spent comes free and you divide them again.
+   */
+  eggReset: optional(
+    z.strictObject({
+      when: name,
+      /** Eggs one reset costs (the concept: one). */
+      cost: intRange(1, 10),
+      offer: atLeast(z.array(textKey)),
+      question: textKey,
+      confirm: textKey,
+      accepted: atLeast(z.array(textKey)),
+      declined: atLeast(z.array(textKey)),
+    }),
+  ),
   /** A pack animal (Biscuit): carries up to `maxKg` of your gear (interaction "pack"). */
   pack: optional(z.strictObject({ maxKg: range(1, 10_000) })),
   /** A simple shop that opens after talking (Marco): items and their price in gold. */
@@ -891,6 +908,12 @@ const monsterSchema = z.strictObject({
   resetSeconds: optional(max(positive, 600)),
   range: optional(positive),
   rank: optional(z.enum(['miniboss', 'boss'])),
+  /**
+   * The egg (items.json, type "egg") this mini-boss or boss carries. You get it the first time
+   * you beat it and never again: `foundEggs` in the save remembers it. Hand one to Sultan to
+   * divide all your stat points again (fase 3.9).
+   */
+  egg: optional(id),
   neutral: optional(z.boolean()),
   groupSize: optional(z.strictObject({ min: posInt, max: posInt })),
   splitsInto: optional(z.strictObject({ monster: id, count: posInt })),
@@ -942,7 +965,18 @@ export const monstersFileSchema = z.strictObject({
 const itemSchema = z.strictObject({
   id,
   name,
-  type: z.enum(['currency', 'weapon', 'armor', 'crystal', 'potion', 'recipe', 'resource', 'quest']),
+  type: z.enum([
+    'currency',
+    'weapon',
+    'armor',
+    'crystal',
+    'potion',
+    'recipe',
+    'resource',
+    'quest',
+    /** An egg from a mini-boss: weighs nothing, cannot be used, only handed to Sultan. */
+    'egg',
+  ]),
   slot: optional(z.enum(['hat', 'mantle', 'amulet', 'ring'])),
   rarity: id,
   tradeable: z.boolean(),
