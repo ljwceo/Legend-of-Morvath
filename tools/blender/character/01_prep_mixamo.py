@@ -1,8 +1,8 @@
 # Phase A, chat 1: the body of the starting character, ready for Mixamo's auto-rigger.
 # Two ways to run it (the .blend is never saved; the scene is left as it was):
-# - In Blender: open Greyhaven.blend, Scripting tab, open (or paste) this script, press Run.
-# - Headless: blender -b Greyhaven.blend --python 01_prep_mixamo.py -- <OUT folder>
-# <OUT folder> defaults to a folder "Mixamo" next to Greyhaven.blend.
+# - In Blender: open Character.blend, Scripting tab, open (or paste) this script, press Run.
+# - Headless: blender -b Character.blend --python 01_prep_mixamo.py -- <OUT folder>
+# <OUT folder> defaults to a folder "Mixamo" next to the .blend (Character.blend or Greyhaven.blend).
 #
 # - Copies the body of the "StartCharacter" collection (modifiers applied, curves as mesh): the one
 #   mesh "Body" made by 00_build_character.py (already in an A-pose, with edge rings at the joints).

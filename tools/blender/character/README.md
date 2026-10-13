@@ -1,6 +1,8 @@
 # Personage – Blender-scripts (Fase A)
 
-Bron: `Greyhaven.blend` (staat niet in de repo; Bo heeft hem lokaal), collectie `StartCharacter`.
+Bron: **`Character.blend`**, een eigen bestand alleen voor het personage (besluit Bo, 2026-10-13),
+collectie `StartCharacter`. Het staat niet in de repo; zet het naast `Greyhaven.blend`. (Het oude
+poppetje staat nog in `Greyhaven.blend`; de scripts werken ook daar.)
 `00_build_character.py` verandert de scène (daarna zelf opslaan); `01_prep_mixamo.py` laat de scène
 zoals hij was en slaat het .blend-bestand nooit op.
 
@@ -11,7 +13,7 @@ zoals hij was en slaat het .blend-bestand nooit op.
 | `02_import_mixamo.py` | 2 | (komt nog) Mixamo-rig + animaties terug in Blender, cape-botten, export naar `player.glb` |
 
 **Mixamo-licentie:** de bestanden uit Mixamo (en `body_for_mixamo.fbx`) gaan **nooit** in git.
-Ze staan in de map `Mixamo` naast `Greyhaven.blend` (buiten de repo) of in `art-source/` (in `.gitignore`). Alleen de
+Ze staan in de map `Mixamo` naast `Character.blend` (buiten de repo) of in `art-source/` (in `.gitignore`). Alleen de
 uiteindelijke `public/zones/greyhaven/player.glb` gaat in git.
 
 ---
@@ -24,22 +26,29 @@ Besluit 2026-10-13: eerst de looks, daarna Mixamo. Lengte: **1,70 m** zonder hoe
 
 *(Voorbeeld uit een test-render zonder cel-shading en omlijning; die doet de game.)*
 
-**Draaien in Blender:**
-1. Open `Greyhaven.blend`. Bewaar eerst een kopie van het bestand (voor de zekerheid).
-2. Tabblad **Scripting** → **New** → plak `tools/blender/character/00_build_character.py`
+**Draaien in Blender (in een eigen bestand):**
+1. Open Blender en kies **File → New → General** (een nieuw, leeg bestand).
+2. **Eerst opslaan:** *File → Save As* → `Character.blend`, in dezelfde map als `Greyhaven.blend`.
+   (Opslaan vóór het draaien is nodig: de map `Mixamo` komt naast het bestand.)
+3. Tabblad **Scripting** → **New** → plak `tools/blender/character/00_build_character.py`
    (op GitHub: **Copy raw file**) → klik op **▶** (Run Script). Het duurt een paar seconden.
-3. Er verschijnt een melding met de lengte en het aantal driehoeken. Bij een fout staat de
-   reden in de melding en in `Mixamo\log_build.txt` (naast `Greyhaven.blend`).
-4. Kijk in de Viewport (bijv. numpad 1, 3 en 7). Tevreden? **Opslaan met Ctrl+S.** Niet tevreden?
-   Niet opslaan en het bestand opnieuw openen; dan is alles weer zoals het was.
+   - In een nieuw bestand maakt het script zelf de collectie `StartCharacter` en een empty
+     `Player` in het midden, en haalt het de standaardkubus van Blender weg.
+   - Het personage staat met de voeten op (0, 0, 0) en kijkt naar +Y (in Blender: numpad 1 is
+     de **achterkant**, Ctrl+numpad 1 de voorkant).
+4. Er verschijnt een melding met de lengte en het aantal driehoeken. Bij een fout staat de
+   reden in de melding en in `Mixamo\log_build.txt` (naast `Character.blend`).
+5. Kijk rond. Tevreden? **Opslaan met Ctrl+S.** Niet tevreden? Niet opslaan en het bestand
+   opnieuw openen; dan is alles weer zoals het was.
 
-**Zonder venster:** `blender -b Greyhaven.blend --python tools/blender/character/00_build_character.py -- --save`
+**Zonder venster:** `blender -b Character.blend --python tools/blender/character/00_build_character.py -- --save`
 
 Wat het script doet:
-- Het oude poppetje (losse cilinders en bolletjes) gaat naar de verborgen collectie
-  **`StartCharacter_Old`**, met `_Old` achter elke naam. Niets wordt weggegooid.
-- Het nieuwe personage komt in **`StartCharacter`**, op de plek van de empty `Player` en met dezelfde
-  kijkrichting (en, als de oude stukken aan `Player` hingen, ook aan `Player`).
+- Staat er al een oud poppetje in `StartCharacter` (zoals in `Greyhaven.blend`), dan gaat dat naar
+  de verborgen collectie **`StartCharacter_Old`**, met `_Old` achter elke naam. Niets wordt
+  weggegooid. Het nieuwe personage komt dan op de plek van de empty `Player`, met dezelfde
+  kijkrichting.
+- In een nieuw bestand komt het personage in een nieuwe collectie **`StartCharacter`**, in het midden.
 - **`Body`**: romp, nek, hoofd, armen, handen, benen en laarzen als **één gesloten mesh**, armen in
   A-pose (45°), handen los van het lijf, benen iets uit elkaar, extra ringen bij schouders,
   ellebogen, polsen, heupen, knieën, enkels en langs de rug/buik.
@@ -58,27 +67,28 @@ Let op:
   hand aan veranderd hebt, is dan weg. Het oude poppetje blijft in `StartCharacter_Old`.
 - Wil je iets anders (lengte, hoed, mouwen, ...)? De getallen staan bovenaan en per onderdeel in
   het script (`HEIGHT`, `ARM_ANGLE`, `CLOAK`, ...); zeg het in de chat, dan pas ik het aan.
-- `export_web.py` en de game zijn nog niet aangepast: `player.glb` opnieuw exporteren doen we pas na
-  Chat 2. Tot dan staat in de game het oude poppetje.
+- `export_web.py` en de game zijn nog niet aangepast. In Chat 2 exporteert het nieuwe script
+  `player.glb` rechtstreeks uit `Character.blend`, en gaat het spelerdeel uit `export_web.py`.
+  Tot dan staat in de game het oude poppetje (uit `Greyhaven.blend`).
 
 ---
 
 ## Deel A – `01_prep_mixamo.py` draaien (Chat 1)
 
 **In Blender (makkelijkst):**
-1. Open `Greyhaven.blend` in Blender zoals altijd.
+1. Open `Character.blend` in Blender.
 2. Klik bovenin op het tabblad **Scripting**.
 3. Klik in het tekstvak op **New**.
 4. Open op GitHub `tools/blender/character/01_prep_mixamo.py`, klik rechtsboven op **Copy raw file**
    (het icoontje met de twee blaadjes) en plak het in Blender (Ctrl+V).
 5. Klik op **▶** (Run Script). Na een paar seconden is hij klaar.
-6. Naast `Greyhaven.blend` staat nu een map **`Mixamo`** met `body_for_mixamo.fbx`.
+6. Naast `Character.blend` staat nu een map **`Mixamo`** met `body_for_mixamo.fbx`.
 
 Het script verandert niets aan je scène. Opslaan hoeft niet, maar het kan ook geen kwaad.
 Gaat er iets mis? Kijk in *Window → Toggle System Console* of stuur `Mixamo\log_prep.txt`.
 
 **Zonder venster (voor wie dat wil):**
-`blender -b Greyhaven.blend --python tools/blender/character/01_prep_mixamo.py -- <uitvoermap>`
+`blender -b Character.blend --python tools/blender/character/01_prep_mixamo.py -- <uitvoermap>`
 
 Wat het script doet:
 - Kopieert het lijf `Body` (gemaakt door `00_build_character.py`; al in A-pose en met ringen).
@@ -137,7 +147,7 @@ Je ziet één poppetje zonder hoed/haar/cape/gezicht, armen schuin naar beneden,
 | `Interact` | Button Pushing, Picking Up |
 
    Kies gerust op gevoel; Chat 2 kan clips inkorten, knippen en de horizontale beweging eruit halen.
-6. Zet alles in de map `Mixamo` naast `Greyhaven.blend`, bijvoorbeeld:
+6. Zet alles in de map `Mixamo` naast `Character.blend`, bijvoorbeeld:
    ```
    Mixamo\body_rigged.fbx
    Mixamo\Idle.fbx

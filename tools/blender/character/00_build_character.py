@@ -1,8 +1,11 @@
-# Phase A, prep: the real starting character, built from code in Greyhaven.blend.
-# Two ways to run it:
-# - In Blender: open Greyhaven.blend, Scripting tab, open (or paste) this script, press Run.
-#   Then save the .blend (Ctrl+S) to keep the new character.
-# - Headless: blender -b Greyhaven.blend --python 00_build_character.py -- --save
+# Phase A, prep: the real starting character, built from code in its own file Character.blend
+# (it also works in Greyhaven.blend). Two ways to run it:
+# - In Blender: open (or make and save) Character.blend, Scripting tab, open (or paste) this
+#   script, press Run. Then save the .blend (Ctrl+S) to keep the new character.
+# - Headless: blender -b Character.blend --python 00_build_character.py -- --save
+#
+# - In a file without a "StartCharacter" collection (a new, empty file) the script makes it, with
+#   an empty "Player" at the origin: the figure stands with its feet at (0, 0, 0), facing +Y.
 #
 # - A young wandering mage in 90s anime fantasy style (docs/art-style): anime proportions but not
 #   chibi, a long mantle and a pointed wizard hat with a wide brim. Flat colours only; the game
@@ -685,8 +688,26 @@ def main():
         bpy.ops.object.mode_set(mode='OBJECT')
     src = bpy.data.collections.get(SRC)
     if src is None:
-        raise RuntimeError('No collection "%s" in this file' % SRC)
+        # a file of its own: the figure stands at the origin, facing +Y like in the game files
+        src = bpy.data.collections.new(SRC)
+        bpy.context.scene.collection.children.link(src)
+        P('made collection', SRC)
+        cube = bpy.data.objects.get('Cube')
+        if (cube and cube.type == 'MESH' and len(cube.data.vertices) == 8
+                and cube.matrix_world.translation.length < 1e-6):
+            # Blender's start-up cube would stand right through the figure
+            me = cube.data
+            bpy.data.objects.remove(cube)
+            if me.users == 0:
+                bpy.data.meshes.remove(me)
+            P('removed the start-up Cube')
     player = bpy.data.objects.get('Player')
+    if player is None:
+        player = bpy.data.objects.new('Player', None)
+        player.empty_display_type = 'PLAIN_AXES'
+        player.empty_display_size = 0.3
+        src.objects.link(player)
+        P('made empty Player at the origin')
 
     # ---------- where and which way the figure stands ----------
     old = [o for o in src.all_objects if o.type in ('MESH', 'CURVE') and not o.get(TAG)]
