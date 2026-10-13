@@ -293,6 +293,15 @@ describe('the elemental slimes against the real fight code', () => {
     expect(weakenFactor(0)).toBe(1);
   });
 
+  it('is never a training dummy you lock on to while a wave is on you', () => {
+    // The dummies stand in the middle of the Academy field, where the drill happens.
+    const dummy = new Fight('training_dummy').monster;
+    const slime = new Fight('green_slime').monster;
+    expect(dummy.hittable).toBe(true);
+    expect(dummy.lockable).toBe(false);
+    expect(slime.lockable).toBe(true);
+  });
+
   it('a Wind slime jumps higher and further than a normal slime', () => {
     const wind = monster('wind_slime').ai;
     const green = monster('green_slime').ai;
