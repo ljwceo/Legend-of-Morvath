@@ -145,6 +145,54 @@ Bo maakte Pringle in Blender (`Sultan_kat.blend`, buiten de repo): eigen skelet 
 
 ---
 
+## Stap D – Deuren die meezwaaien · **open** (vier chats van ±30 min; prompts in `docs/prompts/STAP-D-DEUREN.md`)
+
+Doel: de deuren van het klooster (hal → kloostergang, hal → tuin, het kerkportaal) zijn nu dichte
+meshes waar je dankzij `scene.openings` doorheen loopt, maar ze doen verder niets. Ze worden echte
+draaideuren: loop je ertegenaan, dan zwaait de deur van je af open (om een scharnier) en valt hij
+daarna rustig weer dicht. De fysica is een los, herbruikbaar systeem dat niets van deuren, Three.js,
+Blender of de speler weet, zodat Pringle, NPC's, kisten, luiken en poorten er later zonder nieuwe
+code aan kunnen. Vier stappen van elk ±30 minuten; de eisen hieronder gelden voor alle vier.
+
+**Eisen (gelden voor D.1 t/m D.4)**
+- Fysica in `src/systems/HingedBodies.ts`: kent alleen een scharnierpunt op de grond (x, z), een
+  lijnstuk met een lengte dat om dat scharnier draait (hoek 0 = dicht), een aanslag per kant, en een
+  lijst duwers (cirkels: x, z, straal). Per vaste tijdstap (60 Hz): raakt een cirkel het lijnstuk, dan
+  duwt hij het van zich af (hoeksnelheid uit de overlap); zonder duwer veert het lijnstuk gedempt
+  terug naar dicht. Geen allocaties per stap; pure functies (`segmentAt`, `pushFromCircle`, `step`).
+- Aanslagen per kant (`left` / `right`, 0 = die kant nooit). Raakt de hoek een aanslag: hard afkappen
+  én hoeksnelheid op 0 (geen terugstuiter, nooit door de muur). Maximale hoeksnelheid in `settings`,
+  zodat een dash de deur niet lanceert; de duwkracht en de snelheid worden daarop afgekapt.
+- Duwers worden per **substap** van hun beweging tegen het lijnstuk gehouden (de speler beweegt in
+  `SceneZone.moveCircle` al in stukjes van 0,2 m), zodat een dash die in één stap door de deur gaat
+  toch duwt in plaats van de deur over te slaan.
+- Alles in data: `zones.json` → `scene.doors`, per deur `id`, `hinge` (x, z, wereld), `tip` (vrije
+  uiteinde van de dichte deur, x, z), `box` (zelfde vorm als een `opening`: de ruimte met de
+  deurdriehoeken), `openDegrees: { left, right }` (gezien vanaf het scharnier, kijkend naar de tip;
+  neem 5–10° minder dan de muur toelaat). Gedeelde getallen (veerkracht, demping, duwsterkte,
+  maximale hoeksnelheid) in `scene.doorSettings`. Nooit getallen in code.
+- Uiterlijk uit de bestaande `greyhaven.glb`, geen nieuwe Blender-export: `SceneZone` knipt de
+  driehoeken binnen `box` uit de statische meshes (`filterGeometry`, zoals voor `openings` en de
+  instances) in een eigen `Group` per deur met het scharnier als oorsprong; `rotation.y` = de hoek,
+  elke frame geïnterpoleerd tussen de vorige en de huidige stap. De deurdriehoeken blijven buiten de
+  botsings-BVH (de deur is passeerbaar, bewust); de `box` van een deur neemt de rol van de `opening`
+  over, `openings` blijft voor deuropeningen zonder deur.
+- Harde eisen uit `CLAUDE.md`: vaste tijdstap, geen allocaties in de loop, op Low/Mid/High precies
+  dezelfde zwaai, geen hexcodes of UI-tekst in code (er is geen tekst nodig).
+- Niet in deze stap: deuren op slot, deuren die blokkeren, geluid, NPC's als duwers. Wel de basis zo
+  dat dat later alleen data en een extra duwer is.
+- Risico's om in elk plan te noemen: een te ruime `box` knipt kozijn mee (dan draait het kozijn mee);
+  de scharnierkant en de aanslagen zijn aannames tot Bo ze in Blender nakijkt; aanslagen komen uit
+  data, dus verplaats je een deur in Blender, dan moeten `box`, `hinge`, `tip` en `openDegrees` mee
+  (automatisch de vrije hoek uit de BVH halen is een latere verbetering).
+
+- [ ] **D.1 Fysica-module met tests** — `src/systems/HingedBodies.ts` plus `HingedBodies.test.ts`, nog niets aan de game gekoppeld. _Klaar als:_ tests slagen voor: een cirkel die van de ene kant door het lijnstuk loopt duwt het de andere kant op, en andersom; zonder duwer gaat de hoek terug naar 0 en blijft daar; nooit boven een aanslag; een kant met aanslag 0 beweegt die kant nooit op; een cirkel precies op het scharnier geeft geen sprong; een cirkel met dash-snelheid (uit `player.json`) laat de hoek nooit boven de aanslag komen en de deur komt daarna tot rust; 600 stappen van 1/60 s geven hetzelfde als dezelfde 600 stappen in twee reeksen. `npm run lint`, `typecheck` en `test` groen.
+- [ ] **D.2 Data, schema en validator** — `scene.doors` en `scene.doorSettings` in `zones.json` met de drie kloosterdeuren, schema in `src/data/schemas.ts`, DataValidator-regels (`box` bevat `hinge` én `tip`, `box` is niet leeg, minstens één kant van `openDegrees` is groter dan 0) met tests. De scharnierpunten en vrije kanten uit Blender (`docs/MONASTERY.md` noemt de objecten en de z-waarden van de openingen) en nagemeten in de game met `?debug=1` (de debugregel `chunks` toont je positie in Blender-coördinaten). _Klaar als:_ de validator slaagt op de echte data en faalt op elke fout uit de regels hierboven; in `docs/PROGRESS.md` staat per deur welke kant het scharnier zit en hoeveel graden vrij, als aanname voor Bo.
+- [ ] **D.3 Deuren knippen en tekenen** — `SceneZone` maakt per deur een `Group` uit de driehoeken in `box`, met het scharnier als oorsprong; de `box` werkt als `opening` voor de botsingsmesh; een cheat in het cheatmenu (F6) zet alle deuren op een vaste hoek, zodat je zonder fysica kunt zien dat ze om de goede hoek draaien en niets van het kozijn meedraait. _Klaar als:_ met de cheat draaien alle drie de deuren om hun scharnier, niets anders beweegt mee, draw calls stijgen met hooguit het aantal deuren × hun materialen, en geometrieën en textures gaan bij verlaten weer terug (`node scripts/mem-check.mjs --only instances --instance brink_tower --cycles 2`).
+- [ ] **D.4 Koppelen aan de speler** — `WorldState` voert de speler (en zijn dash-substappen) als duwer aan `HingedBodies`, zet elke stap de hoeken en tekent ze geïnterpoleerd; de cheat uit D.3 blijft. `docs/ARCHITECTURE.md` krijgt een stukje over deuren. _Klaar als:_ alle drie de kloosterdeuren zwaaien van je af open als je erdoorheen loopt (van beide kanten), vallen weer dicht, gaan bij een dash niet door de muur, en `?fps=30` en `?fps=120` geven dezelfde zwaai; fps en draw calls op Low, Mid en High zijn gelijk aan voor de stap (getallen in `docs/PROGRESS.md`).
+
+---
+
 ## Fase A – Personage-animaties (Mixamo + eigen cape)
 
 Doel: de speler krijgt vloeiende animaties (idle, lopen, rennen, sprinten, springen, dash, zwaard, spreuken, geraakt, dood, interactie) plus een cape die vanzelf wappert.
