@@ -76,7 +76,7 @@ export function createSharedLightUniforms(): SharedLightUniforms {
 }
 
 /** What a toon material draws. */
-export type ToonMode = 'lit' | 'triplanar' | 'terrain' | 'glow' | 'water' | 'foliage';
+export type ToonMode = 'lit' | 'triplanar' | 'terrain' | 'glow' | 'water' | 'foliage' | 'textured';
 
 const MODE_NUMBER: Record<ToonMode, number> = {
   lit: 0,
@@ -85,6 +85,7 @@ const MODE_NUMBER: Record<ToonMode, number> = {
   glow: 3,
   water: 4,
   foliage: 5,
+  textured: 6,
 };
 
 export interface ToonOptions {
@@ -92,7 +93,10 @@ export interface ToonOptions {
   /** Base color (linear), for `lit` and `glow`. */
   color?: Color | undefined;
   map?: Texture | null | undefined;
-  /** Triplanar: texture repeats per meter. Foliage: the cut-out card texture (with alpha). */
+  /**
+   * Triplanar: texture repeats per meter. Foliage: the cut-out card texture (with alpha).
+   * Textured: the model's own UV texture (a glTF character).
+   */
   scale?: number | undefined;
   /** Triplanar: gamma applied to the texture (as Blender's GH_TriCoord material does). */
   gamma?: number | undefined;
@@ -117,12 +121,23 @@ const VERT = /* glsl */ `
     uniform float time;
     varying vec2 vUv;
   #endif
+  #if MODE == 6
+    varying vec2 vUv;
+  #endif
+  // Skinned meshes (animated characters) bend with their bones. Three.js defines USE_SKINNING
+  // only for a SkinnedMesh, so static meshes compile without any of this (no extra cost).
+  #include <skinning_pars_vertex>
   void main() {
+    vec3 transformed = vec3(position);
+    vec3 objectNormal = vec3(normal);
+    #include <skinbase_vertex>
+    #include <skinnormal_vertex>
+    #include <skinning_vertex>
     mat4 m = modelMatrix;
     #ifdef USE_INSTANCING
       m = m * instanceMatrix;
     #endif
-    vec4 wp = m * vec4(position, 1.0);
+    vec4 wp = m * vec4(transformed, 1.0);
     #if MODE == 5
       // glTF flips v; the textures are loaded the normal way up.
       vUv = vec2(uv.x, 1.0 - uv.y);
@@ -130,9 +145,13 @@ const VERT = /* glsl */ `
       float sway = sin(time * 1.7 + wp.x * 0.31 + wp.z * 0.23) + 0.5 * sin(time * 2.9 + wp.z * 0.7);
       wp.xz += vec2(0.035, 0.02) * sway * clamp(uv.y, 0.0, 1.0);
     #endif
+    #if MODE == 6
+      // glTF textures are loaded unflipped (GLTFLoader), so the UVs are used as they are.
+      vUv = uv;
+    #endif
     vWPos = wp.xyz;
     vLPos = wp.xyz - localOffset;
-    vWNormal = normalize(mat3(m) * normal);
+    vWNormal = normalize(mat3(m) * objectNormal);
     gl_Position = projectionMatrix * viewMatrix * wp;
   }
 `;
@@ -156,7 +175,7 @@ const FRAG = /* glsl */ `
   varying vec3 vWPos;
   varying vec3 vLPos;
   varying vec3 vWNormal;
-  #if MODE == 5
+  #if MODE == 5 || MODE == 6
     varying vec2 vUv;
   #endif
 
@@ -187,6 +206,9 @@ const FRAG = /* glsl */ `
       vec4 t = texture2D(map, vUv);
       if (t.a < 0.5) discard;
       base = t.rgb * tint;
+    #elif MODE == 6
+      // A character's painted texture (fur, cloth), lit with the same two-tone light.
+      base = texture2D(map, vUv).rgb * tint;
     #endif
     if (vary > 0.0) base *= 1.0 - vary + 2.0 * vary * hash(vLPos * 0.6);
 

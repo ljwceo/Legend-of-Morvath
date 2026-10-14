@@ -44,6 +44,8 @@ export class NpcRenderer {
   private readonly batches: Batch[] = [];
   private readonly matrix = new Matrix4();
   private readonly heights = new Map<Npc, number>();
+  /** NPCs drawn by their real animated model now (AnimatedNpcs); skipped here. */
+  private readonly elsewhere = new Set<Npc>();
   private readonly npcs: readonly Npc[];
   private readonly markerMaterial = new MeshBasicMaterial();
   private readonly markers: InstancedMesh;
@@ -97,6 +99,15 @@ export class NpcRenderer {
     }
   }
 
+  /**
+   * The NPC's real model has loaded (AnimatedNpcs): its placeholder stops drawing, and the icon
+   * and quest marker float above the real model's head.
+   */
+  drawElsewhere(npc: Npc, height: number): void {
+    this.elsewhere.add(npc);
+    this.heights.set(npc, height);
+  }
+
   /** Top of the NPC's head (m above its feet), for the interaction icon. */
   heightOf(npc: Npc): number {
     return this.heights.get(npc) ?? 1.8;
@@ -136,7 +147,7 @@ export class NpcRenderer {
       let count = 0;
       for (let i = 0; i < batch.npcs.length; i++) {
         const npc = batch.npcs[i] as Npc;
-        if (!npc.shown) continue;
+        if (!npc.shown || this.elsewhere.has(npc)) continue;
         const hop = npc.hop > 0 ? Math.sin((1 - npc.hop / hopSeconds) * Math.PI) * HOP_HEIGHT : 0;
         m.makeRotationY(npc.drawHeading(alpha));
         m.setPosition(npc.drawX(alpha), npc.drawY(alpha) + hop, npc.drawZ(alpha));
@@ -172,6 +183,7 @@ export class NpcRenderer {
     }
     this.batches.length = 0;
     this.heights.clear();
+    this.elsewhere.clear();
     this.material.dispose();
     this.markers.removeFromParent();
     this.markers.geometry.dispose();

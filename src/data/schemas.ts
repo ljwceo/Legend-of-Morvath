@@ -525,6 +525,31 @@ export const npcsFileSchema = z.strictObject({
       model: name,
       /** Collision radius (m) against the player; 0 = the player walks through. */
       radius: max(nonNegative, 10),
+      /**
+       * A real animated model (glTF from Blender), drawn instead of the placeholder once it has
+       * loaded (the placeholder shows meanwhile, and stays if loading fails). Drawing only: the
+       * clips follow how fast the NPC really moves, they never move it.
+       */
+      animated: optional(
+        z.strictObject({
+          /** Path in public/, e.g. "characters/pringle/pringle.glb". */
+          file: z.string().check(z.regex(/^[a-z0-9_/-]+\.glb$/, 'expected a .glb path in public/')),
+          /** Top of the head (m above the feet), for the interaction icon and quest marker. */
+          height: max(positive, 10),
+          /** Clip names in the .glb. */
+          clips: z.strictObject({ idle: name, walk: name, run: name }),
+          /** Speed (m/s) at which the walk clip's feet do not slide; it speeds up or slows down around it. */
+          walkSpeed: max(positive, 20),
+          /** Same for the run clip. */
+          runSpeed: max(positive, 30),
+          /** Faster than this (m/s): run, slower: walk (with a little margin against flicker). */
+          runAbove: max(positive, 30),
+          /** Slower than this (m/s): idle. */
+          idleBelow: max(positive, 5),
+          /** Crossfade between clips (s). */
+          fadeSeconds: max(nonNegative, 2),
+        }),
+      ),
     }),
   ),
   npcs: z.array(npcSchema),

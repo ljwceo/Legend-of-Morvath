@@ -132,6 +132,17 @@ Doel: fase 3 is af, gemeten en opgeschreven. Alleen bestaande getallen bijschave
 
 ---
 
+## Extra – Pringle als echt model met animaties · **gebouwd** (2026-10-14)
+
+Bo maakte Pringle in Blender (`Sultan_kat.blend`, buiten de repo): eigen skelet en de clips Idle, Walk en Run. Een geanimeerd NPC-model is nu alleen data (`npcs.json` → `roles` → `animated`) plus een `.glb`.
+
+- [x] **D.1 Pringle in de game** — `public/characters/pringle/pringle.glb`, `src/render/AnimatedNpcs.ts` (laadt met de zone, placeholder blijft tot het model er is, clipkeuze uit de echt gemeten snelheid met marge en crossfade), skinning + `textured` in `ToonMaterial`, debugregel `npcs` toont de clip. _Klaar als:_ de voeten glijden niet op slenteren (1,1 m/s) en meedraven (4,8 m/s), en de animatie stuurt nooit de simulatie (gelijk op 60 en 120 fps).
+- [ ] **D.2 Spelen en meten (Bo/Lucas)** — Pringle in Greyhaven bekijken en de fps meten. _Klaar als:_ Bo zegt of het loopt zoals het moet en de fps staat in `docs/PROGRESS.md`.
+- [ ] **D.3 glTF-actors in de cutscenes** — `CinematicStage` kan nog geen glTF-actors tekenen, dus de cutscenes gebruiken nog `placeholder:cat`; `Head_Shake` en `Sit` voor de eindscène bestaan nog niet in Blender. _Klaar als:_ Pringle speelt in de cutscenes met zijn echte model (hoort bij stap C.5).
+- [ ] **D.4 Sultan in mensvorm** — eigen chat, met een skelet dat de andere mensen later delen; tot dan blijft de placeholder bij de poort staan. _Klaar als:_ Sultan staat als mens bij de poort met zijn eigen clips.
+
+---
+
 ## Fase A – Personage-animaties (Mixamo + eigen cape)
 
 Doel: de speler krijgt vloeiende animaties (idle, lopen, rennen, sprinten, springen, dash, zwaard, spreuken, geraakt, dood, interactie) plus een cape die vanzelf wappert.
@@ -153,7 +164,7 @@ Doel: de speler krijgt vloeiende animaties (idle, lopen, rennen, sprinten, sprin
 - [ ] **A.2a Mixamo terug in Blender: rig en clips** — `02_import_mixamo.py`: importeren, schaal ×0,01, `mixamorig:Hips` → `Hips`, elke animatie één Action met de juiste clipnaam, horizontale `Hips`-beweging eruit, clips inkorten (`Dash` 0,18–0,25 s, `Heavy_Windup` past bij 0,9 s, `Cast_Gather` als nette lus). _Klaar als:_ elke clip speelt in Blender zonder wegglijden.
 - [ ] **A.2b Hoed, haar, zwaard en cape** — Hair/Hat/Hat*Band/Hat_Brim stijf aan `Head`, `Sword**`stijf aan`RightHand` (controleer welke arm het zwaard heeft!), cape terug + 3 kettingen van 3 botten (`Cape_L/M/R 1-3`) aan `Spine2` met weights, cape-botten in geen enkele clip. *Klaar als:\* hoed, haar en zwaard bewegen mee en de cape gaat mee met het lijf.
 - [ ] **A.2c Export + check** — `export_web.py` (speler-deel): `export_animations=True`, armature + skin mee, geen `export_apply` op de armature, Draco uit als hij met skin stukloopt. Checkscript print botten, driehoeken (≤ 30.000), clips met duur en bestandsgrootte (≤ 2 MB). _Klaar als:_ `player.glb` heeft skelet + skin + alle clips met de juiste namen en de game start nog in Greyhaven.
-- [ ] **A.3a Skinning in de toon-shader** — de skinning-chunks van Three.js in `ToonMaterial` en de Outline, zonder statische meshes duurder te maken. _Klaar als:_ de SkinnedMesh vervormt mee en draw calls/fps blijven gelijk.
+- [ ] **A.3a Skinning in de toon-shader** — de skinning-chunks zitten al in `ToonMaterial` sinds Pringle (stap D.1); hier alleen nog de **Outline** erbij en controleren dat statische meshes niets duurder worden. _Klaar als:_ de SkinnedMesh van de speler vervormt mee, met omlijning, en draw calls/fps blijven gelijk.
 - [ ] **A.3b `animations.json` + model doorgeven** — nieuw databestand met schema en validator; `ScenePlayerModel` houdt de SkinnedMesh, laat de Blender-`Sword_*` aan `RightHand` zien (zwaard én staf) en geeft de clips door. _Klaar als:_ de DataValidator keurt het bestand en de clips komen aan.
 - [ ] **A.3c `PlayerAnimator`** — `AnimationMixer` + state machine (Idle, Walk, Run, Sprint, Jump, Fall, Land, Dash, `Dash_Recover`, Attack, Cast, Hit, Death, Interact), crossfades 0,15–0,25 s, `timeScale = snelheid / referentiesnelheid`, **aanvallen op voortgang** (`action.time = progress × duur`) zodat de slag samenvalt met de hitbox, combo Slash*1 → 2 → 3. \_Klaar als:* de keuze-functie is puur en getest, voeten glijden niet en de slag raakt visueel op het moment van de schade.
 - [ ] **A.3d Bovenlijf, leunen en debug** — kopie van de cast-clip met alleen bovenlijf-botten bovenop de loopclip (`castMoveFactor`), licht leunen bij draaien en remmen, F3 toont state + clip, cheatmenu speelt elke clip los af. Het placeholder-poppetje houdt `setSwordPose` als terugval. _Klaar als:_ casten tijdens lopen ziet er goed uit en headless Chromium geeft geen fouten.

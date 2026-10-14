@@ -57,6 +57,7 @@ de delen die je voor je taak nodig hebt. Lukt dat niet, vraag Bo of Lucas om de 
                   skills, stats, combos, seasons, cutscenes, triggers, controls, instances, animations
 /public/lang      en.json, nl.json
 /public/zones     Blender-exports (o.a. greyhaven/)
+/public/characters Geanimeerde modellen (o.a. pringle/pringle.glb)
 /src/core         GameLoop, FixedStep, EventBus, StateMachine, Input, Bindings, Random
 /src/render       Renderer, QualityManager, CameraRig, DebugOverlay, toon/, cinematic/, Pools
 /src/world        WorldStreamer, Zone, Chunk, Terrain, FloatingOrigin, SpatialHash, Colliders,
