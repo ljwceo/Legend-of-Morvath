@@ -36,6 +36,8 @@ const SAVE_KEY = 'legend-of-morvath.save';
 const STEP_MS = { min: 600, max: 3000, frames: 5 };
 /** The debug overlay only shows `geo/tex` on a screen taller than this (DebugOverlay). */
 const VIEWPORT = { width: 1024, height: 640 };
+/** Camera sensitivity of a fresh save (SaveData.DEFAULT_CAMERA_SENSITIVITY). */
+const DEFAULT_SENSITIVITY = 0.7;
 /** A sample is "the same as before" within this many geometries / textures. */
 const TOLERANCE = 0;
 
@@ -69,13 +71,16 @@ const WALK_ROUTE = [
 const INSTANCES = [
   {
     id: 'brink_tower',
-    outside: { x: -1692.13, y: 22.5, z: -104.63, headingDegrees: 45 },
+    // The game puts you here facing away from the door; the save puts the test player facing
+    // it, because walking forward keeps the camera still and walking backwards slowly swings
+    // it round (`strafeFollowDegreesPerSecond` in player.json) until "back" is a curve.
+    outside: { x: -1692.13, y: 22.5, z: -104.63, headingDegrees: 225 },
     door: { x: -1694.25, z: -106.75 },
     exit: { x: -1693.12, z: -105.62 },
   },
   {
     id: 'sam_cellar',
-    outside: { x: -1647.7, y: 23, z: -62.8, headingDegrees: 180 },
+    outside: { x: -1647.7, y: 23, z: -62.8, headingDegrees: 0 },
     door: { x: -1647.7, z: -58 },
     exit: { x: -1647.7, z: -60.1 },
   },
@@ -447,14 +452,92 @@ async function walkTo(page, target, { tolerance = 1.2, seconds = 60, until = nul
   return { reached: false, distance: Math.hypot(target.x - now.x, target.z - now.z) };
 }
 
-/** Walks to a door (or an exit) until the save says we went through it. */
-async function walkThroughDoor(page, { target, expect, seconds = 40 }) {
-  const walked = await walkTo(page, target, {
-    tolerance: 0.4,
-    seconds,
-    until: async () => (await currentInstance(page)) === expect,
-  });
-  return walked.reached && (await currentInstance(page)) === expect;
+/** The shortest way round from `from` to `to`, in radians (-π … π). */
+const angleTo = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
+
+/**
+ * Turns the camera by dragging, like a mouse. `rotateRadiansPerPixelMouse` (player.json) times
+ * the camera sensitivity in the save says how far one pixel turns it; which way round is
+ * learned from the first turn (`lookSign`).
+ */
+let lookSign = 1;
+const LOOK_RAD_PER_PX = 0.005 * DEFAULT_SENSITIVITY;
+
+async function dragLook(page, radians) {
+  const box = await page.locator('canvas').first().boundingBox();
+  if (!box) return;
+  const y = box.y + box.height / 2;
+  const middle = box.x + box.width / 2;
+  // Half a turn is about 900 pixels, more than the window is wide, and a mouse move outside it
+  // does nothing: so drag in short strokes of at most 300 pixels, one after the other.
+  let left = (radians / LOOK_RAD_PER_PX) * lookSign;
+  while (Math.abs(left) > 2) {
+    const stroke = Math.max(-300, Math.min(300, left));
+    left -= stroke;
+    await page.mouse.move(middle - stroke / 2, y);
+    await page.mouse.down();
+    // In steps, because the game adds up the moves of each pointermove event.
+    for (let i = 1; i <= 6; i++) await page.mouse.move(middle - stroke / 2 + (stroke * i) / 6, y);
+    await page.mouse.up();
+  }
+}
+
+/**
+ * Walks through a door the way a player does: turn the camera towards it, then walk forward.
+ * Walking forward leaves the camera where it is, while walking backwards slowly swings it round
+ * (`strafeFollowDegreesPerSecond`) until "back" is a curve — which is why this always aims first.
+ * The character turns towards the camera as he walks, so his heading (the debug line) says
+ * where the camera looks after a step.
+ */
+async function walkThroughDoor(page, { target, expect, seconds = 60 }) {
+  const reached = async () => (await currentInstance(page)) === expect;
+  const deadline = Date.now() + seconds * 1000;
+  let stuck = 0;
+  // Where the camera looks, as far as we know. The character only turns when he walks, so his
+  // heading is stale right after a turn; it is the truth again as soon as he moves.
+  let yaw = (await sample(page)).heading;
+  while (Date.now() < deadline) {
+    if (await reached()) return true;
+    const before = await sample(page);
+    const want = Math.atan2(target.x - before.x, target.z - before.z);
+    const error = angleTo(yaw, want);
+    const turned = Math.abs(error) > 0.2;
+    if (turned) {
+      await dragLook(page, error);
+      yaw = want;
+    }
+    await page.keyboard.down('KeyW');
+    await page.waitForTimeout(pressMs(before.frameMs));
+    await page.keyboard.up('KeyW');
+    const after = await sample(page);
+    const moved = Math.hypot(after.x - before.x, after.z - before.z);
+    if (moved > 0.3 && Number.isFinite(after.heading)) {
+      // He walked, so he is facing the camera now: that is where it really looks.
+      if (turned) {
+        const got = angleTo(before.heading, after.heading);
+        // The drag went the other way round: remember that for every turn after this.
+        if (Math.abs(got) > 0.1 && Math.sign(got) !== Math.sign(error)) lookSign = -lookSign;
+      }
+      yaw = after.heading;
+    }
+    if (options.verbose) {
+      say(
+        `    door → ${target.x},${target.z}: ` +
+          `${before.x.toFixed(1)},${before.z.toFixed(1)} → ${after.x.toFixed(1)},${after.z.toFixed(1)}` +
+          ` (${moved.toFixed(1)} m, aim off ${Math.round((error * 180) / Math.PI)}°)`,
+      );
+    }
+    // Wedged against the door frame: a step sideways, then straight on again.
+    if (Number.isFinite(moved) && moved < 0.1) stuck++;
+    else stuck = 0;
+    if (stuck >= 3) {
+      await page.keyboard.down('KeyA');
+      await page.waitForTimeout(pressMs(before.frameMs));
+      await page.keyboard.up('KeyA');
+      stuck = 0;
+    }
+  }
+  return reached();
 }
 
 async function walkingTest(page, minutes) {
@@ -466,8 +549,11 @@ async function walkingTest(page, minutes) {
   while (Date.now() < end) {
     const route = WALK_ROUTE[leg % WALK_ROUTE.length];
     leg++;
-    await cheatPanel(page, ['25×', route.zone]);
+    await cheatPanel(page, [route.zone]);
     const arrived = await settled(page);
+    // The walking speed is set on the player, and a teleport builds a new one: ask for the
+    // cheat after arriving, never before.
+    if (!route.visitOnly) await cheatPanel(page, ['25×']);
     samples.push({
       at: Math.round((Date.now() - start) / 1000),
       ...arrived,
