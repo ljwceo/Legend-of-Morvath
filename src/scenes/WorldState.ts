@@ -3740,6 +3740,7 @@ export class WorldState implements GameState, InstanceHost {
       this.chunkDebug.lines.visible = this.cheats.chunkLines;
       if (this.cheats.chunkLines) this.chunkDebug.refresh();
     }
+    this.sceneZone?.setDoorCheat(this.cheats.doorAngleDegrees);
   }
 
   /**
@@ -4317,6 +4318,8 @@ export class WorldState implements GameState, InstanceHost {
     lighting.uniforms.windowCol.value.setHex(resolveColorToken(def.windowColor));
     this.sceneZone = zone;
     this.mover = zone;
+    // The door cheat may already be on when a zone loads.
+    zone.setDoorCheat(this.cheats.doorAngleDegrees);
     // Tone mapping as in the Blender test page (lanterns glow without burning out).
     const three = this.ctx.renderer.three;
     this.savedToneMapping = three.toneMapping;

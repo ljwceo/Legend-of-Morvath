@@ -115,6 +115,33 @@ const sceneBoxSchema = z.strictObject({
 });
 
 /**
+ * A swinging door in a Blender-built zone. The triangles inside `box` (world, same shape as an
+ * `opening`) are cut out of the static meshes and drawn as one group that turns around `hinge`
+ * (x, z on the ground, world); `tip` is the free end of the closed door. `openDegrees` are the
+ * stops per side, seen from the hinge looking at the tip (0 = that side never opens). The box also
+ * works as an opening: the door is never part of the collision mesh.
+ */
+const sceneDoorSchema = z.strictObject({
+  id,
+  hinge: pointSchema,
+  tip: pointSchema,
+  box: sceneBoxSchema,
+  openDegrees: z.strictObject({ left: range(0, 180), right: range(0, 180) }),
+});
+
+/** Shared physics numbers for the doors of a zone (`HingedBodies.HingeSettings`). */
+const doorSettingsSchema = z.strictObject({
+  /** Spring back to closed: angular acceleration per radian of opening (rad/s² per rad). */
+  stiffness: range(0, 1000),
+  /** Takes angular speed away so the spring settles (1/s). */
+  damping: range(0, 100),
+  /** How fast a pusher clears its overlap (1/s). */
+  pushStrength: range(0, 1000),
+  /** Nothing turns faster than this (rad/s). */
+  maxAngularSpeed: range(0.1, 100),
+});
+
+/**
  * A zone built in Blender instead of streamed terrain: one glTF scene loaded with a loading
  * screen. `offset` is where the Blender origin lies in the world (Blender x, y, z-up becomes
  * world x + offset.x, z + offset.y, -y + offset.z), so all positions in the data stay world
@@ -147,6 +174,9 @@ const sceneSchema = z.strictObject({
    * not solid, so you walk through the door. Inside = all three corners of a triangle.
    */
   openings: z.array(sceneBoxSchema),
+  /** Swinging doors cut out of the static meshes (see `sceneDoorSchema`). */
+  doors: z.array(sceneDoorSchema),
+  doorSettings: doorSettingsSchema,
   /** Materials drawn from both sides (thin leaves like ivy). */
   doubleSided: z.array(name),
   /** Materials that get a style guide color instead of their Blender color. */

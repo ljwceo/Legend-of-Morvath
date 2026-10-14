@@ -9,6 +9,8 @@ export const CHEAT_AIM_SCALES = [0, 0.5, 1, 2] as const;
 export const CHEAT_LOCK_SCALES = [0.5, 1, 1.5, 2] as const;
 /** How long a locked enemy may be out of sight, as multipliers (0 = break at once). */
 export const CHEAT_SIGHT_SCALES = [0, 1, 2, 5] as const;
+/** Fixed door angles (degrees) offered in the cheat menu, besides "off" (null). */
+export const CHEAT_DOOR_ANGLES = [-85, -45, 0, 45, 85] as const;
 /** Highest a flying player may go above the ground (m). */
 export const FLY_MAX_ABOVE_GROUND = 400;
 
@@ -37,10 +39,16 @@ export class Cheats {
    * enemy, 1 = as the game ships).
    */
   lockSight = 1;
+  /**
+   * Every swinging door of a Blender-built zone at this fixed angle (degrees, clamped to each
+   * door's stops), to check hinges and stops without the physics; null = off.
+   */
+  doorAngleDegrees: number | null = null;
 
   get active(): boolean {
     return (
       this.speed !== 1 ||
+      this.doorAngleDegrees !== null ||
       this.fly ||
       !this.monsters ||
       this.aimAssist !== 1 ||
@@ -59,6 +67,7 @@ export class Cheats {
     this.lockRange = 1;
     this.homing = 1;
     this.lockSight = 1;
+    this.doorAngleDegrees = null;
   }
 }
 
