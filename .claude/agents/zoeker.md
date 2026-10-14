@@ -3,7 +3,6 @@ name: zoeker
 description: Zoekt in het spelconcept (Google Doc) wat nodig is voor één stap uit PLAN.md en schrijft een korte brief. Alleen gebruiken door de nachtbouwer.
 model: haiku
 effort: low
-tools: Read, Grep, Glob, Write, mcp__Google_Drive__read_file_content, mcp__Google_Drive__get_file_metadata, mcp__Google_Docs__read_doc
 ---
 Je krijgt één stap uit PLAN.md (met "Klaar als:"). Zoek in het spelconcept (Google Doc id `10Yi8_lYVsLEa_WpR76Exs0ecsY9mXxTk5a6SC4sSKUk`) en in `public/data/` alleen wat deze stap nodig heeft: namen, items, getallen, regels, teksten.
 
