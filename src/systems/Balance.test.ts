@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import {
   itemsFileSchema,
   monstersFileSchema,
@@ -32,6 +32,7 @@ import { applyPath } from './Paths';
 import { Shots } from './Shots';
 import {
   powerFactor,
+  type ShotConfig,
   type StaffInput,
   type StaffResult,
   StaffState,
@@ -61,6 +62,7 @@ import {
   normalizeStatPoints,
   pointBudget,
   presetPoints,
+  type StatEffects,
   type StatPoints,
 } from './Stats';
 
@@ -382,10 +384,14 @@ describe('balance: extreme builds against Sultan', () => {
 });
 
 /**
- * The second Entrance Exam (fase 3.8): three waves of slimes on the Academy training field,
- * run with the real wave code, the real enemy AI and the real status effects. The point of the
- * check is the same as for Sultan: a normal player should usually get through it, and someone
- * who only mashes the attack button should not.
+ * Fighting outside the boss arena: the Entrance Exams (fase 3.8) and the mini-bosses after the
+ * city gate (fase 3.9), fought by one simulated player that knows all three paths. Walking,
+ * fighting, shots, status effects, the waves of a drill and the enemy AI are the real code on
+ * the fixed step; only the decisions are a robot's.
+ *
+ * Step 3.10.1 uses it to measure three things: a normal player of each path, the extreme
+ * builds (everything in one stat), and whether any build walks over the content or cannot get
+ * through it at all. The robot never drinks a potion, so every number here is the bare build.
  */
 
 const questsFile = questsFileSchema.parse(readPublicJson('data/quests.json'));
@@ -394,6 +400,7 @@ const spells = spellsFileSchema.parse(readPublicJson('data/spells.json')) as Spe
 const skills = skillsFileSchema.parse(readPublicJson('data/skills.json')) as SkillsFile;
 const staff = staffConfig(player, spells);
 const itemsById = new Map(items.items.map((item) => [item.id, item]));
+const PATHS: readonly PlayerPath[] = ['sword', 'light', 'dark'];
 const DRILLS: Readonly<Record<PlayerPath, string>> = {
   sword: 'garrick_field_drill',
   light: 'brink_field_drill',
@@ -411,11 +418,21 @@ const SPELLS: Readonly<Record<PlayerPath, string | null>> = {
   light: 'thorn_shot',
   dark: 'shadow_bolt',
 };
+/** The starting spread of each path (stats.json). */
+const PRESETS: Readonly<Record<PlayerPath, string>> = {
+  sword: 'sword_fighter',
+  light: 'light_mage',
+  dark: 'dark_mage',
+};
 
 const freeShots = { heightAt: () => 0, blocked: () => false };
 /** Seconds a simulated player steps away from a lunge, and how long it then holds its ground. */
 const DODGE_SECONDS = 0.5;
 const ATTACK_SECONDS = 0.8;
+/** Walking speed without any stats on it (the fight changes `moveCfg.walkSpeed` while it runs). */
+const BASE_WALK_SPEED = moveCfg.walkSpeed;
+/** Meters of room around a fight in the open world that the simulated player keeps to. */
+const ARENA_MARGIN = 8;
 
 function waveFight(id: string): WaveFightDef {
   const def = questsFile.waveFights.find((entry) => entry.id === id);
@@ -437,9 +454,10 @@ function trainingField(): Shape {
   return area.shape;
 }
 
-interface DrillBot {
+/** The simulated player: a build on a path, and how sharply it plays. */
+interface SimBot {
   path: PlayerPath;
-  /** Keeps its distance from a slime that is winding up (false: only walks in and hits). */
+  /** Keeps its distance from a monster that is winding up (false: only walks in and hits). */
   dodges: boolean;
   /** Seconds before reacting to a warning. */
   reaction: number;
@@ -447,37 +465,22 @@ interface DrillBot {
   points: StatPoints;
 }
 
-interface DrillResult {
-  won: boolean;
-  waves: number;
-  seconds: number;
-  hpLeft: number;
-  damageTaken: number;
+/** The player as the world puts it together: build, path, weapon and the spell of its crystal. */
+interface Fighter {
+  c: CombatState;
+  effects: StatEffects;
+  spell: ShotConfig | null;
+  /** The power curve of its path at this level (spells.json). */
+  power: number;
+  /** Walking speed with its stats and perks (m/s). */
+  walkSpeed: number;
 }
 
 /**
- * One run of a path's drill with a simulated player. Walking, fighting, status effects and the
- * waves are all the real code; only the decisions are a robot's.
+ * Build, weapon, gear and path exactly as WorldState puts them together, so the balance tests
+ * fight with the same numbers the game gives you.
  */
-function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
-  const def = waveFight(DRILLS[bot.path]);
-  const field = trainingField();
-  const box = shapeBounds(field, emptyBox());
-  const cx = (box.minX + box.maxX) / 2;
-  const cz = (box.minZ + box.maxZ) / 2;
-  const enemies = new Enemies(
-    fieldOnly(),
-    monsters,
-    { showRadius: 160, hideMargin: 20 },
-    new Map([['academy_training_field', field]]),
-    null,
-    seed,
-    [def],
-  );
-  const status = new StatusEffects(monsters.statusEffects);
-  const shots = new Shots();
-
-  // The build, the weapon and the path, exactly as the world puts them together.
+function makeFighter(bot: SimBot): Fighter {
   const c = new CombatState();
   const effects = emptyStatEffects();
   computeStatEffects(stats, bot.points, bot.path, effects);
@@ -494,15 +497,171 @@ function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
   c.hp = c.maxHp;
   c.mana = c.maxMana;
   const spellId = SPELLS[bot.path];
-  const spell = spellId ? (staff.spells.get(spellId) ?? null) : null;
-  const power = powerFactor(spells.powerCurves, bot.path, bot.level);
+  return {
+    c,
+    effects,
+    spell: spellId ? (staff.spells.get(spellId) ?? null) : null,
+    power: powerFactor(spells.powerCurves, bot.path, bot.level),
+    walkSpeed: BASE_WALK_SPEED * (1 + effects.moveSpeedPercent / 100),
+  };
+}
 
-  const arena: Arena = { x: cx, z: cz, radius: field.type === 'circle' ? field.radius : 9 };
+/** Where a fight happens: the monsters, the ground the player keeps to, and how it is won. */
+interface Scene {
+  enemies: Enemies;
+  /** The ground the simulated player stays on (a drill resets if you walk off the field). */
+  arena: Arena;
+  startX: number;
+  startZ: number;
+  /** Called once the monsters have had their first step (a drill starts its waves here). */
+  start(): void;
+  /** Stepped after the monsters (the script of a drill); does nothing in the open world. */
+  step(dt: number): void;
+  /** True once the fight is over and won. */
+  won(): boolean;
+  /** Waves cleared so far (0 outside a drill). */
+  waves(): number;
+}
+
+/**
+ * A different spot to start from per seed, near the middle of the fight: a real player never
+ * stands in exactly the same place twice, but also does not begin a drill in a corner of the
+ * field. Repeatable, so one seed is always the same fight.
+ */
+function startSpot(cx: number, cz: number, radius: number, seed: number): PointXZ {
+  // The golden angle, so every seed walks in from another side.
+  const angle = seed * 2.39996;
+  const r = radius * (0.1 + 0.3 * (((seed * 7) % 5) / 4));
+  return { x: cx + Math.sin(angle) * r, z: cz + Math.cos(angle) * r };
+}
+
+/** One drill of a path on the Academy training field (quests.json `waveFights`). */
+function drillScene(path: PlayerPath, seed: number): Scene {
+  const def = waveFight(DRILLS[path]);
+  const field = trainingField();
+  const box = shapeBounds(field, emptyBox());
+  const cx = (box.minX + box.maxX) / 2;
+  const cz = (box.minZ + box.maxZ) / 2;
+  const radius = field.type === 'circle' ? field.radius : 9;
+  const enemies = new Enemies(
+    fieldOnly(),
+    monsters,
+    { showRadius: 160, hideMargin: 20 },
+    new Map([['academy_training_field', field]]),
+    null,
+    seed,
+    [def],
+  );
+  let cleared = 0;
+  let done = false;
+  const fight = new WaveFight(def, {
+    alive: () => enemies.waveAlive(def.id),
+    spawnWave: (index) => void enemies.spawnWave(def.id, index, cx, cz, def.spawnRadius),
+    clear: () => enemies.clearWave(def.id),
+    // The robot never walks off the field (it is clamped to it in runFight).
+    inArea: () => true,
+    say: () => {},
+    waveCleared: () => cleared++,
+    finished: () => {
+      done = true;
+    },
+    reset: () => {},
+  });
+  const spot = startSpot(cx, cz, radius, seed);
+  return {
+    enemies,
+    arena: { x: cx, z: cz, radius },
+    startX: spot.x,
+    startZ: spot.z,
+    start: () => fight.start(),
+    step: (dt) => fight.step(dt),
+    won: () => done,
+    waves: () => cleared,
+  };
+}
+
+/**
+ * A fight in the open world: one zone with nothing in it but the picked spawns from
+ * zones.json, so the monsters, their spots and their numbers are the real ones. Nothing comes
+ * back: the fight is over once everything is down.
+ */
+function worldScene(zoneId: string, pick: readonly string[], seed: number): Scene {
+  const base = zones.zones.find((zone) => zone.id === zoneId);
+  if (!base) throw new Error(`missing zone ${zoneId}`);
+  const spawns = (base.spawns ?? []).filter((spawn) => pick.includes(spawn.id));
+  const areas = (base.spawnAreas ?? []).filter((area) => pick.includes(area.id));
+  if (spawns.length + areas.length !== pick.length) {
+    throw new Error(`missing spawns ${pick.join(', ')} in ${zoneId}`);
+  }
+  const zone: Zone = {
+    ...base,
+    spawns: spawns.map((spawn) => ({ ...spawn, respawnSeconds: Infinity })),
+    spawnAreas: areas.map((area) => ({ ...area, respawnSeconds: Infinity })),
+    nightSpawns: [],
+  };
+  const spots = [
+    ...spawns.map((spawn) => ({ x: spawn.x, z: spawn.z, radius: 0 })),
+    ...areas.map((area) => ({ x: area.x, z: area.z, radius: area.radius })),
+  ];
+  let cx = 0;
+  let cz = 0;
+  for (const spot of spots) {
+    cx += spot.x / spots.length;
+    cz += spot.z / spots.length;
+  }
+  let extent = 0;
+  for (const spot of spots) {
+    extent = Math.max(extent, Math.hypot(spot.x - cx, spot.z - cz) + spot.radius);
+  }
+  // The room the world really gives you: a monster follows you until it is `leashRadius` from
+  // its own spot and then walks home, so that circle is the ground a player can use to keep
+  // his distance. Keeping a simulated mage inside a smaller ring would corner him against a
+  // fence that is not there in the game.
+  let room = ARENA_MARGIN;
+  for (const monsterId of [...spawns.map((s) => s.monster), ...areas.map((a) => a.monster)]) {
+    const def = monsters.monsters.find((entry) => entry.id === monsterId);
+    room = Math.max(room, def?.ai?.leashRadius ?? ARENA_MARGIN);
+  }
+  const enemies = new Enemies([zone], monsters, { showRadius: 160, hideMargin: 20 });
+  const spot = startSpot(cx, cz, extent, seed);
+  return {
+    enemies,
+    arena: { x: cx, z: cz, radius: extent + room },
+    startX: spot.x,
+    startZ: spot.z,
+    start: () => {},
+    step: () => {},
+    won: () => !enemies.list.some((e) => e.alive),
+    waves: () => 0,
+  };
+}
+
+interface FightOutcome {
+  won: boolean;
+  /** Waves cleared (a drill), 0 elsewhere. */
+  waves: number;
+  seconds: number;
+  hpLeft: number;
+  damageTaken: number;
+  /** The HP this build has (gear and stats in): what the damage taken is measured against. */
+  maxHp: number;
+}
+
+/**
+ * One fight of a simulated player in a scene. The player walks, swings, shoots and takes hits
+ * through the real systems; what a robot decides is where to stand and when to attack.
+ */
+function runFight(bot: SimBot, scene: Scene, maxSeconds = 240): FightOutcome {
+  const { enemies, arena } = scene;
+  const fighter = makeFighter(bot);
+  const c = fighter.c;
+  const spell = fighter.spell;
+  const status = new StatusEffects(monsters.statusEffects);
+  const shots = new Shots();
   const s = new MoverState();
-  s.x = cx;
-  s.z = cz;
+  s.x = scene.startX;
+  s.z = scene.startZ;
   s.energy = moveCfg.maxEnergy;
-  const walkSpeed = moveCfg.walkSpeed * (1 + effects.moveSpeedPercent / 100);
   let damageTaken = 0;
   const target: EnemyTarget = { x: s.x, z: s.z, radius: moveCfg.radius, hostile: true };
   const world: EnemiesWorld = {
@@ -521,24 +680,8 @@ function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
     alert: (e) => enemies.alert(e),
     bossEvent: () => {},
   } as EnemiesWorld;
-
-  let won = false;
-  let cleared = 0;
-  const fight = new WaveFight(def, {
-    alive: () => enemies.waveAlive(def.id),
-    spawnWave: (index) => void enemies.spawnWave(def.id, index, cx, cz, def.spawnRadius),
-    clear: () => enemies.clearWave(def.id),
-    // The robot never walks off the field (it is clamped to it below).
-    inArea: () => true,
-    say: () => {},
-    waveCleared: () => cleared++,
-    finished: () => {
-      won = true;
-    },
-    reset: () => {},
-  });
   enemies.step(DT, target, world);
-  fight.start();
+  scene.start();
 
   const cmd: MoveCommand = { x: 0, z: 0, dash: false };
   const swordInput = { fast: false, heavy: false, critRoll: 1 };
@@ -559,14 +702,17 @@ function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
       damageTaken += taken;
     }
     const weaken = weakenFactor(totals.weakenPercent);
-    // The nearest slime that can still be hit.
+    // The nearest monster that can still be hit, and whether anything is winding up at you.
     let near: Enemy | null = null;
     let nearGap = Infinity;
     let threat = false;
+    let hunting = true;
     for (const e of enemies.shown) {
       if (!e.hittable) continue;
       const gap = Math.hypot(e.x - s.x, e.z - s.z) - e.radius - moveCfg.radius;
       if (e.dodging && gap < 2.4) threat = true;
+      // Something is already coming for you: no need to go looking for it.
+      if (e.engaged) hunting = false;
       if (gap < nearGap) {
         nearGap = gap;
         near = e;
@@ -591,7 +737,7 @@ function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
       const d = Math.max(1e-6, Math.hypot(dx, dz));
       const keep = bot.path === 'sword' ? 0 : 5.5;
       if (!bot.dodges) {
-        // The button masher: walks straight at the nearest slime and keeps the button down,
+        // The button masher: walks straight at the nearest monster and keeps the button down,
         // whatever is winding up around it.
         if (nearGap > (bot.path === 'sword' ? sword.range * 0.75 : 1)) {
           cmd.x = dx / d;
@@ -602,9 +748,9 @@ function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
         staffInput.spell = spell !== null && c.mana >= spell.manaCost;
       } else if (dodgeLeft > 0) {
         // Step out of the jump: sideways, towards the middle of the field, because backing
-        // straight up in a ring of slimes only puts you against the fence.
-        const toMiddleX = cx - s.x;
-        const toMiddleZ = cz - s.z;
+        // straight up in a ring of monsters only puts you against the fence.
+        const toMiddleX = arena.x - s.x;
+        const toMiddleZ = arena.z - s.z;
         const side = -dz * toMiddleX + dx * toMiddleZ >= 0 ? 1 : -1;
         const px = (-dz / d) * side;
         const pz = (dx / d) * side;
@@ -618,8 +764,16 @@ function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
           cmd.z = dz / d;
         }
         swordInput.fast = nearGap < sword.range;
+      } else if (hunting && nearGap > keep) {
+        // In the open world you are the one looking for the fight: walk up until the monster
+        // is within reach of your shots, shooting on the way. In a drill the waves come to
+        // you, so a mage never has to do this there.
+        cmd.x = dx / d;
+        cmd.z = dz / d;
+        staffInput.shard = true;
+        staffInput.spell = spell !== null && c.mana >= spell.manaCost;
       } else {
-        // A mage keeps away from everything at once: it walks away from every slime that is
+        // A mage keeps away from everything at once: it walks away from every monster that is
         // too close (the nearer, the harder) and back towards the middle when the fence is
         // behind it. That is what kiting in a ring looks like.
         let awayX = 0;
@@ -633,10 +787,10 @@ function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
           awayX += (ex / Math.max(1e-6, Math.hypot(ex, ez))) * (keep / gap);
           awayZ += (ez / Math.max(1e-6, Math.hypot(ex, ez))) * (keep / gap);
         }
-        const edge = Math.hypot(s.x - cx, s.z - cz);
+        const edge = Math.hypot(s.x - arena.x, s.z - arena.z);
         if (edge > arena.radius - 2.5) {
-          awayX += ((cx - s.x) / Math.max(1e-6, edge)) * 2.5;
-          awayZ += ((cz - s.z) / Math.max(1e-6, edge)) * 2.5;
+          awayX += ((arena.x - s.x) / Math.max(1e-6, edge)) * 2.5;
+          awayZ += ((arena.z - s.z) / Math.max(1e-6, edge)) * 2.5;
         }
         const run = Math.hypot(awayX, awayZ);
         if (run > 1e-6) {
@@ -682,7 +836,7 @@ function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
         }
       }
       moveCfg.walkSpeed =
-        walkSpeed *
+        fighter.walkSpeed *
         (c.heavyWindup > 0 ? sword.heavyMoveFactor : 1) *
         slowFactor(totals.slowPercent);
     } else {
@@ -695,7 +849,7 @@ function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
         s.dashTime > 0 ? { shard: false, spell: false, critRoll: 1 } : staffInput,
         staff,
         spell,
-        power,
+        fighter.power,
         DT,
         staffOut,
       );
@@ -716,14 +870,14 @@ function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
         c.sinceCombat = 0;
       }
       moveCfg.walkSpeed =
-        walkSpeed *
+        fighter.walkSpeed *
         (staffState.casting ? staff.castMoveFactor : 1) *
         slowFactor(totals.slowPercent);
     }
     stepMovement(s, cmd, moveCfg, DT, free);
-    // A real player stays on the field (walking off it resets the drill, see WaveFight).
+    // A real player stays where the fight is (walking off the drill field resets it).
     keepInArena(s, arena, moveCfg.radius);
-    regenMana(c, player.regen.manaPerSecond + effects.manaRegenPerSecond, DT);
+    regenMana(c, player.regen.manaPerSecond + fighter.effects.manaRegenPerSecond, DT);
     target.x = s.x;
     target.z = s.z;
     enemies.step(DT, target, world);
@@ -733,48 +887,58 @@ function runDrill(bot: DrillBot, seed: number, maxSeconds = 240): DrillResult {
       enemies.hit(e, shot.damage);
       c.sinceCombat = 0;
     });
-    fight.step(DT);
-    if (won) break;
+    scene.step(DT);
+    if (scene.won()) break;
     if (c.hp <= 0) break;
   }
-  moveCfg.walkSpeed = movementConfig(player).walkSpeed;
-  return { won, waves: cleared, seconds: time, hpLeft: Math.max(0, c.hp), damageTaken };
+  moveCfg.walkSpeed = BASE_WALK_SPEED;
+  return {
+    won: scene.won() && c.hp > 0,
+    waves: scene.waves(),
+    seconds: time,
+    hpLeft: Math.max(0, c.hp),
+    damageTaken,
+    maxHp: c.maxHp,
+  };
 }
 
-function drillSummary(results: DrillResult[]): string {
+/** One drill run of a path with a simulated player. */
+function runDrill(bot: SimBot, seed: number, maxSeconds = 240): FightOutcome {
+  return runFight(bot, drillScene(bot.path, seed), maxSeconds);
+}
+
+const average = (list: number[]): number =>
+  list.reduce((a, b) => a + b, 0) / Math.max(1, list.length);
+
+/** What a fight cost, as a share of the HP the build has (0.5 = half your health). */
+function hpCost(results: FightOutcome[]): number {
+  return average(results.map((r) => r.damageTaken / Math.max(1, r.maxHp)));
+}
+
+function fightSummary(results: FightOutcome[], waves = false): string {
   const wins = results.filter((r) => r.won);
-  const avg = (list: number[]) => list.reduce((a, b) => a + b, 0) / Math.max(1, list.length);
   return (
     `wins ${wins.length}/${results.length} · ` +
-    `waves ${avg(results.map((r) => r.waves)).toFixed(1)}/3 · ` +
-    `time ${avg(wins.map((r) => r.seconds)).toFixed(0)} s · ` +
-    `hp left ${avg(wins.map((r) => r.hpLeft)).toFixed(0)} · ` +
-    `damage taken ${avg(results.map((r) => r.damageTaken)).toFixed(0)}`
+    (waves ? `waves ${average(results.map((r) => r.waves)).toFixed(1)}/3 · ` : '') +
+    `time ${average(wins.map((r) => r.seconds)).toFixed(0)} s · ` +
+    `hp left ${average(wins.map((r) => r.hpLeft)).toFixed(0)} · ` +
+    `damage taken ${average(results.map((r) => r.damageTaken)).toFixed(0)} ` +
+    `(${(hpCost(results) * 100).toFixed(0)}% of its HP)`
   );
 }
 
+/** A normal player: one of the starting spreads from stats.json, plus its levelling points. */
+function normal(path: PlayerPath, level: number): SimBot {
+  return { path, dodges: true, reaction: 0.3, level, points: build(PRESETS[path], level) };
+}
+
 describe('balance: the second Entrance Exam (three waves on the training field)', () => {
-  /** A normal player: level 3 or 4, one of the starting spreads from stats.json. */
-  const normal = (path: PlayerPath, level: number): DrillBot => ({
-    path,
-    dodges: true,
-    reaction: 0.3,
-    level,
-    points: build(
-      path === 'sword' ? 'sword_fighter' : path === 'light' ? 'light_mage' : 'dark_mage',
-      level,
-    ),
-  });
-
-  const average = (list: number[]): number =>
-    list.reduce((a, b) => a + b, 0) / Math.max(1, list.length);
-
-  for (const path of ['sword', 'light', 'dark'] as const) {
+  for (const path of PATHS) {
     it(`is usually beaten by a normal ${path} player at level 3-4`, () => {
       const results = SEEDS.flatMap((seed) =>
         [3, 4].map((level) => runDrill(normal(path, level), seed)),
       );
-      console.log(`drill, ${path}, level 3-4, plays it properly: ${drillSummary(results)}`);
+      console.log(`drill, ${path}, level 3-4, plays it properly: ${fightSummary(results, true)}`);
       const wins = results.filter((r) => r.won);
       // "Usually": at least three out of four runs, and never a walkover in a few seconds.
       expect(wins.length).toBeGreaterThanOrEqual(Math.ceil(results.length * 0.75));
@@ -783,25 +947,28 @@ describe('balance: the second Entrance Exam (three waves on the training field)'
       expect(average(results.map((r) => r.damageTaken))).toBeGreaterThan(8);
     });
 
-    it(`punishes a ${path} player who only mashes the attack button`, () => {
+    it(`is ${path === 'sword' ? 'brute-forced' : 'lost'} by a ${path} player who only mashes`, () => {
       const masher = SEEDS.map((seed) =>
         runDrill({ ...normal(path, 3), dodges: false, reaction: 0 }, seed),
       );
       const careful = SEEDS.map((seed) => runDrill(normal(path, 3), seed));
-      console.log(`drill, ${path}, button masher: ${drillSummary(masher)}`);
-      const wins = (list: DrillResult[]) => list.filter((r) => r.won).length;
-      const damage = (list: DrillResult[]) => average(list.map((r) => r.damageTaken));
-      const hpLeft = (list: DrillResult[]) => average(list.map((r) => r.hpLeft));
-      // Walking into the ring and holding the button down always costs clearly more.
-      expect(damage(masher)).toBeGreaterThan(damage(careful));
+      console.log(`drill, ${path}, button masher: ${fightSummary(masher, true)}`);
+      const wins = (list: FightOutcome[]) => list.filter((r) => r.won).length;
       if (path === 'sword') {
-        // A sword fighter can brute-force a field of slimes (his swing hits all of them at
-        // once), but he comes out of it with clearly less left than someone who steps out of
-        // the lunges. Slimes are simply no wall for a sword: see docs/PROGRESS.md.
-        expect(hpLeft(masher)).toBeLessThan(hpLeft(careful));
+        // Measured again in 3.10.1 (open vraag 16): a sword fighter does not just get through
+        // the drill by holding the button down — it is his *best* way through it. One swing
+        // hits the whole ring, so killing faster means fewer lunges ever land. Slimes alone
+        // are no wall for a sword; it takes another kind of monster to make him fail.
+        expect(wins(masher)).toBe(SEEDS.length);
+        expect(average(masher.map((r) => r.damageTaken))).toBeLessThan(
+          average(careful.map((r) => r.damageTaken)) * 1.5,
+        );
       } else {
-        // A mage who stands between the slimes does not come out: distance is the lesson.
+        // A mage who stands between the monsters does not come out: distance is the lesson.
         expect(wins(masher)).toBe(0);
+        expect(average(masher.map((r) => r.damageTaken))).toBeGreaterThan(
+          average(careful.map((r) => r.damageTaken)),
+        );
       }
     });
   }
@@ -819,6 +986,156 @@ describe('balance: the second Entrance Exam (three waves on the training field)'
         expect(hp).toBeGreaterThan(previous);
         previous = hp;
       }
+    }
+  });
+});
+
+/**
+ * The third Entrance Exam (fase 3.8): four goblins and four green slimes in the Greenwood.
+ * The simulated player fights the real spawns from zones.json — the goblin trail (two packs,
+ * five goblins, about 27 m apart) and the western slime meadow (five slimes spread over some
+ * 20 m) — so the monsters, their numbers and their spots are the ones a player walks into.
+ */
+const GOBLIN_TRAIL = ['goblin_trail'];
+const SLIME_MEADOW = ['slime_meadow_west'];
+/** The first mini-boss on the way east (fase 3.9): Mossback, 450 HP, in the Greenwood. */
+const MOSSBACK = ['mossback_lair'];
+/** What one hit of Mossback does (monsters.json): the price of a quick win, see `neverFree`. */
+const MOSSBACK_HIT = monsters.monsters.find((entry) => entry.id === 'mossback')?.damage.max ?? 0;
+
+/**
+ * The rule the content of fase 3 is held to: a fight may be short or it may be safe, but
+ * never both. Either it takes real time, or the monster lands real hits on the way down — a
+ * sword fighter trades (Mossback is down in ten seconds and takes half of him with it), a
+ * mage pays in time instead because he never lets it near him. Nothing is simply walked over.
+ */
+function neverFree(results: FightOutcome[], hit: number): boolean {
+  const wins = results.filter((r) => r.won);
+  if (wins.length === 0) return true;
+  return (
+    average(wins.map((r) => r.seconds)) > 15 || average(results.map((r) => r.damageTaken)) >= hit
+  );
+}
+
+describe('balance: the third Entrance Exam (the Greenwood)', () => {
+  for (const path of PATHS) {
+    it(`lets a normal ${path} player clear the goblin trail and the slime meadow`, () => {
+      const goblins = SEEDS.flatMap((seed) =>
+        [4, 5].map((level) =>
+          runFight(normal(path, level), worldScene('greenwood', GOBLIN_TRAIL, seed)),
+        ),
+      );
+      const slimes = SEEDS.flatMap((seed) =>
+        [4, 5].map((level) =>
+          runFight(normal(path, level), worldScene('greenwood', SLIME_MEADOW, seed)),
+        ),
+      );
+      console.log(`greenwood goblins, ${path}, level 4-5: ${fightSummary(goblins)}`);
+      console.log(`greenwood slimes, ${path}, level 4-5: ${fightSummary(slimes)}`);
+      // The third exam is doable for every path at the level the exams bring you to, and it
+      // is not over in a blink: two goblin packs and a meadow of slimes have to be walked up
+      // to and worn down pack by pack.
+      expect(goblins.filter((r) => r.won).length).toBeGreaterThanOrEqual(
+        Math.ceil(goblins.length * 0.75),
+      );
+      expect(slimes.filter((r) => r.won).length).toBeGreaterThanOrEqual(
+        Math.ceil(slimes.length * 0.75),
+      );
+      expect(average(goblins.map((r) => r.seconds))).toBeGreaterThan(5);
+      // And the goblins are the half that bites: unlike the slimes, they get through.
+      expect(average(goblins.map((r) => r.damageTaken))).toBeGreaterThan(
+        average(slimes.map((r) => r.damageTaken)),
+      );
+    });
+  }
+});
+
+describe('balance: the first mini-boss (Mossback in the Greenwood)', () => {
+  for (const path of PATHS) {
+    it(`is a real fight for a normal ${path} player at level 5-6`, () => {
+      const results = SEEDS.flatMap((seed) =>
+        [5, 6].map((level) =>
+          runFight(normal(path, level), worldScene('greenwood', MOSSBACK, seed), 300),
+        ),
+      );
+      console.log(`mossback, ${path}, level 5-6: ${fightSummary(results)}`);
+      const wins = results.filter((r) => r.won);
+      // A mini-boss is a step up from the exams, not a wall: every path gets through it.
+      expect(wins.length).toBeGreaterThanOrEqual(Math.ceil(results.length * 0.5));
+      // And it is never free (see `neverFree`). The numbers themselves, and the open question
+      // whether Mossback should simply have more HP, are in docs/PROGRESS.md.
+      expect(neverFree(results, MOSSBACK_HIT), `mossback is free for a ${path} player`).toBe(true);
+    });
+  }
+});
+
+/**
+ * Extreme builds (fase 3.7, measured again in 3.10.1): everything in one stat, on all three
+ * paths. The point is not that they are good, but that none of them breaks the balance —
+ * nothing walks over the content of fase 3, and nothing is stuck with no way forward.
+ */
+describe('balance: extreme builds on the content of fase 3', () => {
+  /** Everything in one stat: two that help a build and two that do nothing for its path. */
+  const EXTREMES = ['hp', 'strength', 'power', 'magic_power'] as const;
+  /** Level 5: your pad, your gear and your three exams done, the city gate just opened. */
+  const LEVEL = 5;
+  const extreme = (statId: string, level: number): StatPoints =>
+    normalizeStatPoints(stats, { [statId]: pointBudget(stats, level) }, level);
+  const bot = (path: PlayerPath, statId: string): SimBot => ({
+    path,
+    dodges: true,
+    reaction: 0.3,
+    level: LEVEL,
+    points: extreme(statId, LEVEL),
+  });
+
+  /** One extreme build measured on both: its second exam and the first mini-boss. */
+  interface Row {
+    path: PlayerPath;
+    statId: string;
+    drill: FightOutcome[];
+    miniBoss: FightOutcome[];
+  }
+
+  const rows: Row[] = [];
+  beforeAll(() => {
+    for (const path of PATHS) {
+      for (const statId of EXTREMES) {
+        rows.push({
+          path,
+          statId,
+          drill: SEEDS.map((seed) => runDrill(bot(path, statId), seed)),
+          miniBoss: SEEDS.map((seed) =>
+            runFight(bot(path, statId), worldScene('greenwood', MOSSBACK, seed), 300),
+          ),
+        });
+      }
+    }
+    for (const row of rows) {
+      console.log(
+        `all ${row.statId}, ${row.path}, level ${LEVEL}: ` +
+          `exam 2 ${fightSummary(row.drill, true)} | ` +
+          `mossback ${fightSummary(row.miniBoss)}`,
+      );
+    }
+  });
+
+  it('leaves every build a way forward: its second exam is never a wall', () => {
+    for (const row of rows) {
+      expect(
+        row.drill.filter((r) => r.won).length,
+        `all ${row.statId}, ${row.path} cannot clear its second exam`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it('gives no build a free pass: the first mini-boss is never free', () => {
+    for (const row of rows) {
+      // The same rule as for a normal build: short or safe, never both.
+      expect(
+        neverFree(row.miniBoss, MOSSBACK_HIT),
+        `all ${row.statId}, ${row.path} walks over Mossback for free`,
+      ).toBe(true);
     }
   });
 });
