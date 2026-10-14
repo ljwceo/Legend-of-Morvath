@@ -7,10 +7,10 @@
 | | |
 |---|---|
 | **Plan** | Alle fases en stappen staan in **`PLAN.md`** (één stap per sessie). Lees hier alleen wat je nodig hebt |
-| **Huidige fase** | Fase 3.10 – Afronden fase 3 (stap 3.10.1 klaar) |
+| **Huidige fase** | Fase 3.10 – Afronden fase 3 (stap 3.10.1 en 3.10.3 klaar) |
 | **Status** | **Fase 3.9 gebouwd (2026-10-13):** tien mini-bosses met elk eenmalig een ei, het ei van Sultan uit zijn baasgevecht, en inleveren bij Sultan om al je punten opnieuw te verdelen (save versie 13). Daarvoor: fase 3.8 (Entrance Exams, pad-effecten, stadspoort), 3.7 (stats en builds), 3.6 (buttonmapping + lock-on) en stap 3.0 t/m 3.5. Fase 2, 3.7, 3.8 en het Blender-Greyhaven wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
-| **Volgende stap** | **Stap 3.10.2 – Meet 20 s op de pc** (Low, Mid en High, in Greyhaven, bij het goblinkamp en tegen Sultan) in een nieuwe chat. Bo: twee vragen uit de balansmeting liggen bij jou — **open vraag 18** (Mossback is in 10 s om voor een zwaardvechter: meer HP?) en **open vraag 16** (een zwaardvechter haalt de tweede exam het best door de knop in te houden). Verder nog steeds 3.8 en 3.9 spelen, het Dark-Slime-effect (vraag 15), en Pringle in de cutscenes bekijken |
-| **Laatste sessie** | 2026-10-14 (3): **stap 3.10.1 – balans nagemeten** met één nagebootste speler voor alle drie de paden: de tweede exam (het spannendste van fase 3, een mage zakt er soms), de derde exam (in gevechtstermen geen test meer), de eerste mini-boss (10 s voor een zwaardvechter) en de extreme builds (niemand komt nergens doorheen, niemand slaat alles kapot). Geen enkel balansgetal veranderd; twee vragen liggen bij Bo (16 en 18). Daarvoor, 2026-10-14 (2): Pringle **ook in de cutscenes** als echt model, **rustiger lopen en galop** (geen "geëlektrocuteerde spin" meer) en **drie aai-animaties** (kopje, rollen, knipperen), allemaal uit één instelbaar Blender-script (`tools/blender/pringle/`). Daarvoor, 2026-10-14: workflow opgezet om usage te sparen — alle fases staan nu opgehakt in kleine stappen in **`PLAN.md`**, `CLAUDE.md` is ingekort tot alleen de projectregels en verwijst daarnaar, en `docs/START-PROMPT.md` vraagt om één stap per chat. Daarvoor, ook 2026-10-14: **Pringle als echt 3D-model** met Idle/Walk/Run uit Blender (`public/characters/pringle/pringle.glb`), die met je meeloopt door Greyhaven. Daarvoor, 2026-10-13: filmische cutscenes stap 1 en 2 — het systeem met Pringle → Sultan als proef en de eindscène na Sultan (zwaard- en mage-versie), BOND FORGED in de balk van de zonenaam, het ei als kaart, en Sultan vertelt waar je items vindt |
+| **Volgende stap** | **Stap 3.10.3b – achtergebleven textures opruimen** (uit de geheugenmeting) of **stap 3.10.2 – Meet 20 s op de pc**, in een nieuwe chat. Bo kiest welke eerst. Verder liggen er nog vragen bij jou: **open vraag 18** (Mossback is in 10 s om voor een zwaardvechter: meer HP?) en **open vraag 16** (een zwaardvechter haalt de tweede exam het best door de knop in te houden), en nog steeds 3.8 en 3.9 spelen, het Dark-Slime-effect (vraag 15) en Pringle in de cutscenes bekijken |
+| **Laatste sessie** | 2026-10-14 (4): **stap 3.10.3 – geheugen gecontroleerd** met een nieuw testscript dat de game zelf speelt in een testbrowser (`scripts/mem-check.mjs`): 10 minuten heen en weer lopen én 5× een instance in en uit. **Geometrieën komen elke keer precies terug en de heap groeit niet; textures niet** — elke laadbeurt van een Blender-zone laat er 1 à 2 staan (nieuwe stap 3.10.3b). Daarvoor, 2026-10-14 (3): 2026-10-14 (3): **stap 3.10.1 – balans nagemeten** met één nagebootste speler voor alle drie de paden: de tweede exam (het spannendste van fase 3, een mage zakt er soms), de derde exam (in gevechtstermen geen test meer), de eerste mini-boss (10 s voor een zwaardvechter) en de extreme builds (niemand komt nergens doorheen, niemand slaat alles kapot). Geen enkel balansgetal veranderd; twee vragen liggen bij Bo (16 en 18). Daarvoor, 2026-10-14 (2): Pringle **ook in de cutscenes** als echt model, **rustiger lopen en galop** (geen "geëlektrocuteerde spin" meer) en **drie aai-animaties** (kopje, rollen, knipperen), allemaal uit één instelbaar Blender-script (`tools/blender/pringle/`). Daarvoor, 2026-10-14: workflow opgezet om usage te sparen — alle fases staan nu opgehakt in kleine stappen in **`PLAN.md`**, `CLAUDE.md` is ingekort tot alleen de projectregels en verwijst daarnaar, en `docs/START-PROMPT.md` vraagt om één stap per chat. Daarvoor, ook 2026-10-14: **Pringle als echt 3D-model** met Idle/Walk/Run uit Blender (`public/characters/pringle/pringle.glb`), die met je meeloopt door Greyhaven. Daarvoor, 2026-10-13: filmische cutscenes stap 1 en 2 — het systeem met Pringle → Sultan als proef en de eindscène na Sultan (zwaard- en mage-versie), BOND FORGED in de balk van de zonenaam, het ei als kaart, en Sultan vertelt waar je items vindt |
 
 ### Liggend spelen op de telefoon (Bo, 2026-10-12)
 
@@ -765,6 +765,63 @@ Geen muur, maar voor een zwaardvechter is het een **ruilgevecht van tien seconde
 - `Balance.test.ts` is nu één nagebootste speler (`makeFighter` zet build, pad, wapen, gear en kristalspreuk neer zoals `WorldState` dat doet) die in elke "scène" kan vechten: `drillScene` is het trainingsveld, `worldScene` zet een zone neer met alleen de gekozen spawns van `zones.json` erin, dus met de echte monsters op hun echte plekken.
 - 22 balanstests (was 14), samen 3,7 s. Alle 673 tests slagen, plus lint, opmaak en typecheck.
 
+### Fase 3.10 · stap 3.10.3 Geheugen controleren (2026-10-14)
+
+**Status:** gemeten. **Geometrieën komen elke keer precies terug, textures niet:** elke keer dat een
+Blender-zone (Greyhaven, of een instance daaruit) laadt, blijven er een paar textures achter die niet
+worden vrijgegeven. Dat is een echt lek — klein, maar het loopt op zolang je in dezelfde sessie blijft
+spelen. Het staat als bekend probleem in `PLAN.md` → Notities; het oplossen is **stap 3.10.3b**.
+
+**Hoe er gemeten is.** `scripts/mem-check.mjs` speelt de game in een testbrowser (headless Chromium,
+grafische stand Low) en leest elke paar seconden `geo/tex` en `heap` uit de debug-overlay. De
+nagebootste speler loopt met de toetsen en draait de camera met de muis, net als een mens — er wordt
+niets "van buitenaf" verplaatst, behalve de save die hem bij de deur zet. De browser tekent zonder
+videokaart (±1 fps in Greyhaven, 6-20 fps in het bos), dus de **fps in deze test zegt niets**; het
+aantal geometrieën, textures en de heap zijn wel precies wat een echte pc ook zou laten zien. Hoe je
+hem zelf draait staat in de README.
+
+**Duurtest van 10 minuten** (heen en weer lopen met cheat-snelheid 25×, elke minuut teleporteren tussen
+de Greenwood, de Mournfen en Greyhaven; onderweg liep de testspeler ook een paar keer de stad in):
+
+| Waar | Geometrieën bij elk bezoek | Textures |
+|---|---|---|
+| The Greenwood | 48 · 48 · 48 · 48 | 4 → 8 → 10 → 14 → 16 |
+| The Mournfen | 38 · 38 | 6 → 12 |
+| Greyhaven (stad) | 223 · 223 · 223 · 223 · 149 (teleport) | 34 → 36 → 38 → 40 → 42 |
+| Onderweg in het bos | 68 t/m 82 (chunks die laden en ontladen) | gelijk |
+
+**Geometrieën groeien niet**: elke zone staat na tien minuten op exact hetzelfde getal als bij het
+eerste bezoek, en de chunks die onderweg bij komen gaan er allemaal weer af. De **heap** bleef de hele
+tien minuten 37,8 MB (deze browser geeft de heap in grove stapjes, dus daar is alleen "groeit niet"
+uit te lezen). Geen fouten in de console.
+
+**5× een instance in en uit** (de toren van Master Brink): de geometrieën gaan elke ronde terug naar
+hun beginwaarde — buiten 87, binnen 64, weer buiten 87 — en de textures gaan van 13 naar 15. De kelder
+van Wizard Sam laadt hetzelfde stuk `greyhaven.glb` en gedraagt zich gelijk.
+
+**Waar de textures blijven hangen** (gemeten met een tijdelijke meting in `SceneZone.dispose`, die
+daarna weer uit de code is):
+
+| Moment | Textures |
+|---|---|
+| In Greyhaven (eerste keer) | 24 |
+| Net buiten Greyhaven (na `dispose`) | **4** |
+| In de Greenwood | 4 |
+| In Greyhaven (tweede keer) | 25 |
+| Net buiten Greyhaven | **5** |
+| In Greyhaven (derde keer) | 27 |
+
+Van de 24 textures van de stad worden er dus 20 netjes vrijgegeven en blijven er 4 staan; elk volgend
+bezoek laat er weer één of twee extra achter. Wat het **niet** is: de textures uit `assets.textures`
+(dat zijn de losse plaatjes van de Blender-export; die worden alle 32 in `SceneZone.dispose`
+vrijgegeven) en ook niet de geometrieën of materialen, want die kloppen precies. Wat overblijft als
+verdachte: iets wat per zone-laadbeurt een **nieuwe** texture maakt en die nergens meer opruimt. De
+eerste plekken om te kijken in stap 3.10.3b: de textures ín de `.glb`-bestanden (`greyhaven.glb` en
+`player.glb` worden bij elke laadbeurt opnieuw ingelezen, en `GLTFLoader` maakt daar elke keer nieuwe
+texture-objecten van), het gedeelde model van Pringle (`AnimatedModels` geeft bewust alleen zijn
+materialen vrij, niet de textures van het gecachete bestand) en de schaduw- en anti-aliasing-targets
+van de renderer.
+
 ### Tas: tabs, scherm vullen en sluiten met je eigen toets (Bo, 2026-10-13)
 
 Na het spelen van fase 3.9: de spullenlijst in de tas was een klein scrollvakje binnen een venster dat zelf ook scrolde, de Close-knop onderin was dubbelop naast de ✕ in de hoek, en de quests stonden onder je spullen.
@@ -1190,3 +1247,4 @@ Bo's antwoorden vooraf: **Sultan blijft vóór de padkeuze** (beide varianten zi
 ### 2026-10-14
 - Workflow opgezet om usage te sparen: nieuw **`PLAN.md`** met alle fases (1, 2, 3, 3.6 t/m 3.10, A, 4, 5, 6 en een backlog) opgehakt in stappen die in één korte sessie af kunnen, elk met status (`[ ]` / `[~]` / `[x]`) en een concreet "Klaar als:"-criterium, plus een sectie **Notities** (open vragen, wat Bo en Lucas nog moeten spelen en meten, bekende problemen, tijdelijke namen, ontwerp-afspraken). `CLAUDE.md` ingekort tot alleen projectregels, structuur en conventies en verwijst nu naar `PLAN.md`; de volledige oude master prompt staat in `docs/archive/CLAUDE-master-prompt-2026-10-13.md`. `docs/START-PROMPT.md` vraagt nu om één stap per chat. Geen code gewijzigd. Volgende stap: fase 3.10.1 (balans nameten).
 - Stap 3.10.1 (balans nameten): de balanstest meet nu alle drie de paden met één nagebootste speler, op de tweede exam (trainingsveld), de derde exam (goblinpad en slimeweide in de Greenwood), de eerste mini-boss (Mossback) en met de extreme builds (alles in HP, Strength, Power of Magic Power). Uitkomst: geen build komt nergens doorheen en geen build slaat alles kapot, de tweede exam is het spannendste van fase 3 (een mage zakt 3-4 van de 16 keer), de derde exam is in gevechtstermen geen test meer, en Mossback is voor een zwaardvechter in ±10 s om. Twee meetfouten in de oude opzet opgelost (alle seeds stonden op dezelfde plek; de arena in de open wereld was te krap voor een mage). Geen data gewijzigd — open vragen 16 en 18 liggen bij Bo. Details in het blok "Fase 3.10" hierboven. Volgende stap: 3.10.2 (Meet 20 s op de pc).
+- Stap 3.10.3 (geheugen controleren): nieuw testscript `scripts/mem-check.mjs` dat de game zelf speelt in een testbrowser (lopen met de toetsen, camera draaien met de muis) en `geo/tex` en `heap` uit de debug-overlay leest. Duurtest van 10 minuten (heen en weer lopen met 25× snelheid, elke minuut teleporteren tussen de Greenwood, de Mournfen en Greyhaven) en 5× de toren van Master Brink in en uit. Uitkomst: **geometrieën komen elke keer precies terug** (Greenwood 48, Mournfen 38, buiten de toren 87 → binnen 64 → weer 87) en de heap groeit niet, maar **textures komen niet terug**: elke laadbeurt van een Blender-zone laat er 1 à 2 achter (van de 24 van de stad worden er 20 vrijgegeven). Opgezocht waar ze blijven hangen — niet in `assets.textures`, dus de verdachten staan in `docs/PROGRESS.md`; opruimen is de nieuwe stap 3.10.3b. Playwright staat bewust niet in `package.json`; de README legt uit hoe je de test draait. Geen spelcode veranderd. Volgende stap: 3.10.3b of 3.10.2 (Bo kiest).
