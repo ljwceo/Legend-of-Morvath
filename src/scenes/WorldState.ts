@@ -1,4 +1,5 @@
 import {
+  type BufferGeometry,
   type Camera,
   CircleGeometry,
   Color,
@@ -12,6 +13,7 @@ import {
   MeshBasicMaterial,
   MeshLambertMaterial,
   NeutralToneMapping,
+  type Object3D,
   PlaneGeometry,
   Scene,
   SphereGeometry,
@@ -29,7 +31,10 @@ import { disposeSceneAssets, loadSceneAssets, type SceneAssets } from '../world/
 import { buildPlayerModel, type ScenePlayerModel } from '../world/scene/ScenePlayerModel';
 import { instanceFilter, zoneFilter } from '../world/scene/SceneFilter';
 import { SceneZone } from '../world/scene/SceneZone';
+import { CinematicCutscene } from '../ui/CinematicCutscene';
+import { barrelGeometry } from '../render/cinematic/CinematicStage';
 import { ComicCutscene } from '../ui/ComicCutscene';
+import { resolveCutscene, shouldPlayCutscene } from '../render/cinematic/CinematicTimeline';
 import { pointInShape } from '../world/Shapes';
 import { Random } from '../core/Random';
 import { Input, type LookDelta } from '../core/Input';
@@ -42,12 +47,15 @@ import type {
   QualityPreset,
   QuestDef,
   EggResetDef,
+  FinderDef,
   TeachDef,
 } from '../data/types';
 import { chosenLevel, presetFor } from '../render/quality';
 import type { FollowTarget } from '../entities/Companion';
 import type { Enemy } from '../entities/Enemy';
 import { dialogueLines, type Npc } from '../entities/Npc';
+import { evaluateCondition } from '../world/Conditions';
+import { findableItems, type ItemSource, itemSources, MAX_SOURCES } from '../systems/ItemSources';
 import { Player } from '../entities/Player';
 import { PropLibrary } from '../entities/PropFactory';
 import { CameraRig, metersPerPixel } from '../render/CameraRig';
@@ -129,7 +137,7 @@ import { WaveFight, type WaveResetReason } from '../systems/WaveFight';
 import { addXp, deathGoldLoss, xpFraction, xpToNext } from '../systems/Progression';
 import type { EnemyTarget } from '../systems/EnemyAI';
 import { keepInArena } from '../systems/BossAI';
-import { BossEncounter } from './BossEncounter';
+import { BossEncounter, type KillingBlow } from './BossEncounter';
 import { ARROW_HEIGHT, Projectiles, type ProjectileWorld } from '../systems/Projectiles';
 import { EnemyRenderer } from '../render/EnemyRenderer';
 import {
@@ -156,11 +164,11 @@ import { HUD } from '../ui/HUD';
 import { keyLabel } from '../ui/keyLabels';
 import { StructureLabels } from '../ui/StructureLabels';
 import { el } from '../ui/dom';
-import { bagPanel } from '../ui/menus/BagPanel';
+import { BAG_TYPE_ORDER, bagPanel, itemNameEl } from '../ui/menus/BagPanel';
 import { packPanel } from '../ui/menus/PackPanel';
 import { type BuyResult, shopPanel } from '../ui/menus/ShopPanel';
 import { QuestTexts } from '../ui/questText';
-import type { ChecklistRow, DialogOptions } from '../ui/Dialog';
+import type { ChecklistRow, DialogChoice, DialogLine, DialogOptions } from '../ui/Dialog';
 import { pausePanel } from '../ui/menus/PausePanel';
 import { applyPath } from '../systems/Paths';
 import {
@@ -208,10 +216,13 @@ import type {
   WaveFightDef,
   Zone,
 } from '../data/types';
+import type { CutsceneDef } from '../render/cinematic/CinematicTimeline';
 import { placeAtStart } from './flow';
 
 const DEG = Math.PI / 180;
 const DEBUG_REFRESH_MS = 250;
+/** On the UI layer while a cinematic plays: touch buttons and the pause button hide. */
+const CINEMATIC_CLASS = 'ui-cinematic-playing';
 /** How far a stick or key must push (0..1) to move the highlight between dialogue answers. */
 const CHOICE_PUSH = 0.5;
 /** Debug overlay lines this scene owns (removed again on exit). */
@@ -284,6 +295,8 @@ const PROTECTED_MESSAGE_SECONDS = 4;
 const ARROW_COLLIDE_RADIUS = 0.05;
 /** Loot texts above a defeated monster stack this far (m) apart. */
 const LOOT_TEXT_SPACING = 0.45;
+/** Seconds an item card stays on screen (Sultan hands you his egg). */
+const ITEM_CARD_SECONDS = 5;
 /** What the cheat menu gives (debug only). */
 const CHEAT_XP = 100;
 const CHEAT_GOLD = 50;
@@ -313,6 +326,14 @@ export class WorldState implements GameState, InstanceHost {
   private instanceDef: InstanceDef | null = null;
   /** The first-visit cutscene of an instance, while it plays. */
   private comic: ComicCutscene | null = null;
+  /** Where every item can be found (Sultan's answers), worked out on the first question. */
+  private sources: Map<string, ItemSource[]> | null = null;
+  /** Props of bosses not beaten yet (Sultan's barrel), by monster id. */
+  private readonly bossProps = new Map<string, Mesh>();
+  private bossPropGeometry: BufferGeometry | null = null;
+  private bossPropMaterial: MeshLambertMaterial | null = null;
+  /** A cutscene filmed in the 3D world (`type: "cinematic"`), while it plays. */
+  private cinematic: CinematicCutscene | null = null;
 
   get currentInstance(): string | null {
     return this.instanceDef?.id ?? null;
@@ -690,6 +711,10 @@ export class WorldState implements GameState, InstanceHost {
           this.encounter?.forceStart('sultan');
         },
         skipBoss: () => this.skipSultan(),
+        bossEnding: (by) => {
+          this.cheatPanel?.toggle();
+          this.encounter?.playEnding('sultan', by);
+        },
         spells: () =>
           this.ctx.data?.spells.spells.map((spell) => ({ id: spell.id, name: spell.name })) ?? [],
         spell: () => this.ctx.session?.character?.spells[0] ?? null,
@@ -798,6 +823,9 @@ export class WorldState implements GameState, InstanceHost {
     this.ctx.quality.setMeasuring(false);
     this.comic?.dispose();
     this.comic = null;
+    this.cinematic?.dispose();
+    this.cinematic = null;
+    this.ctx.ui.classList.remove(CINEMATIC_CLASS);
     // A zone still loading is thrown away when it arrives.
     this.loadToken++;
     this.hideLoading();
@@ -853,6 +881,8 @@ export class WorldState implements GameState, InstanceHost {
 
   update(dt: number): void {
     const { player, input, mover, movement, rig, streamer, sceneZone } = this;
+    // A cinematic plays on the fixed step too (the same on 60 and 120 fps); the world waits.
+    if (this.cinematic && !this.paused) this.cinematic.step(dt);
     if (this.paused || this.travelling || this.cutscenePlaying) return;
     if (!player || !input || !mover || !movement || !rig) return;
     if (!streamer && !sceneZone) return;
@@ -1331,7 +1361,7 @@ export class WorldState implements GameState, InstanceHost {
       shot.crit ? 'crit' : shot.id === SHARD_ID ? 'normal' : 'heavy',
     );
     player.combat.sinceCombat = 0;
-    if (defeated) this.defeated(e, top);
+    if (defeated) this.defeated(e, top, 'staff');
   };
 
   /**
@@ -1382,7 +1412,7 @@ export class WorldState implements GameState, InstanceHost {
             ? 'combo'
             : 'normal';
       this.damageNumbers?.spawn(e.x, top, e.z, damage, kind);
-      if (defeated) this.defeated(e, top);
+      if (defeated) this.defeated(e, top, 'sword');
     }
     if (hitAny) player.combat.sinceCombat = 0;
   }
@@ -1701,9 +1731,16 @@ export class WorldState implements GameState, InstanceHost {
   /**
    * The player defeated a monster: XP (maybe a level up), its loot straight into the bag and,
    * from a mini-boss or Sultan, the egg it carries (once in the whole game), with short texts
-   * above the monster. Quests listen to `monsterDefeated`.
+   * above the monster. Quests listen to `monsterDefeated`. A boss with an ending cinematic
+   * (Sultan) plays it first, chosen by `by` (the killing blow); everything here waits until
+   * after it, and its egg is handed over in a small item card instead of floating text.
    */
-  private defeated(e: Enemy, top: number): void {
+  private defeated(e: Enemy, top: number, by: KillingBlow): void {
+    if (this.encounter?.takeDefeat(e, by, () => this.rewardDefeat(e, top, true))) return;
+    this.rewardDefeat(e, top, false);
+  }
+
+  private rewardDefeat(e: Enemy, top: number, handedOver: boolean): void {
     const data = this.ctx.data;
     const session = this.ctx.session;
     const player = this.player;
@@ -1724,7 +1761,7 @@ export class WorldState implements GameState, InstanceHost {
       this.damageNumbers?.spawnText(e.x, y, e.z, `+${drop.count} ${name}`, 'loot');
       y += LOOT_TEXT_SPACING;
     }
-    this.eggDropped(e, y);
+    this.eggDropped(e, y, handedOver);
   }
 
   /**
@@ -1732,19 +1769,42 @@ export class WorldState implements GameState, InstanceHost {
    * it, so a mini-boss that comes back gives nothing a second time. Saved at once, like a level
    * up, so a reload can never farm the same egg.
    */
-  private eggDropped(e: Enemy, y: number): void {
+  private eggDropped(e: Enemy, y: number, handedOver = false): void {
     const session = this.ctx.session;
     if (!session) return;
     const egg = eggReward(e.def, session.foundEggs);
     if (!egg) return;
     session.foundEggs.push(egg);
     this.gainItem(egg, 1);
-    const name = this.items.get(egg)?.name ?? egg;
-    this.damageNumbers?.spawnText(e.x, y, e.z, `+1 ${name}`, 'loot');
-    this.hud?.showMessage(this.ctx.i18n.t('hud.eggFound', { name }));
+    const def = this.items.get(egg);
+    const name = def?.name ?? egg;
+    if (handedOver) {
+      // Sultan gave it to you himself: the egg as a small card, like in your bag.
+      if (this.hud) this.hud.showItem(this.itemCard(def, egg), name, ITEM_CARD_SECONDS);
+    } else {
+      this.damageNumbers?.spawnText(e.x, y, e.z, `+1 ${name}`, 'loot');
+      this.hud?.showMessage(this.ctx.i18n.t('hud.eggFound', { name }));
+    }
     this.ctx.events.emit('eggFound', { itemId: egg, monsterId: e.def.id });
     this.syncSave();
     this.ctx.persist();
+  }
+
+  /** An item as a small card, the way your bag shows it: its name, rarity and description. */
+  private itemCard(def: ItemDef | undefined, id: string): HTMLElement {
+    const t = this.ctx.i18n;
+    return el(
+      'div',
+      { className: 'ui-bag-item' },
+      itemNameEl(this.ctx, def, id),
+      el('span', { className: 'ui-bag-count', text: '×1' }),
+      def && def.rarity !== 'common'
+        ? el('span', { className: 'ui-bag-gear', text: t.t(`bag.rarity.${def.rarity}`) })
+        : null,
+      def?.description
+        ? el('span', { className: 'ui-bag-desc', text: t.t(def.description) })
+        : null,
+    );
   }
 
   /**
@@ -1973,33 +2033,83 @@ export class WorldState implements GameState, InstanceHost {
    */
   private playPendingCutscene(): void {
     const pending = this.pendingCutscene;
-    if (!pending || this.dialog?.isOpen || this.comic) return;
+    if (!pending || this.dialog?.isOpen || this.comic || this.cinematic) return;
     this.pendingCutscene = null;
     this.playCutscene(pending.id, pending.params);
   }
 
   /**
-   * Plays a stripcutscene from cutscenes.json over the world, at most once when it says
+   * Plays a cutscene from cutscenes.json over the world, at most once when it says
    * `playOnce` (kept in the save). `params` fill the `{...}` in its lines, which is how the
    * Crystal Ceremony says which element picked you.
    */
   private playCutscene(id: string, params?: Record<string, string>): void {
     const session = this.ctx.session;
     const cutscene = this.ctx.data?.cutscenes.cutscenes.find((entry) => entry.id === id);
-    if (!session || !cutscene || this.comic) return;
-    if (cutscene.playOnce && session.seenCutscenes.includes(id)) return;
+    if (!session || !cutscene) return;
+    if (!shouldPlayCutscene(cutscene, session.seenCutscenes)) return;
+    this.startCutscene(cutscene, params, () => undefined);
+  }
+
+  /**
+   * Starts a cutscene: a cinematic in the 3D world (`type: "cinematic"`) or a comic over it.
+   * The world waits, the HUD hides for a cinematic; afterwards it counts as seen (saved) and
+   * `onDone` runs. Returns false when another cutscene is already playing.
+   */
+  private startCutscene(
+    cutscene: CutsceneDef,
+    params: Record<string, string> | undefined,
+    onDone: () => void,
+  ): boolean {
+    const session = this.ctx.session;
+    const data = this.ctx.data;
+    if (!session || !data || this.comic || this.cinematic) return false;
+    const id = cutscene.id;
+    const finish = (): void => {
+      if (!session.seenCutscenes.includes(id)) session.seenCutscenes.push(id);
+      this.ctx.persist();
+      this.setCutscenePlaying(false);
+      onDone();
+    };
+    const t = (key: string): string => this.ctx.i18n.t(key, params);
     this.setCutscenePlaying(true);
-    this.comic = new ComicCutscene(
-      cutscene,
-      (key) => this.ctx.i18n.t(key, params),
-      () => {
-        this.comic = null;
-        if (!session.seenCutscenes.includes(id)) session.seenCutscenes.push(id);
-        this.ctx.persist();
-        this.setCutscenePlaying(false);
-      },
-    );
+    if (cutscene.type === 'cinematic' && this.worldRoot && this.player) {
+      const s = this.player.state;
+      const model = this.player.model;
+      const crystal = session.character?.crystal;
+      this.cinematic = new CinematicCutscene(
+        resolveCutscene(cutscene, data.cutscenes.cutscenes),
+        data.cutscenes.cinematic,
+        {
+          parent: this.worldRoot,
+          playerRoot: model.root,
+          player: { x: s.x, z: s.z, heading: s.heading },
+          ground: this.groundHeight,
+          t,
+          touch: (this.input?.usedTouch ?? false) || this.coarsePointer,
+          element: crystal ? this.shotColor(crystal, data) : palette.spreukviolet,
+          canvas: this.ctx.renderer.three.domElement,
+          // `cast` holds the staff up like gathering a spell; the rest are the sword's poses.
+          poseWeapon: (pose, u) => model.setSwordPose(pose === 'cast' ? 'windup' : pose, u),
+        },
+        () => {
+          this.cinematic = null;
+          this.hud?.hiddenBy.hide('cinematic');
+          this.ctx.ui.classList.remove(CINEMATIC_CLASS);
+          finish();
+        },
+      );
+      this.hud?.hiddenBy.show('cinematic');
+      this.ctx.ui.classList.add(CINEMATIC_CLASS);
+      this.ctx.ui.append(this.cinematic.root);
+      return true;
+    }
+    this.comic = new ComicCutscene(cutscene, t, () => {
+      this.comic = null;
+      finish();
+    });
     this.ctx.ui.append(this.comic.root);
+    return true;
   }
 
   /** NPCs move, the conversation ends when you are far away, the interaction target updates. */
@@ -2073,6 +2183,13 @@ export class WorldState implements GameState, InstanceHost {
       this.askToTrain(npc, teaches);
       return;
     }
+    // Sultan after his fight: a small menu (where to find an item, the egg reset, his lines).
+    const finder = npc.def.finder;
+    const when = finder ? data.triggers.conditions[finder.when] : undefined;
+    if (finder && when && evaluateCondition(when, this.conditionContext)) {
+      this.openFinder(npc, finder);
+      return;
+    }
     // Sultan, with an egg in your bag: "Spread everything again? That costs one egg."
     const reset = eggOffer(
       npc.def,
@@ -2106,7 +2223,7 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /** Lines from an NPC you are talking to (the window follows you until you walk away). */
-  private say(npc: Npc, lines: readonly string[], options?: DialogOptions): void {
+  private say(npc: Npc, lines: readonly DialogLine[], options?: DialogOptions): void {
     this.talkingTo = npc;
     this.targetNpc = null;
     // A key still held from walking up to the NPC must not move the highlight.
@@ -2130,6 +2247,136 @@ export class WorldState implements GameState, InstanceHost {
     const { x, y } = this.moveInput;
     if (Math.abs(x) > CHOICE_PUSH) return Math.sign(x);
     return Math.abs(y) > CHOICE_PUSH ? -Math.sign(y) : 0;
+  }
+
+  /**
+   * Sultan's menu: "Where can I find…?", the egg reset (only with an egg in your bag), his usual
+   * lines, or goodbye.
+   */
+  private openFinder(npc: Npc, finder: FinderDef): void {
+    const data = this.ctx.data;
+    const session = this.ctx.session;
+    if (!data || !session) return;
+    const reset = eggOffer(
+      npc.def,
+      data.triggers.conditions,
+      this.conditionContext,
+      session.character?.inventory ?? [],
+      this.items,
+    );
+    const choices: DialogChoice[] = [
+      { label: finder.ask, pick: () => this.askFinderKind(npc, finder) },
+    ];
+    if (reset)
+      choices.push({ label: finder.resetChoice, pick: () => this.askToRedistribute(npc, reset) });
+    choices.push({
+      label: finder.talk,
+      pick: () =>
+        this.say(npc, dialogueLines(npc.def, data.triggers.conditions, this.conditionContext)),
+    });
+    choices.push({ label: 'dialog.choice.bye', pick: () => undefined });
+    this.say(npc, [finder.greeting], { choices });
+  }
+
+  /** "What are you looking for?": the kinds of item he knows about (potions, gear, eggs, ...). */
+  private askFinderKind(npc: Npc, finder: FinderDef): void {
+    const items = this.findable();
+    const kinds = BAG_TYPE_ORDER.filter((type) => items.some((item) => item.type === type));
+    const choices: DialogChoice[] = kinds.map((type) => ({
+      label: `bag.type.${type}`,
+      pick: () => this.askFinderItem(npc, finder, type),
+    }));
+    choices.push({ label: 'dialog.choice.bye', pick: () => undefined });
+    this.say(npc, [finder.question], { choices });
+  }
+
+  /** "Which one?": the items of one kind, by their (English) names. */
+  private askFinderItem(npc: Npc, finder: FinderDef, type: ItemDef['type']): void {
+    const items = this.findable()
+      .filter((item) => item.type === type)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const choices: DialogChoice[] = items.map((item) => ({
+      text: item.name,
+      pick: () => this.tellWhere(npc, finder, item),
+    }));
+    choices.push({ label: 'dialog.choice.back', pick: () => this.askFinderKind(npc, finder) });
+    this.say(npc, [finder.which], { choices });
+  }
+
+  /** Sultan's answer: the item's own hint (if any), then where it comes from. */
+  private tellWhere(npc: Npc, finder: FinderDef, item: ItemDef): void {
+    const i18n = this.ctx.i18n;
+    const lines: DialogLine[] = [];
+    const hint = `item.${item.id}.hint`;
+    if (i18n.has(hint)) lines.push(hint);
+    const sources = this.itemSourceMap().get(item.id) ?? [];
+    for (const source of sources.slice(0, MAX_SOURCES)) {
+      lines.push({ text: this.sourceLine(finder, item, source) });
+    }
+    if (lines.length === 0) lines.push(finder.nothing);
+    this.say(npc, lines, {
+      choices: [
+        { label: finder.ask, pick: () => this.askFinderKind(npc, finder) },
+        { label: 'dialog.choice.bye', pick: () => undefined },
+      ],
+    });
+  }
+
+  /** One source as a line in Sultan's words ("Goblins carry it. Look in the Greenwood."). */
+  private sourceLine(finder: FinderDef, item: ItemDef, source: ItemSource): string {
+    const data = this.ctx.data;
+    const i18n = this.ctx.i18n;
+    if (!data) return '';
+    const zoneName = (id: string): string =>
+      data.zones.zones.find((zone) => zone.id === id)?.name ?? id;
+    const npcName = (id: string): string => data.npcs.npcs.find((n) => n.id === id)?.name ?? id;
+    const lines = finder.lines;
+    switch (source.kind) {
+      case 'monster':
+      case 'boss': {
+        const monster = data.monsters.monsters.find((m) => m.id === source.monster)?.name;
+        const zones = new Intl.ListFormat(i18n.language, { type: 'disjunction' }).format(
+          source.zones.map(zoneName),
+        );
+        return i18n.t(lines[source.kind], {
+          item: item.name,
+          monster: monster ?? source.monster,
+          zone: zones,
+        });
+      }
+      case 'shop': {
+        const zone = data.npcs.npcs.find((n) => n.id === source.npc)?.zone ?? '';
+        return i18n.t(lines.shop, {
+          item: item.name,
+          npc: npcName(source.npc),
+          zone: zoneName(zone),
+        });
+      }
+      case 'quest': {
+        const quest = data.quests.quests.find((q) => q.id === source.quest)?.name ?? source.quest;
+        return source.npc
+          ? i18n.t(lines.questFrom, { item: item.name, quest, npc: npcName(source.npc) })
+          : i18n.t(lines.quest, { item: item.name, quest });
+      }
+    }
+  }
+
+  /** Every item's sources, worked out once from the data. */
+  private itemSourceMap(): ReadonlyMap<string, readonly ItemSource[]> {
+    const data = this.ctx.data;
+    if (!data) return new Map();
+    this.sources ??= itemSources(data);
+    return this.sources;
+  }
+
+  /** The items Sultan can tell you about (a source in the data, or their own hint). */
+  private findable(): ItemDef[] {
+    const data = this.ctx.data;
+    if (!data) return [];
+    const i18n = this.ctx.i18n;
+    return findableItems(data.items.items, this.itemSourceMap(), (id) =>
+      i18n.has(`item.${id}.hint`),
+    );
   }
 
   /**
@@ -2564,12 +2811,16 @@ export class WorldState implements GameState, InstanceHost {
         this.refreshNpcPresence();
       },
       placePlayer: (x, z, heading) => this.placePlayer(x, z, heading),
-      setCutscenePlaying: (playing) => this.setCutscenePlaying(playing),
+      playCutscene: (cutscene, onDone) => this.startCutscene(cutscene, undefined, onDone),
       canStart: () =>
         !this.paused && this.deathTimer === NOT_DYING && !this.dialog?.isOpen && !this.cheats.fly,
       floatText: (x, y, z, text) => this.damageNumbers?.spawnText(x, y, z, text, 'dodged'),
       usesTouch: () => (this.input?.usedTouch ?? false) || this.coarsePointer,
       questStarted: (questId) => this.questStarted(questId),
+      showProp: (monsterId, visible) => {
+        const prop = this.bossProps.get(monsterId);
+        if (prop) prop.visible = visible;
+      },
     };
   }
 
@@ -2842,6 +3093,8 @@ export class WorldState implements GameState, InstanceHost {
     );
     this.followLock(waiting ? 0 : frameSeconds, a);
     this.applyCamera();
+    // A cinematic takes the camera (and moves its actors, your own model too).
+    this.cinematic?.render(alpha, rig.camera, origin.x, origin.z);
     this.updateLighting(this.paused ? 0 : frameSeconds);
     this.updateSun(root.position.x - origin.x, root.position.y, root.position.z - origin.z);
     // The sea follows the player (one plane, always under the view).
@@ -3678,6 +3931,8 @@ export class WorldState implements GameState, InstanceHost {
       // The quest has no giver, so counting the boss hands it in at once.
       this.recordQuest('boss', 'sultan', 1);
     }
+    // His barrel would have broken in the ending.
+    this.removeBossProp('sultan');
   }
 
   /**
@@ -3915,6 +4170,7 @@ export class WorldState implements GameState, InstanceHost {
     );
     this.lockMarker = new LockOnMarker(worldRoot, data.player.lockOn.marker);
     this.chargeOrb = new ChargeOrb(worldRoot);
+    this.buildBossProps(worldRoot);
     const enemies = this.enemies;
     this.enemiesWorld = {
       mover: this.mover as Mover,
@@ -4159,7 +4415,43 @@ export class WorldState implements GameState, InstanceHost {
     this.applyShadows(preset);
   }
 
+  /**
+   * A boss's prop stands in the world until the boss is beaten (the barrel by the gate wall
+   * that Sultan crashes through in his ending). Decoration only: nothing collides with it.
+   */
+  private buildBossProps(worldRoot: Object3D): void {
+    this.disposeBossProps();
+    const completed = this.ctx.session?.quests.completed ?? [];
+    for (const boss of this.enemies?.bosses ?? []) {
+      const def = boss.def.boss;
+      const prop = def?.prop;
+      if (!def || !prop || completed.includes(def.quest)) continue;
+      this.bossPropGeometry ??= barrelGeometry();
+      this.bossPropMaterial ??= new MeshLambertMaterial({ vertexColors: true });
+      const mesh = new Mesh(this.bossPropGeometry, this.bossPropMaterial);
+      mesh.position.set(prop.x, this.groundHeight(prop.x, prop.z), prop.z);
+      mesh.name = `boss-prop-${boss.def.id}`;
+      worldRoot.add(mesh);
+      this.bossProps.set(boss.def.id, mesh);
+    }
+  }
+
+  private removeBossProp(monsterId: string): void {
+    this.bossProps.get(monsterId)?.removeFromParent();
+    this.bossProps.delete(monsterId);
+  }
+
+  private disposeBossProps(): void {
+    for (const mesh of this.bossProps.values()) mesh.removeFromParent();
+    this.bossProps.clear();
+    this.bossPropGeometry?.dispose();
+    this.bossPropGeometry = null;
+    this.bossPropMaterial?.dispose();
+    this.bossPropMaterial = null;
+  }
+
   private disposeScene(): void {
+    this.disposeBossProps();
     this.player?.dispose();
     this.player = null;
     this.scenePlayer?.dispose();

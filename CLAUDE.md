@@ -58,7 +58,7 @@ de delen die je voor je taak nodig hebt. Lukt dat niet, vraag Bo of Lucas om de 
 /public/lang      en.json, nl.json
 /public/zones     Blender-exports (o.a. greyhaven/)
 /src/core         GameLoop, FixedStep, EventBus, StateMachine, Input, Bindings, Random
-/src/render       Renderer, QualityManager, CameraRig, DebugOverlay, toon/, Pools
+/src/render       Renderer, QualityManager, CameraRig, DebugOverlay, toon/, cinematic/, Pools
 /src/world        WorldStreamer, Zone, Chunk, Terrain, FloatingOrigin, SpatialHash, Colliders,
                   Triggers, Checkpoints, scene/
 /src/workers      terrain.worker.ts

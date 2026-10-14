@@ -10,7 +10,7 @@ import { bindT } from './ConfirmPanel';
 type BagTab = 'items' | 'quests';
 
 /** Bag rows are sorted by item type in this order (then as they were picked up). */
-const TYPE_ORDER: readonly ItemDef['type'][] = [
+export const BAG_TYPE_ORDER: readonly ItemDef['type'][] = [
   'potion',
   'weapon',
   'armor',
@@ -89,8 +89,8 @@ export function bagPanel(
       };
       const stacks = [...(character?.inventory ?? [])].sort(
         (a, b) =>
-          TYPE_ORDER.indexOf(items.get(a.item)?.type ?? 'resource') -
-          TYPE_ORDER.indexOf(items.get(b.item)?.type ?? 'resource'),
+          BAG_TYPE_ORDER.indexOf(items.get(a.item)?.type ?? 'resource') -
+          BAG_TYPE_ORDER.indexOf(items.get(b.item)?.type ?? 'resource'),
       );
       const rows = stacks.map((stack) => {
         const def = items.get(stack.item);

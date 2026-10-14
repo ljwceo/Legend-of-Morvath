@@ -300,3 +300,52 @@ describe('boss fight (Sultan)', () => {
     expect(boss.active).toBe(false);
   });
 });
+
+describe('boss last stand (Sultan backs off to the barrel)', () => {
+  const lastStand = BOSS.lastStand;
+  if (!lastStand) throw new Error('sultan has no lastStand');
+  const stand = lastStand;
+
+  /** Distance from the boss to its last stand at the start of every opening. */
+  function openings(f: Fight, seconds: number): number[] {
+    const out: number[] = [];
+    f.run(seconds, 60, (fight) => {
+      if (fight.state.phase === 'opening' && fight.state.elapsed === 0) {
+        out.push(Math.hypot(fight.boss.x - stand.x, fight.boss.z - stand.z));
+      }
+    });
+    return out;
+  }
+
+  it('leaps away from you while it has HP to spare', () => {
+    const f = new Fight();
+    const near = openings(f, 20).filter((d) => d < 0.5);
+    expect(near.length).toBe(0);
+  });
+
+  it('low on HP it leaps back to its last stand after every attack', () => {
+    const f = new Fight();
+    f.boss.hp = f.boss.maxHp * stand.belowHpFraction - 1;
+    const distances = openings(f, 30);
+    expect(distances.length).toBeGreaterThanOrEqual(3);
+    expect(distances.every((d) => d < 0.01)).toBe(true);
+  });
+
+  it('a long leap back takes longer than a short one (no teleport)', () => {
+    const f = new Fight();
+    f.boss.hp = f.boss.maxHp * stand.belowHpFraction - 1;
+    f.until((fight) => fight.state.phase === 'retreat');
+    const far = Math.hypot(f.state.toX - f.state.fromX, f.state.toZ - f.state.fromZ);
+    expect(f.state.duration).toBeGreaterThanOrEqual(BOSS.retreatSeconds);
+    expect(far / f.state.duration).toBeLessThanOrEqual(18.001);
+  });
+
+  it('lands on its last stand at 60 and 120 Hz alike', () => {
+    for (const hz of [60, 120]) {
+      const f = new Fight();
+      f.boss.hp = f.boss.maxHp * stand.belowHpFraction - 1;
+      f.until((fight) => fight.state.phase === 'opening', 20, hz);
+      expect(Math.hypot(f.boss.x - stand.x, f.boss.z - stand.z)).toBeLessThan(0.01);
+    }
+  });
+});

@@ -43,7 +43,7 @@ export class ComicCutscene {
   }
 
   private show(): void {
-    const panel = this.cutscene.panels[this.index];
+    const panel = this.cutscene.panels?.[this.index];
     if (!panel) return;
     const t = this.t;
     const classes = ['ui-comic-frame'];
@@ -75,7 +75,7 @@ export class ComicCutscene {
   private next(): void {
     if (this.finished) return;
     this.index++;
-    if (this.index >= this.cutscene.panels.length) this.end(false);
+    if (this.index >= (this.cutscene.panels ?? []).length) this.end(false);
     else this.show();
   }
 

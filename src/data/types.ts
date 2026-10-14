@@ -50,3 +50,4 @@ export type WaveFightDef = QuestsFile['waveFights'][number];
 export type ShopDef = NonNullable<NpcDef['shop']>;
 export type TeachDef = NonNullable<NpcDef['teaches']>;
 export type EggResetDef = NonNullable<NpcDef['eggReset']>;
+export type FinderDef = NonNullable<NpcDef['finder']>;

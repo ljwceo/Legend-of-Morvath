@@ -90,7 +90,7 @@ _De oude stappen 3.6 en 3.7 zijn fase 3.8 en 3.10 geworden (besluit Bo, 2026-10-
 
 - [x] **3.8.1 Negen exam-quests** — 3 per leraar, alleen voor je eigen pad, op elkaar volgend, in EN en NL. _Klaar als:_ de exams brengen je van ±level 3 naar level 5 (520 XP).
 - [x] **3.8.2 Doel-type `train`** — "raak de trainingspop N keer", bij Brink en Sam met een opgeladen spreuk. _Klaar als:_ de voortgang staat in de questlijst.
-- [x] **3.8.3 Doel-type `waves`** — drie waves slimes op het trainingsveld, `pauseSeconds` tussen de waves, "Wave 2/3" in de questlijst. _Klaar als:_ doodgaan of van het veld lopen (`leaveSeconds`, nu 3 s) zet de drill terug op wave 1.
+- [x] **3.8.3 Doel-type `waves`** — drie waves slimes op het trainingsveld, `pauseSeconds` tussen de waves, "Wave 2/3" in de questlijst. _Klaar als:_ doodgaan of van het veld lopen (`leaveSeconds`, nu 3 s) zet de drill terug op wave 1 (save 15).
 - [x] **3.8.4 Statuseffecten als systeem** — `monsters.json → statusEffects` + `onHit`: Chilled, Burning, leech, hogere sprong, Weakened. _Klaar als:_ een ander monster krijgt ze zonder nieuwe code.
 - [x] **3.8.5 Pad-effecten zwaardvechter** — beter zwaard, geen mana (balk weg), 115% kracht, perks Iron Body / Battle Hardened / Swift Blade (ook in de zwaai-tijden). _Klaar als:_ HP, ontvangen schade en aanvalssnelheid veranderen echt.
 - [x] **3.8.6 Pad-effecten mage** — Mage Staff + Crystal Ceremony als stripcutscene (Brink: Water/Fire/Nature/Wind, Sam: Dark), kristal in de save. _Klaar als:_ de cutscene is overslaanbaar en de bijbehorende spreuk werkt.
@@ -105,6 +105,18 @@ _De oude stappen 3.6 en 3.7 zijn fase 3.8 en 3.10 geworden (besluit Bo, 2026-10-
 - [x] **3.9.2 Eieren als itemsoort** — `type: "egg"`, wegen niets, niet te gebruiken, elk ei eenmalig (in de save) + het ei van Sultan uit zijn baasgevecht. _Klaar als:_ een gevonden ei komt nooit terug.
 - [x] **3.9.3 Herverdelen bij Sultan** — praat je met een ei in je tas: "Alles opnieuw verdelen? Dat kost één ei." met Ja/Nee + nog één keer bevestigen, event `statsReset`, save versie 13. _Klaar als:_ level, pad, gear en quests blijven gelijk en het ei is op.
 - [ ] **3.9.4 Spelen en terugkoppelen (Bo/Lucas)** — zijn de tien mini-bosses sterk genoeg? _Klaar als:_ Bo zegt of de HP/schade van de mini-bosses goed staat.
+
+---
+
+## Extra – Filmische cutscenes (Elden Ring-stijl) · stap 1 en 2 **gebouwd** (2026-10-13)
+
+Besluit uit het concept: cutscenes worden filmisch in de 3D-wereld zelf (`"type": "cinematic"` met `anchor`, `actors` en `shots` in `cutscenes.json`), met je eigen personage en gear in beeld. De strips blijven werken tot ze vervangen zijn. Overslaan = ±1 s ingedrukt houden. Alles op de vaste tijdstap, dus 60 en 120 fps zijn precies gelijk.
+
+- [x] **C.1 Systeem + proef Pringle → Sultan** — `CinematicTimeline` (pure logica), `CinematicStage` (actors in 3D), `CinematicCutscene` (balken, ondertitels, naamkaart, fade/flits/tint, skip-ring), HUD en knoppen weg tijdens de film, overwinningstekst na een baas (`boss.victory`). _Klaar als:_ de zes shots van Pringle → Sultan lopen door in het baasgevecht en 60 en 120 fps geven precies hetzelfde (test).
+- [x] **C.2 Eindscène na Sultan** — twee varianten (zwaard en mage) gekozen door de laatste treffer, slow motion, bevroren beeld, de ton, Pringle uit de rook, het ei als kaart, BOND FORGED in de balk van de zonenaam, Sultan vertelt als NPC waar je items vindt. _Klaar als:_ beide varianten spelen en zijn overslaanbaar.
+- [ ] **C.3 Kijken en meten (Bo/Lucas)** — beide eindscènes bekijken via cheatmenu → Baasgevecht, en "Meet 20 s" tijdens een cutscene op Low en High. _Klaar als:_ Bo zegt of de scènes goed voelen en de fps staat in `docs/PROGRESS.md`.
+- [ ] **C.4 De overige strips omzetten** — de intro (6 panelen + het intro-gevecht), de uitleg in de toren van Brink en de kelder van Sam, en de Crystal Ceremony. _Klaar als:_ elke omgezette cutscene is overslaanbaar en de oude strip-code is alleen nog voor wat nog niet om is.
+- [ ] **C.5 Blender-camera's en echte modellen** — `cameraClip` (camera-animatie uit glTF) echt laten werken en de placeholders in `CinematicStage` vervangen. _Klaar als:_ een camera uit Blender speelt een shot en de draw calls blijven gelijk.
 
 ---
 
@@ -182,7 +194,7 @@ _Chat 5 (A.5a–c) heeft geen Blender nodig en mag vóór of tegelijk met A.2–
 - [ ] **6.1 Art-pass** — anime/toon-shading afmaken, echte modellen in plaats van placeholders. _Klaar als:_ alleen de placeholder-factory en de materialen veranderen, geen gameplay-code.
 - [ ] **6.2 Echte kapsels en lichaamstypes** — per keuze een eigen model, kleuren blijven kleuren op hetzelfde model. _Klaar als:_ een nieuw kapsel toevoegen is alleen data.
 - [ ] **6.3 Audio** — muziek per zone, sfx voor slaan/raken/lopen, volume-slider die echt werkt, stemmen altijd Engels met ondertitels in de gekozen taal. _Klaar als:_ geluid stopt netjes bij pauze en achtergrond.
-- [ ] **6.4 Echte cutscenes** — `cutscenes.json` met plaatjes/camera in plaats van tekstpanelen, altijd overslaanbaar. _Klaar als:_ de intro en de Crystal Ceremony draaien als echte cutscene.
+- [ ] **6.4 Cutscenes afmaken** — wat na stap C.4 nog strip is omzetten naar filmisch, met echte modellen en camera's uit Blender (zie **Extra – Filmische cutscenes**). _Klaar als:_ geen enkele cutscene is nog een tekstpaneel en alles blijft overslaanbaar.
 - [ ] **6.5 Afronden fase 6** — meten op pc en iPhone, geheugen, documentatie. _Klaar als:_ 60 fps op de iPhone en 120 fps op High op de pc.
 
 ---
@@ -213,6 +225,7 @@ Seizoenseffecten · crafting en drogen · de Garden en farming (ook de bedden `M
 ### Nog te doen door Bo en Lucas
 
 - Fase 2, 3.7, 3.8, 3.9 en het Blender-Greyhaven **spelen** en "Meet 20 s" draaien op de pc (stappen 2.8, 3.8.8, 3.9.4).
+- De twee filmische cutscenes bekijken en meten (stap C.3).
 - fps op een echte **iPhone** is nog nooit gemeten (sinds fase 1).
 - Fase A: eerst de **looks van het personage** in Blender (stap A.0), daarna A.1 opnieuw + Mixamo (A.1b).
 
