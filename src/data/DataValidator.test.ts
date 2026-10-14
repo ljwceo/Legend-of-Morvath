@@ -76,6 +76,21 @@ describe('validateGameData catches broken data', () => {
     expect(found.some((m) => m.startsWith('player.json → movement.walkSpeed'))).toBe(true);
   });
 
+  it('reports animated NPC models whose speeds do not fit together', () => {
+    const raw = freshData();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const role = raw.npcs.roles.find((entry: any) => entry.animated);
+    role.animated.runAbove = role.animated.runSpeed + 1;
+    role.animated.file = 'characters/pringle/pringle.fbx';
+    const found = messages(raw);
+    expect(found.some((m) => m.includes('.animated.file'))).toBe(true);
+    const raw2 = freshData();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const role2 = raw2.npcs.roles.find((entry: any) => entry.animated);
+    role2.animated.runAbove = role2.animated.runSpeed + 1;
+    expect(messages(raw2).some((m) => m.includes('runAbove'))).toBe(true);
+  });
+
   it('rejects unknown (misspelled) fields', () => {
     const raw = freshData();
     raw.npcs.npcs[0].dialouge = [];

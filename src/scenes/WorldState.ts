@@ -60,6 +60,7 @@ import { Player } from '../entities/Player';
 import { PropLibrary } from '../entities/PropFactory';
 import { CameraRig, metersPerPixel } from '../render/CameraRig';
 import { NpcRenderer } from '../render/NpcRenderer';
+import { AnimatedNpcs, preloadAnimatedModels } from '../render/AnimatedNpcs';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
 import { Cheats, stepFlying } from '../systems/Cheats';
 import {
@@ -269,6 +270,9 @@ const SIGHT_GROUND_MARGIN = 0.35;
 const ORB_AHEAD = 0.55;
 /** Seconds over which fog and sky change color after entering another zone. */
 const FOG_SHARPNESS = 1.5;
+/** URL of a file in public/ with the build id (a new deploy never uses a cached old model). */
+const assetUrl = (path: string): string => `${publicUrl(path)}?v=${__BUILD_ID__}`;
+
 /** The text on the interaction icon per kind of NPC ("Talk to Marco", "Pet Pringle"). */
 const INTERACTION_LABELS: Readonly<Record<NpcDef['interaction'], string>> = {
   talk: 'hud.talkTo',
@@ -387,6 +391,8 @@ export class WorldState implements GameState, InstanceHost {
   private hud: HUD | null = null;
   private npcs: Npcs | null = null;
   private npcRenderer: NpcRenderer | null = null;
+  /** NPCs with a real animated model (Pringle); the placeholder draws them until it loads. */
+  private animatedNpcs: AnimatedNpcs | null = null;
   private npcWorld: NpcWorld | null = null;
   private enemies: Enemies | null = null;
   private enemyRenderer: EnemyRenderer | null = null;
@@ -644,6 +650,8 @@ export class WorldState implements GameState, InstanceHost {
       : undefined;
     this.instanceDef = instance ?? null;
     session.world.instance = this.instanceDef?.id ?? null;
+    // Animated NPC models (Pringle) start downloading now, alongside the zone: no pop-in later.
+    preloadAnimatedModels(data.npcs.roles, assetUrl);
     // A Blender-built zone loads first (loading screen); the open world builds right away.
     if (zone?.scene) this.loadSceneZone(data, zone);
     else this.buildScene(data, null);
@@ -3067,7 +3075,9 @@ export class WorldState implements GameState, InstanceHost {
     player.syncModel(a);
     if (this.weaponKind === 'staff') player.showStaff(this.staffState.progress);
     else if (this.sword) player.showSword(this.sword);
-    this.npcRenderer?.update(a, this.ctx.data?.npcs.settings.petHopSeconds ?? 1);
+    const hopSeconds = this.ctx.data?.npcs.settings.petHopSeconds ?? 1;
+    this.npcRenderer?.update(a, hopSeconds);
+    this.animatedNpcs?.update(a, waiting ? 0 : frameSeconds, hopSeconds);
     this.npcRenderer?.updateMarkers(a, this.time);
     if (!waiting) this.time += frameSeconds;
     this.enemyRenderer?.update(a, this.time);
@@ -4140,6 +4150,13 @@ export class WorldState implements GameState, InstanceHost {
       offer: resolveColorToken('zonlicht'),
       handIn: resolveColorToken('magieblauw'),
     });
+    this.animatedNpcs = new AnimatedNpcs(this.npcs.list, worldRoot, {
+      url: assetUrl,
+      // In a Blender-built zone the same toon light as the player; elsewhere the NPC lights.
+      toon: def && this.lighting ? this.lighting.uniforms : null,
+      onReady: (npc, height) => this.npcRenderer?.drawElsewhere(npc, height),
+      onError: (message) => this.ctx.reportProblem(message),
+    });
     const safeAreas = new Map(
       data.zones.zones.flatMap((entry) => entry.areas.map((area) => [area.id, area.shape])),
     );
@@ -4461,6 +4478,8 @@ export class WorldState implements GameState, InstanceHost {
     this.blob = null;
     this.npcRenderer?.dispose();
     this.npcRenderer = null;
+    this.animatedNpcs?.dispose();
+    this.animatedNpcs = null;
     this.enemyRenderer?.dispose();
     this.enemyRenderer = null;
     this.warningRenderer?.dispose();
@@ -4727,7 +4746,10 @@ export class WorldState implements GameState, InstanceHost {
     for (const npc of npcs.list) {
       if (!npc.shown) continue;
       const d = Math.hypot(npc.state.x - px, npc.state.z - pz);
-      if (npc.companion) parts.push(`${npc.id} ${d.toFixed(1)} m`);
+      if (!npc.companion) continue;
+      // The clip its real model plays (idle / walk / run), when it has one.
+      const clip = this.animatedNpcs?.clipOf(npc);
+      parts.push(`${npc.id} ${d.toFixed(1)} m${clip ? ` ${clip}` : ''}`);
     }
     return parts.join(' · ');
   }

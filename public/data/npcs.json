@@ -70,7 +70,17 @@
       "id": "companion",
       "color": "zonsondergang",
       "model": "placeholder:cat",
-      "radius": 0
+      "radius": 0,
+      "animated": {
+        "file": "characters/pringle/pringle.glb",
+        "height": 0.55,
+        "clips": { "idle": "Idle", "walk": "Walk", "run": "Run" },
+        "walkSpeed": 0.89,
+        "runSpeed": 3.73,
+        "runAbove": 2.2,
+        "idleBelow": 0.15,
+        "fadeSeconds": 0.2
+      }
     },
     {
       "id": "catfolk",

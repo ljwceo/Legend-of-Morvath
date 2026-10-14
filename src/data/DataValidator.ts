@@ -463,7 +463,17 @@ class CrossChecker {
   private checkNpcs(): void {
     const f = 'npcs';
     const zones = new Map(this.data.zones.zones.map((zone) => [zone.id, zone]));
-    this.data.npcs.roles.forEach((role, i) => this.color(f, `roles[${i}].color`, role.color));
+    this.data.npcs.roles.forEach((role, i) => {
+      this.color(f, `roles[${i}].color`, role.color);
+      const a = role.animated;
+      if (!a) return;
+      const p = `roles[${i}].animated`;
+      if (a.idleBelow >= a.runAbove) this.issue(f, p, 'idleBelow must be smaller than runAbove');
+      if (a.walkSpeed >= a.runSpeed) this.issue(f, p, 'walkSpeed must be smaller than runSpeed');
+      if (a.runAbove <= a.walkSpeed || a.runAbove >= a.runSpeed) {
+        this.issue(f, `${p}.runAbove`, 'should lie between walkSpeed and runSpeed');
+      }
+    });
     const settings = this.data.npcs.settings;
     const [pauseMin, pauseMax] = settings.wanderPauseSeconds;
     if (pauseMin > pauseMax) {
