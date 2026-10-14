@@ -6,6 +6,7 @@ import {
   CHEAT_AIM_SCALES,
   CHEAT_LOCK_SCALES,
   CHEAT_SIGHT_SCALES,
+  CHEAT_DOOR_ANGLES,
   CHEAT_SPEEDS,
   type Cheats,
 } from '../systems/Cheats';
@@ -385,6 +386,24 @@ export class CheatPanel {
           cheats.chunkLines = on;
           this.changed();
         }),
+      ),
+      section(
+        t('cheats.doors'),
+        el(
+          'div',
+          { className: 'ui-chips' },
+          chip(t('cheats.off'), cheats.doorAngleDegrees === null, () => {
+            cheats.doorAngleDegrees = null;
+            this.changed();
+          }),
+          ...CHEAT_DOOR_ANGLES.map((degrees) =>
+            chip(`${degrees}°`, cheats.doorAngleDegrees === degrees, () => {
+              cheats.doorAngleDegrees = degrees;
+              this.changed();
+            }),
+          ),
+        ),
+        el('p', { className: 'ui-note', text: t('cheats.doorsNote') }),
       ),
       this.seasonSection(chip, section),
       this.dayNightSection(chip, section),

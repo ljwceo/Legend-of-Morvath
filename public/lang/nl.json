@@ -992,6 +992,8 @@
     "flyHintTouch": "▲ / ▼ knoppen = omhoog en omlaag · door muren heen",
     "teleport": "Teleporteren",
     "chunkLines": "Chunkranden",
+    "doors": "Deuren",
+    "doorsNote": "Zet elke deur van een Blender-zone op een vaste hoek (afgekapt op zijn aanslag), om de scharnieren te controleren.",
     "close": "Sluiten",
     "open": "Cheats",
     "flyUp": "Omhoog vliegen",

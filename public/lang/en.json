@@ -992,6 +992,8 @@
     "flyHintTouch": "▲ / ▼ buttons = up and down · through walls",
     "teleport": "Teleport",
     "chunkLines": "Chunk borders",
+    "doors": "Doors",
+    "doorsNote": "Puts every door of a Blender-built zone at a fixed angle (clamped to its stops), to check the hinges.",
     "close": "Close",
     "open": "Cheats",
     "flyUp": "Fly up",

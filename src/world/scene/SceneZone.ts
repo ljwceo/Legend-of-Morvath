@@ -14,11 +14,12 @@ import {
   MeshBasicMaterial,
   type Object3D,
   Ray,
+  Sphere,
   Vector3,
   Vector4,
 } from 'three';
 import { MeshBVH, type ExtendedTriangle } from 'three-mesh-bvh';
-import type { SceneDef } from '../../data/types';
+import type { SceneDef, SceneDoorDef } from '../../data/types';
 import { palette } from '../../render/palette';
 import type { Mover } from '../../systems/Movement';
 import type { PointXZ } from '../Colliders';
@@ -28,6 +29,7 @@ import { createToonMaterial, type SharedLightUniforms } from '../../render/toon/
 import type { BlenderMaterial, SceneAssets } from './SceneAssets';
 import {
   filterGeometry,
+  inBox,
   insideAnyBox,
   keepsPoint,
   keepsTriangle,
@@ -58,6 +60,29 @@ const VARY_PLANTS = 0.12;
 const VARY_DEFAULT = 0.04;
 const VARY_IVY = 0.25;
 
+const DEG = Math.PI / 180;
+
+/**
+ * A swinging door of the zone: its triangles (cut out of the static meshes) in a group whose
+ * origin is the hinge, so `group.rotation.y` is the door's angle (0 = closed, positive = left as
+ * seen from the hinge, as in `HingedBodies`). Only doors that have triangles in this build exist
+ * (an instance leaves out the doors outside its region).
+ */
+export interface SceneDoor {
+  readonly def: SceneDoorDef;
+  readonly group: Group;
+}
+
+/**
+ * The angle (radians) the door cheat puts a door at: `null` = off (closed), else the degrees
+ * clamped to the door's own stops, so a stop of 0 keeps that side shut.
+ */
+export function doorAngleFromCheat(degrees: number | null, door: SceneDoorDef): number {
+  if (degrees === null) return 0;
+  const radians = degrees * DEG;
+  return Math.min(door.openDegrees.left * DEG, Math.max(-door.openDegrees.right * DEG, radians));
+}
+
 /** What `settle` found: on the ground, falling, or lost (under water / off the map). */
 export type SettleResult = 'ground' | 'falling' | 'lost';
 
@@ -87,6 +112,8 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
   readonly lanterns: Vector3[] = [];
   /** Draw calls this zone adds (debug). */
   readonly meshCount: number;
+  /** The swinging doors present in this build, in `def.doors` order (without the missing ones). */
+  readonly doors: readonly SceneDoor[];
   private readonly bvh: MeshBVH;
   private readonly topY: number;
   private readonly offset: Vector3;
@@ -169,14 +196,52 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
     const noCollision = new Set(def.noCollision);
     // Doorways with a closed door in them: drawn, but left out of the collision mesh.
     const openings: SceneBox[] = def.openings.map((box) => localBox(box, def.offset));
+    // Swinging doors: their triangles leave the static meshes (and so the collision mesh) and
+    // go into a group per door with the hinge as origin.
+    const doorParts = def.doors.map((door) => {
+      const group = new Group();
+      group.name = `door:${door.id}`;
+      group.position.set(door.hinge.x - def.offset.x, 0, door.hinge.z - def.offset.z);
+      return { def: door, box: localBox(door.box, def.offset), group };
+    });
+    const doorBoxes: SceneBox[] = doorParts.map((part) => part.box);
+    const unhinge = new Matrix4();
+    const cut = doorBoxes.length > 0;
     for (const source of statics) {
       const name = materialName(source);
       const blender = info.materials[name];
-      const geometry = filter
-        ? filterGeometry(source.geometry as BufferGeometry, source.matrixWorld, (a, b, c) =>
-            keepsTriangle(filter, name, a, b, c),
-          )
-        : (source.geometry as BufferGeometry);
+      const sourceGeometry = source.geometry as BufferGeometry;
+      const keeps = (a: Vector3, b: Vector3, c: Vector3): boolean =>
+        !filter || keepsTriangle(filter, name, a, b, c);
+      if (cut) {
+        for (const { box, group } of doorParts) {
+          const piece = filterGeometry(
+            sourceGeometry,
+            source.matrixWorld,
+            (a, b, c) => inBox(box, a) && inBox(box, b) && inBox(box, c) && keeps(a, b, c),
+          );
+          if (!piece) continue;
+          this.geometries.add(sourceGeometry);
+          this.geometries.add(piece);
+          setBoundsFromIndex(piece);
+          const mesh = new Mesh(
+            piece,
+            this.materialFor(name, source.material, blender, assets, color),
+          );
+          mesh.matrixAutoUpdate = false;
+          unhinge.makeTranslation(-group.position.x, 0, -group.position.z);
+          mesh.matrix.multiplyMatrices(unhinge, source.matrixWorld);
+          group.add(mesh);
+        }
+      }
+      const geometry =
+        filter || cut
+          ? filterGeometry(
+              sourceGeometry,
+              source.matrixWorld,
+              (a, b, c) => keeps(a, b, c) && !insideAnyBox(doorBoxes, a, b, c),
+            )
+          : sourceGeometry;
       if (!geometry) continue;
       const mesh = new Mesh(
         geometry,
@@ -223,6 +288,13 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
       }
     }
     this.waterY = (Number.isFinite(seaLevel) ? seaLevel : 0) + this.offset.y;
+    const doors: SceneDoor[] = [];
+    for (const { def: doorDef, group } of doorParts) {
+      if (group.children.length === 0) continue;
+      this.group.add(group);
+      doors.push({ def: doorDef, group });
+    }
+    this.doors = doors;
 
     // Trees: one InstancedMesh per material per cell, so cells outside the view are skipped.
     const cell = def.treeCellSize;
@@ -265,7 +337,11 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
     this.bvh = new MeshBVH(merged, { targetLeafSize: 8 });
     merged.computeBoundingBox();
     this.topY = (merged.boundingBox?.max.y ?? 100) + 1;
-    this.meshCount = this.group.children.length;
+    let meshes = 0;
+    this.group.traverse((object) => {
+      if (object instanceof Mesh) meshes++;
+    });
+    this.meshCount = meshes;
     for (const lantern of this.lanterns) lantern.add(this.offset);
   }
 
@@ -280,6 +356,17 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
       this.offset.y,
       this.offset.z - originZ,
     );
+  }
+
+  /** Turns door `index` (of `doors`) to `radians` around its hinge (drawn next frame). */
+  setDoorAngle(index: number, radians: number): void {
+    const door = this.doors[index];
+    if (door) door.group.rotation.y = radians;
+  }
+
+  /** Debug cheat: every door at a fixed angle (degrees, clamped to its stops); null = closed. */
+  setDoorCheat(degrees: number | null): void {
+    this.doors.forEach((door, i) => this.setDoorAngle(i, doorAngleFromCheat(degrees, door.def)));
   }
 
   /** The player's height: heights for others are looked up near it. */
@@ -591,6 +678,22 @@ function isTree(object: Object3D, prefix: string): boolean {
     if (p.name.startsWith(prefix)) return true;
   }
   return false;
+}
+
+/**
+ * Bounding box and sphere of only the indexed triangles (a cut-out piece shares the vertex
+ * buffer of its whole material, so the automatic bounds would cover the whole scene).
+ */
+function setBoundsFromIndex(geometry: BufferGeometry): void {
+  const position = geometry.getAttribute('position');
+  const index = geometry.index;
+  if (!position || !index) return;
+  const box = new Box3();
+  const v = new Vector3();
+  for (let i = 0; i < index.count; i++)
+    box.expandByPoint(v.fromBufferAttribute(position, index.getX(i)));
+  geometry.boundingBox = box;
+  geometry.boundingSphere = box.getBoundingSphere(new Sphere());
 }
 
 /** A number key for the trunk grid (no strings while playing). */
