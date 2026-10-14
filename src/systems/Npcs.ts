@@ -132,7 +132,11 @@ export class Npcs {
       const dz = pz - s.z;
       const d2 = dx * dx + dz * dz;
 
-      if (companion) {
+      if (npc.petHold > 0) {
+        // Just petted: it stays where it is and looks at you (its pet animation plays).
+        npc.petHold = Math.max(0, npc.petHold - dt);
+        s.heading = turnTowards(s.heading, Math.atan2(dx, dz), maxTurn);
+      } else if (companion) {
         if (companion.step(s, player, dt, world.mover) === 'teleport') {
           this.settle(npc, world);
           continue;

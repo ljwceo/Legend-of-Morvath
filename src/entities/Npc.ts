@@ -40,6 +40,8 @@ export class Npc {
   waiting = false;
   /** Seconds left of the little hop after petting (drawing only). */
   hop = 0;
+  /** Seconds left that a petted companion stays put, facing the player (`petHoldSeconds`). */
+  petHold = 0;
   /** Marker above the head: a quest to offer, a quest to hand in, or none. */
   questMarker: QuestMarker = 'none';
   private prevX = 0;
@@ -120,6 +122,11 @@ export class Npc {
     this.prevY = this.state.y;
     this.prevZ = this.state.z;
     this.prevHeading = this.state.heading;
+  }
+
+  /** How far (m, along the ground) it moved in the last simulation step. */
+  stepDistance(): number {
+    return Math.hypot(this.state.x - this.prevX, this.state.z - this.prevZ);
   }
 
   drawX(alpha: number): number {

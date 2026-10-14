@@ -1,3 +1,4 @@
+import type { AnimatedModels } from '../render/AnimatedNpcs';
 import type { Object3D, PerspectiveCamera } from 'three';
 import { numberToHex, resolveColorToken } from '../render/palette';
 import { CinematicStage, type WeaponPoser } from '../render/cinematic/CinematicStage';
@@ -42,6 +43,8 @@ export interface CinematicHost {
   canvas: HTMLElement | null;
   /** All sound falls away (`silence` shots) and comes back. A hook: there is no audio yet. */
   silence?(on: boolean): void;
+  /** Real animated models for placeholders that have one (Pringle), or null. */
+  animated?: AnimatedModels | null;
 }
 
 /**
@@ -120,6 +123,7 @@ export class CinematicCutscene {
       host.playerRoot,
       host.element,
       host.poseWeapon,
+      host.animated ?? null,
     );
     this.skipper = new HoldToSkip(settings.holdToSkipSeconds, settings.holdReleaseFactor);
 
