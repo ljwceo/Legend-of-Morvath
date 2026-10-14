@@ -120,11 +120,11 @@ Besluit uit het concept: cutscenes worden filmisch in de 3D-wereld zelf (`"type"
 
 ---
 
-## Fase 3.10 – Afronden fase 3 · **open** (volgende fase)
+## Fase 3.10 – Afronden fase 3 · **bezig** (3.10.1 klaar)
 
 Doel: fase 3 is af, gemeten en opgeschreven. Alleen bestaande getallen bijschaven, geen nieuwe systemen.
 
-- [ ] **3.10.1 Balans nameten** — nagebootste speler met zwaard, lichtmage en duistere mage, plus een paar extreme builds (alles in HP, alles in Strength, alles in Magic Power). _Klaar als:_ geen build slaat alles kapot of komt nergens doorheen, en de uitkomsten staan in `docs/PROGRESS.md`.
+- [x] **3.10.1 Balans nameten** — nagebootste speler met zwaard, lichtmage en duistere mage, plus een paar extreme builds (alles in HP, alles in Strength, alles in Magic Power). _Klaar als:_ geen build slaat alles kapot of komt nergens doorheen, en de uitkomsten staan in `docs/PROGRESS.md`. **Klaar (2026-10-14):** gemeten op de tweede exam, de derde exam (Greenwood) en de eerste mini-boss; geen build komt nergens doorheen en geen build slaat alles kapot. Geen data veranderd — twee vragen liggen bij Bo (open vragen 16 en 18 in `docs/PROGRESS.md`).
 - [ ] **3.10.2 Meet 20 s op de pc** — Low, Mid en High, in Greyhaven, bij het goblinkamp en tegen Sultan. _Klaar als:_ 60 fps op Mid en 120 fps op High, met de getallen in `docs/PROGRESS.md`.
 - [ ] **3.10.3 Geheugen controleren** — 10 minuten heen en weer lopen én 5× een instance in en uit. _Klaar als:_ geometries/textures gaan elke keer terug naar hun beginwaarde.
 - [ ] **3.10.4 `docs/ARCHITECTURE.md` bijwerken** — stats, buttonmapping, lock-on, exams, eieren, instances. _Klaar als:_ de documentatie klopt met de code.

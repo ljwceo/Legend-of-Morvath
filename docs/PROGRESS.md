@@ -7,10 +7,10 @@
 | | |
 |---|---|
 | **Plan** | Alle fases en stappen staan in **`PLAN.md`** (één stap per sessie). Lees hier alleen wat je nodig hebt |
-| **Huidige fase** | Fase 3.9 – Eieren, mini-bosses en opnieuw verdelen |
+| **Huidige fase** | Fase 3.10 – Afronden fase 3 (stap 3.10.1 klaar) |
 | **Status** | **Fase 3.9 gebouwd (2026-10-13):** tien mini-bosses met elk eenmalig een ei, het ei van Sultan uit zijn baasgevecht, en inleveren bij Sultan om al je punten opnieuw te verdelen (save versie 13). Daarvoor: fase 3.8 (Entrance Exams, pad-effecten, stadspoort), 3.7 (stats en builds), 3.6 (buttonmapping + lock-on) en stap 3.0 t/m 3.5. Fase 2, 3.7, 3.8 en het Blender-Greyhaven wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
-| **Volgende stap** | **Fase 3.10 – Afronden fase 3** in een nieuwe chat (balans nameten, Meet 20 s op Low/Mid/High, geheugen, documentatie). Bo/Lucas: 3.8 en 3.9 spelen — zijn de tien mini-bosses sterk genoeg, is de nieuwe tweede exam (drie waves slimes op het veld) zwaar genoeg, en klopt het effect dat ik voor de Dark Slime koos? |
-| **Laatste sessie** | 2026-10-14: workflow opgezet om usage te sparen — alle fases staan nu opgehakt in kleine stappen in **`PLAN.md`**, `CLAUDE.md` is ingekort tot alleen de projectregels en verwijst daarnaar, en `docs/START-PROMPT.md` vraagt om één stap per chat. Daarvoor, ook 2026-10-14: **Pringle als echt 3D-model** met Idle/Walk/Run uit Blender (`public/characters/pringle/pringle.glb`), die met je meeloopt door Greyhaven. Daarvoor, 2026-10-13: filmische cutscenes stap 1 en 2 — het systeem met Pringle → Sultan als proef en de eindscène na Sultan (zwaard- en mage-versie), BOND FORGED in de balk van de zonenaam, het ei als kaart, en Sultan vertelt waar je items vindt |
+| **Volgende stap** | **Stap 3.10.2 – Meet 20 s op de pc** (Low, Mid en High, in Greyhaven, bij het goblinkamp en tegen Sultan) in een nieuwe chat. Bo: twee vragen uit de balansmeting liggen bij jou — **open vraag 18** (Mossback is in 10 s om voor een zwaardvechter: meer HP?) en **open vraag 16** (een zwaardvechter haalt de tweede exam het best door de knop in te houden). Verder nog steeds 3.8 en 3.9 spelen en het Dark-Slime-effect (vraag 15) |
+| **Laatste sessie** | 2026-10-14: **stap 3.10.1 – balans nagemeten** met één nagebootste speler voor alle drie de paden: de tweede exam (het spannendste van fase 3, een mage zakt er soms), de derde exam (in gevechtstermen geen test meer), de eerste mini-boss (10 s voor een zwaardvechter) en de extreme builds (niemand komt nergens doorheen, niemand slaat alles kapot). Geen enkel balansgetal veranderd; twee vragen liggen bij Bo (16 en 18). Daarvoor, ook 2026-10-14: workflow opgezet om usage te sparen — alle fases staan nu opgehakt in kleine stappen in **`PLAN.md`**, `CLAUDE.md` is ingekort tot alleen de projectregels en verwijst daarnaar, en `docs/START-PROMPT.md` vraagt om één stap per chat. Daarvoor, ook 2026-10-14: **Pringle als echt 3D-model** met Idle/Walk/Run uit Blender (`public/characters/pringle/pringle.glb`), die met je meeloopt door Greyhaven. Daarvoor, 2026-10-13: filmische cutscenes stap 1 en 2 — het systeem met Pringle → Sultan als proef en de eindscène na Sultan (zwaard- en mage-versie), BOND FORGED in de balk van de zonenaam, het ei als kaart, en Sultan vertelt waar je items vindt |
 
 ### Liggend spelen op de telefoon (Bo, 2026-10-12)
 
@@ -21,7 +21,8 @@ Na het spelen op de telefoon: de game speel je **alleen liggend**. Het beeld hou
 | # | Vraag | Stand nu |
 |---|---|---|
 | 15 | Wat doet een **Dark Slime** als hij je raakt? (de andere vier elementen zijn afgesproken) | Voorstel van Claude en nu in de data: **Weakened** — 4 s lang doen je eigen treffers 25% minder. Past bij duister, werkt voor zwaard én mage; mana stelen zou niets doen bij een zwaardvechter. Eén regel in `monsters.json` anders als Bo iets anders wil |
-| 16 | Een **zwaardvechter** kan de nieuwe tweede exam ook halen door alleen de knop in te houden (slimes zijn geen muur voor een zwaai die ze allemaal raakt) | Hij komt er wel met duidelijk minder HP uit. Meer slimes passen niet binnen de 520 XP; wil Bo dat een zwaardvechter ook kan zakken, dan moet er een ander soort vijand bij (bijvoorbeeld een goblin-boogschutter). Alleen data |
+| 16 | Een **zwaardvechter** kan de nieuwe tweede exam ook halen door alleen de knop in te houden (slimes zijn geen muur voor een zwaai die ze allemaal raakt) | **Nagemeten in 3.10.1 en erger dan gedacht:** inhouden is niet alleen mogelijk, het is zijn *beste* manier — 8/8 gewonnen met 78 HP over, tegen 70 als hij netjes ontwijkt (één zwaai raakt de hele ring, dus sneller doodslaan = minder treffers tegen). Een mage die stil blijft staan verliest altijd (0/8). Wil Bo dat een zwaardvechter ook kan zakken, dan moet er een ander soort vijand bij (bijvoorbeeld een goblin-boogschutter, die van afstand prikt terwijl de slimes je vasthouden). Alleen data; meer slimes passen niet binnen de 520 XP |
+| 18 | **Is Mossback (de eerste mini-boss, 450 HP) sterk genoeg?** Hoort bij stap 3.9.4 | **Nagemeten in 3.10.1:** een zwaardvechter van level 5-6 slaat hem in **±10 seconden** om en levert daar de helft van zijn leven voor in; een mage houdt afstand en doet er 21-35 s over met weinig of geen schade. Hij is dus geen muur, maar voor een zwaardvechter ook geen baas — meer een korte ruil. Voorstel van Claude (alleen data, `monsters.json`): Mossback naar **±650 HP** zodat het gevecht richting 15-20 s gaat, en zijn Spore Burst vaker laten komen (elke 2e in plaats van elke 3e aanval) zodat afstand houden ook iets kost. Bo beslist; de andere negen mini-bosses (700 t/m 8000 HP) horen bij levels die er nog niet zijn, dus die meet ik pas als die zones inhoud krijgen |
 | 17 | Elke start logt `missing text "common.close" (en)`, terwijl die key in beide taalbestanden staat | `src/ui/Overlays.ts` maakt zijn sluitknop in de constructor en vraagt het label op vóórdat `I18n.setLanguage` iets geladen heeft (uit de tas-wijziging van 2026-10-13, niet uit deze stap). Onschuldig, maar het vervuilt de debuglijst met ontbrekende keys. Oplossing: het `aria-label` pas zetten als de knop in beeld komt |
 | 1 | Wat gebeurt er overdag met mobs die er 's nachts al zijn? (verdwijnen, wegvluchten, blijven?) | Ze **blijven** voorlopig staan (test in `NightSpawns.test.ts`). Eén regel in `Enemies.stepSpawning` als het anders moet |
 | 2 | Blijft Greyhaven altijd in het gouden uur, of krijgt de stad ook dag en nacht? (open vraag uit het spelconcept) | Staat op `"lighting": "cycle"` in `zones.json`; `"goldenHour"` is één woord in de data |
@@ -699,6 +700,71 @@ Doel: na Sultan kies je in de Academy je pad (Sir Garrick, Master Brink of Wizar
 - **Tijdelijke namen (alleen in data):** de tien mini-bosses (Mossback, Rootgnarl, Fenstalker, Bogmaw, Hoarfrost Warden, Hollow Whisperer, Dunmar Sentinel, Stonejaw, Windlash, Blightborn), hun aanvallen en de elf einamen.
 - **Nog niet gemeten:** fps op de pc en de iPhone (zoals heel fase 2 en 3); deze stap voegt per frame niets toe (tien vijanden extra in de pool, die alleen in de buurt van de speler meedoen).
 
+### Fase 3.10 – Afronden fase 3 · stap 3.10.1 Balans nameten (2026-10-14)
+
+**Status:** stap 3.10.1 klaar. Geen enkel getal in de data veranderd: de twee dingen die eruit springen zijn vragen voor Bo (zie open vragen 16 en 18 hierboven).
+
+**Hoe er gemeten is.** Eén nagebootste speler die alle drie de paden kent (`src/systems/Balance.test.ts`). Lopen, het zwaard, de staf, de schoten, de statuseffecten, de waves van een drill en de vijand-AI zijn allemaal de echte code op de vaste tijdstap; alleen de beslissingen zijn van een robot: hij ontwijkt met 0,3 s reactietijd, een mage houdt afstand en schiet, en hij **drinkt nooit een drankje**. Elke regel hieronder is het gemiddelde van 8 startplekken × 2 levels (16 gevechten; de extreme builds onderaan zijn 8 gevechten op level 5), en elke startplek is herhaalbaar, dus dezelfde meting geeft morgen hetzelfde getal. Twee dingen die je bij het lezen moet weten: de robot gebruikt élke opening (een echt mens mist er een paar, dus in het echt duurt alles wat langer), en in de meting staan geen bomen of rotsen, dus **afstand houden als mage is hier makkelijker dan in de echte wereld**.
+
+**De tweede exam – drie waves slimes op het trainingsveld (level 3-4)**
+
+| Pad | Gewonnen | Tijd | HP over | Schade geïncasseerd |
+|---|---|---|---|---|
+| Zwaardvechter | 16/16 | ±26 s | ±70 | 60 (46% van zijn HP) |
+| Light Mage | 12/16 | ±73 s | ±27 | 56 (74% van zijn HP) |
+| Dark Mage | 14/16 | ±58 s | ±35 | 47 (62% van zijn HP) |
+
+- **Dit is het spannendste van heel fase 3.** Een mage in een ring slimes komt er met een kwart tot de helft van zijn leven uit en zakt ook echt zo nu en dan (2 tot 4 van de 16 keer, en dan in wave 3). Dat mag: het is een examen, en met drankjes erbij is het ruim haalbaar.
+- **Alleen de knop inhouden:** een mage verliest dan **altijd** (0/8, hij haalt wave 1 net). Een zwaardvechter wint juist **8/8** en houdt zelfs iets meer HP over (78 tegen 70) dan wanneer hij netjes ontwijkt — zie open vraag 16.
+
+**De derde exam – de Greenwood (level 4-5)**
+
+| Pad | Goblinpad (5 goblins, 2 groepjes) | Slimeweide (5 slimes) |
+|---|---|---|
+| Zwaardvechter | 16/16 · ±9 s · 18 schade (13%) | 16/16 · ±11 s · 0 schade |
+| Light Mage | 16/16 · ±24 s · 22 schade (29%) | 16/16 · ±24 s · 0 schade |
+| Dark Mage | 16/16 · ±16 s · 9 schade (12%) | 16/16 · ±19 s · 0 schade |
+
+De derde exam is in gevechtstermen **geen test meer**: alle drie de paden halen het altijd, en de slimes kosten letterlijk niets. Het is een wandeling door het bos met een paar gevechten; de goblins zijn het enige stukje dat bijt.
+
+**De eerste mini-boss – Mossback, 450 HP (level 5-6)**
+
+| Pad | Gewonnen | Tijd | HP over | Schade geïncasseerd |
+|---|---|---|---|---|
+| Zwaardvechter | 16/16 | ±10 s | ±64 | 66 (**51% van zijn HP**) |
+| Light Mage | 16/16 | ±35 s | ±58 | 18 (24%) |
+| Dark Mage | 16/16 | ±21 s | ±76 | 0 |
+
+Geen muur, maar voor een zwaardvechter is het een **ruilgevecht van tien seconden**: hij slaat Mossback om en levert daar de helft van zijn leven voor in. Een mage houdt afstand en betaalt in tijd in plaats van in HP. Dat is open vraag 18 geworden.
+
+**De extreme builds (alles in één stat, level 5)**
+
+| Build | Pad | Tweede exam (gewonnen · tijd · HP kwijt) | Mossback (gewonnen · tijd) |
+|---|---|---|---|
+| Alles in HP | zwaard | 8/8 · 27 s · 25% | 8/8 · 12 s |
+| Alles in HP | light | 8/8 · 71 s · 29% | 8/8 · 33 s |
+| Alles in HP | dark | 8/8 · 56 s · 13% | 8/8 · 26 s |
+| Alles in Power | zwaard | 8/8 · 25 s · **72%** | 8/8 · **7 s** |
+| Alles in Power | light | 4/8 · 55 s · **89%** | 8/8 · 22 s |
+| Alles in Power | dark | 6/8 · 41 s · **76%** | 8/8 · 17 s |
+| Alles in Strength | zwaard | **1/8** (2,1 van 3 waves) | **0/8** |
+| Alles in Strength | light | 2/8 (2,3 van 3 waves) | 8/8 · 33 s |
+| Alles in Strength | dark | 7/8 · 56 s · 59% | 8/8 · 26 s |
+| Alles in Magic Power | zwaard | **1/8** (2,1 van 3 waves) | **0/8** |
+| Alles in Magic Power | light | 3/8 (2,4 van 3 waves) | 8/8 · 24 s |
+| Alles in Magic Power | dark | 7/8 · 51 s · 79% | 8/8 · 18 s |
+
+- **Niemand komt nergens doorheen.** Elke build haalt zijn tweede exam minstens een keer, en elke mage-build legt Mossback om (afstand houden werkt zelfs met nul aanvalsstats, het duurt alleen lang). De bodem is **alles in Strength of Magic Power als zwaardvechter**: 1 van de 8 keer de exam, en de mini-boss nooit. Dat is logisch — Strength is alleen draaglast en Magic Power alleen spreuken, en een zwaardvechter heeft geen spreuken — en het is te repareren: één ei bij Sultan en je verdeelt alles opnieuw (stap 3.9.3).
+- **Niemand slaat alles kapot.** Een snel gevecht kost altijd minstens één treffer van de mini-boss; wie hem binnen tien seconden omlegt, levert daar driekwart van zijn leven voor in (alles in Power: 51 schade op 68 HP). Dat is ook de regel die de test vasthoudt (`neverFree`): kort óf veilig, nooit beide.
+- **Alles in HP** wint alles en verliest nauwelijks iets (8-29% van zijn leven), maar doet er overal langer over dan een aanvalsbuild (Mossback: 12 s tegen 7 s). **Alles in Power** is het omgekeerde: het snelste van alles, maar je staat elk gevecht op een paar HP, en op het trainingsveld (waar je niet weg kunt) zakt zo'n mage de helft van de tijd.
+- **Defense** blijft de steunstat van open vraag 14: alles erin (24 punten) geeft tegen Sultan 3 van de 8 gewonnen gevechten met 42 schade — nauwelijks beter dan helemaal niets besteden (3 van de 8, 43 schade). Precies zoals Bo het op 2026-10-13 besloot: zo laten, de defense-items komen er nog bij.
+
+**Aan de meetmethode zelf veranderd** (de oude cijfers in het blok van fase 3.8 zijn hiermee vervallen):
+- Elke seed begint nu op **zijn eigen plek** bij het midden van het gevecht. Daarvoor stonden alle acht de "verschillende" drill-runs op exact dezelfde plek, dus 8/8 betekende in feite één gevecht dat acht keer hetzelfde liep. Daarom zakt een mage nu zichtbaar soms.
+- Een gevecht in de open wereld geeft de speler nu **de ruimte die het spel ook geeft** (de `leashRadius` van de monsters: op die afstand geeft een monster het op en loopt naar huis). Met de krappe ring van 20 m die ik eerst gebruikte, werd een mage klemgezet tegen een hek dat in het spel niet bestaat, en verloor hij van Mossback 16 van de 16 keer — een meetfout, geen balansprobleem.
+- `Balance.test.ts` is nu één nagebootste speler (`makeFighter` zet build, pad, wapen, gear en kristalspreuk neer zoals `WorldState` dat doet) die in elke "scène" kan vechten: `drillScene` is het trainingsveld, `worldScene` zet een zone neer met alleen de gekozen spawns van `zones.json` erin, dus met de echte monsters op hun echte plekken.
+- 22 balanstests (was 14), samen 3,7 s. Alle 673 tests slagen, plus lint, opmaak en typecheck.
+
 ### Tas: tabs, scherm vullen en sluiten met je eigen toets (Bo, 2026-10-13)
 
 Na het spelen van fase 3.9: de spullenlijst in de tas was een klein scrollvakje binnen een venster dat zelf ook scrolde, de Close-knop onderin was dubbelop naast de ✕ in de hoek, en de quests stonden onder je spullen.
@@ -1111,3 +1177,4 @@ Bo's antwoorden vooraf: **Sultan blijft vóór de padkeuze** (beide varianten zi
 
 ### 2026-10-14
 - Workflow opgezet om usage te sparen: nieuw **`PLAN.md`** met alle fases (1, 2, 3, 3.6 t/m 3.10, A, 4, 5, 6 en een backlog) opgehakt in stappen die in één korte sessie af kunnen, elk met status (`[ ]` / `[~]` / `[x]`) en een concreet "Klaar als:"-criterium, plus een sectie **Notities** (open vragen, wat Bo en Lucas nog moeten spelen en meten, bekende problemen, tijdelijke namen, ontwerp-afspraken). `CLAUDE.md` ingekort tot alleen projectregels, structuur en conventies en verwijst nu naar `PLAN.md`; de volledige oude master prompt staat in `docs/archive/CLAUDE-master-prompt-2026-10-13.md`. `docs/START-PROMPT.md` vraagt nu om één stap per chat. Geen code gewijzigd. Volgende stap: fase 3.10.1 (balans nameten).
+- Stap 3.10.1 (balans nameten): de balanstest meet nu alle drie de paden met één nagebootste speler, op de tweede exam (trainingsveld), de derde exam (goblinpad en slimeweide in de Greenwood), de eerste mini-boss (Mossback) en met de extreme builds (alles in HP, Strength, Power of Magic Power). Uitkomst: geen build komt nergens doorheen en geen build slaat alles kapot, de tweede exam is het spannendste van fase 3 (een mage zakt 3-4 van de 16 keer), de derde exam is in gevechtstermen geen test meer, en Mossback is voor een zwaardvechter in ±10 s om. Twee meetfouten in de oude opzet opgelost (alle seeds stonden op dezelfde plek; de arena in de open wereld was te krap voor een mage). Geen data gewijzigd — open vragen 16 en 18 liggen bij Bo. Details in het blok "Fase 3.10" hierboven. Volgende stap: 3.10.2 (Meet 20 s op de pc).
