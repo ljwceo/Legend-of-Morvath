@@ -1,10 +1,23 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import {
+  AnimationClip,
+  Bone,
+  BufferAttribute,
+  BufferGeometry,
+  Group,
+  MeshStandardMaterial,
+  NumberKeyframeTrack,
+  Skeleton,
+  SkinnedMesh,
+} from 'three';
+import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 import { describe, expect, it } from 'vitest';
 import type { NpcsFile } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
 import {
   type AnimatedDef,
+  AnimatedRig,
   chooseGait,
   type GaitClip,
   gaitTimeScale,
@@ -80,6 +93,46 @@ describe('Pringle has a real animated model', () => {
       expect(scale).toBeLessThan(1.6);
       expect(scale).toBeCloseTo(speed / (clip === 'walk' ? def.walkSpeed : def.runSpeed), 6);
     }
+  });
+});
+
+/** A stand-in for a loaded .glb: one skinned triangle on one bone, with every clip of `def`. */
+function fakeModel(): GLTF {
+  const geometry = new BufferGeometry();
+  geometry.setAttribute('position', new BufferAttribute(new Float32Array(9), 3));
+  geometry.setAttribute('skinIndex', new BufferAttribute(new Uint16Array(12), 4));
+  geometry.setAttribute('skinWeight', new BufferAttribute(new Float32Array(12).fill(1), 4));
+  const bone = new Bone();
+  const mesh = new SkinnedMesh(geometry, new MeshStandardMaterial());
+  mesh.add(bone);
+  mesh.bind(new Skeleton([bone]));
+  const scene = new Group();
+  scene.add(mesh);
+  const names = [...Object.values(def.clips), ...(def.pets ?? [])];
+  const animations = names.map(
+    (name) => new AnimationClip(name, 1, [new NumberKeyframeTrack('.visible', [0, 1], [1, 1])]),
+  );
+  return { scene, animations } as unknown as GLTF;
+}
+
+describe('AnimatedRig', () => {
+  it('frees the bone texture of its own skeleton when disposed', () => {
+    const gltf = fakeModel();
+    const rig = new AnimatedRig(gltf, def, (source) => source, 'test');
+    const skinned: SkinnedMesh[] = [];
+    rig.root.traverse((object) => {
+      if (object instanceof SkinnedMesh) skinned.push(object);
+    });
+    expect(skinned.length).toBe(1);
+    const skeleton = (skinned[0] as SkinnedMesh).skeleton;
+    // Every copy has a skeleton of its own: the cached file's skeleton is left alone.
+    const original = (gltf.scene.children[0] as SkinnedMesh).skeleton;
+    expect(skeleton).not.toBe(original);
+    // The renderer makes this texture on the first frame; here we make it ourselves.
+    skeleton.computeBoneTexture();
+    expect(skeleton.boneTexture).not.toBeNull();
+    rig.dispose();
+    expect(skeleton.boneTexture).toBeNull();
   });
 });
 
