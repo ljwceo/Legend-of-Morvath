@@ -5,6 +5,7 @@ experiments/
 docs/
 package-lock.json
 CLAUDE.md
+PLAN.md
 README.md
 
 # Exported from Blender as-is (re-exports overwrite them)

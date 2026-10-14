@@ -2,25 +2,30 @@
 
 > Kopieer alles tussen de streepjes. Pas alleen de regels onder **Invullen** aan.
 > Wil je iets voor altijd veranderen? Pas dan dit bestand aan, niet elke keer de chat.
+> **Eén stap per chat.** Zo blijft het goedkoop: Claude leest alleen de projectregels en jouw stap.
 
 ---
 
 **Invullen**
-- Fase: 1 – Basis + open wereld + character creator
-- Taak: stap 1.1 (of: "de volgende stap uit PROGRESS.md")
+- Stap: 3.10.1 (of: "de volgende open stap uit PLAN.md")
 - Extra voor deze keer: (niets / een wens, bug of idee)
 
 **Opdracht**
-Je werkt aan Legend of Morvath in de repo `ljwceo/Legend-of-Morvath` (vroeger `journey-gaym`).
+Je werkt aan Legend of Morvath in de repo `ljwceo/Legend-of-Morvath`.
 
-1. Lees `CLAUDE.md`, `docs/PROGRESS.md` en `docs/art-style/README.md`. Lees het spelconcept "Legend of Morvath – spelconcept" via de Google Drive-connector, alleen de delen die je voor deze taak nodig hebt.
-2. Geef een korte samenvatting in het Nederlands: waar we zijn, wat af is, en wat je voor deze taak gaat doen (bestanden, volgorde, risico's).
-3. Staat er in het concept nog een tijdelijke naam die je in deze taak gebruikt? Meld het.
+1. Lees `CLAUDE.md` en **alleen de stap hierboven** uit `PLAN.md`. Lees `docs/PROGRESS.md`,
+   `docs/ARCHITECTURE.md`, `docs/art-style/README.md` of het spelconcept (Google Drive) alleen als
+   deze stap dat nodig heeft, en dan alleen het stukje dat je nodig hebt.
+2. Geef een korte samenvatting in het Nederlands: wat je gaat doen (bestanden, volgorde, risico's).
+3. Staat er in deze stap een tijdelijke naam (zie Notities in `PLAN.md`)? Meld het.
 4. **Wacht op mijn OK** voordat je begint.
-5. Doe **één taak per keer**. Ben je klaar, stop dan, ook als er tijd over is.
-6. Na de taak:
-   - Werk `docs/PROGRESS.md` bij (Nu, fase-log, besluiten, sessielog).
+5. Doe **alleen deze stap**. Ben je klaar, stop dan, ook als er tijd over is.
+6. Na de stap:
+   - Zet de stap in `PLAN.md` op `[x]` (of `[~]` als hij niet af is) en vul Notities aan bij een
+     nieuwe open vraag of een bekend probleem.
+   - Zet één regel in `docs/PROGRESS.md` (sessielog, en de tabel "Nu" bijwerken).
    - Commit, push de branch en open een pull request (zie `CLAUDE.md`).
-   - Vertel in gewone taal wat je gedaan hebt. Geef genummerde stappen om het te testen op pc en iPhone, en zeg wat de volgende taak is.
+   - Vertel in gewone taal wat je gedaan hebt, met genummerde stappen om het te testen op pc en
+     iPhone, en zeg welke stap de volgende is.
 
 ---

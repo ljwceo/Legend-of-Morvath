@@ -6,10 +6,11 @@
 
 | | |
 |---|---|
+| **Plan** | Alle fases en stappen staan in **`PLAN.md`** (één stap per sessie). Lees hier alleen wat je nodig hebt |
 | **Huidige fase** | Fase 3.9 – Eieren, mini-bosses en opnieuw verdelen |
 | **Status** | **Fase 3.9 gebouwd (2026-10-13):** tien mini-bosses met elk eenmalig een ei, het ei van Sultan uit zijn baasgevecht, en inleveren bij Sultan om al je punten opnieuw te verdelen (save versie 13). Daarvoor: fase 3.8 (Entrance Exams, pad-effecten, stadspoort), 3.7 (stats en builds), 3.6 (buttonmapping + lock-on) en stap 3.0 t/m 3.5. Fase 2, 3.7, 3.8 en het Blender-Greyhaven wachten nog op spelen en Meet 20 s op de pc (en iPhone) |
 | **Volgende stap** | **Fase 3.10 – Afronden fase 3** in een nieuwe chat (balans nameten, Meet 20 s op Low/Mid/High, geheugen, documentatie). Bo/Lucas: 3.8 en 3.9 spelen — zijn de tien mini-bosses sterk genoeg, is de nieuwe tweede exam (drie waves slimes op het veld) zwaar genoeg, en klopt het effect dat ik voor de Dark Slime koos? |
-| **Laatste sessie** | 2026-10-13: de tweede Entrance Exam van elk pad is een slime-gevecht in drie waves op het trainingsveld geworden (binnen de stad), met herbruikbare statuseffecten en elementaire slimes; de Greenwood-tochten zijn side quests voor na de poort (save 15) |
+| **Laatste sessie** | 2026-10-14: workflow opgezet om usage te sparen — alle fases staan nu opgehakt in kleine stappen in **`PLAN.md`**, `CLAUDE.md` is ingekort tot alleen de projectregels en verwijst daarnaar, en `docs/START-PROMPT.md` vraagt om één stap per chat |
 
 ### Liggend spelen op de telefoon (Bo, 2026-10-12)
 
@@ -761,6 +762,8 @@ Na het spelen van fase 3.9: de spullenlijst in de tas was een klein scrollvakje 
 
 | Datum | Besluit | Waarom |
 |---|---|---|
+| 2026-10-14 | **Alle plannen en fasedetails staan vanaf nu in `PLAN.md`**, opgehakt in stappen van één sessie met een status en een "Klaar als:"-criterium | Usage sparen: per chat leest Claude alleen de projectregels en één stap, niet meer de hele master prompt en heel PROGRESS (Bo) |
+| 2026-10-14 | `CLAUDE.md` is ingekort van 550 naar 107 regels: alleen projectregels, structuur en conventies, met bovenaan "Het actuele plan staat in PLAN.md". De volledige oude tekst staat in `docs/archive/CLAUDE-master-prompt-2026-10-13.md` | Niets weggooien, maar het bestand dat elke sessie gelezen wordt zo klein mogelijk houden |
 | 2026-10-13 | De tweede exam van elk pad is een slime-gevecht in drie waves op het trainingsveld in plaats van een tocht naar de Greenwood | De stadspoort gaat pas open na de laatste exam, dus de oude tweede exam liet je vastlopen in Greyhaven (Bo) |
 | 2026-10-13 | De slimes van de exam zijn een bewuste uitzondering op de veilige zone van Greyhaven — alleen tijdens de exam en alleen op het veld | Het trainingsveld ligt binnen de stadsmuren, en dáár hoort de exam |
 | 2026-10-13 | Statuseffecten (slow, burning, weaken) zijn een eigen systeem in `monsters.json` → `statusEffects`, met `onHit` per monster | Later krijgen andere vijanden ze ook; dan is het alleen data |
@@ -1043,3 +1046,6 @@ Na het spelen van fase 3.9: de spullenlijst in de tas was een klein scrollvakje 
 - Fase 3.8 gebouwd: negen Entrance Exams (drie per leraar, alleen je eigen pad), het nieuwe doeltype `train` op de trainingspoppen, je leraar geeft je zijn wapen bij de quest, de Crystal Ceremony per leraar met een willekeurig element bij Brink, de pad-effecten met de drie zwaardperks (en de manabalk weg voor een zwaardvechter), en de stadspoort die opengaat na Sultan + je laatste exam. Save versie 12. Details in het blok "Fase 3.8" hierboven. Volgende stap: fase 3.9 (eieren, mini-bosses en opnieuw verdelen).
 - Fase A, Chat 1 gebouwd: `tools/blender/character/01_prep_mixamo.py` maakt van de lijfstukken van `StartCharacter` één mesh in A-pose met extra ringen voor ellebogen, knieën en rug (zonder hoed, haar, cape, zwaard en omlijning) en exporteert `body_for_mixamo.fbx` naar `art-source/` (in `.gitignore`). Getest met headless Blender 5.2 op een nagebouwde `StartCharacter` uit `player.glb`. Opgemerkt: in `player.glb` staat `Arm_R` (met het zwaard) aan de -X-kant; als het model naar +Y kijkt, is dat de linkerhand van het personage. Controleren in Chat 2 (zwaard aan `RightHand`). Volgende stap: Bo draait het script en doet Deel B in Mixamo (`tools/blender/character/README.md`).
 - Fase A: Bo heeft het script in Blender gedraaid (melding + map werken). Besluit: eerst de looks van het personage maken, daarna Chat 1 en Mixamo opnieuw op het echte model. Tips voor het model staan in `tools/blender/character/README.md`. Intussen kan Chat 5 (rennen en springen).
+
+### 2026-10-14
+- Workflow opgezet om usage te sparen: nieuw **`PLAN.md`** met alle fases (1, 2, 3, 3.6 t/m 3.10, A, 4, 5, 6 en een backlog) opgehakt in stappen die in één korte sessie af kunnen, elk met status (`[ ]` / `[~]` / `[x]`) en een concreet "Klaar als:"-criterium, plus een sectie **Notities** (open vragen, wat Bo en Lucas nog moeten spelen en meten, bekende problemen, tijdelijke namen, ontwerp-afspraken). `CLAUDE.md` ingekort tot alleen projectregels, structuur en conventies en verwijst nu naar `PLAN.md`; de volledige oude master prompt staat in `docs/archive/CLAUDE-master-prompt-2026-10-13.md`. `docs/START-PROMPT.md` vraagt nu om één stap per chat. Geen code gewijzigd. Volgende stap: fase 3.10.1 (balans nameten).
