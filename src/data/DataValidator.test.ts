@@ -165,6 +165,62 @@ describe('validateGameData catches broken data', () => {
     expect(messages(raw)).toContainEqual(expect.stringContaining('as a neighbor'));
   });
 
+  it('keeps the three monastery doors and their shared physics in the real data', () => {
+    const { data } = validateGameData(readAllData(), options);
+    const scene = data?.zones.zones.find((zone) => zone.scene)?.scene;
+    expect(scene?.doors.map((door) => door.id)).toEqual([
+      'monastery_hall_cloister',
+      'monastery_hall_garden',
+      'monastery_church_portal',
+    ]);
+    expect(scene?.doorSettings.maxDegreesPerSecond).toBeGreaterThan(0);
+  });
+
+  it('reports doors whose box, hinge, tip or stops are wrong', () => {
+    const raw = freshData();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scene = raw.zones.zones.find((zone: any) => zone.scene).scene;
+    const [cloister, garden, portal] = scene.doors;
+    cloister.box.max.z = cloister.box.min.z; // flat box
+    garden.hinge.x = garden.box.max.x + 1; // hinge outside the box
+    garden.openDegrees = { left: 0, right: 0 }; // opens nowhere
+    portal.tip = { ...portal.hinge }; // no length
+    scene.doors.push({ ...scene.doors[0], box: structuredClone(portal.box) }); // duplicate id
+    const found = messages(raw);
+    expect(found).toContainEqual(
+      expect.stringContaining('doors[0].box: min must be smaller than max on every axis'),
+    );
+    expect(found).toContainEqual(expect.stringContaining('doors[1].hinge: hinge must lie inside'));
+    expect(found).toContainEqual(
+      expect.stringContaining('doors[1].openDegrees: at least one side'),
+    );
+    expect(found).toContainEqual(expect.stringContaining('doors[2].tip: tip must be a different'));
+    expect(found).toContainEqual(expect.stringContaining('duplicate id "monastery_hall_cloister"'));
+    // A door whose tip lies outside its box, with the box itself fine.
+    const raw2 = freshData();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const door = raw2.zones.zones.find((zone: any) => zone.scene).scene.doors[0];
+    door.tip.z = door.box.max.z + 0.5;
+    expect(messages(raw2)).toContainEqual(expect.stringContaining('doors[0].tip: tip must lie'));
+  });
+
+  it('rejects door stops and physics outside their ranges', () => {
+    const raw = freshData();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scene = raw.zones.zones.find((zone: any) => zone.scene).scene;
+    scene.doors[0].openDegrees.left = 181;
+    scene.doorSettings.pushStrength = 0;
+    scene.doorSettings.maxDegreesPerSecond = 0;
+    const found = messages(raw);
+    expect(found.some((m) => m.includes('doors[0].openDegrees.left'))).toBe(true);
+    expect(found.some((m) => m.includes('doorSettings.pushStrength'))).toBe(true);
+    expect(found.some((m) => m.includes('doorSettings.maxDegreesPerSecond'))).toBe(true);
+    const raw3 = freshData();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    delete raw3.zones.zones.find((zone: any) => zone.scene).scene.doorSettings;
+    expect(messages(raw3).some((m) => m.includes('doorSettings'))).toBe(true);
+  });
+
   it('reports missing text keys and unknown colors', () => {
     const raw = freshData();
     raw.npcs.npcs[0].dialogue = ['npc.nobody.1'];

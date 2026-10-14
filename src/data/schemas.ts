@@ -114,6 +114,36 @@ const sceneBoxSchema = z.strictObject({
   max: z.strictObject({ x: coord, y: coord, z: coord }),
 });
 
+/** A point on the ground in world coordinates (m). */
+const groundPointSchema = z.strictObject({ x: coord, z: coord });
+
+/**
+ * A swinging door cut out of the Blender scene (step D): the triangles inside `box` turn around
+ * `hinge` (a vertical axis through this ground point); `tip` is the free end of the closed door.
+ * `openDegrees` are the stops per side, seen from the hinge looking at the closed tip
+ * (left = positive angle, as `rotation.y`); 0 = that side never opens. `box` plays the role of
+ * an `opening` for collision: the door is drawn but never solid.
+ */
+const doorSchema = z.strictObject({
+  id,
+  hinge: groundPointSchema,
+  tip: groundPointSchema,
+  box: sceneBoxSchema,
+  openDegrees: z.strictObject({ left: range(0, 180), right: range(0, 180) }),
+});
+
+/** Shared physics of all doors in a scene (`HingeSettings` in `src/systems/HingedBodies.ts`). */
+const doorSettingsSchema = z.strictObject({
+  /** Spring back to closed: angular acceleration per radian of opening (1/s²). */
+  stiffness: positive,
+  /** Takes angular speed away so the door settles instead of swinging back and forth (1/s). */
+  damping: positive,
+  /** How fast a pusher clears its overlap: angular speed = pushStrength × overlap / lever (1/s). */
+  pushStrength: positive,
+  /** Nothing turns faster than this, so a dash cannot launch a door (°/s). */
+  maxDegreesPerSecond: range(1, 3600),
+});
+
 /**
  * A zone built in Blender instead of streamed terrain: one glTF scene loaded with a loading
  * screen. `offset` is where the Blender origin lies in the world (Blender x, y, z-up becomes
@@ -147,6 +177,9 @@ const sceneSchema = z.strictObject({
    * not solid, so you walk through the door. Inside = all three corners of a triangle.
    */
   openings: z.array(sceneBoxSchema),
+  /** Swinging doors (see `doorSchema`); the DataValidator checks hinge, tip, box and stops. */
+  doors: z.array(doorSchema),
+  doorSettings: doorSettingsSchema,
   /** Materials drawn from both sides (thin leaves like ivy). */
   doubleSided: z.array(name),
   /** Materials that get a style guide color instead of their Blender color. */

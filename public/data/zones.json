@@ -160,6 +160,44 @@
             "max": { "x": -1785.95, "y": 14.0, "z": 67.35 }
           }
         ],
+        "doorSettings": {
+          "stiffness": 30,
+          "damping": 11,
+          "pushStrength": 20,
+          "maxDegreesPerSecond": 340
+        },
+        "doors": [
+          {
+            "id": "monastery_hall_cloister",
+            "hinge": { "x": -1803.89, "z": 90.3 },
+            "tip": { "x": -1802.11, "z": 90.3 },
+            "box": {
+              "min": { "x": -1804.05, "y": 8.9, "z": 90.1 },
+              "max": { "x": -1801.95, "y": 12.4, "z": 90.5 }
+            },
+            "openDegrees": { "left": 85, "right": 85 }
+          },
+          {
+            "id": "monastery_hall_garden",
+            "hinge": { "x": -1802.11, "z": 101.7 },
+            "tip": { "x": -1803.89, "z": 101.7 },
+            "box": {
+              "min": { "x": -1804.05, "y": 8.9, "z": 101.5 },
+              "max": { "x": -1801.95, "y": 12.4, "z": 101.95 }
+            },
+            "openDegrees": { "left": 85, "right": 85 }
+          },
+          {
+            "id": "monastery_church_portal",
+            "hinge": { "x": -1786.11, "z": 67.17 },
+            "tip": { "x": -1787.49, "z": 67.17 },
+            "box": {
+              "min": { "x": -1787.6, "y": 8.9, "z": 65.8 },
+              "max": { "x": -1785.95, "y": 14.0, "z": 67.35 }
+            },
+            "openDegrees": { "left": 40, "right": 110 }
+          }
+        ],
         "doubleSided": ["AC_Ivy"],
         "colorOverrides": { "AC_Ivy": "bosgroen" },
         "windowMaterials": ["AC_Glass"],

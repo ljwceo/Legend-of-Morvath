@@ -203,8 +203,28 @@ class CrossChecker {
         this.issue(f, `${p}.scene`, 'fogNear must be smaller than fogFar');
       }
       scene.openings.forEach((box, n) => {
-        if (box.min.x >= box.max.x || box.min.y >= box.max.y || box.min.z >= box.max.z) {
+        if (flatBox(box)) {
           this.issue(f, `${p}.scene.openings[${n}]`, 'min must be smaller than max on every axis');
+        }
+      });
+      this.unique('door', f, `${p}.scene.doors`, scene.doors);
+      scene.doors.forEach((door, n) => {
+        const dp = `${p}.scene.doors[${n}]`;
+        if (flatBox(door.box)) {
+          this.issue(f, `${dp}.box`, 'min must be smaller than max on every axis');
+        }
+        // The door turns around the hinge and reaches to the tip: both must lie in the cut.
+        if (!inRegion(door.box, door.hinge.x, door.hinge.z)) {
+          this.issue(f, `${dp}.hinge`, 'hinge must lie inside the box');
+        }
+        if (!inRegion(door.box, door.tip.x, door.tip.z)) {
+          this.issue(f, `${dp}.tip`, 'tip must lie inside the box');
+        }
+        if (door.hinge.x === door.tip.x && door.hinge.z === door.tip.z) {
+          this.issue(f, `${dp}.tip`, 'tip must be a different point than the hinge');
+        }
+        if (door.openDegrees.left <= 0 && door.openDegrees.right <= 0) {
+          this.issue(f, `${dp}.openDegrees`, 'at least one side must open (left or right > 0)');
         }
       });
       scene.exits.forEach((exit, n) => {
@@ -1645,6 +1665,14 @@ class CrossChecker {
 
 function toEntry(id: string): { id: string } {
   return { id };
+}
+
+/** A world box with nothing inside: min not below max on every axis (an opening or door cut). */
+function flatBox(box: {
+  min: { x: number; y: number; z: number };
+  max: { x: number; y: number; z: number };
+}): boolean {
+  return box.min.x >= box.max.x || box.min.y >= box.max.y || box.min.z >= box.max.z;
 }
 
 /** Is (x, z) inside a box's ground plan? */
