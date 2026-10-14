@@ -2,7 +2,14 @@ import { BufferAttribute, BufferGeometry, Matrix4, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { zonesFileSchema } from '../../data/schemas';
 import { readPublicJson } from '../../test/loadPublic';
-import { filterGeometry, instanceFilter, keepsTriangle, zoneFilter } from './SceneFilter';
+import {
+  filterGeometry,
+  insideAnyBox,
+  instanceFilter,
+  keepsTriangle,
+  localBox,
+  zoneFilter,
+} from './SceneFilter';
 
 const OFFSET = { x: -100, y: 0, z: 0 };
 
@@ -83,5 +90,31 @@ describe('scene filters', () => {
       expect(scene.spawn.y).toBeGreaterThanOrEqual(r.min.y);
       expect(scene.spawn.y).toBeLessThanOrEqual(r.max.y);
     }
+  });
+});
+
+describe('openings (doorways with a closed door in them)', () => {
+  it('drops only the triangles inside a box from the collision geometry', () => {
+    const openings = [
+      localBox({ min: { x: -101, y: -1, z: -1 }, max: { x: -98, y: 1, z: 2 } }, OFFSET),
+    ];
+    const solid = filterGeometry(
+      twoTriangles(),
+      new Matrix4(),
+      (a, b, c) => !insideAnyBox(openings, a, b, c),
+    );
+    expect(Array.from(solid?.index?.array ?? [])).toEqual([3, 4, 5]);
+  });
+
+  it('keeps a triangle that only touches the box', () => {
+    const openings = [
+      localBox({ min: { x: -101, y: -1, z: -1 }, max: { x: -99.5, y: 1, z: 2 } }, OFFSET),
+    ];
+    const solid = filterGeometry(
+      twoTriangles(),
+      new Matrix4(),
+      (a, b, c) => !insideAnyBox(openings, a, b, c),
+    );
+    expect(Array.from(solid?.index?.array ?? [])).toEqual([0, 1, 2, 3, 4, 5]);
   });
 });

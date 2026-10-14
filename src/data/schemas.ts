@@ -108,6 +108,12 @@ const riverSchema = z.strictObject({
 /** A file path inside public/, e.g. "zones/greyhaven/greyhaven.glb". */
 const publicPath = z.string().check(z.regex(/^[a-zA-Z0-9_./-]+$/, 'not a valid file path'));
 
+/** A box in world coordinates (m); a triangle counts as inside when all its corners are. */
+const sceneBoxSchema = z.strictObject({
+  min: z.strictObject({ x: coord, y: coord, z: coord }),
+  max: z.strictObject({ x: coord, y: coord, z: coord }),
+});
+
 /**
  * A zone built in Blender instead of streamed terrain: one glTF scene loaded with a loading
  * screen. `offset` is where the Blender origin lies in the world (Blender x, y, z-up becomes
@@ -136,6 +142,11 @@ const sceneSchema = z.strictObject({
   waterMaterial: name,
   /** Materials without collision (besides water and glowing ones), e.g. ivy. */
   noCollision: z.array(name),
+  /**
+   * Doorways with a closed door drawn in them (world boxes): the triangles inside are drawn but
+   * not solid, so you walk through the door. Inside = all three corners of a triangle.
+   */
+  openings: z.array(sceneBoxSchema),
   /** Materials drawn from both sides (thin leaves like ivy). */
   doubleSided: z.array(name),
   /** Materials that get a style guide color instead of their Blender color. */
@@ -152,12 +163,6 @@ const sceneSchema = z.strictObject({
       to: z.strictObject({ x: coord, z: coord, headingDegrees: range(-360, 360) }),
     }),
   ),
-});
-
-/** A box in world coordinates (m); a triangle counts as inside when all its corners are. */
-const sceneBoxSchema = z.strictObject({
-  min: z.strictObject({ x: coord, y: coord, z: coord }),
-  max: z.strictObject({ x: coord, y: coord, z: coord }),
 });
 
 /** Where you stand when you arrive (in an instance or back outside), facing `headingDegrees`. */

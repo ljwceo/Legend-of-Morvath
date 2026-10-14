@@ -26,7 +26,15 @@ import type { Ground } from '../Ground';
 import type { CameraOccluder } from '../StructureLayer';
 import { createToonMaterial, type SharedLightUniforms } from '../../render/toon/ToonMaterial';
 import type { BlenderMaterial, SceneAssets } from './SceneAssets';
-import { filterGeometry, keepsPoint, keepsTriangle, type SceneFilter } from './SceneFilter';
+import {
+  filterGeometry,
+  insideAnyBox,
+  keepsPoint,
+  keepsTriangle,
+  localBox,
+  type SceneBox,
+  type SceneFilter,
+} from './SceneFilter';
 
 /** Longest horizontal move (m) before walls and the ground are checked again (no tunneling). */
 const SUBSTEP = 0.2;
@@ -61,7 +69,8 @@ export interface ScenePoint extends PointXZ {
 /**
  * A zone built in Blender (zones.json `scene`), ready to play: static meshes with the toon
  * material, trees as instanced meshes per cell (frustum culling), one collision BVH of everything
- * solid (not water, not glowing, not `noCollision`), circles for tree trunks, and the lanterns.
+ * solid (not water, not glowing, not `noCollision`, not inside an `opening`), circles for tree
+ * trunks, and the lanterns.
  *
  * Walking: a capsule that only pushes sideways (walls), plus a ray down from step height for the
  * ground, so stairs simply work; falling with gravity off ledges. Everything here takes and
@@ -158,6 +167,8 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
     const solid: Mesh[] = [];
     let seaLevel = Infinity;
     const noCollision = new Set(def.noCollision);
+    // Doorways with a closed door in them: drawn, but left out of the collision mesh.
+    const openings: SceneBox[] = def.openings.map((box) => localBox(box, def.offset));
     for (const source of statics) {
       const name = materialName(source);
       const blender = info.materials[name];
@@ -193,7 +204,23 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
         blender?.kind === 'foliage' ||
         blender?.kind === 'water' ||
         source.name.startsWith('NC_');
-      if (name !== def.waterMaterial && !noCollision.has(name) && !passable) solid.push(mesh);
+      if (name === def.waterMaterial || noCollision.has(name) || passable) continue;
+      const solidGeometry =
+        openings.length > 0
+          ? filterGeometry(
+              geometry,
+              source.matrixWorld,
+              (a, b, c) => !insideAnyBox(openings, a, b, c),
+            )
+          : geometry;
+      if (solidGeometry === geometry) {
+        solid.push(mesh);
+      } else if (solidGeometry) {
+        this.geometries.add(solidGeometry);
+        const collider = new Mesh(solidGeometry);
+        collider.matrixWorld.copy(source.matrixWorld);
+        solid.push(collider);
+      }
     }
     this.waterY = (Number.isFinite(seaLevel) ? seaLevel : 0) + this.offset.y;
 

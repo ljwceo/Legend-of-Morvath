@@ -202,6 +202,11 @@ class CrossChecker {
       if (scene.fogNear >= scene.fogFar) {
         this.issue(f, `${p}.scene`, 'fogNear must be smaller than fogFar');
       }
+      scene.openings.forEach((box, n) => {
+        if (box.min.x >= box.max.x || box.min.y >= box.max.y || box.min.z >= box.max.z) {
+          this.issue(f, `${p}.scene.openings[${n}]`, 'min must be smaller than max on every axis');
+        }
+      });
       scene.exits.forEach((exit, n) => {
         const ep = `${p}.scene.exits[${n}]`;
         this.shape(f, `${ep}.shape`, exit.shape);

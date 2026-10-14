@@ -22,13 +22,13 @@ export interface SceneFilter {
   cuts: { box: SceneBox; materials: ReadonlySet<string> | null }[];
 }
 
-interface WorldBox {
+export interface WorldBox {
   min: { x: number; y: number; z: number };
   max: { x: number; y: number; z: number };
 }
 
 /** World box → local box (the scene is drawn at `offset`). */
-function localBox(box: WorldBox, offset: { x: number; y: number; z: number }): SceneBox {
+export function localBox(box: WorldBox, offset: { x: number; y: number; z: number }): SceneBox {
   return {
     minX: box.min.x - offset.x,
     minY: box.min.y - offset.y,
@@ -76,6 +76,19 @@ export function inBox(box: SceneBox, p: Vector3): boolean {
     p.z >= box.minZ &&
     p.z <= box.maxZ
   );
+}
+
+/** Is this triangle (local corners) inside one of the boxes (all three corners)? */
+export function insideAnyBox(
+  boxes: readonly SceneBox[],
+  a: Vector3,
+  b: Vector3,
+  c: Vector3,
+): boolean {
+  for (const box of boxes) {
+    if (inBox(box, a) && inBox(box, b) && inBox(box, c)) return true;
+  }
+  return false;
 }
 
 /** Does this triangle (local corners) of `material` belong to the filtered scene? */
