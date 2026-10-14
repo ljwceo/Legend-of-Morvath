@@ -376,6 +376,13 @@ het middenschip (vloer + een paar banken) of een geschilderd achtergrondvlak.
   binnenkanten niet getekend te worden en andersom. Of het één bestand blijft (en de game per zone een deel tekent,
   zoals bij de instances) of twee aparte .glb's wordt, is aan de game-kant (open vraag 11).
 
+**In de game (2026-10-14):** de deuren zijn dichte meshes (planken in `GH_Monastery_Wood_Door` en `GH_Wood`,
+banden en ring in `GH_Iron`) en tellen mee voor botsingen. `zones.json` → `scene.openings` noemt per deuropening een
+doos (wereldcoördinaten) waarbinnen niets botst, zodat je erdoorheen loopt: hal → kloostergang (z 90,3), hal → tuin
+(z 101,7) en het kerkportaal (z 66–67). Verplaats of vergroot je een deur in Blender, pas dan de doos aan. **Let op:**
+de kerk heeft geen deur naar de kloostergang en de tuinmuur is dicht, dus vanaf het bed kom je nog niet de stad in
+(open vraag 19 in `PLAN.md`).
+
 ## Grindpaden (2026-10-12, Bo)
 
 `MON_Garden_Paths` is nu een grindpad: het geschilderde plaatje `T_MON_Gravel` (tegel van 2 m: zand met heel veel

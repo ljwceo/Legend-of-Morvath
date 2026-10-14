@@ -234,6 +234,7 @@ Seizoenseffecten · crafting en drogen · de Garden en farming (ook de bedden `M
 | 9   | Moet een schot op een onraakbare vijand melden dat hij beschermd is? | Voorstel: zo laten (je schiet erlangs)                                                                                                          |
 | 10  | Moet de snel-drink-knop ook mana potions pakken?                     | Voorstel: zo laten, of een tweede knop                                                                                                          |
 | A.5 | Vier vragen over rennen en springen (zie stap A.5a)                  | Nog niet gesteld                                                                                                                                |
+| 19  | Hoe komt de speler het klooster uit? De kerk (met het portaal) heeft geen deur naar de kloostergang en de tuinmuur is dicht | Game: `openings` in `zones.json` maakt deuren beloopbaar (hal → kloostergang, hal → tuin, portaal). Nodig in Blender: een deur(opening) kloostergang → zuidbeuk van de kerk, of een hek in de tuinmuur; daarna één regel data |
 
 ### Nog te doen door Bo en Lucas
 
@@ -247,6 +248,7 @@ Seizoenseffecten · crafting en drogen · de Garden en farming (ook de bedden `M
 - Elke start logt `missing text "common.close" (en)` (open vraag 17): `src/ui/Overlays.ts` vraagt het label op vóórdat `I18n.setLanguage` iets geladen heeft. Onschuldig, maar het vervuilt de debuglijst. Oplossing: het `aria-label` pas zetten als de knop in beeld komt.
 - **Textures komen niet terug na een Blender-zone** (gemeten in stap 3.10.3): elke keer dat Greyhaven of een instance daaruit laadt, blijven er een paar textures achter. Van de 24 van de stad worden er 20 vrijgegeven; na het eerste bezoek staan er 4, en elk volgend bezoek laat er weer 1 à 2 achter (in de duurtest: in de Greenwood 4 → 8 → 10 → 14 → 16). Geometrieën kloppen wél precies. Oplossen = stap 3.10.3b.
 - Three.js zelf is 548 kB in de bundel en kan niet verder opgesplitst worden.
+- Vanuit het bed in het klooster kun je de kloostergang, de westvleugel en de tuin in, maar nog niet de stad (open vraag 19).
 - 120 fps lukt op de iPhone waarschijnlijk niet (Safari tekent daar maximaal 60 keer per seconde); het spel loopt wel overal even snel.
 
 ### Tijdelijke namen (nog niet definitief, alleen in data gebruiken)
