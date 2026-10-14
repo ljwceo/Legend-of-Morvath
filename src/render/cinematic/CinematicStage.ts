@@ -15,6 +15,7 @@ import {
   SphereGeometry,
 } from 'three';
 import { buildNpcModel } from '../../entities/NpcFactory';
+import type { AnimatedModels, AnimatedRig } from '../AnimatedNpcs';
 import { colored } from '../../entities/StructureFactory';
 import { palette, resolveColorToken, terrainColors } from '../palette';
 import type { ActorPose, CutsceneDef, WeaponPose } from './CinematicTimeline';
@@ -64,6 +65,10 @@ interface Actor {
   materials: { material: Material; opacity: number }[];
   /** Splinters: the pieces that fly apart. */
   pieces: Object3D[];
+  /** The real animated model (Pringle) instead of a placeholder, with where it was last frame. */
+  rig: AnimatedRig | null;
+  lastX: number;
+  lastZ: number;
 }
 
 /**
@@ -79,6 +84,8 @@ export class CinematicStage {
   private readonly geometries: BufferGeometry[] = [];
   private readonly materials: Material[] = [];
   private readonly group = new Group();
+  /** Cutscene time of the last `apply` (NaN before the first): animated models move on by it. */
+  private lastTime = Number.NaN;
 
   /** `element` is the color of the player's crystal (actors with `color: "element"`). */
   constructor(
@@ -87,6 +94,7 @@ export class CinematicStage {
     private readonly playerRoot: Object3D | null,
     private readonly element: number,
     private readonly poseWeapon: WeaponPoser | null = null,
+    private readonly animated: AnimatedModels | null = null,
   ) {
     for (const def of defs) {
       const actor: Actor = {
@@ -95,6 +103,9 @@ export class CinematicStage {
         size: def.scale ?? 1,
         materials: [],
         pieces: [],
+        rig: null,
+        lastX: 0,
+        lastZ: 0,
       };
       this.actors.push(actor);
       if (def.model === 'player') {
@@ -112,8 +123,13 @@ export class CinematicStage {
     parent.add(this.group);
   }
 
-  /** Puts every actor where the sample says (`time` turns the smoke). */
+  /**
+   * Puts every actor where the sample says (`time` turns the smoke). Animated models walk or
+   * stand by how fast they move between two calls, in cutscene time (slow motion slows them).
+   */
   apply(poses: readonly ActorPose[], time: number): void {
+    const dt = Number.isNaN(this.lastTime) ? 0 : Math.max(0, time - this.lastTime);
+    this.lastTime = time;
     for (let i = 0; i < this.actors.length; i++) {
       const actor = this.actors[i] as Actor;
       const object = actor.object;
@@ -121,6 +137,13 @@ export class CinematicStage {
       if (!object || !pose) continue;
       object.visible = pose.visible;
       object.position.set(pose.x, pose.y, pose.z);
+      if (actor.rig) {
+        const moved = Math.hypot(pose.x - actor.lastX, pose.z - actor.lastZ);
+        actor.lastX = pose.x;
+        actor.lastZ = pose.z;
+        if (!pose.visible) actor.rig.resetSpeed();
+        actor.rig.update(dt > 0 ? moved / dt : 0, dt);
+      }
       if (object === this.playerRoot) {
         object.rotation.y = pose.heading;
         this.poseWeapon?.(pose.pose, pose.poseT);
@@ -148,6 +171,7 @@ export class CinematicStage {
   dispose(): void {
     // The player's model is the game's: it is shown again, nothing else is touched.
     if (this.playerRoot) this.playerRoot.visible = true;
+    for (const actor of this.actors) actor.rig?.dispose();
     this.poseWeapon?.('rest', 0);
     this.parent.remove(this.group);
     for (const geometry of this.geometries) geometry.dispose();
@@ -176,8 +200,16 @@ export class CinematicStage {
         return this.buildBarrel(actor);
       case 'prop:plank':
         return this.buildPlank(actor);
-      default:
+      default: {
+        // The real animated model when the game has one for this placeholder (and it has
+        // loaded); its materials belong to `animated`, not to this stage.
+        const rig = this.animated?.createNow(def.model, `cinematic:${def.id}`) ?? null;
+        if (rig) {
+          actor.rig = rig;
+          return rig.root;
+        }
         return this.buildPlaceholder(def.model, color ?? 0xffffff);
+      }
     }
   }
 
