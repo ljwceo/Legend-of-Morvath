@@ -207,6 +207,24 @@ class CrossChecker {
           this.issue(f, `${p}.scene.openings[${n}]`, 'min must be smaller than max on every axis');
         }
       });
+      this.unique(`door:${zone.id}`, f, `${p}.scene.doors`, scene.doors);
+      scene.doors.forEach((door, n) => {
+        const dp = `${p}.scene.doors[${n}]`;
+        const box = door.box;
+        if (box.min.x >= box.max.x || box.min.y >= box.max.y || box.min.z >= box.max.z) {
+          this.issue(f, `${dp}.box`, 'min must be smaller than max on every axis');
+        }
+        const inBox = (q: { x: number; z: number }) =>
+          q.x >= box.min.x && q.x <= box.max.x && q.z >= box.min.z && q.z <= box.max.z;
+        if (!inBox(door.hinge)) this.issue(f, `${dp}.hinge`, 'hinge lies outside the box');
+        if (!inBox(door.tip)) this.issue(f, `${dp}.tip`, 'tip lies outside the box');
+        if (door.hinge.x === door.tip.x && door.hinge.z === door.tip.z) {
+          this.issue(f, `${dp}.tip`, 'tip must differ from the hinge (a door needs a length)');
+        }
+        if (door.openDegrees.left <= 0 && door.openDegrees.right <= 0) {
+          this.issue(f, `${dp}.openDegrees`, 'at least one side must open (left or right > 0)');
+        }
+      });
       scene.exits.forEach((exit, n) => {
         const ep = `${p}.scene.exits[${n}]`;
         this.shape(f, `${ep}.shape`, exit.shape);

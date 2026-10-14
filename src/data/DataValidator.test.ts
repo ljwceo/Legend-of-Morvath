@@ -121,6 +121,27 @@ describe('validateGameData catches broken data', () => {
     expect(found).toContainEqual(expect.stringContaining('unknown item "nothing"'));
   });
 
+  it('checks the doors of a Blender-built zone: box, hinge, tip and stops', () => {
+    const raw = freshData();
+    const scene = raw.zones.zones.find((z: { scene?: unknown }) => z.scene).scene;
+    expect(scene.doors.length).toBeGreaterThanOrEqual(3);
+    const [first, second, third] = scene.doors;
+    // Empty box (min above max on y), hinge outside, tip outside, tip on the hinge, no side open.
+    first.box.min.y = first.box.max.y + 1;
+    first.hinge.x = first.box.min.x - 5;
+    second.tip.z = second.box.max.z + 1;
+    second.openDegrees = { left: 0, right: 0 };
+    third.tip = { ...third.hinge };
+    scene.doors.push({ ...structuredClone(third), id: third.id });
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('doors[0].box'));
+    expect(found).toContainEqual(expect.stringContaining('hinge lies outside the box'));
+    expect(found).toContainEqual(expect.stringContaining('tip lies outside the box'));
+    expect(found).toContainEqual(expect.stringContaining('at least one side must open'));
+    expect(found).toContainEqual(expect.stringContaining('tip must differ from the hinge'));
+    expect(found).toContainEqual(expect.stringContaining(`duplicate id "${third.id}"`));
+  });
+
   it('checks quests: places, checkpoints, shops, dialogue and upgrades', () => {
     const raw = freshData();
     const quest = (id: string) => raw.quests.quests.find((q: { id: string }) => q.id === id);

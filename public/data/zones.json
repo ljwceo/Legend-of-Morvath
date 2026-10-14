@@ -148,18 +148,48 @@
         "noCollision": ["AC_Ivy"],
         "openings": [
           {
-            "min": { "x": -1804.05, "y": 8.9, "z": 90.1 },
-            "max": { "x": -1801.95, "y": 12.4, "z": 90.5 }
-          },
-          {
-            "min": { "x": -1804.05, "y": 8.9, "z": 101.5 },
-            "max": { "x": -1801.95, "y": 12.4, "z": 101.95 }
-          },
-          {
             "min": { "x": -1789.05, "y": 8.9, "z": 65.8 },
             "max": { "x": -1785.95, "y": 14.0, "z": 67.35 }
           }
         ],
+        "doors": [
+          {
+            "id": "hall_cloister",
+            "hinge": { "x": -1803.89, "z": 90.3 },
+            "tip": { "x": -1802.11, "z": 90.3 },
+            "box": {
+              "min": { "x": -1804.05, "y": 8.9, "z": 90.1 },
+              "max": { "x": -1801.95, "y": 12.4, "z": 90.5 }
+            },
+            "openDegrees": { "left": 85, "right": 85 }
+          },
+          {
+            "id": "hall_garden",
+            "hinge": { "x": -1802.11, "z": 101.7 },
+            "tip": { "x": -1803.89, "z": 101.7 },
+            "box": {
+              "min": { "x": -1804.05, "y": 8.9, "z": 101.5 },
+              "max": { "x": -1801.95, "y": 12.4, "z": 101.95 }
+            },
+            "openDegrees": { "left": 85, "right": 85 }
+          },
+          {
+            "id": "church_portal",
+            "hinge": { "x": -1786.11, "z": 67.17 },
+            "tip": { "x": -1787.49, "z": 67.17 },
+            "box": {
+              "min": { "x": -1787.55, "y": 8.95, "z": 67.05 },
+              "max": { "x": -1786.05, "y": 13.9, "z": 67.23 }
+            },
+            "openDegrees": { "left": 0, "right": 85 }
+          }
+        ],
+        "doorSettings": {
+          "stiffness": 30,
+          "damping": 11,
+          "pushStrength": 20,
+          "maxAngularSpeed": 6
+        },
         "doubleSided": ["AC_Ivy"],
         "colorOverrides": { "AC_Ivy": "bosgroen" },
         "windowMaterials": ["AC_Glass"],
