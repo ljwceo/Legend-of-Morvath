@@ -17,6 +17,7 @@
  *   node scripts/mem-check.mjs                 # the whole check (~15 minutes)
  *   node scripts/mem-check.mjs --minutes 2     # a shorter walking test
  *   node scripts/mem-check.mjs --only instances
+ *   node scripts/mem-check.mjs --only instances --instance sam_cellar --verbose
  *
  * Headless Chromium draws without a graphics card, so its fps means nothing; the number of
  * geometries, textures and the JavaScript heap are the same as on a real machine.
@@ -65,22 +66,22 @@ const WALK_ROUTE = [
 
 /**
  * The instances the test walks in and out of, with the spots from zones.json: where the game
- * puts you when you come out (`outside`), the door that takes you in (`door`) and the way out
- * on the inside (`exit`).
+ * puts you when you come out (`outside`, the instance's `exit.to`, looking the same way), the
+ * door that takes you in (`door`) and the way out on the inside (`exit`). The first sample is
+ * taken there, looking that way, so it compares with the samples after every time out: the
+ * renderer counts a geometry or texture from the first frame it is drawn in, so what is in
+ * view decides the numbers.
  */
 const INSTANCES = [
   {
     id: 'brink_tower',
-    // The game puts you here facing away from the door; the save puts the test player facing
-    // it, because walking forward keeps the camera still and walking backwards slowly swings
-    // it round (`strafeFollowDegreesPerSecond` in player.json) until "back" is a curve.
-    outside: { x: -1692.13, y: 22.5, z: -104.63, headingDegrees: 225 },
+    outside: { x: -1692.13, y: 22.5, z: -104.63, headingDegrees: 45 },
     door: { x: -1694.25, z: -106.75 },
     exit: { x: -1693.12, z: -105.62 },
   },
   {
     id: 'sam_cellar',
-    outside: { x: -1647.7, y: 23, z: -62.8, headingDegrees: 0 },
+    outside: { x: -1647.7, y: 23, z: -62.8, headingDegrees: 180 },
     door: { x: -1647.7, z: -58 },
     exit: { x: -1647.7, z: -60.1 },
   },
@@ -93,6 +94,7 @@ function parseArgs(argv) {
     cycles: 5,
     quality: 'low',
     only: 'all',
+    instance: '',
     out: path.join('.', 'mem-check'),
     headed: false,
     verbose: false,
@@ -104,6 +106,7 @@ function parseArgs(argv) {
     '--cycles': 'cycles',
     '--quality': 'quality',
     '--only': 'only',
+    '--instance': 'instance',
     '--out': 'out',
   };
   for (let i = 0; i < argv.length; i++) {
@@ -131,9 +134,11 @@ async function loadPlaywright() {
     try {
       // Fall back to a Playwright that is installed next to node (CI images, sandboxes).
       const require = createRequire(import.meta.url);
-      return await import(
+      const module = await import(
         require.resolve('playwright', { paths: ['/opt/node-tools/node_modules'] })
       );
+      // A CommonJS package shows up as its `default` export.
+      return module.default ?? module;
     } catch {
       console.error(
         'Playwright is missing. Install it first:\n  npm i -D playwright && npx playwright install chromium',
@@ -143,10 +148,18 @@ async function loadPlaywright() {
   }
 }
 
-/** Starts `vite` and waits for the address it prints (including the base path). */
+/** The project (this script lives in its `scripts/` folder). */
+const ROOT = path.resolve(import.meta.dirname, '..');
+
+/**
+ * Starts `vite` and waits for the address it prints (including the base path). Vite is run
+ * directly (not through `npx`, which leaves vite running when it is stopped itself).
+ */
 function startServer() {
   return new Promise((resolve, reject) => {
-    const child = spawn('npx', ['vite', '--port', '5179', '--strictPort'], {
+    const vite = path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js');
+    const child = spawn(process.execPath, [vite, '--port', '5179', '--strictPort'], {
+      cwd: ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     let text = '';
@@ -223,6 +236,8 @@ async function sample(page) {
     // The way the character faces, in radians. Right after arriving somewhere the camera
     // stands behind him, so this is also where W walks.
     heading: (Number(/heading (-?\d+)/.exec(lines.get('pos') ?? '')?.[1] ?? NaN) * Math.PI) / 180,
+    // Where the camera looks (radians): W walks that way.
+    yaw: (Number(/yaw (-?\d+)/.exec(lines.get('camera') ?? '')?.[1] ?? NaN) * Math.PI) / 180,
   };
 }
 
@@ -456,70 +471,128 @@ async function walkTo(page, target, { tolerance = 1.2, seconds = 60, until = nul
 const angleTo = (from, to) => Math.atan2(Math.sin(to - from), Math.cos(to - from));
 
 /**
- * Turns the camera by dragging, like a mouse. `rotateRadiansPerPixelMouse` (player.json) times
- * the camera sensitivity in the save says how far one pixel turns it; which way round is
- * learned from the first turn (`lookSign`).
+ * How far one pixel of mouse movement turns the camera (radians, signed), learned while
+ * playing. The game says `rotateRadiansPerPixelMouse` (player.json) times the camera
+ * sensitivity of the save, but what a browser really delivers differs (pointer lock or not,
+ * coalesced moves, the direction), so every turn is measured and the estimate corrected.
  */
-let lookSign = 1;
-const LOOK_RAD_PER_PX = 0.005 * DEFAULT_SENSITIVITY;
+let radiansPerPixel = 0.005 * DEFAULT_SENSITIVITY;
+/** The first turn is this small, so that whatever the real rate is, it stays well under a half turn. */
+const CALIBRATION_PX = 100;
+/** A turn is asked for in pieces of at most this much (expected), so a wrong estimate never wraps. */
+const MAX_TURN = (2 * Math.PI) / 3;
+let calibrated = false;
 
-async function dragLook(page, radians) {
+/**
+ * A spot on the canvas where a drag reaches the game: the debug overlay sits in the middle of
+ * the screen and swallows the mouse, so the drag starts to the right of it (the surface keeps
+ * the pointer once it has it, wherever the mouse goes after that).
+ */
+async function dragSpot(page) {
   const box = await page.locator('canvas').first().boundingBox();
-  if (!box) return;
-  const y = box.y + box.height / 2;
-  const middle = box.x + box.width / 2;
-  // Half a turn is about 900 pixels, more than the window is wide, and a mouse move outside it
-  // does nothing: so drag in short strokes of at most 300 pixels, one after the other.
-  let left = (radians / LOOK_RAD_PER_PX) * lookSign;
-  while (Math.abs(left) > 2) {
-    const stroke = Math.max(-300, Math.min(300, left));
-    left -= stroke;
-    await page.mouse.move(middle - stroke / 2, y);
-    await page.mouse.down();
-    // In steps, because the game adds up the moves of each pointermove event.
-    for (let i = 1; i <= 6; i++) await page.mouse.move(middle - stroke / 2 + (stroke * i) / 6, y);
-    await page.mouse.up();
+  if (!box) return null;
+  const candidates = [
+    [0.75, 0.7],
+    [0.8, 0.5],
+    [0.5, 0.85],
+    [0.5, 0.5],
+  ];
+  for (const [fx, fy] of candidates) {
+    const x = box.x + box.width * fx;
+    const y = box.y + box.height * fy;
+    const covered = await page.evaluate(
+      ([px, py]) => document.elementFromPoint(px, py)?.closest('.debug-overlay') !== null,
+      [x, y],
+    );
+    if (!covered) return { x, y };
   }
+  return { x: box.x + box.width * 0.75, y: box.y + box.height * 0.7 };
 }
 
 /**
- * Walks through a door the way a player does: turn the camera towards it, then walk forward.
- * Walking forward leaves the camera where it is, while walking backwards slowly swings it round
- * (`strafeFollowDegreesPerSecond`) until "back" is a curve — which is why this always aims first.
- * The character turns towards the camera as he walks, so his heading (the debug line) says
- * where the camera looks after a step.
+ * Turns the camera like a mouse: a drag with the right button (a left click would capture the
+ * mouse, and that capture does not survive the next door, after which the game ignores plain
+ * moves). In strokes that stay inside the window, since a move outside it is lost. Returns the
+ * pixels dragged.
  */
-async function walkThroughDoor(page, { target, expect, seconds = 60 }) {
+async function dragLook(page, radians) {
+  const spot = await dragSpot(page);
+  if (!spot) return 0;
+  const total = Math.round(radians / radiansPerPixel);
+  let left = total;
+  while (left !== 0) {
+    const stroke = Math.max(-200, Math.min(200, left));
+    left -= stroke;
+    await page.mouse.move(spot.x, spot.y);
+    await page.mouse.down({ button: 'right' });
+    await page.mouse.move(spot.x + stroke, spot.y, { steps: 4 });
+    await page.mouse.up({ button: 'right' });
+  }
+  return total;
+}
+
+/** The debug overlay refreshes this often (DEBUG_REFRESH_MS in WorldState). */
+const OVERLAY_MS = 250;
+
+/**
+ * Turns the camera until it looks towards `want` (radians), reading its yaw back from the
+ * debug overlay after every drag: the first drag is small and calibrates how far a pixel
+ * turns in this browser, every drag after that corrects the estimate. Returns the error left.
+ */
+async function aimCamera(page, want, frameMs) {
+  let error = NaN;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const yaw = (await sample(page)).yaw;
+    if (!Number.isFinite(yaw)) return NaN;
+    error = angleTo(yaw, want);
+    if (Math.abs(error) < 0.12) return error;
+    let px;
+    if (calibrated) {
+      px = await dragLook(page, Math.max(-MAX_TURN, Math.min(MAX_TURN, error)));
+    } else {
+      px = Math.sign(error) * CALIBRATION_PX;
+      await dragLook(page, px * radiansPerPixel);
+    }
+    // The camera turns on the next frame, and the overlay shows it a moment later.
+    await page.waitForTimeout(Math.max(frameMs > 0 ? frameMs * 2 : 100, OVERLAY_MS + 100));
+    const turned = angleTo(yaw, (await sample(page)).yaw);
+    if (px !== 0 && Math.abs(turned) > 0.02) {
+      const rate = turned / px;
+      if (Math.abs(rate) > 0.0005 && Math.abs(rate) < 0.05) {
+        radiansPerPixel = rate;
+        calibrated = true;
+      }
+    }
+    if (options.verbose) {
+      say(
+        `    aim: yaw ${Math.round((yaw * 180) / Math.PI)}° → want ${Math.round((want * 180) / Math.PI)}°, ` +
+          `dragged ${px} px, turned ${Math.round((turned * 180) / Math.PI)}°, rate ${radiansPerPixel.toFixed(4)}`,
+      );
+    }
+  }
+  return error;
+}
+
+/**
+ * Walks through a door the way a player does: turn the camera towards it (reading the camera
+ * back from the debug overlay), then walk forward. Walking forward leaves the camera where it
+ * is, while walking backwards slowly swings it round (`strafeFollowDegreesPerSecond`) until
+ * "back" is a curve — which is why this always aims first.
+ */
+async function walkThroughDoor(page, { target, expect, seconds = 120 }) {
   const reached = async () => (await currentInstance(page)) === expect;
   const deadline = Date.now() + seconds * 1000;
   let stuck = 0;
-  // Where the camera looks, as far as we know. The character only turns when he walks, so his
-  // heading is stale right after a turn; it is the truth again as soon as he moves.
-  let yaw = (await sample(page)).heading;
   while (Date.now() < deadline) {
     if (await reached()) return true;
     const before = await sample(page);
     const want = Math.atan2(target.x - before.x, target.z - before.z);
-    const error = angleTo(yaw, want);
-    const turned = Math.abs(error) > 0.2;
-    if (turned) {
-      await dragLook(page, error);
-      yaw = want;
-    }
+    const error = await aimCamera(page, want, before.frameMs);
     await page.keyboard.down('KeyW');
     await page.waitForTimeout(pressMs(before.frameMs));
     await page.keyboard.up('KeyW');
     const after = await sample(page);
     const moved = Math.hypot(after.x - before.x, after.z - before.z);
-    if (moved > 0.3 && Number.isFinite(after.heading)) {
-      // He walked, so he is facing the camera now: that is where it really looks.
-      if (turned) {
-        const got = angleTo(before.heading, after.heading);
-        // The drag went the other way round: remember that for every turn after this.
-        if (Math.abs(got) > 0.1 && Math.sign(got) !== Math.sign(error)) lookSign = -lookSign;
-      }
-      yaw = after.heading;
-    }
     if (options.verbose) {
       say(
         `    door → ${target.x},${target.z}: ` +
@@ -598,7 +671,8 @@ async function instanceTest(startPage, cycles) {
   let page = startPage;
   // Opening the game again forgets the cheats, so the player walks the last few metres to the
   // door at normal speed and never overshoots it.
-  for (const instance of INSTANCES) {
+  const chosen = INSTANCES.filter((entry) => !options.instance || entry.id === options.instance);
+  for (const instance of chosen) {
     // Put the player just outside the door, with the cutscene marked as seen so that the first
     // time in does not stop for Master Brink's explanation.
     const spot = instance.outside;

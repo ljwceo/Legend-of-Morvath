@@ -120,14 +120,14 @@ Besluit uit het concept: cutscenes worden filmisch in de 3D-wereld zelf (`"type"
 
 ---
 
-## Fase 3.10 – Afronden fase 3 · **bezig** (3.10.1 en 3.10.3 klaar)
+## Fase 3.10 – Afronden fase 3 · **bezig** (3.10.1, 3.10.3, 3.10.3b en 3.10.4 klaar)
 
 Doel: fase 3 is af, gemeten en opgeschreven. Alleen bestaande getallen bijschaven, geen nieuwe systemen.
 
 - [x] **3.10.1 Balans nameten** — nagebootste speler met zwaard, lichtmage en duistere mage, plus een paar extreme builds (alles in HP, alles in Strength, alles in Magic Power). _Klaar als:_ geen build slaat alles kapot of komt nergens doorheen, en de uitkomsten staan in `docs/PROGRESS.md`. **Klaar (2026-10-14):** gemeten op de tweede exam, de derde exam (Greenwood) en de eerste mini-boss; geen build komt nergens doorheen en geen build slaat alles kapot. Geen data veranderd — twee vragen liggen bij Bo (open vragen 16 en 18 in `docs/PROGRESS.md`).
 - [ ] **3.10.2 Meet 20 s op de pc** — Low, Mid en High, in Greyhaven, bij het goblinkamp en tegen Sultan. _Klaar als:_ 60 fps op Mid en 120 fps op High, met de getallen in `docs/PROGRESS.md`.
 - [x] **3.10.3 Geheugen controleren** — 10 minuten heen en weer lopen én 5× een instance in en uit. _Klaar als:_ geometries/textures gaan elke keer terug naar hun beginwaarde. **Gemeten (2026-10-14):** nieuw testscript `scripts/mem-check.mjs` (speelt de game zelf in een testbrowser; uitleg in de README). **Geometrieën komen elke keer precies terug** — in de open wereld, in de stad én 5× de toren van Brink in en uit (buiten 87, binnen 64, weer buiten 87) — en de heap groeit niet. **Textures niet:** elke laadbeurt van een Blender-zone laat er 1 à 2 achter. Getallen in `docs/PROGRESS.md`; oplossen is stap 3.10.3b.
-- [ ] **3.10.3b Achtergebleven textures opruimen** — zoek uit welke textures na het verlaten van een Blender-zone blijven staan (verdachten in `docs/PROGRESS.md`: de textures ín `greyhaven.glb` / `player.glb`, het gecachete model van Pringle, de targets van de renderer) en geef ze vrij. _Klaar als:_ `node scripts/mem-check.mjs` 5× in en uit een instance doet en de textures elke keer op hun beginwaarde terugkomen.
+- [x] **3.10.3b Achtergebleven textures opruimen** — zoek uit welke textures na het verlaten van een Blender-zone blijven staan (verdachten in `docs/PROGRESS.md`: de textures ín `greyhaven.glb` / `player.glb`, het gecachete model van Pringle, de targets van de renderer) en geef ze vrij. _Klaar als:_ `node scripts/mem-check.mjs` 5× in en uit een instance doet en de textures elke keer op hun beginwaarde terugkomen. **Klaar (2026-10-14):** het was de **bone texture van Pringles skelet** — elke kopie van zijn model krijgt een eigen skelet, three.js zet de botmatrices daarvan in een texture, en `AnimatedRig.dispose` gaf dat skelet nooit vrij (één texture per wereld-opbouw, twee als hij ook in een cutscene speelt). De `.glb`-bestanden van de stad bevatten geen textures en de renderer-targets kloppen. Fix: één `skeleton.dispose()` in `AnimatedRig.dispose`, met een test. `mem-check.mjs` kon in deze testbrowser de camera niet draaien (de debug-overlay ving de muis af); gerepareerd, zie `docs/PROGRESS.md`. Getallen daar.
 - [x] **3.10.4 `docs/ARCHITECTURE.md` bijwerken** — stats, buttonmapping, lock-on, exams, eieren, instances. _Klaar als:_ de documentatie klopt met de code. **Klaar (2026-10-14):** alle zes onderwerpen nagelopen tegen de code en de data; buttonmapping, lock-on, de stats-sectie zelf, de exam-sectie en de ei-sectie klopten al. Tien plekken bijgewerkt die achterliepen, o.a. `applyLevel` → `applyStats`, draaglast komt nu uit Strength, de staf is sinds fase 3.8 gewoon in het spel, elf mini-bosses waarvan tien een ei dragen, drie Greenwood-side quests naast de negen exams, en de velden `entrance`/`enabled` van een instance.
 - [ ] **3.10.5 Definition of Done nalopen** — fase 3.6 t/m 3.9 afvinken, alle tests + taal-key-check + DataValidator draaien. _Klaar als:_ alles slaagt en fase 3 staat in `docs/PROGRESS.md` als afgesloten.
 
@@ -142,6 +142,54 @@ Bo maakte Pringle in Blender (`Sultan_kat.blend`, buiten de repo): eigen skelet 
 - [x] **D.3 glTF-actors in de cutscenes** — `CinematicStage` gebruikt het echte model voor een actor met `placeholder:cat` (`AnimatedModels.createNow`), met Idle/Walk/Run op de snelheid in filmtijd. _Klaar als:_ Pringle speelt in de cutscenes met zijn echte model. (Gebouwd 2026-10-14; `Head_Shake` bestaat nog niet, hoort bij C.5.)
 - [x] **D.3b Rustiger lopen + aai-animaties** — nieuwe Walk en galop (snelheid uit de simulatie in plaats van frametijden, slenteren 0,6 m/s), drie aai-clips om de beurt (`animated.pets`, Pringle blijft `petHoldSeconds` zitten), instelbaar Blender-script `tools/blender/pringle/`. _Klaar als:_ Pringle loopt niet meer "als een geëlektrocuteerde spin" en elke aai speelt de volgende clip. (Gebouwd 2026-10-14; Bo speelt het in D.2.)
 - [ ] **D.4 Sultan in mensvorm** — eigen chat, met een skelet dat de andere mensen later delen; tot dan blijft de placeholder bij de poort staan. _Klaar als:_ Sultan staat als mens bij de poort met zijn eigen clips.
+
+---
+
+## Stap D – Deuren die meezwaaien · **open** (vier chats van ±30 min; prompts in `docs/prompts/STAP-D-DEUREN.md`)
+
+Doel: de deuren van het klooster (hal → kloostergang, hal → tuin, het kerkportaal) zijn nu dichte
+meshes waar je dankzij `scene.openings` doorheen loopt, maar ze doen verder niets. Ze worden echte
+draaideuren: loop je ertegenaan, dan zwaait de deur van je af open (om een scharnier) en valt hij
+daarna rustig weer dicht. De fysica is een los, herbruikbaar systeem dat niets van deuren, Three.js,
+Blender of de speler weet, zodat Pringle, NPC's, kisten, luiken en poorten er later zonder nieuwe
+code aan kunnen. Vier stappen van elk ±30 minuten; de eisen hieronder gelden voor alle vier.
+
+**Eisen (gelden voor D.1 t/m D.4)**
+- Fysica in `src/systems/HingedBodies.ts`: kent alleen een scharnierpunt op de grond (x, z), een
+  lijnstuk met een lengte dat om dat scharnier draait (hoek 0 = dicht), een aanslag per kant, en een
+  lijst duwers (cirkels: x, z, straal). Per vaste tijdstap (60 Hz): raakt een cirkel het lijnstuk, dan
+  duwt hij het van zich af (hoeksnelheid uit de overlap); zonder duwer veert het lijnstuk gedempt
+  terug naar dicht. Geen allocaties per stap; pure functies (`segmentAt`, `pushFromCircle`, `step`).
+- Aanslagen per kant (`left` / `right`, 0 = die kant nooit). Raakt de hoek een aanslag: hard afkappen
+  én hoeksnelheid op 0 (geen terugstuiter, nooit door de muur). Maximale hoeksnelheid in `settings`,
+  zodat een dash de deur niet lanceert; de duwkracht en de snelheid worden daarop afgekapt.
+- Duwers worden per **substap** van hun beweging tegen het lijnstuk gehouden (de speler beweegt in
+  `SceneZone.moveCircle` al in stukjes van 0,2 m), zodat een dash die in één stap door de deur gaat
+  toch duwt in plaats van de deur over te slaan.
+- Alles in data: `zones.json` → `scene.doors`, per deur `id`, `hinge` (x, z, wereld), `tip` (vrije
+  uiteinde van de dichte deur, x, z), `box` (zelfde vorm als een `opening`: de ruimte met de
+  deurdriehoeken), `openDegrees: { left, right }` (gezien vanaf het scharnier, kijkend naar de tip;
+  neem 5–10° minder dan de muur toelaat). Gedeelde getallen (veerkracht, demping, duwsterkte,
+  maximale hoeksnelheid) in `scene.doorSettings`. Nooit getallen in code.
+- Uiterlijk uit de bestaande `greyhaven.glb`, geen nieuwe Blender-export: `SceneZone` knipt de
+  driehoeken binnen `box` uit de statische meshes (`filterGeometry`, zoals voor `openings` en de
+  instances) in een eigen `Group` per deur met het scharnier als oorsprong; `rotation.y` = de hoek,
+  elke frame geïnterpoleerd tussen de vorige en de huidige stap. De deurdriehoeken blijven buiten de
+  botsings-BVH (de deur is passeerbaar, bewust); de `box` van een deur neemt de rol van de `opening`
+  over, `openings` blijft voor deuropeningen zonder deur.
+- Harde eisen uit `CLAUDE.md`: vaste tijdstap, geen allocaties in de loop, op Low/Mid/High precies
+  dezelfde zwaai, geen hexcodes of UI-tekst in code (er is geen tekst nodig).
+- Niet in deze stap: deuren op slot, deuren die blokkeren, geluid, NPC's als duwers. Wel de basis zo
+  dat dat later alleen data en een extra duwer is.
+- Risico's om in elk plan te noemen: een te ruime `box` knipt kozijn mee (dan draait het kozijn mee);
+  de scharnierkant en de aanslagen zijn aannames tot Bo ze in Blender nakijkt; aanslagen komen uit
+  data, dus verplaats je een deur in Blender, dan moeten `box`, `hinge`, `tip` en `openDegrees` mee
+  (automatisch de vrije hoek uit de BVH halen is een latere verbetering).
+
+- [ ] **D.1 Fysica-module met tests** — `src/systems/HingedBodies.ts` plus `HingedBodies.test.ts`, nog niets aan de game gekoppeld. _Klaar als:_ tests slagen voor: een cirkel die van de ene kant door het lijnstuk loopt duwt het de andere kant op, en andersom; zonder duwer gaat de hoek terug naar 0 en blijft daar; nooit boven een aanslag; een kant met aanslag 0 beweegt die kant nooit op; een cirkel precies op het scharnier geeft geen sprong; een cirkel met dash-snelheid (uit `player.json`) laat de hoek nooit boven de aanslag komen en de deur komt daarna tot rust; 600 stappen van 1/60 s geven hetzelfde als dezelfde 600 stappen in twee reeksen. `npm run lint`, `typecheck` en `test` groen.
+- [ ] **D.2 Data, schema en validator** — `scene.doors` en `scene.doorSettings` in `zones.json` met de drie kloosterdeuren, schema in `src/data/schemas.ts`, DataValidator-regels (`box` bevat `hinge` én `tip`, `box` is niet leeg, minstens één kant van `openDegrees` is groter dan 0) met tests. De scharnierpunten en vrije kanten uit Blender (`docs/MONASTERY.md` noemt de objecten en de z-waarden van de openingen) en nagemeten in de game met `?debug=1` (de debugregel `chunks` toont je positie in Blender-coördinaten). _Klaar als:_ de validator slaagt op de echte data en faalt op elke fout uit de regels hierboven; in `docs/PROGRESS.md` staat per deur welke kant het scharnier zit en hoeveel graden vrij, als aanname voor Bo.
+- [ ] **D.3 Deuren knippen en tekenen** — `SceneZone` maakt per deur een `Group` uit de driehoeken in `box`, met het scharnier als oorsprong; de `box` werkt als `opening` voor de botsingsmesh; een cheat in het cheatmenu (F6) zet alle deuren op een vaste hoek, zodat je zonder fysica kunt zien dat ze om de goede hoek draaien en niets van het kozijn meedraait. _Klaar als:_ met de cheat draaien alle drie de deuren om hun scharnier, niets anders beweegt mee, draw calls stijgen met hooguit het aantal deuren × hun materialen, en geometrieën en textures gaan bij verlaten weer terug (`node scripts/mem-check.mjs --only instances --instance brink_tower --cycles 2`).
+- [ ] **D.4 Koppelen aan de speler** — `WorldState` voert de speler (en zijn dash-substappen) als duwer aan `HingedBodies`, zet elke stap de hoeken en tekent ze geïnterpoleerd; de cheat uit D.3 blijft. `docs/ARCHITECTURE.md` krijgt een stukje over deuren. _Klaar als:_ alle drie de kloosterdeuren zwaaien van je af open als je erdoorheen loopt (van beide kanten), vallen weer dicht, gaan bij een dash niet door de muur, en `?fps=30` en `?fps=120` geven dezelfde zwaai; fps en draw calls op Low, Mid en High zijn gelijk aan voor de stap (getallen in `docs/PROGRESS.md`).
 
 ---
 
@@ -246,7 +294,6 @@ Seizoenseffecten · crafting en drogen · de Garden en farming (ook de bedden `M
 ### Bekende problemen
 
 - Elke start logt `missing text "common.close" (en)` (open vraag 17): `src/ui/Overlays.ts` vraagt het label op vóórdat `I18n.setLanguage` iets geladen heeft. Onschuldig, maar het vervuilt de debuglijst. Oplossing: het `aria-label` pas zetten als de knop in beeld komt.
-- **Textures komen niet terug na een Blender-zone** (gemeten in stap 3.10.3): elke keer dat Greyhaven of een instance daaruit laadt, blijven er een paar textures achter. Van de 24 van de stad worden er 20 vrijgegeven; na het eerste bezoek staan er 4, en elk volgend bezoek laat er weer 1 à 2 achter (in de duurtest: in de Greenwood 4 → 8 → 10 → 14 → 16). Geometrieën kloppen wél precies. Oplossen = stap 3.10.3b.
 - Three.js zelf is 548 kB in de bundel en kan niet verder opgesplitst worden.
 - Vanuit het bed in het klooster kun je de kloostergang, de westvleugel en de tuin in, maar nog niet de stad (open vraag 19).
 - 120 fps lukt op de iPhone waarschijnlijk niet (Safari tekent daar maximaal 60 keer per seconde); het spel loopt wel overal even snel.

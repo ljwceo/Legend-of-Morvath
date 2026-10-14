@@ -34,7 +34,7 @@ Elke keer dat er iets in `main` komt, bouwt GitHub de game opnieuw en zet hem on
 `scripts/mem-check.mjs` speelt de game zelf in een testbrowser en kijkt of het geheugen steeds terugkomt: eerst 10 minuten heen en weer lopen door de open wereld (met teleports tussen Greenwood, Mournfen en Greyhaven), daarna 5× een instance in en uit (de toren van Master Brink en de kelder van Wizard Sam). Playwright hoort niet bij de game zelf, dus installeer het alleen als je dit wilt draaien:
 
 1. `npm i --no-save playwright && npx playwright install chromium` (eenmalig, ±150 MB; `--no-save` houdt `package.json` schoon).
-2. `node scripts/mem-check.mjs` — duurt ±15 minuten. Snelle proef: `node scripts/mem-check.mjs --minutes 2 --cycles 1`. Draait de dev-server al? Dan `--url http://localhost:5173/Legend-of-Morvath/`.
+2. `node scripts/mem-check.mjs` — duurt ±15 minuten. Snelle proef: `node scripts/mem-check.mjs --minutes 2 --cycles 1`. Alleen de instances: `--only instances`, één ervan: `--instance brink_tower` (of `sam_cellar`), en `--verbose` laat elke stap en camera-draai zien. Draait de dev-server al? Dan `--url http://localhost:5173/Legend-of-Morvath/`.
 3. De uitslag staat in de terminal en in de map `mem-check/` (een `.log` om te lezen en een `.json` met alle metingen).
 
 Wat je wilt zien: na elke instance staan `geo` en `tex` weer precies op hun beginwaarde, en in de open wereld schommelen ze tussen een vaste onder- en bovengrens in plaats van op te lopen. De testbrowser tekent zonder videokaart (±1 fps in Greyhaven), dus de fps in deze test zegt niets — daarvoor is **Meet 20 s** hierboven.

@@ -10,6 +10,7 @@ import {
   MeshLambertMaterial,
   type MeshStandardMaterial,
   type Object3D,
+  SkinnedMesh,
   type Texture,
 } from 'three';
 import { type GLTF, GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -198,10 +199,19 @@ export class AnimatedRig {
     this.mixer.update(seconds);
   }
 
+  /**
+   * Frees what this copy owns: its animation state and its skeleton. Cloning gave every copy
+   * its own skeleton, and the renderer keeps that skeleton's bone matrices in a texture of its
+   * own, so without this every copy would leave one texture behind. The geometry and the image
+   * textures belong to the cached file and stay.
+   */
   dispose(): void {
     this.mixer.stopAllAction();
     this.mixer.uncacheRoot(this.root);
     this.root.removeFromParent();
+    this.root.traverse((object) => {
+      if (object instanceof SkinnedMesh) object.skeleton.dispose();
+    });
   }
 }
 
