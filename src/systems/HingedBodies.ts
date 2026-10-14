@@ -28,9 +28,64 @@ export interface HingeSettings {
   maxAngularSpeed: number;
 }
 
-/** A circle on the ground that pushes segments away from itself. */
+/**
+ * A circle on the ground that pushes segments away from itself. With `fromX` / `fromZ` (where it
+ * was just before, e.g. the previous substep of its move) a circle that crossed the segment on
+ * the way keeps pushing from the side it came from, so a fast mover (a dash) that gets through
+ * within a step still throws the segment open ahead of itself instead of pulling it back.
+ */
 export interface Pusher extends PointXZ {
   radius: number;
+  fromX?: number;
+  fromZ?: number;
+}
+
+/**
+ * A fixed-size list of pushers, filled anew every step: one entry per substep of a mover
+ * (`SceneZone.moveCircle` reports every piece of a move), so nothing is allocated while playing.
+ * A full list keeps overwriting its last slot, so the final position always counts.
+ */
+export class PusherList {
+  readonly pushers: readonly Pusher[];
+  count = 0;
+  private radius: number;
+  /** The last position added (also across steps): the next one "comes from" here. */
+  private lastX = 0;
+  private lastZ = 0;
+  private hasLast = false;
+
+  constructor(capacity: number, radius: number) {
+    const list: Pusher[] = [];
+    for (let i = 0; i < Math.max(1, capacity); i++) {
+      list.push({ x: 0, z: 0, radius, fromX: 0, fromZ: 0 });
+    }
+    this.pushers = list;
+    this.radius = radius;
+  }
+
+  /** Forgets the last step's pushers; `radius` is the circle's size for this step. */
+  begin(radius: number): void {
+    this.count = 0;
+    this.radius = radius;
+  }
+
+  /**
+   * The next position of the circle (world x, z); it came from the one added before. The same
+   * position again in one step adds nothing (it would "come from" itself and lose its side).
+   */
+  add(x: number, z: number): void {
+    if (this.count > 0 && this.hasLast && x === this.lastX && z === this.lastZ) return;
+    const index = this.count < this.pushers.length ? this.count++ : this.pushers.length - 1;
+    const pusher = this.pushers[index] as Pusher;
+    pusher.x = x;
+    pusher.z = z;
+    pusher.radius = this.radius;
+    pusher.fromX = this.hasLast ? this.lastX : x;
+    pusher.fromZ = this.hasLast ? this.lastZ : z;
+    this.lastX = x;
+    this.lastZ = z;
+    this.hasLast = true;
+  }
 }
 
 /** Simulation state of one segment turning around a hinge. */
@@ -132,14 +187,18 @@ export function pushFromCircle(body: HingedBody, pusher: Pusher, settings: Hinge
   // Distance along the segment (the lever) and the circle's side of it (+ = left).
   const along = px * dirX + pz * dirZ;
   const lever = along < 0 ? 0 : along > body.length ? body.length : along;
-  const side = px * dirZ - pz * dirX;
+  let side = px * dirZ - pz * dirX;
 
   const ex = px - lever * dirX;
   const ez = pz - lever * dirZ;
   const distance = Math.sqrt(ex * ex + ez * ez);
   const overlap = pusher.radius - distance;
   if (overlap <= 0) return false;
-  if (lever <= LEVER_EPSILON || side === 0) return true;
+  if (lever <= LEVER_EPSILON) return true;
+  if (pusher.fromX !== undefined && pusher.fromZ !== undefined) {
+    side = sideComingFrom(body, pusher.fromX, pusher.fromZ, dirX, dirZ, along, side);
+  }
+  if (side === 0) return true;
 
   // Angular speed that clears the overlap at the contact point; the push turns away from the circle.
   let speed = (settings.pushStrength * overlap) / lever;
@@ -150,6 +209,31 @@ export function pushFromCircle(body: HingedBody, pusher: Pusher, settings: Hinge
     body.angularVelocity = speed;
   }
   return true;
+}
+
+/**
+ * The side a circle pushes from when it moved from (fromX, fromZ) to where it is now: its side
+ * now, unless its path crossed the segment itself (not the line beyond the tip or behind the
+ * hinge), then still the side it came from.
+ */
+function sideComingFrom(
+  body: HingedBody,
+  fromX: number,
+  fromZ: number,
+  dirX: number,
+  dirZ: number,
+  alongNow: number,
+  sideNow: number,
+): number {
+  const fx = fromX - body.hingeX;
+  const fz = fromZ - body.hingeZ;
+  const sideFrom = fx * dirZ - fz * dirX;
+  if (sideFrom === 0 || sideFrom > 0 === sideNow > 0) return sideNow;
+  // Where the path meets the segment's line, measured along the segment from the hinge.
+  const t = sideFrom / (sideFrom - sideNow);
+  const alongFrom = fx * dirX + fz * dirZ;
+  const crossing = alongFrom + (alongNow - alongFrom) * t;
+  return crossing >= 0 && crossing <= body.length ? sideFrom : sideNow;
 }
 
 /**

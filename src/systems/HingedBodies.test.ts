@@ -284,3 +284,29 @@ describe('HingedBodies determinism', () => {
     expect(twice.prevAngle).toBe(once.prevAngle);
   });
 });
+
+describe('HingedBodies pushers that remember where they came from', () => {
+  it('a circle that crossed the segment within a step keeps pushing from the side it came from', () => {
+    const body = door();
+    // Already through to the right (+z), but it came from the left (-z): the segment is still
+    // pushed to the right (a negative angle), ahead of the circle.
+    const crossed: Pusher = { x: 0.5, z: 0.1, radius: RADIUS, fromX: 0.5, fromZ: -0.3 };
+    expect(pushFromCircle(body, crossed, settings)).toBe(true);
+    expect(body.angularVelocity).toBeLessThan(0);
+  });
+
+  it('a circle that came round the tip takes its side from where it is now', () => {
+    const body = door();
+    // From the left to the right, but past the tip (x > 1): no crossing of the segment itself,
+    // so it pushes from the right, where it is (a positive angle).
+    const around: Pusher = { x: 0.9, z: 0.1, radius: RADIUS, fromX: 1.5, fromZ: -0.3 };
+    expect(pushFromCircle(body, around, settings)).toBe(true);
+    expect(body.angularVelocity).toBeGreaterThan(0);
+  });
+
+  it('without a previous position the side is simply where the circle is', () => {
+    const body = door();
+    expect(pushFromCircle(body, { x: 0.5, z: 0.1, radius: RADIUS }, settings)).toBe(true);
+    expect(body.angularVelocity).toBeGreaterThan(0);
+  });
+});

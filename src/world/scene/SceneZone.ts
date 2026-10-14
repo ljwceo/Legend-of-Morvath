@@ -21,7 +21,7 @@ import {
 import { MeshBVH, type ExtendedTriangle } from 'three-mesh-bvh';
 import type { SceneDef, SceneDoorDef } from '../../data/types';
 import { palette } from '../../render/palette';
-import type { Mover } from '../../systems/Movement';
+import type { Mover, MoveTrace } from '../../systems/Movement';
 import type { PointXZ } from '../Colliders';
 import type { Ground } from '../Ground';
 import type { CameraOccluder } from '../StructureLayer';
@@ -127,6 +127,8 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
   private readonly geometries = new Set<BufferGeometry>();
   /** Player's height (world): heights for others are looked up near it (bridges, arches). */
   private referenceY = 0;
+  /** Told every substep position of `moveCircle` while set (the player pushing doors). */
+  private trace: MoveTrace | null = null;
   /** Falling speed of the player (m/s, negative = down). */
   private fallSpeed = 0;
 
@@ -420,7 +422,13 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
         const ground = this.groundBelow(p.x, y, p.z);
         if (ground > y - STEP_DOWN) point.y = ground;
       }
+      if (this.trace) this.trace.add(p.x, p.z);
     }
+  }
+
+  /** From now on `moveCircle` reports every substep position to `trace` (null = nobody). */
+  setMoveTrace(trace: MoveTrace | null): void {
+    this.trace = trace;
   }
 
   /** Pushes a walker out of walls and trunks (after teleporting, or a companion jumping). */
