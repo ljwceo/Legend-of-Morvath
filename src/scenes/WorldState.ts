@@ -60,7 +60,7 @@ import { Player } from '../entities/Player';
 import { PropLibrary } from '../entities/PropFactory';
 import { CameraRig, metersPerPixel } from '../render/CameraRig';
 import { NpcRenderer } from '../render/NpcRenderer';
-import { AnimatedNpcs, preloadAnimatedModels } from '../render/AnimatedNpcs';
+import { AnimatedModels, AnimatedNpcs, preloadAnimatedModels } from '../render/AnimatedNpcs';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
 import { Cheats, stepFlying } from '../systems/Cheats';
 import {
@@ -393,6 +393,8 @@ export class WorldState implements GameState, InstanceHost {
   private npcRenderer: NpcRenderer | null = null;
   /** NPCs with a real animated model (Pringle); the placeholder draws them until it loads. */
   private animatedNpcs: AnimatedNpcs | null = null;
+  /** Makes those models in this world's look; the cutscenes use it too. */
+  private animatedModels: AnimatedModels | null = null;
   private npcWorld: NpcWorld | null = null;
   private enemies: Enemies | null = null;
   private enemyRenderer: EnemyRenderer | null = null;
@@ -2099,6 +2101,7 @@ export class WorldState implements GameState, InstanceHost {
           canvas: this.ctx.renderer.three.domElement,
           // `cast` holds the staff up like gathering a spell; the rest are the sword's poses.
           poseWeapon: (pose, u) => model.setSwordPose(pose === 'cast' ? 'windup' : pose, u),
+          animated: this.animatedModels,
         },
         () => {
           this.cinematic = null;
@@ -2176,6 +2179,7 @@ export class WorldState implements GameState, InstanceHost {
     ctx.events.emit('npcTalked', { npcId: npc.id });
     if (npc.def.interaction === 'pet') {
       npc.hop = data.npcs.settings.petHopSeconds;
+      npc.petHold = data.npcs.settings.petHoldSeconds;
       if (npc.def.petText) this.hud?.showMessage(ctx.i18n.t(npc.def.petText));
       return;
     }
@@ -4150,10 +4154,13 @@ export class WorldState implements GameState, InstanceHost {
       offer: resolveColorToken('zonlicht'),
       handIn: resolveColorToken('magieblauw'),
     });
-    this.animatedNpcs = new AnimatedNpcs(this.npcs.list, worldRoot, {
-      url: assetUrl,
-      // In a Blender-built zone the same toon light as the player; elsewhere the NPC lights.
-      toon: def && this.lighting ? this.lighting.uniforms : null,
+    // In a Blender-built zone the same toon light as the player; elsewhere the NPC lights.
+    this.animatedModels = new AnimatedModels(
+      data.npcs.roles,
+      assetUrl,
+      def && this.lighting ? this.lighting.uniforms : null,
+    );
+    this.animatedNpcs = new AnimatedNpcs(this.npcs.list, worldRoot, this.animatedModels, {
       onReady: (npc, height) => this.npcRenderer?.drawElsewhere(npc, height),
       onError: (message) => this.ctx.reportProblem(message),
     });
@@ -4480,6 +4487,8 @@ export class WorldState implements GameState, InstanceHost {
     this.npcRenderer = null;
     this.animatedNpcs?.dispose();
     this.animatedNpcs = null;
+    this.animatedModels?.dispose();
+    this.animatedModels = null;
     this.enemyRenderer?.dispose();
     this.enemyRenderer = null;
     this.warningRenderer?.dispose();

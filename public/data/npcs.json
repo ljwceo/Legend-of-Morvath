@@ -9,7 +9,8 @@
     "turnDegreesPerSecond": 300,
     "wanderPauseSeconds": [2, 7],
     "followTeleportDistance": 30,
-    "petHopSeconds": 0.6
+    "petHopSeconds": 0.6,
+    "petHoldSeconds": 3.6
   },
   "roles": [
     {
@@ -75,11 +76,12 @@
         "file": "characters/pringle/pringle.glb",
         "height": 0.55,
         "clips": { "idle": "Idle", "walk": "Walk", "run": "Run" },
-        "walkSpeed": 0.89,
-        "runSpeed": 3.73,
-        "runAbove": 2.2,
-        "idleBelow": 0.15,
-        "fadeSeconds": 0.2
+        "walkSpeed": 0.6,
+        "runSpeed": 3.5,
+        "runAbove": 1.6,
+        "idleBelow": 0.12,
+        "fadeSeconds": 0.25,
+        "pets": ["Pet_Headbutt", "Pet_Roll", "Pet_Blink"]
       }
     },
     {
@@ -334,7 +336,7 @@
         "minDistance": 1.8,
         "maxDistance": 4.5,
         "speed": 4.8,
-        "strollSpeed": 1.1,
+        "strollSpeed": 0.6,
         "idlePauseSeconds": [1.5, 5]
       },
       "petText": "npc.pringle.pet",

@@ -262,6 +262,39 @@ describe('Npcs', () => {
     expect(ansel.shown).toBe(false);
   });
 
+  it('keeps a petted companion where it is, facing you, for petHoldSeconds', () => {
+    const npcs = new Npcs(npcsFile(), 'summer', () => 0xffffff);
+    const pringle = npcs.byId('pringle');
+    if (!pringle) throw new Error('missing Pringle');
+    npcs.update(DT, at(0, 0, 0), flatWorld, null);
+    const hold = npcs.settings.petHoldSeconds;
+    expect(hold).toBeGreaterThan(0);
+    pringle.petHold = hold;
+    const { x, z } = pringle.state;
+    // The player walks off; the cat stays put while it is being petted (its animation plays).
+    let px = 0;
+    for (let t = 0; t < hold - 0.1; t += DT) {
+      px += 4 * DT;
+      npcs.update(DT, at(px, 0, Math.PI / 2, true), flatWorld, null);
+      expect(pringle.state.x).toBe(x);
+      expect(pringle.state.z).toBe(z);
+    }
+    // Facing the player by now.
+    const toPlayer = Math.atan2(px - x, 0 - z);
+    expect(
+      Math.abs(
+        Math.atan2(
+          Math.sin(pringle.state.heading - toPlayer),
+          Math.cos(pringle.state.heading - toPlayer),
+        ),
+      ),
+    ).toBeLessThan(0.2);
+    // Then it follows again.
+    for (let t = 0; t < 2; t += DT) npcs.update(DT, at(px, 0, Math.PI / 2, true), flatWorld, null);
+    expect(pringle.petHold).toBe(0);
+    expect(Math.hypot(pringle.state.x - x, pringle.state.z - z)).toBeGreaterThan(1);
+  });
+
   it('keeps the companion with the player everywhere', () => {
     const npcs = new Npcs(npcsFile(), 'summer', () => 0xffffff);
     const pringle = npcs.byId('pringle');

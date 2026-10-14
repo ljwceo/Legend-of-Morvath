@@ -516,6 +516,11 @@ export const npcsFileSchema = z.strictObject({
     followTeleportDistance: max(positive, 200),
     /** Seconds the little hop lasts after petting. */
     petHopSeconds: max(positive, 5),
+    /**
+     * A petted companion stays where it is (facing you) this long: its real model plays a pet
+     * animation meanwhile (`roles[].animated.pets`). 0 = it carries on at once.
+     */
+    petHoldSeconds: max(nonNegative, 10),
   }),
   roles: z.array(
     z.strictObject({
@@ -548,6 +553,8 @@ export const npcsFileSchema = z.strictObject({
           idleBelow: max(positive, 5),
           /** Crossfade between clips (s). */
           fadeSeconds: max(nonNegative, 2),
+          /** Clips played once when it is petted, one after another (each pet the next one). */
+          pets: optional(z.array(name)),
         }),
       ),
     }),
