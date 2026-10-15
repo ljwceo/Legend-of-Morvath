@@ -490,6 +490,57 @@ describe('IntroArsenal', () => {
     expect(Math.hypot(d.x, d.z)).toBeGreaterThanOrEqual(dodge.clearanceMeters);
   });
 
+  it('tells how ready each ability is: 0 right after a press, 1 once its cooldown is over', () => {
+    const arsenal = new IntroArsenal(ABILITIES, [], SET_RADIUS, SEED, AIM);
+    const who = player(0, 0, 0);
+    for (const kind of ['burst', 'storm', 'projectile'] as const) {
+      expect(arsenal.readiness(kind)).toBe(1);
+    }
+    expect(arsenal.icicleSlotFree).toBe(true);
+    arsenal.step(DT, press({ burst: true, storm: true, bolt: true }), who, new ArsenalEvents());
+    expect(arsenal.readiness('burst')).toBe(0);
+    expect(arsenal.readiness('storm')).toBe(0);
+    expect(arsenal.readiness('projectile')).toBe(0);
+    // Halfway through the explosion's 2.5 s it is half ready; the icicle (1.6 s) further.
+    drive(arsenal, DT, 1.25, who, {});
+    expect(arsenal.readiness('burst')).toBeCloseTo(0.5, 6);
+    expect(arsenal.readiness('storm')).toBeCloseTo(1.25 / 7, 6);
+    expect(arsenal.readiness('projectile')).toBeCloseTo(1.25 / 1.6, 6);
+    // Exactly at the end a float crumb of the cooldown may be left (the same crumb that keeps
+    // the ability from firing for that one step), so "ready" is read to 6 decimals here.
+    drive(arsenal, DT, 1.25, who, {});
+    expect(arsenal.readiness('burst')).toBeCloseTo(1, 6);
+    expect(arsenal.readiness('projectile')).toBeCloseTo(1, 6);
+    expect(arsenal.readiness('storm')).toBeLessThan(1);
+    drive(arsenal, DT, 5, who, {});
+    expect(arsenal.readiness('storm')).toBe(1);
+    // The same at 120 steps per second.
+    const quick = new IntroArsenal(ABILITIES, [], SET_RADIUS, SEED, AIM);
+    quick.step(1 / 120, press({ burst: true }), who, new ArsenalEvents());
+    drive(quick, 1 / 120, 1.25, who, {});
+    expect(quick.readiness('burst')).toBeCloseTo(0.5, 6);
+    // A fight without an ability has nothing to wait for.
+    const bare = new IntroArsenal(undefined, [], SET_RADIUS, SEED, AIM);
+    expect(bare.readiness('burst')).toBe(1);
+    expect(bare.readiness('storm')).toBe(1);
+    expect(bare.readiness('projectile')).toBe(1);
+  });
+
+  it('the icicle slot is taken while all three fly, whatever the cooldown says', () => {
+    const far = withAbility('projectile', (a) => ({ ...a, range: 200 }));
+    const arsenal = new IntroArsenal(far, [], 200, SEED, AIM);
+    const who = player(0, -5, Math.PI);
+    for (let i = 0; i < ICICLE_POOL_SIZE; i++) {
+      expect(arsenal.icicleSlotFree).toBe(true);
+      drive(arsenal, DT, 1.65, who, { 0.05: { bolt: true } });
+    }
+    expect(arsenal.shots.activeCount).toBe(ICICLE_POOL_SIZE);
+    expect(arsenal.icicleSlotFree).toBe(false);
+    expect(arsenal.readiness('projectile')).toBeCloseTo(1, 6);
+    arsenal.clear();
+    expect(arsenal.icicleSlotFree).toBe(true);
+  });
+
   it('clears icicles and the storm when the fight ends', () => {
     const arsenal = new IntroArsenal(ABILITIES, [], SET_RADIUS, SEED, AIM);
     arsenal.step(DT, press({ bolt: true, storm: true }), player(0, 0, 0), new ArsenalEvents());

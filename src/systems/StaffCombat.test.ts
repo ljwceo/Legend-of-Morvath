@@ -12,6 +12,7 @@ import {
   shotDamage,
   staffConfig,
   type StaffInput,
+  staffReadiness,
   type StaffResult,
   StaffState,
   stepStaff,
@@ -277,6 +278,99 @@ describe('power curves (light and dark)', () => {
 
   it('multiplies the damage of a shot', () => {
     expect(shotDamage(fireball, 1.3)).toBe(Math.round(fireball.damage * 1.3));
+  });
+});
+
+describe('readiness (the HUD chips and the touch buttons)', () => {
+  it('is 1 on a fresh staff and records what each cooldown started from', () => {
+    const made = fresh();
+    expect(staffReadiness(made.state, 'shard')).toBe(1);
+    expect(staffReadiness(made.state, 'spell')).toBe(1);
+    // A Shard leaves: the staff's own cooldown is the Shard's rate, the spell is untouched.
+    expect(run(made, 0.6, press(true)).length).toBeGreaterThan(0);
+    expect(made.state.cooldownTotal).toBeCloseTo(cfg.shard.cooldownSeconds, 9);
+    expect(made.state.spellCooldownTotal).toBe(0);
+    // A spell leaves (a tap, then let go): the recovery and the spell's own cooldown.
+    const mage = fresh();
+    mage.combat.mana = 100;
+    stepStaff(mage.state, mage.combat, press(false, true), cfg, fireball, 1, DT, out());
+    expect(run(mage, 1, press(false))).toHaveLength(1);
+    expect(mage.state.cooldownTotal).toBeCloseTo(cfg.recoverySeconds, 9);
+    expect(mage.state.spellCooldownTotal).toBe(fireball.cooldownSeconds);
+    // Dexterity shortens the staff's rhythm and the total with it, never the spell's.
+    const quick = fresh();
+    quick.combat.mana = 100;
+    quick.combat.attackSpeedFactor = 2;
+    stepStaff(quick.state, quick.combat, press(false, true), cfg, fireball, 1, DT, out());
+    expect(run(quick, 1, press(false))).toHaveLength(1);
+    expect(quick.state.cooldownTotal).toBeCloseTo(cfg.recoverySeconds / 2, 9);
+    expect(quick.state.spellCooldownTotal).toBe(fireball.cooldownSeconds);
+    quick.state.reset();
+    expect(quick.state.cooldownTotal).toBe(0);
+    expect(quick.state.spellCooldownTotal).toBe(0);
+  });
+
+  it('a spell waits for the longer of its own cooldown and the staff recovery', () => {
+    const made = fresh();
+    made.combat.mana = 100;
+    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    run(made, 1, press(false));
+    const state = made.state;
+    // The step right after the spell left: the recovery is over, the spell still cools.
+    expect(state.cooldown).toBe(0);
+    expect(state.spellCooldown).toBeGreaterThan(0);
+    expect(staffReadiness(state, 'shard')).toBe(1);
+    expect(staffReadiness(state, 'spell')).toBeLessThan(1);
+    expect(staffReadiness(state, 'spell')).toBeCloseTo(
+      1 - state.spellCooldown / fireball.cooldownSeconds,
+      9,
+    );
+    // Both at their start: the spell is at 0, however short the recovery is.
+    state.cooldown = state.cooldownTotal = 0.35;
+    state.spellCooldown = state.spellCooldownTotal = 1.5;
+    expect(staffReadiness(state, 'shard')).toBe(0);
+    expect(staffReadiness(state, 'spell')).toBe(0);
+    state.cooldown = 0;
+    expect(staffReadiness(state, 'shard')).toBe(1);
+    expect(staffReadiness(state, 'spell')).toBe(0);
+  });
+
+  it('rises from 0 to 1 the same way at 60 and at 120 steps per second', () => {
+    const slow = fresh();
+    const fast = fresh();
+    slow.combat.mana = fast.combat.mana = 100;
+    // A tap at both rates (the press lasts one step: 1/60 s against 1/120 s, both a tap).
+    stepStaff(slow.state, slow.combat, press(false, true), cfg, fireball, 1, 1 / 60, out());
+    stepStaff(fast.state, fast.combat, press(false, true), cfg, fireball, 1, 1 / 120, out());
+    // From the step the spell leaves (the wind-up's last step may differ by one step between
+    // the rates, as a float rounding; the cooldown after it is what the chips show).
+    const curve = (made: ReturnType<typeof fresh>, dt: number): number[] => {
+      const values: number[] = [];
+      let fired = false;
+      for (let i = 0; i < Math.round(3 / dt); i++) {
+        const r = stepStaff(made.state, made.combat, press(false), cfg, fireball, 1, dt, out());
+        if (r.fired !== 'none') {
+          expect(fired).toBe(false);
+          fired = true;
+        }
+        if (fired) values.push(staffReadiness(made.state, 'spell'));
+      }
+      expect(fired).toBe(true);
+      return values;
+    };
+    const slowCurve = curve(slow, 1 / 60);
+    // Every other fast step lines up with one slow step.
+    const fastCurve = curve(fast, 1 / 120).filter((_, i) => i % 2 === 0);
+    expect(fastCurve.length).toBeGreaterThanOrEqual(slowCurve.length - 1);
+    for (let i = 0; i < Math.min(slowCurve.length, fastCurve.length); i++) {
+      expect(fastCurve[i]).toBeCloseTo(slowCurve[i] as number, 6);
+    }
+    // The curve went from 0 right after the spell to 1 and stayed there, never falling back.
+    expect(slowCurve[0]).toBe(0);
+    expect(slowCurve[slowCurve.length - 1]).toBe(1);
+    for (let i = 1; i < slowCurve.length; i++) {
+      expect(slowCurve[i] as number).toBeGreaterThanOrEqual(slowCurve[i - 1] as number);
+    }
   });
 });
 

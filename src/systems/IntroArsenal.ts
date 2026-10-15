@@ -7,6 +7,7 @@ import {
 } from '../data/schemas';
 import { assistedHeading } from './Combat';
 import type { FightDef } from './FightScript';
+import { readiness } from './Readiness';
 import { type Shot, Shots, type ShotTarget, type ShotWorld } from './Shots';
 import type { ShotConfig } from './StaffCombat';
 
@@ -274,6 +275,26 @@ export class IntroArsenal {
   }
 
   /**
+   * How ready an ability is to fire again (0–1, see `readiness`): its cooldown against the
+   * `cooldownSeconds` of its data. 1 for an ability the fight does not have.
+   */
+  readiness(kind: 'burst' | 'storm' | 'projectile'): number {
+    switch (kind) {
+      case 'burst':
+        return readiness(this.burstCooldown, this.burstDef?.cooldownSeconds ?? 0);
+      case 'storm':
+        return readiness(this.stormCooldown, this.stormDef?.cooldownSeconds ?? 0);
+      case 'projectile':
+        return readiness(this.boltCooldown, this.icicle?.cooldownSeconds ?? 0);
+    }
+  }
+
+  /** False while every icicle of the pool is in flight: a press does nothing then (§4.3). */
+  get icicleSlotFree(): boolean {
+    return this.shots.activeCount < ICICLE_POOL_SIZE;
+  }
+
+  /**
    * One fixed step: cooldowns run down, a ready ability that was pressed goes off, the storm's
    * due strikes land and the icicles fly. `out` is cleared by the caller.
    */
@@ -308,12 +329,7 @@ export class IntroArsenal {
     if (this.stormActive && storm) this.strikeDue(storm, out);
 
     const icicle = this.icicle;
-    if (
-      icicle &&
-      input.bolt &&
-      this.boltCooldown <= 0 &&
-      this.shots.activeCount < ICICLE_POOL_SIZE
-    ) {
+    if (icicle && input.bolt && this.boltCooldown <= 0 && this.icicleSlotFree) {
       this.boltCooldown = icicle.cooldownSeconds;
       this.fireIcicle(icicle, player);
     }
