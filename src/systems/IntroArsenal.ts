@@ -1,0 +1,530 @@
+import { Random } from '../core/Random';
+import { type ControlAction, STORM_HIT_CHANCE } from '../data/schemas';
+import { assistedHeading } from './Combat';
+import type { FightDef } from './FightScript';
+import { type Shot, Shots, type ShotTarget, type ShotWorld } from './Shots';
+import type { ShotConfig } from './StaffCombat';
+
+export type FightAbility = NonNullable<FightDef['abilities']>[number];
+export type MeleeAbility = Extract<FightAbility, { kind: 'melee' }>;
+export type BurstAbility = Extract<FightAbility, { kind: 'burst' }>;
+export type StormAbility = Extract<FightAbility, { kind: 'storm' }>;
+export type ProjectileAbility = Extract<FightAbility, { kind: 'projectile' }>;
+
+/** Icicles in flight at the same time; a press while all are flying does nothing. */
+export const ICICLE_POOL_SIZE = 4;
+/** The most strikes one storm may have (the schema's `bolts` ceiling). */
+export const MAX_BOLTS = 24;
+/** Contacts (hits and dodges) one step can report; more are dropped, which never happens. */
+const MAX_CONTACTS = 16;
+/** The icicle leaves the player's chest at this height (m). */
+export const ICICLE_HEIGHT = 1.1;
+/** Lightning strikes within this part of the set's radius. */
+const STRIKE_REACH = 0.9;
+/** A strike this many bolt radii from a foe is "near" it and mostly moved away (§4.3). */
+const NEAR_FOE_FACTOR = 2;
+/** A dodging foe blinks this far (m) sideways... */
+const DODGE_MIN = 2;
+const DODGE_MAX = 3;
+/** ...and never lands closer than this (m) to the player. */
+const DODGE_CLEARANCE = 3;
+
+/**
+ * A foe of the fight as the arsenal sees it: the sword's and the shots' target (`hittable`,
+ * never `dodging`, so an icicle flies straight at it) plus how often a hit is a dodge (0–1).
+ */
+export interface ArsenalFoe extends ShotTarget {
+  readonly dodgeChance: number;
+}
+
+/** What the player pressed this step (once per press, see `Input.consumePressed`). */
+export interface ArsenalInput {
+  /**
+   * The sword's hit. The sword's own timing (`stepSword`) decides when it lands, and the scene
+   * reports what it touched with `contact`; it is here so one record covers all four.
+   */
+  strike: boolean;
+  burst: boolean;
+  storm: boolean;
+  bolt: boolean;
+}
+
+export interface ArsenalPlayer {
+  readonly x: number;
+  readonly z: number;
+  readonly heading: number;
+}
+
+export interface Dodge {
+  foe: number;
+  /** Where the foe blinks to. */
+  x: number;
+  z: number;
+}
+
+export interface Point {
+  x: number;
+  z: number;
+}
+
+/** One strike of a storm: where, and when after the press (s). */
+export interface StormBolt {
+  x: number;
+  z: number;
+  at: number;
+  struck: boolean;
+}
+
+/**
+ * What the arsenal did this step, in fixed-capacity arrays with counters (nothing allocated
+ * while fighting). Hits and dodges name a foe by its index in the fight's list: a hit shows a
+ * "0", a dodge moves the foe to (x, z) with the purple puff. Both count as a hit for the script.
+ */
+export class ArsenalEvents {
+  /** The explosion went off this step (at the player's feet). */
+  burst = false;
+  /** A storm started this step. */
+  storm = false;
+  hitCount = 0;
+  readonly hits: number[] = [];
+  dodgeCount = 0;
+  readonly dodges: Dodge[] = [];
+  strikeCount = 0;
+  readonly strikes: Point[] = [];
+  shatterCount = 0;
+  readonly shatters: Point[] = [];
+
+  constructor() {
+    for (let i = 0; i < MAX_CONTACTS; i++) {
+      this.hits.push(0);
+      this.dodges.push({ foe: 0, x: 0, z: 0 });
+    }
+    for (let i = 0; i < MAX_BOLTS; i++) this.strikes.push({ x: 0, z: 0 });
+    for (let i = 0; i < ICICLE_POOL_SIZE; i++) this.shatters.push({ x: 0, z: 0 });
+  }
+
+  clear(): void {
+    this.burst = false;
+    this.storm = false;
+    this.hitCount = this.dodgeCount = this.strikeCount = this.shatterCount = 0;
+  }
+}
+
+/** Which input action fires each of the four abilities (null: the fight does not have it). */
+export interface ArsenalActions {
+  strike: ControlAction | null;
+  burst: ControlAction | null;
+  storm: ControlAction | null;
+  bolt: ControlAction | null;
+}
+
+/**
+ * The player's four abilities in the intro fight (cutscenes.json `fights[].abilities`), as pure
+ * logic on the fixed step: the explosion around the player (`burst`), the thunder that strikes
+ * `bolts` times across the room (`storm`), the icicle that flies from the chest (`projectile`,
+ * on the `Shots` pool) and the sword's hit (`melee`, whose timing the sword itself keeps). Every
+ * contact with a foe goes through one rule (`contact`): a seeded roll against the foe's
+ * `dodgeChance` makes it a dodge (the foe blinks aside) or a hit for 0 damage. Everything
+ * random comes from the fight's `seed`, so the same presses give the same fight on every device
+ * and at 60 and 120 Hz. Nothing is allocated after construction.
+ */
+export class IntroArsenal {
+  readonly actions: ArsenalActions;
+  readonly burstDef: BurstAbility | null = null;
+  readonly stormDef: StormAbility | null = null;
+  readonly projectileDef: ProjectileAbility | null = null;
+  /** The icicles (read-only for drawing: `shots.list`). */
+  readonly shots = new Shots(ICICLE_POOL_SIZE);
+  /** The strikes of the running storm (read-only for drawing; `struck` ones have landed). */
+  readonly stormBolts: readonly StormBolt[];
+
+  private readonly random: Random;
+  private readonly icicle: ShotConfig | null = null;
+  private readonly world: ShotWorld;
+  private burstCooldown = 0;
+  private stormCooldown = 0;
+  private boltCooldown = 0;
+  private stormElapsed = 0;
+  private stormActive = false;
+  private playerX = 0;
+  private playerZ = 0;
+  /** Where each icicle left from and how far it flies (for where it shatters). */
+  private readonly originX: number[] = [];
+  private readonly originZ: number[] = [];
+  private readonly flight: number[] = [];
+  private readonly wasActive: boolean[] = [];
+  private readonly hitThisStep: boolean[] = [];
+  private out: ArsenalEvents | null = null;
+
+  constructor(
+    abilities: FightDef['abilities'],
+    private readonly foes: readonly ArsenalFoe[],
+    private readonly setRadius: number,
+    seed: number,
+    private readonly sword: { aimRange: number; aimHalfArc: number },
+  ) {
+    this.random = new Random(seed);
+    this.actions = { strike: null, burst: null, storm: null, bolt: null };
+    for (const ability of abilities ?? []) {
+      switch (ability.kind) {
+        case 'melee':
+          this.actions.strike ??= ability.action;
+          break;
+        case 'burst':
+          if (!this.burstDef) {
+            this.burstDef = ability;
+            this.actions.burst = ability.action;
+          }
+          break;
+        case 'storm':
+          if (!this.stormDef) {
+            this.stormDef = ability;
+            this.actions.storm = ability.action;
+          }
+          break;
+        case 'projectile':
+          if (!this.projectileDef) {
+            this.projectileDef = ability;
+            this.actions.bolt = ability.action;
+          }
+          break;
+      }
+    }
+    const p = this.projectileDef;
+    if (p) {
+      this.icicle = {
+        id: 'intro_icicle',
+        element: '',
+        damage: 0,
+        manaCost: 0,
+        windupSeconds: 0,
+        cooldownSeconds: p.cooldownSeconds,
+        speed: p.speed,
+        range: p.range ?? 2 * setRadius,
+        radius: p.radius,
+        homingRadians: 0,
+        charge: null,
+      };
+    }
+    const r2 = setRadius * setRadius;
+    this.world = { heightAt: () => 0, blocked: (x, z) => x * x + z * z > r2 };
+    const bolts: StormBolt[] = [];
+    for (let i = 0; i < (this.stormDef?.bolts ?? 0); i++) {
+      bolts.push({ x: 0, z: 0, at: 0, struck: true });
+    }
+    this.stormBolts = bolts;
+    for (let i = 0; i < ICICLE_POOL_SIZE; i++) {
+      this.originX.push(0);
+      this.originZ.push(0);
+      this.flight.push(0);
+      this.wasActive.push(false);
+      this.hitThisStep.push(false);
+    }
+  }
+
+  /** Seconds before the ability fires again (0 = ready). */
+  cooldown(kind: 'burst' | 'storm' | 'bolt'): number {
+    return kind === 'burst'
+      ? this.burstCooldown
+      : kind === 'storm'
+        ? this.stormCooldown
+        : this.boltCooldown;
+  }
+
+  /** True while a storm is striking. */
+  get storming(): boolean {
+    return this.stormActive;
+  }
+
+  /**
+   * One fixed step: cooldowns run down, a ready ability that was pressed goes off, the storm's
+   * due strikes land and the icicles fly. `out` is cleared by the caller.
+   */
+  step(dt: number, input: ArsenalInput, player: ArsenalPlayer, out: ArsenalEvents): void {
+    this.playerX = player.x;
+    this.playerZ = player.z;
+    this.burstCooldown = Math.max(0, this.burstCooldown - dt);
+    this.stormCooldown = Math.max(0, this.stormCooldown - dt);
+    this.boltCooldown = Math.max(0, this.boltCooldown - dt);
+    if (this.stormActive) this.stormElapsed += dt;
+
+    const burst = this.burstDef;
+    if (burst && input.burst && this.burstCooldown <= 0) {
+      this.burstCooldown = burst.cooldownSeconds;
+      out.burst = true;
+      for (let i = 0; i < this.foes.length; i++) {
+        const foe = this.foes[i] as ArsenalFoe;
+        const reach = burst.radius + foe.radius;
+        const dx = foe.x - player.x;
+        const dz = foe.z - player.z;
+        if (dx * dx + dz * dz <= reach * reach) this.contact(i, out);
+      }
+    }
+
+    const storm = this.stormDef;
+    if (storm && input.storm && this.stormCooldown <= 0) {
+      this.stormCooldown = storm.cooldownSeconds;
+      this.startStorm(storm);
+      out.storm = true;
+    }
+    if (this.stormActive && storm) this.strikeDue(storm, out);
+
+    const icicle = this.icicle;
+    if (
+      icicle &&
+      input.bolt &&
+      this.boltCooldown <= 0 &&
+      this.shots.activeCount < ICICLE_POOL_SIZE
+    ) {
+      this.boltCooldown = icicle.cooldownSeconds;
+      this.fireIcicle(icicle, player);
+    }
+    this.flyIcicles(dt, out);
+  }
+
+  /**
+   * An ability touched foe `index`: a roll against its `dodgeChance` makes it a dodge (the foe
+   * blinks 2–3 m sideways, inside the room and clear of the player) or a hit for 0. The sword's
+   * hits come in here from the scene, so all four abilities share one roll.
+   */
+  contact(index: number, out: ArsenalEvents): void {
+    const foe = this.foes[index];
+    if (!foe) return;
+    if (this.random.next() < foe.dodgeChance) {
+      if (out.dodgeCount >= out.dodges.length) return;
+      const dodge = out.dodges[out.dodgeCount++] as Dodge;
+      dodge.foe = index;
+      this.dodgeSpot(foe, dodge);
+      return;
+    }
+    if (out.hitCount >= out.hits.length) return;
+    out.hits[out.hitCount++] = index;
+  }
+
+  /** The fight is over: no icicle flies on into the film, nothing is still cooling down. */
+  clear(): void {
+    this.shots.clear();
+    this.stormActive = false;
+    this.stormElapsed = 0;
+    this.burstCooldown = this.stormCooldown = this.boltCooldown = 0;
+    for (const bolt of this.stormBolts) bolt.struck = true;
+  }
+
+  /**
+   * Where a dodging foe lands: 2–3 m to one side (as seen from the player). A spot past the
+   * wall is taken on the other side instead; one too close to the player is pushed straight
+   * away from them; and whatever is left outside the room is held at the wall.
+   */
+  private dodgeSpot(foe: ArsenalFoe, out: Dodge): void {
+    const px = this.playerX;
+    const pz = this.playerZ;
+    let dirX = foe.x - px;
+    let dirZ = foe.z - pz;
+    const d = Math.hypot(dirX, dirZ);
+    if (d > 1e-6) {
+      dirX /= d;
+      dirZ /= d;
+    } else {
+      dirX = 0;
+      dirZ = 1;
+    }
+    const side = this.random.next() < 0.5 ? 1 : -1;
+    const distance = DODGE_MIN + this.random.next() * (DODGE_MAX - DODGE_MIN);
+    const max = Math.max(0, this.setRadius - foe.radius);
+    // Sideways is perpendicular to the line from the player.
+    let x = foe.x + dirZ * side * distance;
+    let z = foe.z - dirX * side * distance;
+    if (x * x + z * z > max * max) {
+      x = foe.x - dirZ * side * distance;
+      z = foe.z + dirX * side * distance;
+    }
+    let ax = x - px;
+    let az = z - pz;
+    const away = Math.hypot(ax, az);
+    if (away < DODGE_CLEARANCE) {
+      if (away < 1e-6) {
+        ax = dirX;
+        az = dirZ;
+      } else {
+        ax /= away;
+        az /= away;
+      }
+      x = px + ax * DODGE_CLEARANCE;
+      z = pz + az * DODGE_CLEARANCE;
+    }
+    const r = Math.hypot(x, z);
+    if (r > max && r > 1e-6) {
+      // Held at the wall. The player stands near it too, so the spot straight in from here
+      // would be too close to them: take the spot on the wall exactly `DODGE_CLEARANCE` from
+      // the player on this side, if the wall has one (two circles crossing).
+      const pr = Math.hypot(px, pz);
+      // Along the player's own direction from the middle: where the chord of the crossings
+      // lies; `h` is half that chord (no crossings when the player is far from the wall).
+      const along =
+        pr > 1e-6 ? (pr * pr + max * max - DODGE_CLEARANCE * DODGE_CLEARANCE) / (2 * pr) : 0;
+      const h2 = max * max - along * along;
+      if (pr > 1e-6 && h2 >= 0) {
+        const h = Math.sqrt(h2);
+        const ux = px / pr;
+        const uz = pz / pr;
+        // Of the two crossings, the one on the side the foe was blinking to.
+        const sideOf = x * uz - z * ux >= 0 ? 1 : -1;
+        x = ux * along + uz * h * sideOf;
+        z = uz * along - ux * h * sideOf;
+      } else {
+        x *= max / r;
+        z *= max / r;
+      }
+    }
+    out.x = x;
+    out.z = z;
+  }
+
+  /**
+   * Picks where every bolt of the storm strikes, spread evenly over `strikeSeconds` (the first
+   * at once). A point near a foe is kept with `hitChance`, otherwise picked again once, so most
+   * bolts miss by design (§4.3).
+   */
+  private startStorm(storm: StormAbility): void {
+    const hitChance = storm.hitChance ?? STORM_HIT_CHANCE;
+    const bolts = this.stormBolts as StormBolt[];
+    for (let i = 0; i < bolts.length; i++) {
+      const bolt = bolts[i] as StormBolt;
+      this.pickStrike(bolt);
+      if (this.nearFoe(bolt.x, bolt.z, storm.boltRadius) && !(this.random.next() < hitChance)) {
+        this.pickStrike(bolt);
+      }
+      bolt.at = (i / bolts.length) * storm.strikeSeconds;
+      bolt.struck = false;
+    }
+    this.stormElapsed = 0;
+    this.stormActive = true;
+  }
+
+  /** A seeded-random point on the floor, evenly spread (square root: not crowded at the middle). */
+  private pickStrike(bolt: StormBolt): void {
+    const angle = this.random.next() * Math.PI * 2;
+    const distance = Math.sqrt(this.random.next()) * this.setRadius * STRIKE_REACH;
+    bolt.x = Math.sin(angle) * distance;
+    bolt.z = Math.cos(angle) * distance;
+  }
+
+  private nearFoe(x: number, z: number, boltRadius: number): boolean {
+    const near = boltRadius * NEAR_FOE_FACTOR;
+    for (let i = 0; i < this.foes.length; i++) {
+      const foe = this.foes[i] as ArsenalFoe;
+      const dx = foe.x - x;
+      const dz = foe.z - z;
+      if (dx * dx + dz * dz <= near * near) return true;
+    }
+    return false;
+  }
+
+  /** The strikes whose time has come land: a foe within `boltRadius` of one is touched. */
+  private strikeDue(storm: StormAbility, out: ArsenalEvents): void {
+    let left = false;
+    for (let i = 0; i < this.stormBolts.length; i++) {
+      const bolt = this.stormBolts[i] as StormBolt;
+      if (bolt.struck) continue;
+      if (bolt.at > this.stormElapsed) {
+        left = true;
+        continue;
+      }
+      bolt.struck = true;
+      if (out.strikeCount < out.strikes.length) {
+        const strike = out.strikes[out.strikeCount++] as Point;
+        strike.x = bolt.x;
+        strike.z = bolt.z;
+      }
+      for (let f = 0; f < this.foes.length; f++) {
+        const foe = this.foes[f] as ArsenalFoe;
+        const reach = storm.boltRadius + foe.radius;
+        const dx = foe.x - bolt.x;
+        const dz = foe.z - bolt.z;
+        if (dx * dx + dz * dz <= reach * reach) this.contact(f, out);
+      }
+    }
+    if (!left) this.stormActive = false;
+  }
+
+  /** The icicle leaves the chest towards the nearest foe in front (aim assist), else straight on. */
+  private fireIcicle(icicle: ShotConfig, player: ArsenalPlayer): void {
+    const heading = assistedHeading(
+      player.x,
+      player.z,
+      player.heading,
+      this.foes,
+      this.sword.aimRange,
+      this.sword.aimHalfArc,
+    );
+    const shot = this.shots.fire(icicle, player.x, ICICLE_HEIGHT, player.z, heading, 0, null);
+    const slot = this.shots.list.indexOf(shot);
+    this.originX[slot] = player.x;
+    this.originZ[slot] = player.z;
+    // How far it flies before it fizzles (its range and the little extra `Shots` gives it).
+    this.flight[slot] = shot.life * shot.speed;
+  }
+
+  /**
+   * The icicles fly one step. One that touches a foe makes contact; one that leaves the room
+   * or runs out shatters where it stopped (worked out from its line of flight, so 60 and 120 Hz
+   * put the shards at the same spot).
+   */
+  private flyIcicles(dt: number, out: ArsenalEvents): void {
+    const list = this.shots.list;
+    for (let i = 0; i < list.length; i++) {
+      this.wasActive[i] = (list[i] as Shot).active;
+      this.hitThisStep[i] = false;
+    }
+    this.out = out;
+    this.shots.step(dt, this.foes, this.world, this.onShotHit);
+    this.out = null;
+    for (let i = 0; i < list.length; i++) {
+      const shot = list[i] as Shot;
+      if (!this.wasActive[i] || shot.active || this.hitThisStep[i]) continue;
+      if (out.shatterCount >= out.shatters.length) continue;
+      const shatter = out.shatters[out.shatterCount++] as Point;
+      this.shatterPoint(shot, i, shatter);
+    }
+  }
+
+  private readonly onShotHit = (target: ShotTarget, shot: Shot): void => {
+    const out = this.out;
+    if (!out) return;
+    const slot = this.shots.list.indexOf(shot);
+    if (slot >= 0) this.hitThisStep[slot] = true;
+    const index = this.foes.indexOf(target as ArsenalFoe);
+    if (index >= 0) this.contact(index, out);
+  };
+
+  /**
+   * Where a stopped icicle shatters: on the wall where its line of flight crosses it, or, when
+   * it ran out of range inside the room, where its range ended.
+   */
+  private shatterPoint(shot: Shot, slot: number, out: Point): void {
+    const r = this.setRadius;
+    if (shot.x * shot.x + shot.z * shot.z > r * r) {
+      // The segment it flew this step crosses the circle once: solve |from + t·d| = r.
+      const fx = shot.fromX;
+      const fz = shot.fromZ;
+      const dx = shot.x - fx;
+      const dz = shot.z - fz;
+      const a = dx * dx + dz * dz;
+      const b = 2 * (fx * dx + fz * dz);
+      const c = fx * fx + fz * fz - r * r;
+      const disc = b * b - 4 * a * c;
+      if (a > 1e-12 && disc >= 0) {
+        const t = Math.max(0, Math.min(1, (-b + Math.sqrt(disc)) / (2 * a)));
+        out.x = fx + dx * t;
+        out.z = fz + dz * t;
+        return;
+      }
+      out.x = shot.x;
+      out.z = shot.z;
+      return;
+    }
+    const flight = this.flight[slot] ?? 0;
+    out.x = (this.originX[slot] ?? shot.x) + shot.dirX * flight;
+    out.z = (this.originZ[slot] ?? shot.z) + shot.dirZ * flight;
+  }
+}
