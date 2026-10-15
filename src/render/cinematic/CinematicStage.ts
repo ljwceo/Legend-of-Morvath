@@ -23,8 +23,8 @@ import type { ActorPose, CutsceneDef, WeaponPose } from './CinematicTimeline';
 
 type ActorDef = NonNullable<CutsceneDef['actors']>[number];
 
-/** Puffs of the smoke cloud: [x, y, z, radius] around its feet (m). */
-const SMOKE_PUFFS: readonly [number, number, number, number][] = [
+/** Puffs of the smoke cloud: [x, y, z, radius] around its feet (m); the explosion's smoke shares it. */
+export const SMOKE_PUFFS: readonly [number, number, number, number][] = [
   [0, 0.5, 0, 0.7],
   [0.55, 0.9, 0.2, 0.55],
   [-0.5, 0.8, -0.15, 0.6],
@@ -33,7 +33,7 @@ const SMOKE_PUFFS: readonly [number, number, number, number][] = [
   [0.3, 2.3, 0, 0.4],
 ];
 /** The smoke turns slowly (rad/s), so it looks alive. */
-const SMOKE_SPIN = 0.9;
+export const SMOKE_SPIN = 0.9;
 /** Splinters of the barrel: [direction x, up, direction z, length] (fixed, so it is the same every time). */
 const SPLINTERS: readonly [number, number, number, number][] = [
   [1, 1.6, 0.2, 0.32],

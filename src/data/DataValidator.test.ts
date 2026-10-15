@@ -397,6 +397,8 @@ describe('validateGameData catches broken data', () => {
                 hops: [
                   { x: 0, z: 0 },
                   { x: 1, z: 1 },
+                  // Past the set's floor (radius 16).
+                  { x: 40, z: 0 },
                 ],
                 from: { x: 0, z: 0 },
               },
@@ -444,6 +446,10 @@ describe('validateGameData catches broken data', () => {
     expect(found).toContainEqual(expect.stringContaining('only a cinematic has afterFight'));
     expect(found).toContainEqual(expect.stringContaining('"ghost" is not a foe of "intro_fight"'));
     expect(found).toContainEqual(expect.stringContaining('hops replace from and to'));
+    expect(found).toContainEqual(
+      expect.stringContaining('hops[2]: lies outside the set (radius 16)'),
+    );
+    expect(found).not.toContainEqual(expect.stringContaining('hops[1]: lies outside'));
     expect(found).toContainEqual(expect.stringContaining('headingFrom and headingTo go together'));
     expect(found).toContainEqual(expect.stringContaining('"intro.nope" is missing'));
     expect(found).toContainEqual(expect.stringContaining('"landing" does not play on fight'));
@@ -536,7 +542,11 @@ describe('validateGameData catches broken data', () => {
       { type: 'blink' },
       { type: 'blink', foe: 'lucael' },
     );
+    fight.dodge = { minMeters: 4, maxMeters: 3, clearanceMeters: 3, blinkReach: 0.75 };
     const found = messages(raw);
+    expect(found).toContainEqual(
+      expect.stringContaining('dodge.minMeters: is larger than maxMeters'),
+    );
     expect(found).toContainEqual(expect.stringContaining('fogNear: must be smaller than fogFar'));
     expect(found).toContainEqual(expect.stringContaining('unknown color token "neonpink"'));
     expect(found).toContainEqual(expect.stringContaining('spikes need count, seed and radius'));

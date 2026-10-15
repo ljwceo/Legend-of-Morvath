@@ -1536,6 +1536,9 @@ class CrossChecker {
     fights.forEach((fight, i) => {
       const p = `fights[${i}]`;
       this.checkFightSet(fight.set, `${p}.set`);
+      if (fight.dodge && fight.dodge.minMeters > fight.dodge.maxMeters) {
+        this.issue(f, `${p}.dodge.minMeters`, 'is larger than maxMeters');
+      }
       this.unique(`foe:${fight.id}`, f, `${p}.foes`, fight.foes);
       fight.foes.forEach((foe, n) => {
         this.color(f, `${p}.foes[${n}].color`, foe.color);
@@ -1675,6 +1678,12 @@ class CrossChecker {
         if (move.hops && (move.from || move.to)) {
           this.issue(f, `${mp}.hops`, 'hops replace from and to');
         }
+        // A hop past the set's floor would leave the room (the fight keeps everyone inside it).
+        move.hops?.forEach((hop, h) => {
+          if (fight && Math.hypot(hop.x, hop.z) > fight.set.radius) {
+            this.issue(f, `${mp}.hops[${h}]`, `lies outside the set (radius ${fight.set.radius})`);
+          }
+        });
         if ((move.headingFrom === undefined) !== (move.headingTo === undefined)) {
           this.issue(f, mp, 'headingFrom and headingTo go together');
         }

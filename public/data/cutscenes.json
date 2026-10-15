@@ -2834,7 +2834,7 @@
             "x": 0,
             "z": -54,
             "y": -0.02,
-            "radius": 20,
+            "radius": 34,
             "color": "nachtinkt"
           },
           {
@@ -2956,9 +2956,9 @@
           },
           {
             "kind": "bookshelf",
-            "x": -9,
+            "x": -11,
             "y": 0.3,
-            "z": 9,
+            "z": 13,
             "headingDegrees": 130,
             "rollDegrees": 70
           },
@@ -3038,7 +3038,7 @@
           {
             "kind": "chair",
             "x": 5,
-            "y": 0.4,
+            "y": 4.8,
             "z": 12,
             "headingDegrees": 80,
             "rollDegrees": 110
@@ -3046,16 +3046,16 @@
           {
             "kind": "chair",
             "x": -4.5,
-            "y": 0.25,
+            "y": 5.4,
             "z": 1.5,
             "headingDegrees": -140,
             "rollDegrees": 95
           },
           {
             "kind": "chair",
-            "x": 9,
+            "x": 6.5,
             "y": 0.9,
-            "z": -7,
+            "z": 15.5,
             "headingDegrees": 30,
             "rollDegrees": 240,
             "drift": {
@@ -3126,7 +3126,8 @@
           "color": "spreukviolet",
           "accent": "zonlicht",
           "radius": 0.8,
-          "dodgeChance": 0.75
+          "dodgeChance": 0.75,
+          "floats": true
         },
         {
           "id": "baelor",
@@ -3163,6 +3164,7 @@
           "boltRadius": 1.3,
           "strikeSeconds": 1.1,
           "hitChance": 0.25,
+          "strikeReach": 0.9,
           "cooldownSeconds": 7,
           "color": "zonlicht",
           "label": "intro.ability.thunder"
@@ -3182,6 +3184,12 @@
           "label": "intro.ability.icicle"
         }
       ],
+      "dodge": {
+        "minMeters": 2,
+        "maxMeters": 3,
+        "clearanceMeters": 3,
+        "blinkReach": 0.75
+      },
       "seed": 7,
       "beats": [
         {

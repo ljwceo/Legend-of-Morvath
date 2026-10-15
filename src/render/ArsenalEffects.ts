@@ -19,6 +19,7 @@ import {
 } from 'three';
 import { ICICLE_HEIGHT } from '../systems/IntroArsenal';
 import type { Shot } from '../systems/Shots';
+import { SMOKE_PUFFS, SMOKE_SPIN } from './cinematic/CinematicStage';
 import { palette } from './palette';
 
 /** How the effects look: colors (palette numbers) and sizes (m) from the fight's abilities. */
@@ -43,21 +44,14 @@ const BOLT_RADIUS = 0.12;
 const BLAST_START = 0.5;
 const BLAST_SECONDS = 0.35;
 const BLAST_OPACITY = 0.85;
-/** The smoke of the explosion: the cinematic's cloud, grown and fading over this long. */
+/**
+ * The smoke of the explosion: the cinematic's cloud (its puffs and spin from CinematicStage),
+ * grown and fading over this long.
+ */
 const SMOKE_SECONDS = 1.2;
 const SMOKE_FROM = 0.6;
 const SMOKE_TO = 1.9;
 const SMOKE_OPACITY = 0.55;
-const SMOKE_SPIN = 0.9;
-/** Puffs of the smoke cloud: [x, y, z, radius] around its feet (m), as in CinematicStage. */
-const SMOKE_PUFFS: readonly [number, number, number, number][] = [
-  [0, 0.5, 0, 0.7],
-  [0.55, 0.9, 0.2, 0.55],
-  [-0.5, 0.8, -0.15, 0.6],
-  [0.15, 1.5, -0.3, 0.6],
-  [-0.25, 1.9, 0.25, 0.45],
-  [0.3, 2.3, 0, 0.4],
-];
 /** Shards of a shattered icicle: how many, how long, how far out and up, and how they fall. */
 const SHARD_COUNT = 6;
 const SHARD_SECONDS = 0.5;
@@ -74,17 +68,17 @@ const ICICLE_OPACITY = 0.85;
 const Y_AXIS = new Vector3(0, 1, 0);
 
 /** Seconds since an effect started (`age`), and at the step before (`prev`); -1 when idle. */
-interface Timer {
+export interface Timer {
   age: number;
   prev: number;
 }
 
-function startTimer(timer: Timer): void {
+export function startTimer(timer: Timer): void {
   timer.age = timer.prev = 0;
 }
 
 /** Runs the timer on; it goes idle once even the drawn moment is past `seconds`. */
-function tickTimer(timer: Timer, dt: number, seconds: number): void {
+export function tickTimer(timer: Timer, dt: number, seconds: number): void {
   if (timer.age < 0) return;
   if (timer.prev >= seconds) {
     timer.age = -1;
@@ -95,7 +89,7 @@ function tickTimer(timer: Timer, dt: number, seconds: number): void {
 }
 
 /** The drawn moment (s) between the last two steps, or -1 when idle. */
-function timerAt(timer: Timer, alpha: number): number {
+export function timerAt(timer: Timer, alpha: number): number {
   return timer.age < 0 ? -1 : timer.prev + (timer.age - timer.prev) * alpha;
 }
 

@@ -1,5 +1,10 @@
 import { Random } from '../core/Random';
-import { type ControlAction, STORM_HIT_CHANCE } from '../data/schemas';
+import {
+  type ControlAction,
+  FIGHT_DODGE,
+  STORM_HIT_CHANCE,
+  STORM_STRIKE_REACH,
+} from '../data/schemas';
 import { assistedHeading } from './Combat';
 import type { FightDef } from './FightScript';
 import { type Shot, Shots, type ShotTarget, type ShotWorld } from './Shots';
@@ -10,28 +15,23 @@ export type MeleeAbility = Extract<FightAbility, { kind: 'melee' }>;
 export type BurstAbility = Extract<FightAbility, { kind: 'burst' }>;
 export type StormAbility = Extract<FightAbility, { kind: 'storm' }>;
 export type ProjectileAbility = Extract<FightAbility, { kind: 'projectile' }>;
+/** How a foe dodges and blinks (`fights[].dodge`). */
+export type DodgeDef = NonNullable<FightDef['dodge']>;
 
 const DEG = Math.PI / 180;
 /** Icicles in flight at the same time (§4.3: three); a press while all are flying does nothing. */
 export const ICICLE_POOL_SIZE = 3;
 /** The most strikes one storm may have (the schema's `bolts` ceiling). */
 export const MAX_BOLTS = 24;
-/** Contacts (hits and dodges) one step can report; more are dropped, which never happens. */
-const MAX_CONTACTS = 16;
+/**
+ * Contacts (hits and dodges) `ArsenalEvents` holds when nothing says how many: enough for the
+ * tests; a fight sizes them by `IntroArsenal.maxContacts`, so none is ever dropped.
+ */
+const DEFAULT_CONTACTS = 16;
 /** The icicle leaves the player's chest at this height (m). */
 export const ICICLE_HEIGHT = 1.1;
-/** Lightning strikes within this part of the set's radius. */
-const STRIKE_REACH = 0.9;
 /** A strike this many bolt radii from a foe is "near" it and mostly moved away (§4.3). */
 const NEAR_FOE_FACTOR = 2;
-/** A dodging foe blinks this far (m) sideways... */
-const DODGE_MIN = 2;
-const DODGE_MAX = 3;
-/**
- * ...and never lands closer than this (m) to the player, nor to another foe when the other
- * side is clear of them (the scene's `blink` keeps the same distance).
- */
-const DODGE_CLEARANCE = 3;
 
 /**
  * A foe of the fight as the arsenal sees it: the sword's and the shots' target (`hittable`,
@@ -93,6 +93,7 @@ export interface StormBolt {
  * What the arsenal did this step, in fixed-capacity arrays with counters (nothing allocated
  * while fighting). Hits and dodges name a foe by its index in the fight's list: a hit shows a
  * "0", a dodge moves the foe to (x, z) with the purple puff. Both count as a hit for the script.
+ * `contacts` is how many hits and how many dodges fit (`IntroArsenal.maxContacts`).
  */
 export class ArsenalEvents {
   /** The explosion went off this step (at the player's feet). */
@@ -108,8 +109,8 @@ export class ArsenalEvents {
   shatterCount = 0;
   readonly shatters: Point[] = [];
 
-  constructor() {
-    for (let i = 0; i < MAX_CONTACTS; i++) {
+  constructor(contacts = DEFAULT_CONTACTS) {
+    for (let i = 0; i < contacts; i++) {
       this.hits.push(0);
       this.dodges.push({ foe: 0, x: 0, z: 0 });
     }
@@ -151,8 +152,19 @@ export class IntroArsenal {
   readonly shots = new Shots(ICICLE_POOL_SIZE);
   /** The strikes of the running storm (read-only for drawing; `struck` ones have landed). */
   readonly stormBolts: readonly StormBolt[];
+  /**
+   * The most contacts one step can make: every foe touched by the explosion, the sword, every
+   * icicle and every bolt of the storm at once. Size `ArsenalEvents` by it.
+   */
+  readonly maxContacts: number;
 
   private readonly random: Random;
+  /** How far a dodge blinks (m) and how clear it stays of the others (`fights[].dodge`). */
+  private readonly dodgeMin: number;
+  private readonly dodgeMax: number;
+  private readonly dodgeClearance: number;
+  /** Strikes land within this part of the set's radius. */
+  private readonly strikeReach: number;
   private readonly icicle: ShotConfig | null = null;
   private readonly aimRange: number;
   private readonly aimHalfArc: number;
@@ -178,8 +190,12 @@ export class IntroArsenal {
     private readonly setRadius: number,
     seed: number,
     aim: AimAssist,
+    dodge: DodgeDef = FIGHT_DODGE,
   ) {
     this.random = new Random(seed);
+    this.dodgeMin = dodge.minMeters;
+    this.dodgeMax = dodge.maxMeters;
+    this.dodgeClearance = dodge.clearanceMeters;
     this.actions = { strike: null, burst: null, storm: null, bolt: null };
     for (const ability of abilities ?? []) {
       switch (ability.kind) {
@@ -224,6 +240,9 @@ export class IntroArsenal {
     }
     this.aimRange = p?.aimRange ?? aim.aimRange;
     this.aimHalfArc = p?.aimArcDegrees !== undefined ? (p.aimArcDegrees / 2) * DEG : aim.aimHalfArc;
+    this.strikeReach = this.stormDef?.strikeReach ?? STORM_STRIKE_REACH;
+    this.maxContacts =
+      foes.length * (2 + ICICLE_POOL_SIZE + (this.stormDef?.bolts ?? 0)) || DEFAULT_CONTACTS;
     const r2 = setRadius * setRadius;
     this.world = { heightAt: () => 0, blocked: (x, z) => x * x + z * z > r2 };
     const bolts: StormBolt[] = [];
@@ -303,7 +322,7 @@ export class IntroArsenal {
 
   /**
    * An ability touched foe `index`: a roll against its `dodgeChance` makes it a dodge (the foe
-   * blinks 2–3 m sideways, inside the room and clear of the player) or a hit for 0. The sword's
+   * blinks sideways, inside the room and clear of the player) or a hit for 0. The sword's
    * hits come in here from the scene, so all four abilities share one roll.
    */
   contact(index: number, out: ArsenalEvents): void {
@@ -330,13 +349,14 @@ export class IntroArsenal {
   }
 
   /**
-   * Where a dodging foe lands: 2–3 m to one side (as seen from the player). The side is a
-   * roll, but a spot past the wall or within `DODGE_CLEARANCE` of another foe gives way to the
-   * other side when that one is better (so a brother never blinks into his brother while the
-   * other side is free); one too close to the player is pushed straight away from them; and
-   * whatever is left outside the room is held at the wall.
+   * Where a dodging foe lands: `dodgeMin`–`dodgeMax` m to one side (as seen from the player).
+   * The side is a roll, but a spot past the wall or within `dodgeClearance` of another foe
+   * gives way to the other side when that one is better (so a brother never blinks into his
+   * brother while the other side is free); one too close to the player is pushed straight away
+   * from them; and whatever is left outside the room is held at the wall.
    */
   private dodgeSpot(foe: ArsenalFoe, out: Dodge): void {
+    const clearance = this.dodgeClearance;
     const px = this.playerX;
     const pz = this.playerZ;
     let dirX = foe.x - px;
@@ -350,7 +370,7 @@ export class IntroArsenal {
       dirZ = 1;
     }
     const side = this.random.next() < 0.5 ? 1 : -1;
-    const distance = DODGE_MIN + this.random.next() * (DODGE_MAX - DODGE_MIN);
+    const distance = this.dodgeMin + this.random.next() * (this.dodgeMax - this.dodgeMin);
     const max = Math.max(0, this.setRadius - foe.radius);
     // Sideways is perpendicular to the line from the player.
     const sideX = dirZ * distance;
@@ -366,7 +386,7 @@ export class IntroArsenal {
     let ax = x - px;
     let az = z - pz;
     const away = Math.hypot(ax, az);
-    if (away < DODGE_CLEARANCE) {
+    if (away < clearance) {
       if (away < 1e-6) {
         ax = dirX;
         az = dirZ;
@@ -374,19 +394,18 @@ export class IntroArsenal {
         ax /= away;
         az /= away;
       }
-      x = px + ax * DODGE_CLEARANCE;
-      z = pz + az * DODGE_CLEARANCE;
+      x = px + ax * clearance;
+      z = pz + az * clearance;
     }
     const r = Math.hypot(x, z);
     if (r > max && r > 1e-6) {
       // Held at the wall. The player stands near it too, so the spot straight in from here
-      // would be too close to them: take the spot on the wall exactly `DODGE_CLEARANCE` from
-      // the player on this side, if the wall has one (two circles crossing).
+      // would be too close to them: take the spot on the wall exactly `clearance` from the
+      // player on this side, if the wall has one (two circles crossing).
       const pr = Math.hypot(px, pz);
       // Along the player's own direction from the middle: where the chord of the crossings
       // lies; `h` is half that chord (no crossings when the player is far from the wall).
-      const along =
-        pr > 1e-6 ? (pr * pr + max * max - DODGE_CLEARANCE * DODGE_CLEARANCE) / (2 * pr) : 0;
+      const along = pr > 1e-6 ? (pr * pr + max * max - clearance * clearance) / (2 * pr) : 0;
       const h2 = max * max - along * along;
       if (pr > 1e-6 && h2 >= 0) {
         const h = Math.sqrt(h2);
@@ -415,14 +434,15 @@ export class IntroArsenal {
     return score;
   }
 
-  /** True when no other foe stands within `DODGE_CLEARANCE` of (x, z). */
+  /** True when no other foe stands within `dodgeClearance` of (x, z). */
   private clearOfOthers(x: number, z: number, foe: ArsenalFoe): boolean {
+    const clearance = this.dodgeClearance;
     for (let i = 0; i < this.foes.length; i++) {
       const other = this.foes[i] as ArsenalFoe;
       if (other === foe) continue;
       const dx = other.x - x;
       const dz = other.z - z;
-      if (dx * dx + dz * dz < DODGE_CLEARANCE * DODGE_CLEARANCE) return false;
+      if (dx * dx + dz * dz < clearance * clearance) return false;
     }
     return true;
   }
@@ -451,7 +471,7 @@ export class IntroArsenal {
   /** A seeded-random point on the floor, evenly spread (square root: not crowded at the middle). */
   private pickStrike(bolt: StormBolt): void {
     const angle = this.random.next() * Math.PI * 2;
-    const distance = Math.sqrt(this.random.next()) * this.setRadius * STRIKE_REACH;
+    const distance = Math.sqrt(this.random.next()) * this.setRadius * this.strikeReach;
     bolt.x = Math.sin(angle) * distance;
     bolt.z = Math.cos(angle) * distance;
   }

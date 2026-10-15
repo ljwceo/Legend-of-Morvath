@@ -1,6 +1,15 @@
+import { DynamicDrawUsage, InstancedMesh, type Material, Mesh, Scene } from 'three';
 import { describe, expect, it } from 'vitest';
 import { GameLoop } from '../../core/GameLoop';
-import { bookshelfGeometry, chairGeometry, type DriftOffset, driftOffset } from './CinematicSet';
+import { cutscenesFileSchema } from '../../data/schemas';
+import { readPublicJson } from '../../test/loadPublic';
+import {
+  bookshelfGeometry,
+  chairGeometry,
+  CinematicSet,
+  type DriftOffset,
+  driftOffset,
+} from './CinematicSet';
 
 const drift = { bob: 0.4, spin: 8, seconds: 7 };
 const out = (): DriftOffset => ({ y: 0, yaw: 0 });
@@ -70,6 +79,61 @@ describe('set geometry', () => {
       expect(geometry.getAttribute('position').count).toBeGreaterThan(0);
       expect(geometry.getAttribute('color').count).toBe(geometry.getAttribute('position').count);
       geometry.dispose();
+    }
+  });
+});
+
+describe('CinematicSet', () => {
+  it('builds the intro set, drifts its props with time, and leaves nothing behind on dispose', () => {
+    const file = cutscenesFileSchema.parse(readPublicJson('data/cutscenes.json'));
+    const fight = file.fights.find((f) => f.id === 'intro_fight');
+    if (!fight) throw new Error('no intro fight');
+    const scene = new Scene();
+    const set = new CinematicSet(scene, fight.set);
+    expect(scene.fog).not.toBeNull();
+    expect(scene.background).not.toBeNull();
+    const meshes: Mesh[] = [];
+    scene.traverse((object) => {
+      if (object instanceof Mesh) meshes.push(object);
+    });
+    // One InstancedMesh per kind that has props (bookshelves, chairs, spikes, rocks)...
+    const kinds = new Set(
+      fight.set.props.map((p) => p.kind).filter((k) => k !== 'floor' && k !== 'door'),
+    );
+    expect(kinds.size).toBeGreaterThanOrEqual(2);
+    expect(meshes.filter((m) => m instanceof InstancedMesh)).toHaveLength(kinds.size);
+    // ...plus the room floor, the data's floors, and the door's frame and three mist discs.
+    const floors = 1 + fight.set.props.filter((p) => p.kind === 'floor').length;
+    const doors = fight.set.props.filter((p) => p.kind === 'door').length;
+    expect(meshes).toHaveLength(kinds.size + floors + doors * 4);
+
+    // A drifting kind moves with time, and the same second gives the same matrices.
+    const drifting = meshes.filter(
+      (m): m is InstancedMesh =>
+        m instanceof InstancedMesh && m.instanceMatrix.usage === DynamicDrawUsage,
+    );
+    expect(drifting.length).toBeGreaterThan(0);
+    const mesh = drifting[0] as InstancedMesh;
+    set.update(0);
+    const at0 = Float32Array.from(mesh.instanceMatrix.array);
+    set.update(1.5);
+    const at1 = Float32Array.from(mesh.instanceMatrix.array);
+    set.update(1.5);
+    expect(Float32Array.from(mesh.instanceMatrix.array)).toEqual(at1);
+    expect(at1).not.toEqual(at0);
+
+    const disposed = new Set<object>();
+    for (const m of meshes) {
+      m.geometry.addEventListener('dispose', () => disposed.add(m.geometry));
+      (m.material as Material).addEventListener('dispose', () => disposed.add(m.material));
+    }
+    set.dispose();
+    expect(scene.children).toHaveLength(0);
+    expect(scene.fog).toBeNull();
+    expect(scene.background).toBeNull();
+    for (const m of meshes) {
+      expect(disposed.has(m.geometry)).toBe(true);
+      expect(disposed.has(m.material)).toBe(true);
     }
   });
 });

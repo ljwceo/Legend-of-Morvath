@@ -4,6 +4,7 @@ import { Input, type LookDelta } from '../core/Input';
 import { Random } from '../core/Random';
 import type { GameState } from '../core/StateMachine';
 import { assetUrl } from '../data/DataLoader';
+import { FIGHT_DODGE } from '../data/schemas';
 import type { GameData } from '../data/types';
 import { buildLord, type LordModel } from '../entities/LordFactory';
 import { Player } from '../entities/Player';
@@ -54,10 +55,7 @@ const INTRO_ID = 'intro';
 const CINEMATIC_CLASS = 'ui-cinematic-playing';
 /** How far behind the player (m) a teleporting foe appears. */
 const BEHIND_DISTANCE = 1.8;
-/** A blinking foe lands within this part of the set's radius... */
-const BLINK_REACH = 0.75;
-/** ...at least this far (m) from the player and the other foe, trying this many spots. */
-const BLINK_CLEARANCE = 3;
+/** A blinking foe tries this many spots for one clear of the player and the other foe. */
 const BLINK_TRIES = 12;
 /** Levitation: height (m) and spin (radians per second). */
 const LEVITATE_HEIGHT = 2.4;
@@ -81,6 +79,11 @@ const FLAT = { heightAt: () => 0 };
 const DEG = Math.PI / 180;
 const GROUND = (): number => 0;
 
+/** A stepped countdown as drawn: between its value at the last step and the one before. */
+function between(prev: number, cur: number, alpha: number): number {
+  return prev + (cur - prev) * alpha;
+}
+
 type Segment = 'cinematic' | 'fight' | 'done';
 type Part = 'intro' | 'afterFight';
 type ActorDefs = NonNullable<CutsceneDef['actors']>;
@@ -99,11 +102,14 @@ interface Foe {
   readonly dodging: false;
   /** 0–1: how often a hit on this brother is a dodge instead (he blinks aside). */
   readonly dodgeChance: number;
+  /** He hovers and bobs above the floor (Lucael) instead of standing still (Baelor). */
+  readonly floats: boolean;
   x: number;
   z: number;
   heading: number;
-  /** Seconds of the "unimpressed" shimmer after being hit. */
+  /** Seconds of the "unimpressed" shimmer after being hit, and at the step before (drawn between). */
   shimmer: number;
+  shimmerPrev: number;
 }
 
 /** Keeps a walking circle inside the round room. */
@@ -171,6 +177,9 @@ export class IntroSceneState implements GameState {
   private subtitleName: HTMLElement | null = null;
   private subtitleText: HTMLElement | null = null;
   private hint: HTMLElement | null = null;
+  /** "Click to look around" for the mouse, until it is captured (as in the world). */
+  private lookHint: HTMLElement | null = null;
+  private lookHintShown = false;
   private overlay: HTMLElement | null = null;
   /** The state's own black, over everything, from the end of the last cinematic until the world. */
   private black: HTMLElement | null = null;
@@ -185,12 +194,16 @@ export class IntroSceneState implements GameState {
   private subtitleLeft = 0;
   private hintLeft = 0;
   private freezeLeft = 0;
+  /** Countdowns that are drawn keep their value at the step before too, to draw in between. */
   private levitateLeft = 0;
+  private levitatePrev = 0;
   private levitateTotal = 1;
   private spellLeft = 0;
+  private spellPrev = 0;
   private spellTotal = 1;
   private spellFoe: Foe | null = null;
   private puffLeft = 0;
+  private puffPrev = 0;
   private flashLeft = 0;
   /** Thunder: the screen flash of the current bolt, and how long the overlay fades fast. */
   private strikeFlashLeft = 0;
@@ -209,7 +222,8 @@ export class IntroSceneState implements GameState {
     storm: false,
     bolt: false,
   };
-  private readonly arsenalEvents = new ArsenalEvents();
+  /** Sized by the fight (`IntroArsenal.maxContacts`) once the arsenal is built. */
+  private arsenalEvents = new ArsenalEvents();
   private readonly swordResult: SwordResult = {
     landed: 'none',
     damage: 0,
@@ -252,8 +266,10 @@ export class IntroSceneState implements GameState {
     this.time = this.prevTime = 0;
     this.subtitleLeft = this.hintLeft = this.freezeLeft = this.levitateLeft = 0;
     this.spellLeft = this.puffLeft = this.flashLeft = 0;
+    this.levitatePrev = this.spellPrev = this.puffPrev = 0;
     this.strikeFlashLeft = this.stormOverlayLeft = 0;
     this.spellFoe = null;
+    this.lookHintShown = false;
     this.coarsePointer = window.matchMedia('(pointer: coarse)').matches;
     // The scene first: the touch buttons are named after the fight's abilities.
     this.buildScene(data, fight);
@@ -276,7 +292,7 @@ export class IntroSceneState implements GameState {
     this.root?.remove();
     this.black?.remove();
     this.root = this.surface = this.subtitle = this.subtitleName = this.subtitleText = null;
-    this.hint = this.overlay = this.black = null;
+    this.hint = this.lookHint = this.overlay = this.black = null;
     this.ctx.renderer.setCamera(null);
     this.player?.dispose();
     this.player = null;
@@ -305,6 +321,8 @@ export class IntroSceneState implements GameState {
     this.intro = this.afterFight = null;
     this.random = null;
     this.segment = 'done';
+    // No frame of the set stays on the canvas while the world is still loading its chunk.
+    this.ctx.renderer.clear();
   }
 
   update(dt: number): void {
@@ -377,9 +395,10 @@ export class IntroSceneState implements GameState {
 
   /**
    * Where an actor stands before the first shot: the player where they are; the lords on their
-   * spots, but seen only after the fight (that film starts exactly where the fight left
-   * everyone). In the opening they stay unseen until a shot shows them (`visible: true`), so
-   * nothing of the room shows through the mist door.
+   * spots, but seen only after the fight (that film can start exactly where the fight left
+   * everyone; the shipped `intro_landing` cuts to fixed marks in its first shot instead, a film
+   * cut, so there the hook only sets who is seen). In the opening they stay unseen until a shot
+   * shows them (`visible: true`), so nothing of the room shows through the mist door.
    */
   private actorStart(
     actorId: string,
@@ -422,7 +441,7 @@ export class IntroSceneState implements GameState {
       foe.x = r.position.x;
       foe.z = r.position.z;
       foe.heading = r.rotation.y;
-      foe.shimmer = 0;
+      foe.shimmer = foe.shimmerPrev = 0;
     }
     const s = player.state;
     rig?.orbit.snap(s.x, 0, s.z, s.heading);
@@ -463,6 +482,7 @@ export class IntroSceneState implements GameState {
     this.subtitle?.classList.remove('ui-fight-show');
     this.hint?.classList.remove('ui-fight-show');
     this.freezeLeft = this.levitateLeft = this.spellLeft = this.flashLeft = 0;
+    this.levitatePrev = this.spellPrev = 0;
     this.strikeFlashLeft = this.stormOverlayLeft = 0;
     this.subtitleLeft = this.hintLeft = 0;
     this.spellFoe = null;
@@ -471,7 +491,7 @@ export class IntroSceneState implements GameState {
     this.arsenal?.clear();
     this.effects?.clear();
     // A teleport puff from the last beat must not hang frozen in the film after the fight.
-    this.puffLeft = 0;
+    this.puffLeft = this.puffPrev = 0;
     if (this.puff) this.puff.visible = false;
     if (this.afterFight) {
       this.startCinematic(this.afterFight, 'afterFight');
@@ -575,6 +595,7 @@ export class IntroSceneState implements GameState {
     this.stepEffects(dt);
     for (const foe of this.foes) {
       foe.heading = Math.atan2(s.x - foe.x, s.z - foe.z);
+      foe.shimmerPrev = foe.shimmer;
       if (foe.shimmer > 0) foe.shimmer = Math.max(0, foe.shimmer - dt);
     }
     // A script without an `end` still ends.
@@ -589,22 +610,32 @@ export class IntroSceneState implements GameState {
     player.syncModel(alpha);
     if (this.sword) player.showSword(this.sword);
     const root = player.model.root;
-    if (this.levitateLeft > 0) {
-      const t = 1 - this.levitateLeft / this.levitateTotal;
+    // Every countdown is drawn between its last two steps, so 120 fps sees every frame move.
+    const levitate = between(this.levitatePrev, this.levitateLeft, alpha);
+    if (levitate > 0) {
+      const t = 1 - levitate / this.levitateTotal;
       root.position.y = Math.sin(Math.min(1, t * 1.2) * Math.PI) * LEVITATE_HEIGHT;
     }
 
     for (const foe of this.foes) {
       const r = foe.model.root;
-      // Lucael floats playfully; Baelor stands still and serious.
-      const bob = foe.id === 'lucael' ? Math.sin(now * 2.2) * 0.12 + 0.1 : 0;
+      // A floating brother bobs playfully (`floats` in the data); the other stands still.
+      const bob = foe.floats ? Math.sin(now * 2.2) * 0.12 + 0.1 : 0;
       r.position.set(foe.x, bob, foe.z);
       r.rotation.y = foe.heading;
-      r.rotation.z = foe.shimmer > 0 ? Math.sin(foe.shimmer * 40) * 0.03 : 0;
+      const shimmer = between(foe.shimmerPrev, foe.shimmer, alpha);
+      r.rotation.z = shimmer > 0 ? Math.sin(shimmer * 40) * 0.03 : 0;
     }
-    this.drawSpell(now);
-    this.drawPuff();
+    this.drawSpell(now, alpha);
+    this.drawPuff(alpha);
     this.effects?.draw(alpha);
+
+    // The mouse must be captured to strike and turn: say so until it is (not for touch).
+    const showLook = !input.pointerLocked && !this.usesTouch();
+    if (showLook !== this.lookHintShown) {
+      this.lookHintShown = showLook;
+      this.lookHint?.classList.toggle('ui-look-hint-visible', showLook);
+    }
 
     input.consumeLook(this.look);
     const turning = input.turningCamera || this.look.yaw !== 0 || this.look.pitch !== 0;
@@ -721,7 +752,8 @@ export class IntroSceneState implements GameState {
    */
   private blink(foe: Foe): void {
     const random = this.random;
-    const reach = (this.fight?.set.radius ?? 0) * BLINK_REACH;
+    const dodge = this.fight?.dodge ?? FIGHT_DODGE;
+    const reach = (this.fight?.set.radius ?? 0) * dodge.blinkReach;
     if (!random || reach <= 0) return;
     let x = foe.x;
     let z = foe.z;
@@ -731,18 +763,19 @@ export class IntroSceneState implements GameState {
       const distance = Math.sqrt(random.next()) * reach;
       x = Math.sin(angle) * distance;
       z = Math.cos(angle) * distance;
-      if (this.spotFree(x, z, foe)) break;
+      if (this.spotFree(x, z, foe, dodge.clearanceMeters)) break;
     }
     this.showPuff(foe.x, foe.z);
     foe.x = x;
     foe.z = z;
   }
 
-  private spotFree(x: number, z: number, foe: Foe): boolean {
+  /** True when (x, z) is at least `clearance` m from the player and from every other foe. */
+  private spotFree(x: number, z: number, foe: Foe, clearance: number): boolean {
     const s = this.player?.state;
-    if (s && Math.hypot(x - s.x, z - s.z) < BLINK_CLEARANCE) return false;
+    if (s && Math.hypot(x - s.x, z - s.z) < clearance) return false;
     for (const other of this.foes) {
-      if (other !== foe && Math.hypot(x - other.x, z - other.z) < BLINK_CLEARANCE) return false;
+      if (other !== foe && Math.hypot(x - other.x, z - other.z) < clearance) return false;
     }
     return true;
   }
@@ -760,6 +793,7 @@ export class IntroSceneState implements GameState {
       this.freezeLeft -= dt;
       if (this.freezeLeft <= 0) this.overlay?.classList.remove('ui-fight-frozen');
     }
+    this.levitatePrev = this.levitateLeft;
     if (this.levitateLeft > 0) {
       this.levitateLeft -= dt;
       if (this.levitateLeft <= 0) {
@@ -768,7 +802,9 @@ export class IntroSceneState implements GameState {
         if (s) s.heading = Math.atan2(-s.x, -s.z);
       }
     }
+    this.puffPrev = this.puffLeft;
     if (this.puffLeft > 0) this.puffLeft = Math.max(0, this.puffLeft - dt);
+    this.spellPrev = this.spellLeft;
     if (this.spellLeft > 0) {
       this.spellLeft -= dt;
       if (this.spellLeft <= 0) {
@@ -869,16 +905,17 @@ export class IntroSceneState implements GameState {
 
   // ------------------------------------------------------------ drawing effects
 
-  private drawSpell(now: number): void {
+  private drawSpell(now: number, alpha: number): void {
     const orb = this.orb;
     if (!orb) return;
     const foe = this.spellFoe;
-    if (!foe || this.spellLeft <= 0) {
+    const left = between(this.spellPrev, this.spellLeft, alpha);
+    if (!foe || left <= 0) {
       orb.visible = false;
       return;
     }
     foe.model.hand.getWorldPosition(this.handPoint);
-    const t = 1 - this.spellLeft / this.spellTotal;
+    const t = 1 - left / this.spellTotal;
     orb.visible = true;
     orb.position.copy(this.handPoint);
     orb.position.y += t * 0.6;
@@ -891,12 +928,13 @@ export class IntroSceneState implements GameState {
     this.puffLeft = PUFF_SECONDS;
   }
 
-  private drawPuff(): void {
+  private drawPuff(alpha: number): void {
     const puff = this.puff;
     if (!puff) return;
-    puff.visible = this.puffLeft > 0;
+    const left = between(this.puffPrev, this.puffLeft, alpha);
+    puff.visible = left > 0;
     if (!puff.visible) return;
-    const t = 1 - this.puffLeft / PUFF_SECONDS;
+    const t = 1 - left / PUFF_SECONDS;
     puff.scale.setScalar(0.4 + t * 2.2);
     (puff.material as MeshBasicMaterial).opacity = 0.8 * (1 - t);
   }
@@ -916,8 +954,16 @@ export class IntroSceneState implements GameState {
       this.subtitleText,
     );
     this.hint = el('div', { className: 'ui-fight-hint' });
+    this.lookHint = el('div', { className: 'ui-look-hint', text: t('intro.fight.clickToLook') });
     this.overlay = el('div', { className: 'ui-fight-overlay' });
-    this.root = el('div', { className: 'ui-fight' }, this.surface, this.subtitle, this.hint);
+    this.root = el(
+      'div',
+      { className: 'ui-fight' },
+      this.surface,
+      this.subtitle,
+      this.hint,
+      this.lookHint,
+    );
     this.root.hidden = true;
     this.black = el('div', { className: 'ui-intro-black' });
     this.black.hidden = true;
@@ -1002,11 +1048,13 @@ export class IntroSceneState implements GameState {
         hittable: true,
         dodging: false,
         dodgeChance: def.dodgeChance ?? 0,
+        floats: def.floats ?? false,
         x: def.x,
         z: def.z,
         // Looking at where the player stands.
         heading: Math.atan2(start.x - def.x, start.z - def.z),
         shimmer: 0,
+        shimmerPrev: 0,
       };
     });
 
@@ -1043,8 +1091,11 @@ export class IntroSceneState implements GameState {
       fight.set.radius,
       fight.seed ?? 0,
       aim,
+      fight.dodge,
     );
     this.arsenal = arsenal;
+    // Room for every contact one step can make, so none is dropped (built once, before playing).
+    this.arsenalEvents = new ArsenalEvents(arsenal.maxContacts);
     const { burstDef, stormDef, projectileDef } = arsenal;
     this.effects = new ArsenalEffects(scene, arsenal.shots.list, {
       burstColor: burstDef ? resolveColorToken(burstDef.color) : palette.magieblauw,

@@ -1854,6 +1854,10 @@ const fightSet = z.strictObject({
 
 /** A storm bolt that lands near a foe is kept this often when the ability sets no `hitChance`. */
 export const STORM_HIT_CHANCE = 0.25;
+/** Storm bolts strike within this part of the set's radius when the ability sets no `strikeReach`. */
+export const STORM_STRIKE_REACH = 0.9;
+/** How a foe dodges and blinks when the fight sets no `dodge` (m; `blinkReach` is a part of the radius). */
+export const FIGHT_DODGE = { minMeters: 2, maxMeters: 3, clearanceMeters: 3, blinkReach: 0.75 };
 
 /** Every ability: which key / touch button (`action`, an id in controls.json) fires it. */
 const fightAbilityBase = { id, action: z.enum(CONTROL_ACTIONS) };
@@ -1885,6 +1889,8 @@ const fightAbility = z.discriminatedUnion('kind', [
     boltRadius: max(positive, 10),
     strikeSeconds: max(positive, 10),
     hitChance: optional(fraction),
+    /** Strikes land within this part of the set's radius (default `STORM_STRIKE_REACH`). */
+    strikeReach: optional(fraction),
   }),
   z.strictObject({
     ...fightFlashyAbility,
@@ -2004,8 +2010,23 @@ export const cutscenesFileSchema = z.strictObject({
             radius: max(positive, 5),
             /** 0–1: how often a hit on this foe is a dodge instead (it blinks aside). */
             dodgeChance: optional(fraction),
+            /** It hovers and bobs a little above the floor (Lucael) instead of standing still. */
+            floats: optional(z.boolean()),
           }),
         ),
+      ),
+      /**
+       * How a foe dodges: it blinks `minMeters`–`maxMeters` sideways and lands at least
+       * `clearanceMeters` from the player and the other foes; a scripted `blink` lands within
+       * `blinkReach` of the set's radius with the same clearance. Default `FIGHT_DODGE`.
+       */
+      dodge: optional(
+        z.strictObject({
+          minMeters: max(positive, 50),
+          maxMeters: max(positive, 50),
+          clearanceMeters: range(0, 50),
+          blinkReach: fraction,
+        }),
       ),
       /** What the player can do in this fight (keys / touch buttons by `action`). */
       abilities: optional(z.array(fightAbility)),

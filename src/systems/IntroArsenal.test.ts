@@ -445,6 +445,51 @@ describe('IntroArsenal', () => {
     expect(count(log, 'hit') + count(log, 'dodge')).toBeGreaterThanOrEqual(5);
   });
 
+  it('sizes its events for every contact one step can make, so none is dropped', () => {
+    // Every bolt lands in the first step, and two foes as wide as the room are under each one.
+    const allAtOnce = withAbility('storm', (storm) => ({
+      ...storm,
+      bolts: 24,
+      strikeSeconds: 0.001,
+      hitChance: 1,
+    }));
+    const foes = [foe(0, 0, SET_RADIUS * 2, 0), foe(1, 1, SET_RADIUS * 2, 0)];
+    const arsenal = new IntroArsenal(allAtOnce, foes, SET_RADIUS, SEED, AIM);
+    expect(arsenal.maxContacts).toBe(2 * (2 + ICICLE_POOL_SIZE + 24));
+    const out = new ArsenalEvents(arsenal.maxContacts);
+    // The press lands the first bolt; the other 23 are due by the next step.
+    arsenal.step(DT, press({ storm: true }), player(0, 0, 0), out);
+    expect(out.strikeCount).toBe(1);
+    expect(out.hitCount).toBe(2);
+    out.clear();
+    arsenal.step(DT, NONE, player(0, 0, 0), out);
+    expect(out.strikeCount).toBe(23);
+    expect(out.hitCount).toBe(46);
+    // The default size is for the tests here: it would hold only the first few.
+    const small = new ArsenalEvents();
+    const again = new IntroArsenal(allAtOnce, foes, SET_RADIUS, SEED, AIM);
+    again.step(DT, press({ storm: true }), player(0, 0, 0), small);
+    small.clear();
+    again.step(DT, NONE, player(0, 0, 0), small);
+    expect(small.hitCount).toBe(small.hits.length);
+    expect(small.hits.length).toBeLessThan(46);
+  });
+
+  it('takes how far a dodge blinks and how clear it stays from the fight data', () => {
+    const foes = [foe(0, 6, 0.8, 1)];
+    const dodge = { minMeters: 10, maxMeters: 12, clearanceMeters: 8, blinkReach: 0.5 };
+    const arsenal = new IntroArsenal(ABILITIES, foes, 60, SEED, AIM, dodge);
+    const out = new ArsenalEvents();
+    arsenal.step(DT, NONE, player(0, 0, 0), out);
+    arsenal.contact(0, out);
+    expect(out.dodgeCount).toBe(1);
+    const d = out.dodges[0] as { x: number; z: number };
+    const blinked = Math.hypot(d.x, d.z - 6);
+    expect(blinked).toBeGreaterThanOrEqual(dodge.minMeters - 1e-9);
+    expect(blinked).toBeLessThanOrEqual(dodge.maxMeters + 1e-9);
+    expect(Math.hypot(d.x, d.z)).toBeGreaterThanOrEqual(dodge.clearanceMeters);
+  });
+
   it('clears icicles and the storm when the fight ends', () => {
     const arsenal = new IntroArsenal(ABILITIES, [], SET_RADIUS, SEED, AIM);
     arsenal.step(DT, press({ bolt: true, storm: true }), player(0, 0, 0), new ArsenalEvents());

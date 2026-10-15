@@ -1836,6 +1836,12 @@
   opacity: 1;
 }
 
+/* The mouse hint sits under the ability hint here; the subtitle has the bottom. */
+.ui-fight > .ui-look-hint {
+  top: calc(max(16px, env(safe-area-inset-top)) + 104px);
+  bottom: auto;
+}
+
 @media (pointer: coarse) {
   .ui-fight-subtitle {
     bottom: calc(var(--button-zone-height) + max(8px, env(safe-area-inset-bottom)));

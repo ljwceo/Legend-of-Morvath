@@ -223,6 +223,7 @@
       "arrive": "Oh look, Brother. A visitor!",
       "hint": "Attack them! {keyAttack} strikes, {keyHeavy} is an explosion, {keyPotion} calls thunder, {keyLock} fires an icicle.",
       "hintTouch": "Tap Attack, Explosion, Thunder or Icicle.",
+      "clickToLook": "Click to look around · hold Esc to skip",
       "taunt": "Well? Go on. Try something.",
       "wonder": "What do we do with it?",
       "keep": "Keep it! Look at it go.",
