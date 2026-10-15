@@ -720,6 +720,20 @@
         {
           "id": "baelor",
           "model": "fight"
+        },
+        {
+          "id": "spark",
+          "model": "fx:glow",
+          "color": "magieblauw"
+        },
+        {
+          "id": "bat",
+          "model": "prop:bat"
+        },
+        {
+          "id": "sultan",
+          "model": "placeholder:cat",
+          "color": "zonsondergang"
         }
       ],
       "shots": [
@@ -728,74 +742,507 @@
           "seconds": 3,
           "camera": {
             "from": {
-              "x": 1.6,
-              "y": 2.2,
-              "z": -3.2
+              "x": -2.93,
+              "y": 3.5,
+              "z": 6.33
             },
             "to": {
-              "x": 1.2,
-              "y": 2,
-              "z": -2.6
+              "x": -2.8,
+              "y": 3.45,
+              "z": 6.0
             },
-            "follow": "player",
-            "followHeight": 1.3,
-            "relative": true,
+            "lookFrom": {
+              "x": 0,
+              "y": 1.5,
+              "z": -1
+            },
+            "lookTo": {
+              "x": 0,
+              "y": 1.45,
+              "z": -1
+            },
+            "fovFrom": 40,
+            "fovTo": 36,
             "ease": "out"
           },
           "actors": [
             {
               "actor": "lucael",
+              "from": {
+                "x": -1.8,
+                "z": 5
+              },
               "lookAt": "player"
+            },
+            {
+              "actor": "baelor",
+              "from": {
+                "x": 1.8,
+                "z": 5.6
+              },
+              "lookAt": "player"
+            },
+            {
+              "actor": "player",
+              "from": {
+                "x": 0,
+                "z": -1
+              },
+              "lookAt": "lucael"
+            }
+          ],
+          "subtitle": {
+            "speaker": "Lucael",
+            "text": "intro.cine.enough"
+          }
+        },
+        {
+          "id": "shrink",
+          "seconds": 2.5,
+          "flash": 0.35,
+          "camera": {
+            "from": {
+              "x": 1.1,
+              "y": 1.3,
+              "z": -2.6
+            },
+            "to": {
+              "x": 0.55,
+              "y": 2.85,
+              "z": -1.1
+            },
+            "follow": "player",
+            "followHeight": 1.0,
+            "relative": true,
+            "fovFrom": 50,
+            "fovTo": 34,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "player",
+              "from": {
+                "x": 0,
+                "z": -1
+              },
+              "to": {
+                "x": -0.86,
+                "z": 4.52
+              },
+              "liftFrom": 0,
+              "liftTo": 2.62,
+              "scaleFrom": 1,
+              "scaleTo": 0.08,
+              "ease": "inOut"
+            },
+            {
+              "actor": "baelor",
+              "lookAt": "player"
+            }
+          ]
+        },
+        {
+          "id": "palm",
+          "seconds": 5,
+          "camera": {
+            "from": {
+              "x": 0.35,
+              "y": 2.95,
+              "z": 2.2
+            },
+            "to": {
+              "x": 0.1,
+              "y": 2.9,
+              "z": 2.55
+            },
+            "lookFrom": {
+              "x": -1.2,
+              "y": 2.85,
+              "z": 4.7
+            },
+            "lookTo": {
+              "x": -0.95,
+              "y": 2.75,
+              "z": 4.6
+            },
+            "fovFrom": 34,
+            "fovTo": 26,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "lucael",
+              "wobble": 6
+            },
+            {
+              "actor": "player",
+              "lookAt": "lucael"
+            }
+          ],
+          "subtitle": {
+            "speaker": "Lucael",
+            "text": "intro.cine.palm"
+          }
+        },
+        {
+          "id": "grab",
+          "seconds": 3,
+          "camera": {
+            "from": {
+              "x": 0.5,
+              "y": 1.9,
+              "z": -0.2
+            },
+            "to": {
+              "x": 0.3,
+              "y": 2.1,
+              "z": 0.4
+            },
+            "lookFrom": {
+              "x": -0.7,
+              "y": 2.75,
+              "z": 4.5
+            },
+            "lookTo": {
+              "x": 0,
+              "y": 2.95,
+              "z": 4.3
+            },
+            "fovFrom": 44,
+            "fovTo": 40,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "spark",
+              "visible": true,
+              "from": {
+                "x": -0.86,
+                "z": 4.52
+              },
+              "to": {
+                "x": 0,
+                "z": 4.3
+              },
+              "liftFrom": 2.62,
+              "liftTo": 3.0,
+              "scaleFrom": 0.3,
+              "scaleTo": 1.1,
+              "opacityFrom": 0,
+              "opacityTo": 0.85,
+              "ease": "out"
+            },
+            {
+              "actor": "player",
+              "from": {
+                "x": -0.86,
+                "z": 4.52
+              },
+              "to": {
+                "x": 0,
+                "z": 4.3
+              },
+              "liftFrom": 2.62,
+              "liftTo": 3.0,
+              "rollFrom": 0,
+              "rollTo": 360,
+              "ease": "inOut"
             },
             {
               "actor": "baelor",
               "lookAt": "player"
             },
             {
-              "actor": "player",
-              "lookAt": "baelor"
+              "actor": "lucael",
+              "lookAt": "player"
             }
           ],
           "subtitle": {
             "speaker": "Baelor",
-            "text": "intro.baelor"
+            "text": "intro.cine.grab"
           }
         },
         {
-          "id": "darkness",
-          "seconds": 3,
+          "id": "bat",
+          "seconds": 0.9,
+          "speed": 0.3,
           "camera": {
             "from": {
-              "x": 0,
-              "y": 3.2,
-              "z": -4
+              "x": 2.8,
+              "y": 1.3,
+              "z": 1.2
             },
             "to": {
-              "x": 0,
-              "y": 4,
-              "z": -5
+              "x": 2.3,
+              "y": 1.45,
+              "z": 1.7
             },
-            "follow": "baelor",
-            "followHeight": 2.6,
-            "relative": true,
-            "ease": "inOut"
+            "lookFrom": {
+              "x": -0.5,
+              "y": 2.9,
+              "z": 4.6
+            },
+            "lookTo": {
+              "x": -0.3,
+              "y": 2.95,
+              "z": 4.5
+            },
+            "fovFrom": 46,
+            "fovTo": 40,
+            "ease": "out"
           },
-          "narration": "intro.panel_5",
+          "actors": [
+            {
+              "actor": "bat",
+              "visible": true,
+              "from": {
+                "x": -0.86,
+                "z": 4.6
+              },
+              "liftFrom": 3.05,
+              "headingFrom": 260,
+              "headingTo": 75
+            },
+            {
+              "actor": "lucael",
+              "lookAt": "player"
+            }
+          ],
+          "subtitle": {
+            "speaker": "Lucael",
+            "text": "intro.cine.bat"
+          },
+          "tint": {
+            "color": "zonlicht",
+            "amount": 0.2
+          }
+        },
+        {
+          "id": "whack",
+          "seconds": 1.6,
+          "flash": 1,
+          "shake": 0.8,
+          "camera": {
+            "from": {
+              "x": 2.3,
+              "y": 1.45,
+              "z": 1.7
+            },
+            "to": {
+              "x": 2.5,
+              "y": 1.2,
+              "z": 1.4
+            },
+            "follow": "player",
+            "followHeight": 0,
+            "fovFrom": 40,
+            "fovTo": 72,
+            "ease": "out"
+          },
+          "actors": [
+            {
+              "actor": "player",
+              "from": {
+                "x": 0,
+                "z": 4.3
+              },
+              "to": {
+                "x": 0,
+                "z": 190
+              },
+              "liftFrom": 3.0,
+              "liftTo": 40,
+              "rollFrom": 0,
+              "rollTo": 1080
+            },
+            {
+              "actor": "spark",
+              "visible": false
+            }
+          ]
+        },
+        {
+          "id": "sky",
+          "seconds": 1.4,
+          "camera": {
+            "from": {
+              "x": 2.5,
+              "y": 1.2,
+              "z": 1.4
+            },
+            "to": {
+              "x": 2.6,
+              "y": 1.1,
+              "z": 1.3
+            },
+            "lookFrom": {
+              "x": 0,
+              "y": 40,
+              "z": 190
+            },
+            "lookTo": {
+              "x": 0,
+              "y": 90,
+              "z": 60
+            },
+            "fovFrom": 72,
+            "fovTo": 58,
+            "ease": "inOut"
+          }
+        },
+        {
+          "id": "fall",
+          "seconds": 0.8,
           "fade": {
             "from": 0,
             "to": 1
-          },
-          "tint": {
-            "color": "nachtinkt",
-            "amount": 0.3
           }
         },
         {
-          "id": "black",
-          "seconds": 2.5,
+          "id": "badlands",
+          "seconds": 7,
+          "camera": {
+            "from": {
+              "x": -7.2,
+              "y": 1.0,
+              "z": 195.0
+            },
+            "to": {
+              "x": -6.0,
+              "y": 0.9,
+              "z": 195.9
+            },
+            "lookFrom": {
+              "x": -0.3,
+              "y": 0.6,
+              "z": 200.7
+            },
+            "lookTo": {
+              "x": -0.6,
+              "y": 0.5,
+              "z": 201.2
+            },
+            "fovFrom": 48,
+            "fovTo": 44,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "player",
+              "from": {
+                "x": 0,
+                "z": 200
+              },
+              "liftFrom": 0.25,
+              "scaleFrom": 1,
+              "rollFrom": -90,
+              "heading": 142
+            },
+            {
+              "actor": "bat",
+              "visible": false
+            },
+            {
+              "actor": "sultan",
+              "visible": true,
+              "from": {
+                "x": 6.6,
+                "z": 208.6
+              },
+              "to": {
+                "x": -0.9,
+                "z": 202.1
+              },
+              "lookAt": "player",
+              "ease": "out"
+            }
+          ],
+          "narration": "intro.panel_5",
           "fade": {
             "from": 1,
-            "to": 1
+            "to": 0,
+            "seconds": 1.0
+          }
+        },
+        {
+          "id": "sniff",
+          "seconds": 2,
+          "camera": {
+            "from": {
+              "x": -1.47,
+              "y": 0.3,
+              "z": 199.83
+            },
+            "to": {
+              "x": -1.4,
+              "y": 0.32,
+              "z": 199.95
+            },
+            "lookFrom": {
+              "x": -0.78,
+              "y": 0.45,
+              "z": 201.82
+            },
+            "lookTo": {
+              "x": -0.8,
+              "y": 0.4,
+              "z": 201.75
+            },
+            "fovFrom": 34,
+            "fovTo": 32,
+            "ease": "out"
+          },
+          "actors": [
+            {
+              "actor": "sultan",
+              "lookAt": "player",
+              "wobble": 8
+            }
+          ]
+        },
+        {
+          "id": "lick1",
+          "seconds": 0.5,
+          "actors": [
+            {
+              "actor": "sultan",
+              "liftFrom": 0.12,
+              "liftTo": 0,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "id": "lick2",
+          "seconds": 0.5,
+          "actors": [
+            {
+              "actor": "sultan",
+              "liftFrom": 0.12,
+              "liftTo": 0,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "id": "lick3",
+          "seconds": 0.5,
+          "actors": [
+            {
+              "actor": "sultan",
+              "liftFrom": 0.12,
+              "liftTo": 0,
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "id": "black",
+          "seconds": 5,
+          "fade": {
+            "from": 0,
+            "to": 1,
+            "seconds": 1.2
           },
           "narration": "intro.panel_6",
           "silence": true
@@ -2725,7 +3172,7 @@
             {
               "type": "say",
               "foe": "lucael",
-              "text": "intro.fight.arrive",
+              "text": "intro.fight.taunt",
               "seconds": 3
             },
             {
@@ -2737,22 +3184,52 @@
           ]
         },
         {
-          "id": "tickle",
-          "startAfterHits": 3,
-          "startAfterSeconds": 9,
+          "id": "wonder",
+          "startAfterHits": 2,
+          "startAfterSeconds": 3,
           "actions": [
             {
               "type": "say",
               "foe": "baelor",
-              "text": "intro.fight.tickle",
-              "seconds": 3
+              "text": "intro.fight.wonder",
+              "seconds": 3.5
+            }
+          ]
+        },
+        {
+          "id": "keep",
+          "startAfterHits": 2,
+          "startAfterSeconds": 2,
+          "actions": [
+            {
+              "type": "say",
+              "foe": "lucael",
+              "text": "intro.fight.keep",
+              "seconds": 3.5
+            },
+            {
+              "type": "blink",
+              "foe": "lucael",
+              "delay": 1.5
+            }
+          ]
+        },
+        {
+          "id": "notkeep",
+          "startAfterSeconds": 2,
+          "actions": [
+            {
+              "type": "say",
+              "foe": "baelor",
+              "text": "intro.fight.notkeep",
+              "seconds": 3.5
             }
           ]
         },
         {
           "id": "behind",
           "startAfterHits": 3,
-          "startAfterSeconds": 6,
+          "startAfterSeconds": 2.5,
           "actions": [
             {
               "type": "teleportBehind",
@@ -2762,8 +3239,8 @@
               "type": "say",
               "foe": "lucael",
               "text": "intro.fight.behind",
-              "delay": 0.3,
-              "seconds": 2.5
+              "seconds": 2.5,
+              "delay": 0.3
             },
             {
               "type": "teleportHome",
@@ -2773,61 +3250,79 @@
           ]
         },
         {
-          "id": "freeze",
+          "id": "still",
           "startAfterSeconds": 2,
           "actions": [
             {
               "type": "freezeTime",
               "foe": "baelor",
-              "seconds": 3.5
+              "seconds": 3
             },
             {
               "type": "say",
               "foe": "baelor",
-              "text": "intro.fight.freeze",
-              "seconds": 3.5
-            }
-          ]
-        },
-        {
-          "id": "spin",
-          "startAfterSeconds": 0.5,
-          "actions": [
-            {
-              "type": "levitate",
-              "foe": "lucael",
-              "seconds": 3.5
-            },
-            {
-              "type": "say",
-              "foe": "lucael",
-              "text": "intro.fight.spin",
-              "delay": 0.5,
+              "text": "intro.fight.still",
               "seconds": 3
             }
           ]
         },
         {
-          "id": "mock",
-          "startAfterSeconds": 0.8,
+          "id": "name",
+          "startAfterHits": 3,
+          "startAfterSeconds": 2,
           "actions": [
             {
               "type": "say",
               "foe": "lucael",
-              "text": "intro.lucael",
-              "seconds": 3
+              "text": "intro.fight.name",
+              "seconds": 4
             },
+            {
+              "type": "blink",
+              "foe": "lucael",
+              "delay": 2
+            }
+          ]
+        },
+        {
+          "id": "brother",
+          "startAfterSeconds": 1.5,
+          "actions": [
+            {
+              "type": "say",
+              "foe": "baelor",
+              "text": "intro.fight.brother",
+              "seconds": 2.5
+            }
+          ]
+        },
+        {
+          "id": "fine",
+          "startAfterSeconds": 1.5,
+          "actions": [
+            {
+              "type": "say",
+              "foe": "lucael",
+              "text": "intro.fight.fine",
+              "seconds": 3.5
+            }
+          ]
+        },
+        {
+          "id": "insect",
+          "startAfterSeconds": 1.5,
+          "actions": [
             {
               "type": "say",
               "foe": "baelor",
               "text": "intro.baelor",
-              "delay": 3,
               "seconds": 4.5
             }
           ]
         },
         {
           "id": "finish",
+          "startAfterSeconds": 1.5,
           "actions": [
             {
               "type": "end"
