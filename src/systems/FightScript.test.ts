@@ -60,7 +60,7 @@ describe('FightScript', () => {
     expect(log).toEqual(['b:say', 'b:say']);
   });
 
-  it('the intro fight in cutscenes.json ends with the spell of Baelor, even if the player does nothing', () => {
+  it('the intro fight in cutscenes.json ends with `end`, even if the player does nothing', () => {
     const file = cutscenesFileSchema.parse(readPublicJson('data/cutscenes.json'));
     const fight = file.fights.find((f) => f.id === 'intro_fight');
     expect(fight).toBeDefined();
@@ -72,8 +72,10 @@ describe('FightScript', () => {
       seconds += DT;
     }
     expect(script.finished).toBe(true);
-    expect(log.at(-1)).toBe('finish:spell');
-    // Short enough to stay fun: well under a minute without hitting anything.
-    expect(seconds).toBeLessThan(60);
+    // The fight hands over to the film after it; nothing else ends it.
+    expect(log.at(-1)).toBe('finish:end');
+    expect(log.filter((entry) => entry.endsWith(':end'))).toHaveLength(1);
+    // Short enough to stay fun: about a minute without hitting anything.
+    expect(seconds).toBeLessThan(75);
   });
 });

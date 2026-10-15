@@ -410,6 +410,139 @@ describe('the Pringle cinematic', () => {
 });
 
 /**
+ * The real intro on the fight's set: the film before the fight and the one after it. The scene
+ * starts every actor where the fight has them (the `actorStart` hook): the player on their
+ * spot, the lords on theirs, all visible; the floor is the ground.
+ */
+describe('the intro cinematics on the fight set', () => {
+  const fight = realData?.cutscenes.fights.find((f) => f.id === 'intro_fight');
+
+  function introTimeline(id: 'intro' | 'intro_landing'): {
+    def: CutsceneDef;
+    t: CinematicTimeline;
+  } {
+    const def = realCutscene(id);
+    if (!fight) throw new Error('no intro fight');
+    const initial = (def.actors ?? []).map((actor) => {
+      const pose = newPose();
+      pose.visible = true;
+      const foe = fight.foes.find((f) => f.id === actor.id);
+      if (foe) {
+        pose.x = foe.x;
+        pose.z = foe.z;
+        pose.heading = Math.atan2(fight.player.x - foe.x, fight.player.z - foe.z);
+      } else {
+        pose.x = fight.player.x;
+        pose.z = fight.player.z;
+        pose.heading = Math.atan2(-fight.player.x, -fight.player.z);
+      }
+      return pose;
+    });
+    return { def, t: new CinematicTimeline(def, settings, initial, flat) };
+  }
+
+  it('plays on the intro fight, the landing after it, with the lords as fight actors', () => {
+    const intro = realCutscene('intro');
+    const landing = realCutscene('intro_landing');
+    expect(intro.type).toBe('cinematic');
+    expect(intro.fight).toBe('intro_fight');
+    expect(intro.afterFight).toBe('intro_landing');
+    expect(landing.fight).toBe('intro_fight');
+    expect(intro.panels).toBeUndefined();
+    for (const def of [intro, landing]) {
+      const models = new Map((def.actors ?? []).map((a) => [a.id, a.model]));
+      expect(models.get('player')).toBe('player');
+      expect(models.get('lucael')).toBe('fight');
+      expect(models.get('baelor')).toBe('fight');
+      expect(def.shots?.[0]?.camera).toBeDefined();
+    }
+    // The old lore narration carries the opening and the black at the end.
+    expect(intro.shots?.map((shot) => shot.narration ?? shot.subtitle?.text)).toEqual([
+      'intro.panel_1',
+      'intro.panel_2',
+      'intro.fight.arrive',
+    ]);
+    expect(landing.shots?.map((shot) => shot.narration ?? shot.subtitle?.text)).toEqual([
+      'intro.baelor',
+      'intro.panel_5',
+      'intro.panel_6',
+    ]);
+    // The landing ends black, so the world's loading screen never shows the room.
+    const { t } = introTimeline('intro_landing');
+    const s = newSample(3);
+    t.sample(t.total, s);
+    expect(s.fade).toBeCloseTo(1);
+  });
+
+  it('keeps the lords on their spots, looking at the player, through the opening', () => {
+    const { t } = introTimeline('intro');
+    const s = newSample(3);
+    if (!fight) throw new Error('no intro fight');
+    t.sample(0.5, s);
+    const lucael = s.actors[1];
+    const player = s.actors[0];
+    expect(lucael?.visible).toBe(true);
+    expect(lucael?.x).toBeCloseTo(fight.foes[0]?.x ?? 0);
+    expect(lucael?.z).toBeCloseTo(fight.foes[0]?.z ?? 0);
+    expect(lucael?.y).toBe(0);
+    expect(player?.x).toBeCloseTo(fight.player.x);
+    expect(lucael?.heading).toBeCloseTo(
+      Math.atan2((player?.x ?? 0) - (lucael?.x ?? 0), (player?.z ?? 0) - (lucael?.z ?? 0)),
+    );
+    // The last shot keeps everyone where they are: the fight picks them up there.
+    t.sample(t.total, s);
+    expect(s.actors[2]?.x).toBeCloseTo(fight.foes[1]?.x ?? 0);
+    expect(s.actors[2]?.z).toBeCloseTo(fight.foes[1]?.z ?? 0);
+    expect(s.actors[2]?.visible).toBe(true);
+  });
+
+  for (const id of ['intro', 'intro_landing'] as const) {
+    it(`${id} plays exactly the same on 60 and 120 fps`, () => {
+      const run = (fps: number): number[][] => {
+        const { t } = introTimeline(id);
+        const s: CinematicSample = newSample(3);
+        const frames: number[][] = [];
+        const loop = new GameLoop({
+          update: (dt) => t.step(dt),
+          render: (alpha) => {
+            t.sample(t.renderTime(alpha), s);
+            const a = s.actors;
+            frames.push([
+              s.camX,
+              s.camY,
+              s.camZ,
+              s.lookX,
+              s.lookZ,
+              s.fade,
+              s.fov,
+              a[0]?.heading ?? 0,
+              a[1]?.heading ?? 0,
+              a[1]?.visible ? 1 : 0,
+              a[2]?.x ?? 0,
+            ]);
+          },
+        });
+        const frameMs = 1000 / fps;
+        for (let i = 0; i <= fps * 10; i++) loop.tick(i * frameMs);
+        return frames;
+      };
+      const at60 = run(60);
+      const at120 = run(120);
+      expect(at60.length).toBeGreaterThan(500);
+      for (let i = 0; i < at60.length; i++) {
+        const a = at60[i] as number[];
+        const b = at120[i * 2] as number[];
+        for (let k = 0; k < a.length; k++) {
+          const want = a[k] as number;
+          if (Number.isNaN(want)) expect(b[k]).toBeNaN();
+          else expect(b[k]).toBeCloseTo(want, 6);
+        }
+      }
+    });
+  }
+});
+
+/**
  * On a fight's set: Lucael skitters through four points, Baelor keeps his own time in a slow
  * shot while the player crawls, and a bat swings around.
  */

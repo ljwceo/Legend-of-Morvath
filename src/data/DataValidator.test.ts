@@ -428,7 +428,7 @@ describe('validateGameData catches broken data', () => {
     const pringle = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle');
     pringle.fight = 'intro_fight';
     pringle.afterFight = 'nowhere';
-    const comic = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'intro');
+    const comic = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'sam_cellar');
     comic.fight = 'intro_fight';
     comic.afterFight = 'pringle';
     const found = messages(raw);
@@ -476,6 +476,7 @@ describe('validateGameData catches broken data', () => {
       { kind: 'floor', x: 0, z: 200, radius: 30 },
       { kind: 'rock', x: 5, z: 206, color: 'neonpink' },
     );
+    const rock = fight.set.props.length - 1;
     fight.abilities = [
       { id: 'strike', action: 'attack', kind: 'melee' },
       {
@@ -529,7 +530,7 @@ describe('validateGameData catches broken data', () => {
       expect.stringContaining('abilities[2].color: unknown color token "neonpink"'),
     );
     expect(found).toContainEqual(
-      expect.stringContaining('props[2].color: unknown color token "neonpink"'),
+      expect.stringContaining(`props[${rock}].color: unknown color token "neonpink"`),
     );
     // `hitChance` and `range` may be left out (the design's own example has neither).
     expect(found).not.toContainEqual(expect.stringContaining('hitChance'));
