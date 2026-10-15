@@ -489,7 +489,7 @@ describe('validateGameData catches broken data', () => {
     const fight = raw.cutscenes.fights[0];
     fight.set.fogNear = fight.set.fogFar;
     fight.set.skyLight = 'neonpink';
-    delete fight.set.props[0].seed;
+    delete fight.set.props.find((prop: { kind: string }) => prop.kind === 'spikes').seed;
     fight.set.props.push(
       { kind: 'floor', x: 0, z: 200, radius: 30 },
       { kind: 'rock', x: 5, z: 206, color: 'neonpink' },

@@ -209,15 +209,30 @@
       "thunder": "Donder",
       "icicle": "IJspegel"
     },
+    "cine": {
+      "greeting": "Er is iets door de mistdeur gekomen, broer.",
+      "reply": "Ooh. Een kleintje. Zou het bijten?",
+      "skitter": "Broer. Focus.",
+      "unamused": "…Was dat het?",
+      "enough": "Genoeg. Laat me het eens goed bekijken.",
+      "palm": "Oh, het heeft een piepklein zwaardje. Kijk, broer, het is woedend!",
+      "grab": "Geef hier.",
+      "bat": "Slagman klaar!"
+    },
     "fight": {
       "arrive": "Kijk eens, broer. Bezoek!",
       "hint": "Val ze aan! {keyAttack} = slaan, {keyHeavy} = explosie, {keyPotion} = donder, {keyLock} = ijspegel.",
       "hintTouch": "Tik op Slaan, Explosie, Donder of IJspegel.",
-      "tickle": "Raakte er nou iets… mij aan?",
+      "taunt": "Nou? Toe maar. Probeer eens wat.",
+      "wonder": "Wat doen we ermee?",
+      "keep": "Houden! Kijk het nou gaan.",
+      "notkeep": "We houden het niet.",
       "behind": "Psst. Hier.",
-      "freeze": "De tijd buigt voor ons. Niet voor jou.",
-      "spin": "Kijk, broer, hij draait!",
-      "skip": "Overslaan"
+      "still": "Sta stil.",
+      "name": "Het doet zo z'n best. Mogen we het dan tenminste een naam geven?",
+      "brother": "Broer.",
+      "fine": "Goed. Goed dan! Eén keer kijken, en dan gaat het weg.",
+      "freeze": "De tijd buigt voor ons. Niet voor jou."
     }
   },
   "cutscene": {

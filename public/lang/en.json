@@ -209,15 +209,30 @@
       "thunder": "Thunder",
       "icicle": "Icicle"
     },
+    "cine": {
+      "greeting": "Something came through the mist door, Brother.",
+      "reply": "Ooh. A small one. Do you think it bites?",
+      "skitter": "Brother. Focus.",
+      "unamused": "…Was that it?",
+      "enough": "Enough. Let me see it properly.",
+      "palm": "Oh, it has a tiny sword. Look, Brother, it's furious!",
+      "grab": "Give it here.",
+      "bat": "Batter up!"
+    },
     "fight": {
       "arrive": "Oh look, Brother. A visitor!",
       "hint": "Attack them! {keyAttack} strikes, {keyHeavy} is an explosion, {keyPotion} calls thunder, {keyLock} fires an icicle.",
       "hintTouch": "Tap Attack, Explosion, Thunder or Icicle.",
-      "tickle": "Did something just… touch me?",
+      "taunt": "Well? Go on. Try something.",
+      "wonder": "What do we do with it?",
+      "keep": "Keep it! Look at it go.",
+      "notkeep": "We are not keeping it.",
       "behind": "Psst. Over here.",
-      "freeze": "Time bends to us. Not to you.",
-      "spin": "Look, Brother, it spins!",
-      "skip": "Skip"
+      "still": "Hold still.",
+      "name": "It's trying so hard. Can we at least name it?",
+      "brother": "Brother.",
+      "fine": "Fine. Fine! One look, and then it goes.",
+      "freeze": "Time bends to us. Not to you."
     }
   },
   "cutscene": {
