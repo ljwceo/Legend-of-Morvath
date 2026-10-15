@@ -9,6 +9,7 @@ import {
   CinematicTimeline,
   type CutsceneDef,
   ease,
+  HOP_BLINK,
   HoldToSkip,
   newPose,
   newSample,
@@ -405,6 +406,192 @@ describe('the Pringle cinematic', () => {
     t.sample(t.shotStart(3) + 0.1, s);
     expect(s.actors[1]?.visible).toBe(false);
     expect(s.actors[3]?.visible).toBe(true);
+  });
+});
+
+/**
+ * On a fight's set: Lucael skitters through four points, Baelor keeps his own time in a slow
+ * shot while the player crawls, and a bat swings around.
+ */
+const hopScene: CutsceneDef = {
+  id: 'hops',
+  type: 'cinematic',
+  skippable: true,
+  fight: 'intro_fight',
+  actors: [
+    { id: 'player', model: 'player' },
+    { id: 'lucael', model: 'fight' },
+    { id: 'baelor', model: 'fight' },
+    { id: 'bat', model: 'prop:bat' },
+  ],
+  shots: [
+    {
+      id: 'skitter',
+      seconds: 4,
+      camera: { from: { x: 0, y: 3, z: -8 }, to: { x: 2, y: 3, z: -8 }, follow: 'lucael' },
+      actors: [
+        {
+          actor: 'lucael',
+          visible: true,
+          hops: [
+            { x: -4, z: 4 },
+            { x: 4, z: 4 },
+            { x: 4, z: -4 },
+            { x: 0, z: -3 },
+          ],
+          lookAt: 'player',
+        },
+        { actor: 'player', lookAt: 'lucael' },
+      ],
+    },
+    {
+      id: 'time',
+      seconds: 1,
+      speed: 0.25,
+      actors: [
+        {
+          actor: 'baelor',
+          visible: true,
+          from: { x: 2, z: 6 },
+          to: { x: 2, z: -6 },
+          ownTime: true,
+        },
+        { actor: 'player', from: { x: 0, z: -6 }, to: { x: 0, z: -2 } },
+      ],
+    },
+    {
+      id: 'bat',
+      seconds: 2,
+      actors: [
+        {
+          actor: 'bat',
+          visible: true,
+          from: { x: 1, z: 0 },
+          headingFrom: -90,
+          headingTo: 90,
+          lookAt: 'player',
+        },
+      ],
+    },
+  ],
+};
+
+function hopTimeline(): CinematicTimeline {
+  const player = newPose();
+  player.visible = true;
+  player.z = -6;
+  return new CinematicTimeline(hopScene, settings, [player, newPose(), newPose(), newPose()], flat);
+}
+
+describe('hops, own time and heading turns', () => {
+  it('lands on every hop exactly and blinks out just before the next one', () => {
+    const t = hopTimeline();
+    const s = newSample(4);
+    const lucael = (): { x: number; z: number; visible: boolean; heading: number } => {
+      const p = s.actors[1];
+      if (!p) throw new Error('no lucael');
+      return p;
+    };
+    t.sample(0.5, s);
+    expect(lucael()).toMatchObject({ x: -4, z: 4, visible: true });
+    // Facing the player at (0, -6); the player faces him.
+    expect(lucael().heading).toBeCloseTo(Math.atan2(4, -10));
+    expect(s.actors[0]?.heading).toBeCloseTo(Math.atan2(-4, 10));
+    // Gone for the last 8 % of the first second, there again at the second hop.
+    t.sample(1 - HOP_BLINK / 2, s);
+    expect(lucael()).toMatchObject({ x: -4, z: 4, visible: false });
+    t.sample(1, s);
+    expect(lucael()).toMatchObject({ x: 4, z: 4, visible: true });
+    t.sample(1.5, s);
+    expect(lucael()).toMatchObject({ x: 4, z: 4, visible: true });
+    t.sample(2.5, s);
+    expect(lucael()).toMatchObject({ x: 4, z: -4, visible: true });
+    t.sample(3.5, s);
+    expect(lucael()).toMatchObject({ x: 0, z: -3, visible: true });
+    t.sample(3.97, s);
+    expect(lucael().visible).toBe(false);
+    // Never a lerp between hops: always exactly on a point.
+    for (let time = 0; time < 4; time += 0.01) {
+      t.sample(time, s);
+      const onHop = hopScene.shots?.[0]?.actors?.[0]?.hops?.some(
+        (hop) => hop.x === lucael().x && hop.z === lucael().z,
+      );
+      expect(onHop).toBe(true);
+    }
+  });
+
+  it('starts the next shot standing on the last hop, visible', () => {
+    const t = hopTimeline();
+    const s = newSample(4);
+    t.sample(4, s);
+    expect(s.actors[1]).toMatchObject({ x: 0, z: -3, visible: true });
+    t.sample(6.5, s);
+    expect(s.actors[1]).toMatchObject({ x: 0, z: -3, visible: true });
+  });
+
+  it('turns from headingFrom to headingTo, over lookAt', () => {
+    const t = hopTimeline();
+    const s = newSample(4);
+    const start = t.shotStart(2);
+    t.sample(start, s);
+    expect(s.actors[3]?.heading).toBeCloseTo(-Math.PI / 2);
+    t.sample(start + 1, s);
+    expect(s.actors[3]?.heading).toBeCloseTo(0);
+    t.sample(start + 2, s);
+    expect(s.actors[3]?.heading).toBeCloseTo(Math.PI / 2);
+    expect(s.actors[3]).toMatchObject({ x: 1, z: 0, visible: true });
+  });
+
+  it('lets an actor with its own time move at full speed through a slow shot', () => {
+    const t = hopTimeline();
+    const s = newSample(4);
+    const start = t.shotStart(1);
+    expect(t.shotStart(2) - start).toBe(4);
+    // Half a second in: Baelor is halfway, the player a sixteenth (a quarter of a quarter).
+    t.sample(start + 0.5, s);
+    expect(s.actors[2]?.z).toBeCloseTo(0);
+    expect(s.actors[0]?.z).toBeCloseTo(-6 + 4 * 0.125);
+    // After the shot's own second Baelor is there; the player has a quarter of the way behind him.
+    t.sample(start + 1, s);
+    expect(s.actors[2]?.z).toBeCloseTo(-6);
+    expect(s.actors[0]?.z).toBeCloseTo(-5);
+    t.sample(start + 4, s);
+    expect(s.actors[2]?.z).toBeCloseTo(-6);
+    expect(s.actors[0]?.z).toBeCloseTo(-2);
+  });
+
+  it('plays exactly the same on 60 and 120 fps, hops, own time and turns included', () => {
+    const run = (fps: number): number[][] => {
+      const t = hopTimeline();
+      const s: CinematicSample = newSample(4);
+      const frames: number[][] = [];
+      const loop = new GameLoop({
+        update: (dt) => t.step(dt),
+        render: (alpha) => {
+          t.sample(t.renderTime(alpha), s);
+          const a = s.actors;
+          frames.push([
+            s.camX,
+            s.lookX,
+            a[1]?.x ?? 0,
+            a[1]?.visible ? 1 : 0,
+            a[2]?.z ?? 0,
+            a[0]?.z ?? 0,
+            a[3]?.heading ?? 0,
+          ]);
+        },
+      });
+      const frameMs = 1000 / fps;
+      for (let i = 0; i <= fps * 10; i++) loop.tick(i * frameMs);
+      return frames;
+    };
+    const at60 = run(60);
+    const at120 = run(120);
+    for (let i = 0; i < at60.length; i++) {
+      const a = at60[i] as number[];
+      const b = at120[i * 2] as number[];
+      for (let k = 0; k < a.length; k++) expect(b[k]).toBeCloseTo(a[k] as number, 6);
+    }
   });
 });
 
