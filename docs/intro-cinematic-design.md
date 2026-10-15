@@ -1,22 +1,29 @@
 # Intro as a filmic cutscene — design and hand-off (step C.4a)
 
-> **Hand-off status (2026-10-15).** Branch `claude/serene-dirac-p62s5f`, draft pull request
-> ljwceo/Legend-of-Morvath#95. Playable preview of the branch (private artifact, republish to the
-> same URL after each chunk): https://claude.ai/artifact/1mAKd7Aw77MgozW7iSGsND — the preview build
-> renames `.glb` files to `.glb.wasm` and injects a small fetch shim in `game/index.html`, because
-> the artifact host does not serve `.glb`; the game itself is unchanged.
+> **Status (2026-10-15): built.** Branch `claude/serene-dirac-p62s5f`, pull request
+> ljwceo/Legend-of-Morvath#95. All chunks of §10 are committed: **A** (schema, validator, timeline /
+> stage / cutscene-UI extensions), **B** (`CinematicSet` + `IntroSceneState` + flow wiring +
+> `scripts/intro-check.mjs`), **C** (the four abilities, dodge / zero), **D** (both films, the
+> brothers' argument, EN and NL texts) and **E** (headless check with draw calls per preset,
+> PLAN.md / docs/PROGRESS.md / docs/ARCHITECTURE.md, this hand-off). Three reviews of the branch were
+> worked in ("Filmic intro: audit fixes"). The measurements are in docs/PROGRESS.md (block "Extra:
+> filmische cutscenes, stap C.4a"). §0–§10 below are the design as approved, left as written; §11
+> lists where the build departs from them.
 >
-> Chunks: **A** (schema, validator, timeline/stage/cutscene-UI extensions) is committed; its
-> review fixes may follow as one more commit. **B** (CinematicSet + IntroSceneState + flow wiring +
-> minimal data + `scripts/intro-check.mjs`), **C** (the four abilities, dodge/zero), **D** (all
-> shots, the brothers' argument, en/nl texts), **E** (headless check, draw calls per preset,
-> PLAN.md/PROGRESS.md/ARCHITECTURE.md, PR text) are still to do, in that order.
+> Playable preview of the branch (private artifact, republished per chunk; check it carries the
+> last commits before passing it on): https://claude.ai/artifact/1mAKd7Aw77MgozW7iSGsND — the
+> preview build renames `.glb` files to `.glb.wasm` and injects a small fetch shim in
+> `game/index.html`, because the artifact host does not serve `.glb`; the game itself is unchanged.
 >
-> To continue in a new chat: "Lees CLAUDE.md en docs/intro-cinematic-design.md. Werk op branch
-> claude/serene-dirac-p62s5f (pull request #95). Doe deel B uit §10 van dat document; daarna C, D en E."
+> **Left for Bo and Lucas:** play the new intro on a pc and an iPhone (new game, or the preview) and
+> measure the fps on Low and High (headless Chromium has no graphics card, so only draw calls,
+> triangles and memory were measured); answer open questions 20–22 in PLAN.md → Notities (Brother
+> Ansel's "found you by the road" line now that the cat finds you first; is the castle The Black
+> Citadel; thunder on the drink key and the icicle on the lock-on key during the intro: keep, or own
+> keys?); review or merge the pull request. Later steps: C.4 (the three remaining strips), C.5
+> (Blender cameras and real models), 6.3 (audio).
 
-
-Status: approved design for implementation. Repo: /home/user/Legend-of-Morvath, branch
+Status: implemented (see the block above). Repo: /home/user/Legend-of-Morvath, branch
 `claude/serene-dirac-p62s5f`. All code, comments, commits in English. Hard requirements from
 CLAUDE.md apply (fixed step, no allocations in the loop, data in JSON, text in en/nl, palette
 tokens only, skippable, identical on Low/Mid/High and on 60/120 Hz).
@@ -460,3 +467,103 @@ BOTH en.json and nl.json.
 - **E. Finish.** Full checks, headless run, draw calls on Low/Mid/High in the debug overlay,
   PLAN.md (new step C.4a `[x]`, C.4 reworded, open questions 20/21 in Notities), PROGRESS.md
   (one line + Besluit), ARCHITECTURE.md (cutscene section), PR text in Dutch, preview republished.
+
+## 11. As built: where the code departs from the design (chunks A–E)
+
+Everything not listed here is as designed. Checked against the branch on 2026-10-15.
+
+### Chunk A — engine, schema, validator
+
+- **`ownTime` semantics.** §2.1 wrote `local / shotWallSeconds`; that fraction is the slowed one.
+  The timeline uses `uWall = local / shot.seconds`: an `ownTime` actor finishes its move after the
+  shot's action `seconds` of *wall* time and then stands, while the others take the whole slowed
+  shot. In `time` (2.4 s at `speed` 0.4 = 6 s on screen) Baelor glides for 2.4 real seconds and
+  waits; the player and Lucael crawl for 6 s. `wobble` and `headingFrom`/`headingTo` follow the
+  same clock. Test: an `ownTime` actor and a plain actor sample identically in speed-1 shots.
+- **`headingFrom`/`headingTo`** must come together (validator). `hops` as designed (`HOP_BLINK`
+  0.08); `from`/`to` next to `hops` is an error, and a hop outside the set's radius is an **error**,
+  not the warning §1.2 suggested.
+- **Optional with defaults:** `hitChance` (`STORM_HIT_CHANCE` 0.25) and `range` (across the set,
+  twice its radius) on the abilities, plus `strikeReach` (audit; `STORM_STRIKE_REACH` 0.9) and
+  `aimRange`/`aimArcDegrees` (chunk C). `fights[].dodge` is optional too (`FIGHT_DODGE`).
+- **`actorStart` is consulted in both films.** In `intro` the lords stand on their fight spots but
+  start *invisible* until a shot shows them, so nothing of the room shows through the mist door
+  (§2.3 had them at (0, 0)); the player starts where they are. The shipped `intro_landing` cuts to
+  fixed marks in its first shot (a film cut), so there the hook only decides who is seen.
+- **`CinematicStage`** keeps a `fight` actor upright (rotation x/z zeroed next to the heading),
+  remembers `baseScale` and `baseOrder` of scene-owned objects and restores them in `dispose`; the
+  player's root is put on `YXZ` for the roll and back afterwards.
+- **`CinematicCutscene.end`** settles every actor at the film's *last moment* before `onDone`
+  (not at the frame drawn last, which lags the fixed step by a frame-rate dependent amount), so
+  the fight starts from the same pose at 60 and 120 Hz.
+- `CONTROL_ACTIONS` moved up in `schemas.ts` (controls.json and the abilities share it). Extra
+  validator rules: a cinematic with id `intro` needs a `fight` (it plays in its own scene); a
+  comic may not carry `fight`/`afterFight`; an `afterFight` chain may not loop or leave the fight.
+
+### Chunk B — set, scene state, flow
+
+- **`CinematicSet`:** bookshelves, chairs, rocks and spikes are one `InstancedMesh` per kind; the
+  door (posts, lintel, three off-centre mist discs that spin and bob) and the floors are plain
+  meshes. Drifting InstancedMeshes use a dynamic buffer and are not frustum culled (their bounding
+  sphere never follows the drift). The room floor reaches 3 × `radius` so its edge is lost in the
+  fog. Tested: built from the real intro set, drifts with time, `dispose` leaves nothing behind.
+- **`spell` no longer ends the fight:** it is a white flash and nothing more; only `end` ends the
+  fight (`FightScript.test.ts`: the real beats end with one `end`, 55–75 s with no input).
+- **Pringle in the intro:** `assetUrl` moved to `DataLoader` as designed; the scene builds its own
+  `AnimatedModels(roles, assetUrl, null)` (no toon lights here), so `materialFor` gives the cat a
+  `MeshLambertMaterial` with `map` and `normalMap`. The glTF file cache keeps that normal map
+  after the intro (2048² RGBA8, ≈ 21 MB of GPU memory with mips; the world's toon material only
+  uses `map`). One texture, constant across cycles, by design; the bone texture is disposed and
+  the base color is reused by the world's Pringle. Dropping `normalMap` for the intro's cat is a
+  possible saving, not done.
+- **Leaving cleanly:** the state's own black (`ui-intro-black`) is shown at the end of the last
+  film and on any skip; `exit()` clears the renderer so no frame of the set survives into the
+  world's loading screen; `Input` ignores a pointer-lock loss it never held (the lock the intro
+  lets go of ends in the world's new `Input`, which used to open the pause menu on arrival).
+
+### Chunk C — abilities
+
+- **Icicle aim from data, the staff's assist as default.** The intro sets `aimRange` 20 m and
+  `aimArcDegrees` 50; without them the *staff's* aim assist from `player.json` applies (§9 said the
+  sword's config, whose 4 m assist never reached a brother 9 m away). Icicle pool 3; a storm press
+  during a running storm is ignored instead of restarting it; a fight without a `melee` ability
+  never swings the sword.
+- **Dodge numbers are data** (audit): `fights[].dodge` (`minMeters` 2, `maxMeters` 3,
+  `clearanceMeters` 3, `blinkReach` 0.75) and `floats` per foe (Lucael hovers), not constants in
+  the code; a dodging brother gives way to the other side when the first side is within the
+  clearance of another foe. `ArsenalEvents` is sized by `IntroArsenal.maxContacts` so a storm whose
+  bolts all land in one step drops nothing.
+- **Dodge text** via `DamageNumbers.spawnText` with `boss.dodged` ("Dodged!"), looked up once per
+  fight. Touch labels through `TouchControls.setPotionLabel` as decided in §9. Extra on a pc: a
+  hint `intro.fight.clickToLook` ("Click to look around · hold Esc to skip") under the ability
+  hint, because the first click only captures the mouse and the explosion is on the right button.
+
+### Chunk D — content
+
+- **Timings differ from §6.1/§6.2** (reading time and the reviews): corridor 7 s, legend 9 s, door
+  6.5 s; `time` is 2.4 s at `speed` 0.4 (6 s on screen, not 1.2 s at 0.2); `bat` is 0.75 s at 0.3
+  (2.5 s) with the swing 260 → 104 and a follow-through 104 → 60 in `whack` (1.6 s); `sky` 1.4 s
+  plus a new `fall` shot (0.8 s, fade to black); badlands 7 s. Film 1 is about 67 s on screen,
+  film 2 about 35 s.
+- **The licks** are three 0.5 s shots (`liftFrom` 0.12 → `liftTo` 0, ease out) with **no**
+  "Mrrp." subtitle (speakers must be English names, §9); the narration carries the beat. Sultan's
+  actor is `placeholder:cat` in `zonsondergang`, walking in on the line he faces.
+- **Staging:** Lucael's six hops end at (0, −4.4); he keeps his heading in `grab` and `bat` so the
+  bat's knob sits in his raised hand; the player and the spark float at 2.7 m and the spark rides
+  on the player as a trail at `whack`. The lords' arm is raised forward (`LordFactory`), so `palm`
+  and `bat` sit at the hand. The four toppled chairs and the shelf inside the playable circle hang
+  in the air or lie past the wall (there is no prop collision); the corridor floor disc is 34 m.
+- **Lines:** `intro.cine.<shotId>` for the films, `intro.fight.<beatId>` for the argument; Lucael's
+  first line reuses `intro.fight.arrive`; Baelor's verdict stays the canon `intro.baelor` and his
+  greeting stays (reviewers' taste, left to Bo). Beats use `startAfterHits` so hits bring lines
+  forward; `end` comes after about a minute with no input.
+
+### Chunk E — checks and documentation
+
+- `scripts/intro-check.mjs` grew `--quality low|mid|high` (the save is patched after the language
+  choice, as `mem-check.mjs` does) and reports draw calls, triangles, geo/tex and heap per segment
+  and for the settled world; fps is deliberately not reported. Results per preset and the
+  before/after memory comparison: docs/PROGRESS.md, block "Extra: filmische cutscenes, stap C.4a".
+- PLAN.md: step C.4a `[x]`, C.4 reworded to the three remaining strips, open questions 20–22, the
+  intro on Bo's and Lucas's list. docs/ARCHITECTURE.md: *Gescripte gevechten* and *Film op een eigen
+  set* checked against the code.
