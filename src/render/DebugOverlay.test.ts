@@ -34,9 +34,9 @@ describe('debug overlay views', () => {
     expect(showsSceneLines('hidden')).toBe(false);
   });
 
-  it('the small view keeps only zone, position and quality', () => {
-    const keys = ['lang', 'pos', 'zone', 'chunks', 'quality', 'enemies'];
-    expect(visibleLineKeys('small', keys)).toEqual(['pos', 'zone', 'quality']);
+  it('the small view keeps only zone, position, quality, doors and build', () => {
+    const keys = ['lang', 'pos', 'zone', 'chunks', 'quality', 'doors', 'enemies', 'build'];
+    expect(visibleLineKeys('small', keys)).toEqual(['pos', 'zone', 'quality', 'doors', 'build']);
     expect(visibleLineKeys('normal', keys)).toEqual(keys);
     expect(visibleLineKeys('hidden', keys)).toEqual([]);
   });

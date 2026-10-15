@@ -15,7 +15,7 @@ export const DEBUG_VIEWS = ['large', 'normal', 'small', 'mini', 'hidden'] as con
 export type DebugView = (typeof DEBUG_VIEWS)[number];
 
 /** Scene lines that stay in the small view (the rest only in normal and large). */
-const SMALL_VIEW_KEYS = ['zone', 'pos', 'quality'];
+const SMALL_VIEW_KEYS = ['zone', 'pos', 'quality', 'doors', 'build'];
 
 /** Remembered per browser: a developer preference, not part of the save. */
 const VIEW_STORAGE_KEY = 'morvath.debugView';

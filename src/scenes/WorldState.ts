@@ -234,6 +234,7 @@ const DEBUG_KEYS = [
   'chunks',
   'places',
   'npcs',
+  'doors',
   'energy',
   'combat',
   'load',
@@ -1051,6 +1052,21 @@ export class WorldState implements GameState, InstanceHost {
     this.updateCombatHud();
     this.hud?.rules.setEnergyFraction(s.energy / movement.maxEnergy);
     this.hud?.setBar('energy', s.energy / movement.maxEnergy);
+  }
+
+  /** Debug: every swinging door's angle in degrees (and the cheat, when it holds them). */
+  private doorDebugLine(): string {
+    const doors = this.doors;
+    const zone = this.sceneZone;
+    if (!doors || !zone) return '-';
+    let line = '';
+    for (let i = 0; i < doors.bodies.length; i++) {
+      const body = doors.bodies[i];
+      const id = zone.doors[i]?.def.id ?? '?';
+      if (body) line += `${i > 0 ? ' · ' : ''}${id} ${Math.round(body.angle / DEG)}°`;
+    }
+    const cheat = this.cheats.doorAngleDegrees;
+    return cheat === null ? line : `${line} · cheat ${cheat}°`;
   }
 
   /** Nothing pressed this step (talking, dying, a menu open). */
@@ -4634,6 +4650,7 @@ export class WorldState implements GameState, InstanceHost {
       `in ${this.triggers?.current(this.placesInside).join(', ') || '-'} · checkpoint ${this.ctx.session?.world.checkpoint ?? '-'}${near ? ' (here)' : ''} · structures ${this.structures?.active.length ?? 0} (${this.structures?.colliderCount ?? 0} colliders) · visited ${this.ctx.session?.visitedPlaces.length ?? 0}`,
     );
     debug.lines.set('npcs', this.npcDebugLine(s.x, s.z));
+    debug.lines.set('doors', this.doorDebugLine());
     debug.lines.set('energy', `${Math.round(s.energy)} · dash cd ${s.dashCooldown.toFixed(2)} s`);
     const c = player.combat;
     debug.lines.set(
