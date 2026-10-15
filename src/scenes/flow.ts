@@ -4,7 +4,7 @@ import { createNewSave, type SaveData, type SaveSettings } from '../save/SaveDat
 import type { LoadResult } from '../save/SaveManager';
 
 /** Ids of all game states (scenes). */
-export type StateId = 'boot' | 'language' | 'title' | 'create' | 'intro' | 'introFight' | 'world';
+export type StateId = 'boot' | 'language' | 'title' | 'create' | 'intro' | 'introScene' | 'world';
 
 /**
  * Where the game goes after loading: the language choice when there is no save, the title

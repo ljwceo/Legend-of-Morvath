@@ -1759,6 +1759,25 @@
   pointer-events: auto;
 }
 
+/* The hold-to-skip ring of the cinematics, top right during the fight (no bars here). */
+.ui-fight {
+  --cine-bar: 0px;
+}
+
+.ui-fight > .ui-cine-skip {
+  pointer-events: auto;
+  top: max(16px, env(safe-area-inset-top));
+  bottom: auto;
+}
+
+/* Black from the end of the intro's last film until the world has taken over. */
+.ui-layer > .ui-intro-black {
+  position: absolute;
+  inset: 0;
+  background: var(--gh-nachtinkt);
+  pointer-events: none;
+}
+
 /* What Lucael and Baelor say: bottom center, above the touch buttons. */
 .ui-fight-subtitle {
   position: absolute;
