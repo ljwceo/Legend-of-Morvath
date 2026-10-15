@@ -9,20 +9,29 @@
  * and checks each big one did something: the icicle from the start reaches a brother, the
  * explosion next to them touches both, the thunder flashes the screen per bolt), the film
  * after it — until the debug overlay says the save is in Greyhaven. It reports the shot ids
- * seen, the draw calls (`calls` in the overlay) during each segment and the damage texts the
- * fight showed, and fails on any console error.
+ * seen, the overlay's numbers during each segment (draw calls `calls`, `tris`, `geo/tex` as
+ * first → last sample, `heap`) and once the world's geo/tex stand still, and the damage texts
+ * the fight showed, and fails on any console error.
  *
  * Playwright is not a dependency of the game, so install it when you want to run this:
  *
  *   npm i --no-save playwright && npx playwright install chromium
- *   node scripts/intro-check.mjs          # the whole intro, film → fight → film → world
- *   node scripts/intro-check.mjs --skip   # hold Escape in the first film: the world follows at once
+ *   node scripts/intro-check.mjs                 # the whole intro, film → fight → film → world
+ *   node scripts/intro-check.mjs --skip          # hold Escape in the first film: the world follows at once
+ *   node scripts/intro-check.mjs --quality high  # on one graphics preset: low, mid or high
  *
- * Other options: `--url <game url>` (no own vite), `--headed`, `--chromium <path>` (a Chromium
- * to use instead of Playwright's own; /opt/pw-browsers/chromium is picked up by itself).
+ * `--quality` works the way mem-check.mjs sets the preset: right after the language choice
+ * (which makes the save) and before New Game, the page is opened again with the save patched —
+ * `settings.quality` and `settings.autoQuality` set to the preset — so the intro and the world
+ * run on it from their first frame. Without it the save stays on `auto`. The world's numbers
+ * after a full run against those after `--skip` on the same preset show what the intro left
+ * behind. Other options: `--url <game url>` (no own vite), `--headed`, `--chromium <path>` (a
+ * Chromium to use instead of Playwright's own; /opt/pw-browsers/chromium is picked up by itself).
  *
- * Headless Chromium draws without a graphics card, so its fps means nothing; the fixed step
- * catches up at most 0.25 s per frame, so a slow frame makes the intro take longer, not break.
+ * Headless Chromium draws without a graphics card, so its fps means nothing (draw calls,
+ * triangles, geometries, textures and the heap are the same as on a real machine); the fixed
+ * step catches up at most 0.25 s per frame, so a slow frame makes the intro take longer, not
+ * break.
  */
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -30,9 +39,19 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 
+/** Tall enough for the overlay's large view (`tris`, `geo/tex`, `heap`: DebugOverlay). */
 const VIEWPORT = { width: 1280, height: 720 };
 /** A Chromium that is installed on the machine (the sandbox's), used when nothing else is named. */
 const LOCAL_CHROMIUM = '/opt/pw-browsers/chromium';
+/** Where the game keeps its save (SaveManager.SAVE_KEY). */
+const SAVE_KEY = 'legend-of-morvath.save';
+/** The graphics presets (quality.json). */
+const QUALITY_LEVELS = ['low', 'mid', 'high'];
+/**
+ * The world has arrived once geo/tex stayed the same for this many looks (at `POLL_MS * 2`)
+ * while the game's clock moved: numbers that stand still while nothing is drawn are old ones.
+ */
+const SETTLE_SAMPLES = 5;
 /**
  * Hold Escape for this many game seconds to skip: the ring fills in `holdToSkipSeconds` (1 s)
  * of the fixed step, and without a graphics card a frame can take a while, so the hold is
@@ -75,18 +94,22 @@ const SEGMENT_TIMEOUT_S = { film: 180, fight: 300, world: 240 };
 const options = parseArgs(process.argv.slice(2));
 
 function parseArgs(argv) {
-  const out = { url: '', headed: false, skip: false, chromium: '' };
+  const out = { url: '', headed: false, skip: false, chromium: '', quality: '' };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--headed') out.headed = true;
     else if (arg === '--skip') out.skip = true;
-    else if (arg === '--url' || arg === '--chromium') {
+    else if (arg === '--url' || arg === '--chromium' || arg === '--quality') {
       out[arg.slice(2)] = argv[i + 1] ?? '';
       i++;
     } else {
       console.error(`unknown option ${arg}`);
       process.exit(2);
     }
+  }
+  if (out.quality && !QUALITY_LEVELS.includes(out.quality)) {
+    console.error(`--quality takes one of ${QUALITY_LEVELS.join(', ')}, not "${out.quality}"`);
+    process.exit(2);
   }
   return out;
 }
@@ -192,7 +215,8 @@ async function watchOverlay(page) {
 /**
  * What the page shows right now: the shot of a playing film (or null), whether the fight's
  * UI is up, the damage texts on screen (by their slot in the pool), the thunder flashes
- * counted so far and the debug overlay's `calls`, `state` and `save` lines.
+ * counted so far and the debug overlay's lines: `calls`, `tris`, `geo/tex` (as `geo` and
+ * `tex`), `heap` (MB; -1 when a line is missing), `quality`, `state` and `save`.
  */
 async function look(page) {
   return page.evaluate(() => {
@@ -210,6 +234,11 @@ async function look(page) {
       }
     });
     const flashes = window.__introCheckFlashes ?? { storm: 0, strike: 0 };
+    const number = (text) => {
+      const value = Number(text);
+      return Number.isFinite(value) ? value : -1;
+    };
+    const [geo, tex] = (lines.get('geo/tex') ?? '').split('/');
     return {
       shot: cine instanceof HTMLElement ? (cine.dataset.shot ?? '') : null,
       fight: fight instanceof HTMLElement && !fight.hidden,
@@ -217,6 +246,11 @@ async function look(page) {
       storms: flashes.storm,
       strikes: flashes.strike,
       calls: Number(lines.get('calls') ?? -1),
+      tris: number(lines.get('tris')),
+      geo: number(geo?.trim() || NaN),
+      tex: number(tex?.trim() || NaN),
+      heap: number((lines.get('heap') ?? '').replace(' MB', '') || NaN),
+      quality: lines.get('quality') ?? '',
       state: lines.get('state') ?? '',
       save: lines.get('save') ?? '',
       // Seconds of the fixed step so far ("123 steps, 2.1 s"): the game's own clock.
@@ -260,33 +294,101 @@ class DamageTexts {
   }
 }
 
-/** Draw calls seen during one segment: the range, for the report. */
-class Calls {
+/** The lowest and highest of a number, for the report. */
+class Range {
   min = Infinity;
   max = -Infinity;
-  add(calls) {
-    if (!(calls > 0)) return;
-    this.min = Math.min(this.min, calls);
-    this.max = Math.max(this.max, calls);
+  add(value) {
+    if (!Number.isFinite(value) || value < 0) return;
+    this.min = Math.min(this.min, value);
+    this.max = Math.max(this.max, value);
+  }
+  toString(digits = 0) {
+    if (this.min === Infinity) return '-';
+    const low = this.min.toFixed(digits);
+    const high = this.max.toFixed(digits);
+    return low === high ? low : `${low}–${high}`;
+  }
+}
+
+/**
+ * The overlay's numbers seen during one segment: the ranges of the draw calls, triangles,
+ * geometries, textures and heap, and geo/tex of the first and the last look (a segment that
+ * ends above where it began kept something).
+ */
+class Stats {
+  calls = new Range();
+  tris = new Range();
+  geo = new Range();
+  tex = new Range();
+  heap = new Range();
+  first = '';
+  last = '';
+  add(now) {
+    // Nothing drawn yet (a loading screen, the overlay before its first refresh): no sample.
+    if (!(now.calls > 0)) return;
+    this.calls.add(now.calls);
+    this.tris.add(now.tris);
+    this.geo.add(now.geo);
+    this.tex.add(now.tex);
+    this.heap.add(now.heap);
+    if (now.geo < 0) return;
+    const geoTex = `${now.geo}/${now.tex}`;
+    if (!this.first) this.first = geoTex;
+    this.last = geoTex;
   }
   toString() {
-    return this.min === Infinity
-      ? '-'
-      : this.min === this.max
-        ? `${this.min}`
-        : `${this.min}–${this.max}`;
+    return (
+      `calls ${this.calls} · tris ${this.tris} · geo/tex ${this.first || '-'} → ${this.last || '-'}` +
+      ` (geo ${this.geo}, tex ${this.tex}) · heap ${this.heap.toString(1)} MB`
+    );
   }
 }
 
 const click = (page, name) => page.getByRole('button', { name, exact: true }).first().click();
 
-/** Through the language choice and the creator into the intro (a fresh profile every run). */
+/**
+ * Patches the save and opens the game again with it (the same as mem-check.mjs). The game
+ * saves by itself when the page goes away (AutoSave on `pagehide`), which would write the old
+ * settings right back over the patch, so the page is closed first and the patch runs in the
+ * new page before the game starts. Returns the new page; the old one is gone.
+ */
+async function reopenWith(page, fields) {
+  await page.close();
+  const next = await page.context().newPage();
+  watchForProblems(next);
+  await next.addInitScript(
+    ([key, patch]) => {
+      const save = JSON.parse(window.localStorage.getItem(key) ?? 'null');
+      if (!save) return;
+      for (const [group, values] of Object.entries(patch)) {
+        save[group] = values && typeof values === 'object' ? { ...save[group], ...values } : values;
+      }
+      window.localStorage.setItem(key, JSON.stringify(save));
+    },
+    [SAVE_KEY, fields],
+  );
+  await next.goto(gameUrl, { waitUntil: 'domcontentloaded' });
+  return next;
+}
+
+/**
+ * Through the language choice and the creator into the intro (a fresh profile every run).
+ * With `--quality`, the save the language choice made gets the preset before New Game.
+ * Returns the page the game is on (a new one after the patch).
+ */
 async function startNewGame(page) {
   await click(page, 'English');
+  if (options.quality) {
+    page = await reopenWith(page, {
+      settings: { quality: options.quality, autoQuality: options.quality },
+    });
+  }
   await click(page, 'New Game');
   await page.locator('input[type="text"]').first().fill('Introcheck');
   await click(page, 'Next: your stats');
   await click(page, 'Begin your journey');
+  return page;
 }
 
 /**
@@ -295,25 +397,27 @@ async function startNewGame(page) {
  */
 async function watchFilm(page, label, until) {
   const shots = [];
-  const calls = new Calls();
+  const stats = new Stats();
   const deadline = Date.now() + SEGMENT_TIMEOUT_S.film * 1000;
   let seen = false;
   while (Date.now() < deadline) {
     const now = await look(page);
     if (now.shot !== null && now.shot !== '') {
       seen = true;
-      calls.add(now.calls);
+      stats.add(now);
       if (shots.at(-1) !== now.shot) {
         shots.push(now.shot);
-        say(`  ${label}: shot "${now.shot}" (calls ${now.calls}, state ${now.state})`);
+        say(
+          `  ${label}: shot "${now.shot}" (calls ${now.calls}, tris ${now.tris}, geo/tex ${now.geo}/${now.tex}, state ${now.state})`,
+        );
       }
     } else if (seen || until(now)) {
-      return { shots, calls };
+      return { shots, stats };
     }
     await page.waitForTimeout(POLL_MS);
   }
   fail(`${label}: timed out after ${SEGMENT_TIMEOUT_S.film} s (shots so far: ${shots.join(', ')})`);
-  return { shots, calls };
+  return { shots, stats };
 }
 
 /**
@@ -369,10 +473,10 @@ function checkPress(step, before, now, damage) {
  * abilities on their keys (one every `PRESS_GAP_MS`, each promise checked after `VERIFY_S` of
  * the game's clock) and walks up to the brothers in between (W, timed on the game's clock),
  * while the damage texts that appear are counted; then it waits for the film after the fight.
- * Returns the draw calls and the damage texts seen.
+ * Returns the overlay's numbers and the damage texts seen.
  */
 async function playFight(page) {
-  const calls = new Calls();
+  const stats = new Stats();
   const damage = new DamageTexts();
   const deadline = Date.now() + SEGMENT_TIMEOUT_S.fight * 1000;
   let phase = 'capture';
@@ -387,16 +491,16 @@ async function playFight(page) {
     const now = await look(page);
     if (now.shot !== null) {
       await letGo();
-      return { calls, damage, ended: true };
+      return { stats, damage, ended: true };
     }
     if (!now.fight) {
       if (now.state !== 'introScene') {
         await letGo();
         fail(`the fight ended in state "${now.state}" without a second film`);
-        return { calls, damage, ended: false };
+        return { stats, damage, ended: false };
       }
     } else {
-      calls.add(now.calls);
+      stats.add(now);
       damage.add(now.damage);
       if (phase === 'capture') {
         await watchOverlay(page);
@@ -436,24 +540,46 @@ async function playFight(page) {
   }
   await letGo();
   fail(`the fight did not end within ${SEGMENT_TIMEOUT_S.fight} s`);
-  return { calls, damage, ended: false };
+  return { stats, damage, ended: false };
 }
 
-/** Waits for the world: the save line names Greyhaven and the loading screen is gone. */
+/** One look's numbers on one line, for the report. */
+const numbers = (now) =>
+  `calls ${now.calls} · tris ${now.tris} · geo/tex ${now.geo}/${now.tex} · heap ${now.heap} MB`;
+
+/**
+ * Waits for the world: the save line names Greyhaven and the loading screen is gone, and then
+ * geo/tex stand still for `SETTLE_SAMPLES` looks while the game's clock runs. Those settled
+ * numbers (against a `--skip` run on the same preset) show what the intro left behind; when
+ * they never settle in time that is reported, not failed. Returns the last look, or null when
+ * the world did not come.
+ */
 async function waitForWorld(page, label) {
   const deadline = Date.now() + SEGMENT_TIMEOUT_S.world * 1000;
   let last = null;
+  let same = 0;
+  let arrived = false;
   while (Date.now() < deadline) {
     const now = await look(page);
-    last = now;
-    if (now.save.includes('greyhaven') && now.state === 'world' && !now.loading) {
-      say(`  ${label}: in the world (${now.save}; calls ${now.calls})`);
-      return true;
+    if (!arrived && now.save.includes('greyhaven') && now.state === 'world' && !now.loading) {
+      arrived = true;
+      say(`  ${label}: in the world (${now.save}; ${numbers(now)})`);
+    } else if (arrived && last !== null && now.sim > last.sim && now.calls > 0) {
+      same = now.geo === last.geo && now.tex === last.tex ? same + 1 : 0;
+      if (same >= SETTLE_SAMPLES) {
+        say(`  ${label}: world settled · ${numbers(now)} · quality ${now.quality}`);
+        return now;
+      }
     }
+    last = now;
     await page.waitForTimeout(POLL_MS * 2);
   }
+  if (arrived) {
+    say(`  ${label}: the world's geo/tex kept changing; last ${numbers(last)}`);
+    return last;
+  }
   fail(`${label}: the world did not follow (state "${last?.state}", save "${last?.save}")`);
-  return false;
+  return null;
 }
 
 /** Waits until the first film is on screen (the intro scene has started). */
@@ -470,9 +596,11 @@ async function waitForFilm(page) {
 
 async function fullRun(page) {
   say('== the whole intro ==');
-  if (!(await waitForFilm(page))) return;
+  const first = await waitForFilm(page);
+  if (!first) return null;
+  say(`  quality: ${first.quality} · first look ${numbers(first)}`);
   const film1 = await watchFilm(page, 'film 1', (now) => now.fight);
-  say(`film 1: ${film1.shots.length} shots [${film1.shots.join(', ')}] · calls ${film1.calls}`);
+  say(`film 1: ${film1.shots.length} shots [${film1.shots.join(', ')}] · ${film1.stats}`);
   if (film1.shots.length === 0) fail('film 1 showed no shots');
 
   // The fight's UI comes up when the film is gone.
@@ -485,7 +613,7 @@ async function fullRun(page) {
   else say('  fight: .ui-fight is up');
   const fight = await playFight(page);
   say(
-    `fight: ${fight.ended ? 'ended' : 'not ended'} · calls ${fight.calls} · damage texts ${fight.damage}`,
+    `fight: ${fight.ended ? 'ended' : 'not ended'} · ${fight.stats} · damage texts ${fight.damage}`,
   );
   if (fight.damage.contacts === 0) {
     fail(
@@ -494,18 +622,19 @@ async function fullRun(page) {
   }
 
   const film2 = await watchFilm(page, 'film 2', (now) => now.state !== 'introScene');
-  say(`film 2: ${film2.shots.length} shots [${film2.shots.join(', ')}] · calls ${film2.calls}`);
+  say(`film 2: ${film2.shots.length} shots [${film2.shots.join(', ')}] · ${film2.stats}`);
   if (film2.shots.length === 0) fail('film 2 showed no shots');
 
-  await waitForWorld(page, 'after the intro');
-  return { film1, fight, film2 };
+  const world = await waitForWorld(page, 'after the intro');
+  return { film1, fight, film2, world };
 }
 
 async function skipRun(page) {
   say('== skip in the first film ==');
   const first = await waitForFilm(page);
-  if (!first) return;
-  say(`  film 1: shot "${first.shot}" (calls ${first.calls}); holding Escape ${SKIP_HOLD_S} s`);
+  if (!first) return null;
+  say(`  quality: ${first.quality}`);
+  say(`  film 1: shot "${first.shot}" (${numbers(first)}); holding Escape ${SKIP_HOLD_S} s`);
   await page.keyboard.down('Escape');
   const holdStart = Date.now();
   while (Date.now() - holdStart < SKIP_HOLD_MAX_MS) {
@@ -531,7 +660,8 @@ async function skipRun(page) {
   else say('  skipped: the intro scene is gone');
   const fightShown = await page.locator('.ui-fight:not([hidden])').count();
   if (fightShown > 0) fail('the fight UI showed after skipping');
-  await waitForWorld(page, 'after the skip');
+  const world = await waitForWorld(page, 'after the skip');
+  return { world };
 }
 
 const playwright = await loadPlaywright();
@@ -547,17 +677,27 @@ const context = await browser.newContext({ viewport: VIEWPORT });
 const gameUrl = `${server.url}${server.url.includes('?') ? '&' : '?'}debug=1`;
 say(`game: ${gameUrl}`);
 
-const page = await context.newPage();
+let page = await context.newPage();
 watchForProblems(page);
 await page.goto(gameUrl, { waitUntil: 'domcontentloaded' });
-await startNewGame(page);
+page = await startNewGame(page);
 const started = Date.now();
+let run = null;
 try {
-  if (options.skip) await skipRun(page);
-  else await fullRun(page);
+  run = options.skip ? await skipRun(page) : await fullRun(page);
 } catch (error) {
   fail(`unexpected: ${error instanceof Error ? error.message : String(error)}`);
 }
+
+say(`\n== numbers (quality ${options.quality || 'auto'}${options.skip ? ', skipped' : ''}) ==`);
+for (const [label, stats] of [
+  ['film 1', run?.film1?.stats],
+  ['fight', run?.fight?.stats],
+  ['film 2', run?.film2?.stats],
+]) {
+  if (stats) say(`${label.padEnd(8)} ${stats}`);
+}
+if (run?.world) say(`${'world'.padEnd(8)} ${numbers(run.world)}`);
 
 say('\n== result ==');
 say(`took ${Math.round((Date.now() - started) / 1000)} s`);
