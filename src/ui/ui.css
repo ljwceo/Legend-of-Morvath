@@ -2408,6 +2408,29 @@
   color: var(--gh-ornamentgoud);
 }
 
+/* Story text without a speaker, just under the top bar: the storybook letters of the intro
+   cards (.ui-story), with a shadow so they read over the 3D picture. */
+.ui-cine-narration {
+  position: absolute;
+  left: 50%;
+  top: max(14px, calc(var(--cine-bar) + 16px));
+  width: min(880px, calc(100% - 32px));
+  margin: 0;
+  transform: translateX(-50%);
+  font-family: var(--gh-font-verhaal);
+  font-style: italic;
+  font-size: clamp(17px, 3vh, 26px);
+  line-height: 1.4;
+  text-align: center;
+  color: var(--gh-tekst);
+  text-shadow:
+    0 2px 6px var(--gh-nachtinkt),
+    0 0 16px var(--gh-nachtinkt);
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
 .ui-cine-on {
   opacity: 1;
 }

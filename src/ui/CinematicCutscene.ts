@@ -9,16 +9,12 @@ import {
   type CinematicSettings,
   CinematicTimeline,
   type CutsceneDef,
-  HoldToSkip,
   newPose,
   newSample,
 } from '../render/cinematic/CinematicTimeline';
 import { el } from './dom';
+import { SkipRing } from './SkipRing';
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-/** Radius of the skip ring in its 40 × 40 viewBox. */
-const RING_RADIUS = 16;
-const RING_LENGTH = 2 * Math.PI * RING_RADIUS;
 /** How much color a freeze-frame takes away (0–1): most, not all. */
 const STILL_STRENGTH = 0.8;
 
@@ -45,6 +41,13 @@ export interface CinematicHost {
   silence?(on: boolean): void;
   /** Real animated models for placeholders that have one (Pringle), or null. */
   animated?: AnimatedModels | null;
+  /** The scene's own object for a `fight` actor (a foe of the fight, by actor id), or null. */
+  objectFor?(actorId: string): Object3D | null;
+  /**
+   * Where an actor stands before the first shot (after a fight: where it left everyone), or
+   * null for the usual start (the player where they are, everyone else unseen at the anchor).
+   */
+  actorStart?(actorId: string): { x: number; z: number; heading: number; visible: boolean } | null;
 }
 
 /**
@@ -62,10 +65,7 @@ export class CinematicCutscene {
   private readonly timeline: CinematicTimeline;
   private readonly stage: CinematicStage;
   private readonly sample: CinematicSample;
-  private readonly skipper: HoldToSkip;
   private finished = false;
-  private keyHeld = false;
-  private pointerHeld = false;
   private camera: PerspectiveCamera | null = null;
   private gameFov = 0;
 
@@ -77,11 +77,11 @@ export class CinematicCutscene {
   private readonly subtitle: HTMLElement;
   private readonly speaker: HTMLElement;
   private readonly line: HTMLElement;
+  private readonly narration: HTMLElement;
   private readonly nameCard: HTMLElement;
   private readonly nameText: HTMLElement;
   private readonly nameTitle: HTMLElement;
-  private readonly skip: HTMLButtonElement;
-  private readonly ring: SVGCircleElement;
+  private readonly skip: SkipRing;
 
   // What the DOM shows now (only touched when it changes).
   private shownShot = -1;
@@ -92,7 +92,6 @@ export class CinematicCutscene {
   private shownStill = -1;
   private shownSlow = false;
   private shownSilent = false;
-  private shownRing = -1;
   private shownFov = Number.NaN;
 
   constructor(
@@ -104,7 +103,14 @@ export class CinematicCutscene {
     const actors = cutscene.actors ?? [];
     const initial: ActorPose[] = actors.map((actor) => {
       const pose = newPose();
-      if (actor.model === 'player') {
+      const start = host.actorStart?.(actor.id) ?? null;
+      if (start) {
+        // The scene knows where it stands (after the fight: where that left everyone).
+        pose.visible = start.visible;
+        pose.x = start.x;
+        pose.z = start.z;
+        pose.heading = start.heading;
+      } else if (actor.model === 'player') {
         pose.visible = true;
         pose.x = host.player.x;
         pose.z = host.player.z;
@@ -124,8 +130,10 @@ export class CinematicCutscene {
       host.element,
       host.poseWeapon,
       host.animated ?? null,
+      host.objectFor ? (actorId) => host.objectFor?.(actorId) ?? null : null,
     );
-    this.skipper = new HoldToSkip(settings.holdToSkipSeconds, settings.holdReleaseFactor);
+    const label = host.t(host.touch ? 'cutscene.holdToSkipTouch' : 'cutscene.holdToSkip');
+    this.skip = new SkipRing(settings, label, cutscene.skippable);
 
     this.tintLayer = el('div', { className: 'ui-cine-layer ui-cine-tint' });
     this.fadeLayer = el('div', { className: 'ui-cine-layer ui-cine-fade' });
@@ -135,40 +143,10 @@ export class CinematicCutscene {
     this.speaker = el('span', { className: 'ui-cine-speaker' });
     this.line = el('span', { className: 'ui-cine-line' });
     this.subtitle = el('p', { className: 'ui-cine-subtitle' }, this.speaker, this.line);
+    this.narration = el('p', { className: 'ui-cine-narration' });
     this.nameText = el('p', { className: 'ui-cine-name' });
     this.nameTitle = el('p', { className: 'ui-cine-name-title' });
     this.nameCard = el('div', { className: 'ui-cine-namecard' }, this.nameText, this.nameTitle);
-
-    const svg = document.createElementNS(SVG_NS, 'svg');
-    svg.setAttribute('viewBox', '0 0 40 40');
-    svg.setAttribute('aria-hidden', 'true');
-    svg.classList.add('ui-cine-ring');
-    const track = document.createElementNS(SVG_NS, 'circle');
-    this.ring = document.createElementNS(SVG_NS, 'circle');
-    for (const circle of [track, this.ring]) {
-      circle.setAttribute('cx', '20');
-      circle.setAttribute('cy', '20');
-      circle.setAttribute('r', String(RING_RADIUS));
-      svg.append(circle);
-    }
-    track.classList.add('ui-cine-ring-track');
-    this.ring.classList.add('ui-cine-ring-fill');
-    this.ring.style.strokeDasharray = String(RING_LENGTH);
-    this.ring.style.strokeDashoffset = String(RING_LENGTH);
-    const label = host.t(host.touch ? 'cutscene.holdToSkipTouch' : 'cutscene.holdToSkip');
-    this.skip = el(
-      'button',
-      { className: 'ui-cine-skip', attrs: { type: 'button', 'aria-label': label } },
-      svg,
-      el('span', { text: label }),
-    ) as HTMLButtonElement;
-    this.skip.hidden = !cutscene.skippable;
-    this.skip.addEventListener('pointerdown', this.onPointerDown);
-    this.skip.addEventListener('pointerup', this.onPointerUp);
-    this.skip.addEventListener('pointercancel', this.onPointerUp);
-    this.skip.addEventListener('lostpointercapture', this.onPointerUp);
-    // The context menu of a long press on a phone would steal the hold.
-    this.skip.addEventListener('contextmenu', (event) => event.preventDefault());
 
     this.root = el(
       'div',
@@ -178,14 +156,11 @@ export class CinematicCutscene {
       this.barTop,
       this.barBottom,
       this.subtitle,
+      this.narration,
       this.nameCard,
       this.flashLayer,
-      this.skip,
+      this.skip.root,
     );
-    // Capture: Escape skips here and never also opens the pause menu underneath.
-    window.addEventListener('keydown', this.onKeyDown, true);
-    window.addEventListener('keyup', this.onKeyUp, true);
-    window.addEventListener('blur', this.onBlur);
   }
 
   get id(): string {
@@ -195,8 +170,7 @@ export class CinematicCutscene {
   /** One fixed step: the timeline moves on, holding skip fills the ring. */
   step(dt: number): void {
     if (this.finished) return;
-    const held = this.cutscene.skippable && (this.keyHeld || this.pointerHeld);
-    if (this.skipper.step(dt, held)) {
+    if (this.skip.step(dt)) {
       this.end(true);
       return;
     }
@@ -231,9 +205,7 @@ export class CinematicCutscene {
   }
 
   dispose(): void {
-    window.removeEventListener('keydown', this.onKeyDown, true);
-    window.removeEventListener('keyup', this.onKeyUp, true);
-    window.removeEventListener('blur', this.onBlur);
+    this.skip.dispose();
     const camera = this.camera;
     if (camera && camera.fov !== this.gameFov) {
       camera.fov = this.gameFov;
@@ -282,12 +254,7 @@ export class CinematicCutscene {
       this.shownSilent = s.silent;
       this.host.silence?.(s.silent);
     }
-    const ring = Math.round(this.skipper.progress * 100) / 100;
-    if (ring !== this.shownRing) {
-      this.shownRing = ring;
-      this.ring.style.strokeDashoffset = String(RING_LENGTH * (1 - ring));
-      this.skip.classList.toggle('ui-cine-skip-holding', ring > 0);
-    }
+    this.skip.draw();
   }
 
   /** A new shot: its subtitle, name card and tint color. */
@@ -302,6 +269,9 @@ export class CinematicCutscene {
       this.line.textContent = this.host.t(sub.text);
     }
     this.subtitle.classList.toggle('ui-cine-on', sub !== undefined);
+    const narration = shot?.narration;
+    if (narration) this.narration.textContent = this.host.t(narration);
+    this.narration.classList.toggle('ui-cine-on', narration !== undefined);
     const card = shot?.nameCard;
     if (card) {
       this.nameText.textContent = card.name;
@@ -320,36 +290,6 @@ export class CinematicCutscene {
     this.dispose();
     this.onDone(skipped);
   }
-
-  private readonly onKeyDown = (event: KeyboardEvent): void => {
-    if (event.code !== 'Escape') return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    this.keyHeld = true;
-  };
-
-  private readonly onKeyUp = (event: KeyboardEvent): void => {
-    if (event.code !== 'Escape') return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    this.keyHeld = false;
-  };
-
-  private readonly onBlur = (): void => {
-    this.keyHeld = false;
-    this.pointerHeld = false;
-  };
-
-  private readonly onPointerDown = (event: PointerEvent): void => {
-    event.preventDefault();
-    event.stopPropagation();
-    this.skip.setPointerCapture?.(event.pointerId);
-    this.pointerHeld = true;
-  };
-
-  private readonly onPointerUp = (): void => {
-    this.pointerHeld = false;
-  };
 }
 
 /** Sets an element's opacity when it changed enough; returns what is shown now. */

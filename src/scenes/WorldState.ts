@@ -20,7 +20,7 @@ import {
   type ToneMapping,
 } from 'three';
 import type { GameContext } from '../core/GameContext';
-import { publicUrl } from '../data/DataLoader';
+import { assetUrl, publicUrl } from '../data/DataLoader';
 import { DayNightLighting, type ZoneLighting } from '../render/DayNightLighting';
 import { createSkyDome } from '../render/toon/SkyDome';
 import { MAX_LAMPS } from '../render/toon/ToonMaterial';
@@ -272,8 +272,6 @@ const SIGHT_GROUND_MARGIN = 0.35;
 const ORB_AHEAD = 0.55;
 /** Seconds over which fog and sky change color after entering another zone. */
 const FOG_SHARPNESS = 1.5;
-/** URL of a file in public/ with the build id (a new deploy never uses a cached old model). */
-const assetUrl = (path: string): string => `${publicUrl(path)}?v=${__BUILD_ID__}`;
 
 /** The text on the interaction icon per kind of NPC ("Talk to Marco", "Pet Pringle"). */
 const INTERACTION_LABELS: Readonly<Record<NpcDef['interaction'], string>> = {
