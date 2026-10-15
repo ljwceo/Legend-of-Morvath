@@ -534,6 +534,20 @@
   border-radius: 999px;
 }
 
+/* A name on the drink button instead of the flask and the count (the intro's thunder). */
+.ui-potion-label {
+  display: none;
+}
+
+.ui-potion-button.ui-potion-labeled::before,
+.ui-potion-button.ui-potion-labeled .ui-potion-count {
+  display: none;
+}
+
+.ui-potion-button.ui-potion-labeled .ui-potion-label {
+  display: inline;
+}
+
 /* ------------------------------------------------------------ HUD (subtle, fades in and out) */
 
 /*
@@ -1847,6 +1861,19 @@
 .ui-fight-overlay.ui-fight-flash {
   background: var(--gh-zonlicht);
   transition: background-color 0.3s ease;
+}
+
+/*
+ * Thunder: while the storm lasts the overlay lets go of its color quickly, and every bolt is
+ * a short, half-transparent flash (the room stays in view).
+ */
+.ui-fight-overlay.ui-fight-storm {
+  transition: background-color 0.08s ease-out;
+}
+
+.ui-fight-overlay.ui-fight-strike {
+  background: color-mix(in srgb, var(--gh-zonlicht) 45%, transparent);
+  transition: background-color 0.03s linear;
 }
 
 /* Pack animal (Biscuit): Take / Load and All side by side. */

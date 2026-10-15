@@ -40,6 +40,9 @@ export class TouchControls {
   private readonly knob: HTMLElement;
   private readonly buttons: Record<TouchButtonId, HTMLButtonElement>;
   private readonly potionCount: HTMLElement;
+  /** A name on the drink button instead of the flask (the intro's thunder), and its label. */
+  private readonly potionLabel: HTMLElement;
+  private potionAria = '';
   private readonly basePx: number;
   private readonly bigPx: number;
   private settings: TouchControlSettings = { size: 1, mirrored: false, layout: {} };
@@ -72,7 +75,8 @@ export class TouchControls {
       lock: this.actionButton('ui-lock-button', 'lock'),
     };
     this.potionCount = el('span', { className: 'ui-potion-count' });
-    this.buttons.potion.append(this.potionCount);
+    this.potionLabel = el('span', { className: 'ui-potion-label' });
+    this.buttons.potion.append(this.potionCount, this.potionLabel);
     this.setPotions(0);
     this.setLabels(labels);
     const style = window.getComputedStyle(document.documentElement);
@@ -131,8 +135,22 @@ export class TouchControls {
     set(this.buttons.heavy, labels.heavy);
     set(this.buttons.dash, labels.dash);
     set(this.buttons.lock, labels.lock);
-    // The drink button shows a flask and the count; the label is for screen readers.
-    this.buttons.potion.setAttribute('aria-label', labels.potion);
+    // The drink button shows a flask and the count; the label is for screen readers (unless a
+    // text of its own is on it, see `setPotionLabel`).
+    this.potionAria = labels.potion;
+    if (!this.buttons.potion.classList.contains('ui-potion-labeled')) {
+      this.buttons.potion.setAttribute('aria-label', labels.potion);
+    }
+  }
+
+  /**
+   * Shows `label` on the drink button instead of the flask and the count (the intro fight puts
+   * its thunder on this button); null gives the flask back.
+   */
+  setPotionLabel(label: string | null): void {
+    this.potionLabel.textContent = label ?? '';
+    this.buttons.potion.classList.toggle('ui-potion-labeled', label !== null);
+    this.buttons.potion.setAttribute('aria-label', label ?? this.potionAria);
   }
 
   /** Hides the lock-on button where there is nothing to lock on to (the intro fight). */

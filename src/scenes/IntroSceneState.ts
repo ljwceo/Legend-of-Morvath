@@ -8,10 +8,11 @@ import type { GameData } from '../data/types';
 import { buildLord, type LordModel } from '../entities/LordFactory';
 import { Player } from '../entities/Player';
 import { AnimatedModels, preloadAnimatedModels } from '../render/AnimatedNpcs';
+import { ArsenalEffects } from '../render/ArsenalEffects';
 import { CameraRig } from '../render/CameraRig';
 import { CinematicSet } from '../render/cinematic/CinematicSet';
 import { type CutsceneDef, resolveCutscene } from '../render/cinematic/CinematicTimeline';
-import { palette, resolveColorToken } from '../render/palette';
+import { palette, resolveColorToken, terrainColors } from '../render/palette';
 import {
   applyStats,
   inSwingArc,
@@ -22,6 +23,13 @@ import {
   swordConfig,
 } from '../systems/Combat';
 import { type FightAction, type FightDef, FightScript } from '../systems/FightScript';
+import {
+  type ArsenalInput,
+  ArsenalEvents,
+  type Dodge,
+  IntroArsenal,
+  type Point,
+} from '../systems/IntroArsenal';
 import {
   type Mover,
   type MoveCommand,
@@ -58,6 +66,13 @@ const ORB_SIZE = 1.4;
 const FLASH_SECONDS = 0.35;
 /** Seconds the purple teleport puff stays. */
 const PUFF_SECONDS = 0.5;
+/** Seconds a brother shimmers ("unimpressed") after a hit for 0. */
+const SHIMMER_SECONDS = 0.3;
+/** Each bolt of thunder flashes the screen this long (s); the fast overlay fade lasts a storm plus this. */
+const STRIKE_FLASH_SECONDS = 0.1;
+const STORM_OVERLAY_EXTRA = 0.3;
+/** The explosion shakes the camera up and a little sideways, in this ratio. */
+const SHAKE_SIDEWAYS = 0.5;
 /** The camera sees this far (m) past the fog, where nothing is left to see. */
 const CAMERA_FAR_FACTOR = 1.5;
 /** The set's floor is flat: the camera and the ground are at y = 0. */
@@ -77,6 +92,11 @@ interface Foe {
   readonly radius: number;
   /** Height (m): where its damage numbers appear. */
   readonly height: number;
+  /** A target of the sword and the icicles (always; it dodges by the roll, not by stepping aside). */
+  readonly hittable: true;
+  readonly dodging: false;
+  /** 0–1: how often a hit on this brother is a dodge instead (he blinks aside). */
+  readonly dodgeChance: number;
   x: number;
   z: number;
   heading: number;
@@ -137,6 +157,9 @@ export class IntroSceneState implements GameState {
   private orb: Mesh | null = null;
   private puff: Mesh | null = null;
   private random: Random | null = null;
+  /** The four abilities (logic) and what they look like (pooled meshes). */
+  private arsenal: IntroArsenal | null = null;
+  private effects: ArsenalEffects | null = null;
 
   private root: HTMLElement | null = null;
   private surface: HTMLElement | null = null;
@@ -165,6 +188,9 @@ export class IntroSceneState implements GameState {
   private spellFoe: Foe | null = null;
   private puffLeft = 0;
   private flashLeft = 0;
+  /** Thunder: the screen flash of the current bolt, and how long the overlay fades fast. */
+  private strikeFlashLeft = 0;
+  private stormOverlayLeft = 0;
   /** Seconds on the fixed step (the set drifts by it), and the step before. */
   private time = 0;
   private prevTime = 0;
@@ -173,6 +199,13 @@ export class IntroSceneState implements GameState {
   private readonly moveWorld = { x: 0, z: 0 };
   private readonly command: MoveCommand = { x: 0, z: 0, dash: false };
   private readonly swordInput: SwordInput = { fast: false, heavy: false, critRoll: 1 };
+  private readonly arsenalInput: ArsenalInput = {
+    strike: false,
+    burst: false,
+    storm: false,
+    bolt: false,
+  };
+  private readonly arsenalEvents = new ArsenalEvents();
   private readonly swordResult: SwordResult = {
     landed: 'none',
     damage: 0,
@@ -215,10 +248,12 @@ export class IntroSceneState implements GameState {
     this.time = this.prevTime = 0;
     this.subtitleLeft = this.hintLeft = this.freezeLeft = this.levitateLeft = 0;
     this.spellLeft = this.puffLeft = this.flashLeft = 0;
+    this.strikeFlashLeft = this.stormOverlayLeft = 0;
     this.spellFoe = null;
     this.coarsePointer = window.matchMedia('(pointer: coarse)').matches;
-    this.buildUi(data);
+    // The scene first: the touch buttons are named after the fight's abilities.
     this.buildScene(data, fight);
+    this.buildUi(data);
     if (this.intro) this.startCinematic(this.intro, 'intro');
     else this.startFight();
   }
@@ -243,6 +278,9 @@ export class IntroSceneState implements GameState {
     this.player = null;
     for (const foe of this.foes) foe.model.dispose();
     this.foes = [];
+    this.effects?.dispose();
+    this.effects = null;
+    this.arsenal = null;
     this.set?.dispose();
     this.set = null;
     this.animated?.dispose();
@@ -411,13 +449,22 @@ export class IntroSceneState implements GameState {
     if (this.segment !== 'fight') return;
     this.segment = 'done';
     this.disposeSkip();
-    this.overlay?.classList.remove('ui-fight-frozen', 'ui-fight-flash');
+    this.overlay?.classList.remove(
+      'ui-fight-frozen',
+      'ui-fight-flash',
+      'ui-fight-strike',
+      'ui-fight-storm',
+    );
     this.subtitle?.classList.remove('ui-fight-show');
     this.hint?.classList.remove('ui-fight-show');
     this.freezeLeft = this.levitateLeft = this.spellLeft = this.flashLeft = 0;
+    this.strikeFlashLeft = this.stormOverlayLeft = 0;
     this.subtitleLeft = this.hintLeft = 0;
     this.spellFoe = null;
     if (this.orb) this.orb.visible = false;
+    // No icicle flies on into the film, no bolt or smoke hangs in it.
+    this.arsenal?.clear();
+    this.effects?.clear();
     // A teleport puff from the last beat must not hang frozen in the film after the fight.
     this.puffLeft = 0;
     if (this.puff) this.puff.visible = false;
@@ -464,8 +511,8 @@ export class IntroSceneState implements GameState {
   // ------------------------------------------------------------ the fight, stepped
 
   private stepFight(dt: number): void {
-    const { player, input, mover, movement, sword, script, rig } = this;
-    if (!player || !input || !mover || !movement || !sword || !script || !rig) return;
+    const { player, input, mover, movement, sword, script, rig, arsenal } = this;
+    if (!player || !input || !mover || !movement || !sword || !script || !rig || !arsenal) return;
     if (this.skip?.step(dt)) {
       this.showBlack();
       this.finish();
@@ -481,22 +528,38 @@ export class IntroSceneState implements GameState {
     this.command.z = helpless ? 0 : this.moveWorld.z;
     this.command.dash = input.consumePressed('dash') && !helpless;
     input.consumePressed('confirm');
-    const fast = input.consumePressed('attack') || input.isPressed('attack');
-    const heavy = input.consumePressed('heavy');
+    // The four abilities fire on the keys the fight's data names. The sword's hit is the
+    // existing fast hit (held keeps swinging); its heavy hit is not used in the intro.
+    const actions = arsenal.actions;
+    const strikeAction = actions.strike ?? 'attack';
+    const fast = input.consumePressed(strikeAction) || input.isPressed(strikeAction);
+    const burst = actions.burst !== null && input.consumePressed(actions.burst);
+    const storm = actions.storm !== null && input.consumePressed(actions.storm);
+    const bolt = actions.bolt !== null && input.consumePressed(actions.bolt);
     this.swordInput.fast = fast && !helpless;
-    this.swordInput.heavy = heavy && !helpless;
+    this.swordInput.heavy = false;
+    const pressed = this.arsenalInput;
+    pressed.strike = fast && !helpless;
+    pressed.burst = burst && !helpless;
+    pressed.storm = storm && !helpless;
+    pressed.bolt = bolt && !helpless;
 
+    // Cooldowns run, icicles fly and the storm strikes on, frozen or not; only pressing is blocked.
+    const events = this.arsenalEvents;
+    events.clear();
+    arsenal.step(dt, pressed, s, events);
     if (this.levitateLeft <= 0) {
       // Frozen in time: nothing about you moves, not even your sword.
       if (this.freezeLeft <= 0) {
         const result = stepSword(player.combat, s, this.swordInput, sword, dt, this.swordResult);
-        if (result.landed !== 'none') this.landHit();
+        if (result.landed !== 'none') this.landHit(events);
       }
       stepMovement(s, this.command, movement, dt, mover);
       this.pushOutOfFoes();
     } else {
       s.heading += LEVITATE_SPIN * dt;
     }
+    this.applyArsenalEvents(events);
 
     script.step(dt);
     // An `end` action in the script has moved on to the film after the fight.
@@ -533,6 +596,7 @@ export class IntroSceneState implements GameState {
     }
     this.drawSpell(now);
     this.drawPuff();
+    this.effects?.draw(alpha);
 
     input.consumeLook(this.look);
     const turning = input.turningCamera || this.look.yaw !== 0 || this.look.pitch !== 0;
@@ -548,6 +612,12 @@ export class IntroSceneState implements GameState {
       this.ctx.session?.settings.cameraSensitivity ?? 1,
     );
     rig.apply(0, 0, FLAT);
+    // The explosion shakes the camera: a decaying wobble, a pure function of the time since.
+    const shake = this.effects?.shake(alpha) ?? 0;
+    if (shake !== 0) {
+      rig.camera.position.y += shake;
+      rig.camera.position.x += shake * SHAKE_SIDEWAYS;
+    }
     this.touch?.update();
     this.damageNumbers?.update(
       frameSeconds,
@@ -703,22 +773,80 @@ export class IntroSceneState implements GameState {
       this.flashLeft -= dt;
       if (this.flashLeft <= 0) this.overlay?.classList.remove('ui-fight-flash');
     }
+    if (this.strikeFlashLeft > 0) {
+      this.strikeFlashLeft -= dt;
+      if (this.strikeFlashLeft <= 0) this.overlay?.classList.remove('ui-fight-strike');
+    }
+    if (this.stormOverlayLeft > 0) {
+      this.stormOverlayLeft -= dt;
+      if (this.stormOverlayLeft <= 0) this.overlay?.classList.remove('ui-fight-storm');
+    }
+    this.effects?.step(dt);
   }
 
   // ------------------------------------------------------------ fighting
 
-  /** Every swing that reaches a brother "hits" for 0 damage. The script counts the hits. */
-  private landHit(): void {
-    const { player, sword, script } = this;
-    if (!player || !sword || !script) return;
+  /**
+   * The sword's swing reaches every brother in its arc: each is a contact for the arsenal, which
+   * rolls whether he dodges or takes the 0 (the same rule as the other three abilities).
+   */
+  private landHit(events: ArsenalEvents): void {
+    const { player, sword, arsenal } = this;
+    if (!player || !sword || !arsenal) return;
     const s = player.state;
-    for (const foe of this.foes) {
+    for (let i = 0; i < this.foes.length; i++) {
+      const foe = this.foes[i] as Foe;
       if (!inSwingArc(s.x, s.z, s.heading, foe.x, foe.z, foe.radius, sword.range, sword.halfArc)) {
         continue;
       }
-      foe.shimmer = 0.3;
+      arsenal.contact(i, events);
+    }
+  }
+
+  /**
+   * What the abilities did this step, on screen: a "0" and a shimmer for a hit, "Dodged!" and
+   * a blink (with the puff) for a dodge — both count as hits for the script — a bolt and a
+   * flash per strike, the blast for the explosion, shards for a shattered icicle.
+   */
+  private applyArsenalEvents(events: ArsenalEvents): void {
+    const { script, effects, player, overlay } = this;
+    for (let i = 0; i < events.hitCount; i++) {
+      const foe = this.foes[events.hits[i] as number];
+      if (!foe) continue;
+      foe.shimmer = SHIMMER_SECONDS;
       this.damageNumbers?.spawn(foe.x, foe.height, foe.z, 0, 'normal');
-      script.registerHit();
+      script?.registerHit();
+    }
+    for (let i = 0; i < events.dodgeCount; i++) {
+      const dodge = events.dodges[i] as Dodge;
+      const foe = this.foes[dodge.foe];
+      if (!foe) continue;
+      this.damageNumbers?.spawnText(
+        foe.x,
+        foe.height,
+        foe.z,
+        this.ctx.i18n.t('boss.dodged'),
+        'dodged',
+      );
+      this.showPuff(foe.x, foe.z);
+      foe.x = dodge.x;
+      foe.z = dodge.z;
+      script?.registerHit();
+    }
+    for (let i = 0; i < events.strikeCount; i++) {
+      const strike = events.strikes[i] as Point;
+      effects?.strike(strike.x, strike.z);
+      overlay?.classList.add('ui-fight-strike');
+      this.strikeFlashLeft = STRIKE_FLASH_SECONDS;
+    }
+    if (events.storm) {
+      overlay?.classList.add('ui-fight-storm');
+      this.stormOverlayLeft = (this.arsenal?.stormDef?.strikeSeconds ?? 0) + STORM_OVERLAY_EXTRA;
+    }
+    if (events.burst && player) effects?.burst(player.state.x, player.state.z);
+    for (let i = 0; i < events.shatterCount; i++) {
+      const shatter = events.shatters[i] as Point;
+      effects?.shatter(shatter.x, shatter.z);
     }
   }
 
@@ -809,21 +937,28 @@ export class IntroSceneState implements GameState {
       this.ctx.bindings,
     );
     this.input.attach();
+    // The touch buttons carry the fight's abilities: the explosion on the heavy-hit button, the
+    // thunder on the drink button (named, no flask) and the icicle on the lock-on button.
+    const arsenal = this.arsenal;
+    const burst = arsenal?.burstDef ?? null;
+    const storm = arsenal?.stormDef ?? null;
+    const projectile = arsenal?.projectileDef ?? null;
     this.touch = new TouchControls(
       this.input,
       {
         attack: t('controls.attack'),
-        heavy: t('controls.heavy'),
+        heavy: burst ? t(burst.label) : t('controls.heavy'),
         dash: t('controls.dash'),
-        potion: t('controls.potion'),
-        lock: t('controls.lock'),
+        potion: storm ? t(storm.label) : t('controls.potion'),
+        lock: projectile ? t(projectile.label) : t('controls.lock'),
       },
       controls.joystickRadiusPx,
       controls.touch,
     );
     this.touch.setSettings(readTouchSettings(this.ctx.session?.settings, controls.touch));
-    // Nothing to lock on to in the intro fight (you cannot win it anyway).
-    this.touch.setLockVisible(false);
+    this.touch.setLockVisible(projectile !== null);
+    this.touch.setPotions(storm ? 1 : 0);
+    this.touch.setPotionLabel(storm ? t(storm.label) : null);
     this.damageNumbers = new DamageNumbers();
     this.root.append(this.touch.root, this.damageNumbers.root, this.overlay);
   }
@@ -862,6 +997,9 @@ export class IntroSceneState implements GameState {
         model,
         radius: def.radius,
         height: def.height,
+        hittable: true,
+        dodging: false,
+        dodgeChance: def.dodgeChance ?? 0,
         x: def.x,
         z: def.z,
         // Looking at where the player stands.
@@ -888,6 +1026,26 @@ export class IntroSceneState implements GameState {
     this.player = player;
     this.movement = movementConfig(data.player);
     this.mover = new ArenaMover(fight.set.radius);
+
+    // The four abilities, and their looks from the same data (a fight without one never draws it).
+    const arsenal = new IntroArsenal(
+      fight.abilities,
+      this.foes,
+      fight.set.radius,
+      fight.seed ?? 0,
+      this.sword,
+    );
+    this.arsenal = arsenal;
+    const { burstDef, stormDef, projectileDef } = arsenal;
+    this.effects = new ArsenalEffects(scene, arsenal.shots.list, {
+      burstColor: burstDef ? resolveColorToken(burstDef.color) : palette.magieblauw,
+      burstRadius: burstDef?.radius ?? 1,
+      stormColor: stormDef ? resolveColorToken(stormDef.color) : palette.zonlicht,
+      stormRadius: stormDef?.boltRadius ?? 1,
+      icicleColor: projectileDef ? resolveColorToken(projectileDef.color) : terrainColors.sneeuw,
+      icicleRadius: projectileDef?.radius ?? 1,
+      icicleLength: projectileDef?.length ?? 1,
+    });
 
     // Sultan (the cat) can be played by Pringle's real model once it has loaded.
     this.animated = new AnimatedModels(data.npcs.roles, assetUrl, null);
