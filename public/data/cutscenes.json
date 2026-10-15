@@ -1868,7 +1868,8 @@
           "height": 3.44,
           "color": "spreukviolet",
           "accent": "zonlicht",
-          "radius": 0.8
+          "radius": 0.8,
+          "dodgeChance": 0.75
         },
         {
           "id": "baelor",
@@ -1878,7 +1879,44 @@
           "height": 3.55,
           "color": "nachtinkt",
           "accent": "ornamentgoud",
-          "radius": 0.85
+          "radius": 0.85,
+          "dodgeChance": 0.35
+        }
+      ],
+      "abilities": [
+        { "id": "strike", "action": "attack", "kind": "melee" },
+        {
+          "id": "explosion",
+          "action": "heavy",
+          "kind": "burst",
+          "radius": 4.5,
+          "cooldownSeconds": 2.5,
+          "color": "magieblauw",
+          "label": "intro.ability.explosion"
+        },
+        {
+          "id": "thunder",
+          "action": "potion",
+          "kind": "storm",
+          "bolts": 7,
+          "boltRadius": 1.3,
+          "strikeSeconds": 1.1,
+          "hitChance": 0.25,
+          "cooldownSeconds": 7,
+          "color": "zonlicht",
+          "label": "intro.ability.thunder"
+        },
+        {
+          "id": "icicle",
+          "action": "lock",
+          "kind": "projectile",
+          "speed": 22,
+          "radius": 0.5,
+          "length": 2.4,
+          "range": 40,
+          "cooldownSeconds": 1.6,
+          "color": "sneeuw",
+          "label": "intro.ability.icicle"
         }
       ],
       "seed": 7,

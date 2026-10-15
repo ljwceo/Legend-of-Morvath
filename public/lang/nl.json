@@ -204,10 +204,15 @@
     "panel_5": "Weinigen stonden tegenover de Lords of Morvath en leefden nog.",
     "panel_6": "Je wordt wakker in het Monastery van Greyhaven. Hier begint je reis.",
     "tapToContinue": "Tik of druk op spatie om verder te gaan",
+    "ability": {
+      "explosion": "Explosie",
+      "thunder": "Donder",
+      "icicle": "IJspegel"
+    },
     "fight": {
       "arrive": "Kijk eens, broer. Bezoek!",
-      "hint": "Val ze aan! {keyAttack} = slaan, {keyHeavy} = zware slag.",
-      "hintTouch": "Val ze aan! Tik op Slaan of Zwaar.",
+      "hint": "Val ze aan! {keyAttack} = slaan, {keyHeavy} = explosie, {keyPotion} = donder, {keyLock} = ijspegel.",
+      "hintTouch": "Tik op Slaan, Explosie, Donder of IJspegel.",
       "tickle": "Raakte er nou iets… mij aan?",
       "behind": "Psst. Hier.",
       "freeze": "De tijd buigt voor ons. Niet voor jou.",

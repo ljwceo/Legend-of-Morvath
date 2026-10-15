@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { cutscenesFileSchema } from '../data/schemas';
+import type { CutscenesFile } from '../data/types';
+import { readPublicJson } from '../test/loadPublic';
 import type { FightDef } from './FightScript';
 import {
   type ArsenalFoe,
@@ -300,5 +303,36 @@ describe('IntroArsenal', () => {
       0.1: { burst: true, storm: true, bolt: true, strike: true },
     });
     expect(log).toEqual([]);
+  });
+});
+
+describe('the intro fight in cutscenes.json', () => {
+  const file = cutscenesFileSchema.parse(readPublicJson('data/cutscenes.json')) as CutscenesFile;
+  const fight = file.fights.find((entry) => entry.id === 'intro_fight') as FightDef;
+
+  it('arms the player with all four abilities on the sword, heavy, drink and lock-on keys', () => {
+    const foes = fight.foes.map((foe) => ({
+      x: foe.x,
+      z: foe.z,
+      radius: foe.radius,
+      hittable: true,
+      dodging: false,
+      dodgeChance: foe.dodgeChance ?? 0,
+    }));
+    const arsenal = new IntroArsenal(fight.abilities, foes, fight.set.radius, fight.seed ?? 0, AIM);
+    expect(arsenal.actions).toEqual({
+      strike: 'attack',
+      burst: 'heavy',
+      storm: 'potion',
+      bolt: 'lock',
+    });
+    expect(arsenal.burstDef?.label).toBe('intro.ability.explosion');
+    expect(arsenal.stormDef?.label).toBe('intro.ability.thunder');
+    expect(arsenal.projectileDef?.label).toBe('intro.ability.icicle');
+    // The balance numbers live in the data, not in the code's fallbacks.
+    expect(arsenal.stormDef?.hitChance).toBeDefined();
+    expect(arsenal.projectileDef?.range).toBeDefined();
+    // Lucael dodges most hits, Baelor some: every brother has a chance set.
+    for (const foe of fight.foes) expect(foe.dodgeChance).toBeGreaterThan(0);
   });
 });

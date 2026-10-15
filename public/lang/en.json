@@ -204,10 +204,15 @@
     "panel_5": "Few have faced the Lords of Morvath and lived.",
     "panel_6": "You wake in the Monastery of Greyhaven. Your journey begins here.",
     "tapToContinue": "Tap or press Space to continue",
+    "ability": {
+      "explosion": "Explosion",
+      "thunder": "Thunder",
+      "icicle": "Icicle"
+    },
     "fight": {
       "arrive": "Oh look, Brother. A visitor!",
-      "hint": "Attack them! {keyAttack} for a fast hit, {keyHeavy} for a heavy one.",
-      "hintTouch": "Attack them! Tap Attack or Heavy.",
+      "hint": "Attack them! {keyAttack} strikes, {keyHeavy} is an explosion, {keyPotion} calls thunder, {keyLock} fires an icicle.",
+      "hintTouch": "Tap Attack, Explosion, Thunder or Icicle.",
       "tickle": "Did something just… touch me?",
       "behind": "Psst. Over here.",
       "freeze": "Time bends to us. Not to you.",

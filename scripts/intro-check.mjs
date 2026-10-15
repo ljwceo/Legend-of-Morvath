@@ -5,9 +5,11 @@
  * It drives the real game in a headless browser through a fresh profile: English → New Game →
  * a name → the stats → Begin your journey, and then watches the intro scene go through its
  * three segments — the opening film (every shot id of `.ui-cine[data-shot]` is logged as it
- * changes), the playable fight (`.ui-fight`, with a few attacks clicked in), the film after it
- * — until the debug overlay says the save is in Greyhaven. It reports the shot ids seen, the
- * draw calls (`calls` in the overlay) during each segment, and fails on any console error.
+ * changes), the playable fight (`.ui-fight`: it walks up to the brothers and fires all four
+ * abilities on their default keys a few times), the film after it — until the debug overlay
+ * says the save is in Greyhaven. It reports the shot ids seen, the draw calls (`calls` in the
+ * overlay) during each segment and the damage texts the fight showed (at least one "0" or
+ * "Dodged!" is expected), and fails on any console error.
  *
  * Playwright is not a dependency of the game, so install it when you want to run this:
  *
@@ -37,6 +39,27 @@ const LOCAL_CHROMIUM = '/opt/pw-browsers/chromium';
  */
 const SKIP_HOLD_S = 1.5;
 const SKIP_HOLD_MAX_MS = 10_000;
+/**
+ * In the fight: walk towards the brothers this long on the game's clock (4 m/s brings the
+ * player within reach of every ability), then press the abilities' default keys (controls.json)
+ * one by one: the sword's hit (left mouse), thunder (Q), the explosion (right mouse) and the
+ * icicle (Tab).
+ */
+const WALK_S = 1.7;
+const WALK_MAX_MS = 20_000;
+const PRESS_GAP_MS = 700;
+const ABILITY_PRESSES = [
+  ['strike', 'left'],
+  ['thunder', 'KeyQ'],
+  ['explosion', 'right'],
+  ['icicle', 'Tab'],
+  ['strike', 'left'],
+  ['icicle', 'Tab'],
+  ['explosion', 'right'],
+  ['strike', 'left'],
+  ['thunder', 'KeyQ'],
+  ['icicle', 'Tab'],
+];
 /** How often (ms) the page is looked at while the intro plays. */
 const POLL_MS = 150;
 /** Seconds each segment may take before the check gives up (slow headless frames included). */
@@ -135,7 +158,8 @@ function fail(line) {
 
 /**
  * What the page shows right now: the shot of a playing film (or null), whether the fight's
- * UI is up, and the debug overlay's `calls`, `state` and `save` lines.
+ * UI is up, the damage texts on screen (by their slot in the pool) and the debug overlay's
+ * `calls`, `state` and `save` lines.
  */
 async function look(page) {
   return page.evaluate(() => {
@@ -146,9 +170,16 @@ async function look(page) {
       const match = /^(\S+)\s+(.*)$/.exec(line);
       if (match) lines.set(match[1], match[2].trim());
     }
+    const damage = [];
+    document.querySelectorAll('.ui-damage').forEach((element, index) => {
+      if (element instanceof HTMLElement && !element.hidden) {
+        damage.push([index, element.textContent ?? '']);
+      }
+    });
     return {
       shot: cine instanceof HTMLElement ? (cine.dataset.shot ?? '') : null,
       fight: fight instanceof HTMLElement && !fight.hidden,
+      damage,
       calls: Number(lines.get('calls') ?? -1),
       state: lines.get('state') ?? '',
       save: lines.get('save') ?? '',
@@ -157,6 +188,36 @@ async function look(page) {
       loading: document.querySelector('.ui-zone-loading') !== null,
     };
   });
+}
+
+/**
+ * The damage texts that appeared, counted once each: a pooled slot that shows a text it did not
+ * show at the last look is a new number (the pool is 24 deep and a number lives 0.9 s, so a
+ * slot is never reused with the same text between two looks).
+ */
+class DamageTexts {
+  /** Slot index -> the text it shows now. */
+  showing = new Map();
+  /** Text -> how often it appeared. */
+  counts = new Map();
+  add(slots) {
+    const visible = new Set();
+    for (const [index, text] of slots) {
+      visible.add(index);
+      if (this.showing.get(index) === text) continue;
+      this.showing.set(index, text);
+      this.counts.set(text, (this.counts.get(text) ?? 0) + 1);
+    }
+    for (const index of [...this.showing.keys()])
+      if (!visible.has(index)) this.showing.delete(index);
+  }
+  count(text) {
+    return this.counts.get(text) ?? 0;
+  }
+  toString() {
+    const parts = [...this.counts].map(([text, n]) => `"${text}"×${n}`);
+    return parts.length > 0 ? parts.join(', ') : 'none';
+  }
 }
 
 /** Draw calls seen during one segment: the range, for the report. */
@@ -236,36 +297,77 @@ async function clickSpot(page) {
   return { x: VIEWPORT.width * 0.8, y: VIEWPORT.height * 0.6 };
 }
 
+/** Presses one ability's default key: a mouse button on the canvas, or a key. */
+async function pressAbility(page, key) {
+  if (key === 'left' || key === 'right') {
+    const spot = await clickSpot(page);
+    await page.mouse.click(spot.x, spot.y, { button: key });
+  } else {
+    await page.keyboard.press(key);
+  }
+}
+
 /**
- * The fight: clicks attack a few times (the first click captures the mouse, the next ones
- * swing the sword) and waits for the film after it. Returns the draw calls seen.
+ * The fight: a first click captures the mouse, then the player walks up to the brothers (W,
+ * timed on the game's clock) and fires the four abilities on their keys, one every
+ * `PRESS_GAP_MS`, while the damage texts that appear are counted; then it waits for the film
+ * after the fight. Returns the draw calls and the damage texts seen.
  */
 async function playFight(page) {
   const calls = new Calls();
+  const damage = new DamageTexts();
   const deadline = Date.now() + SEGMENT_TIMEOUT_S.fight * 1000;
-  let clicks = 0;
-  let lastClick = 0;
+  let phase = 'capture';
+  let walkStartSim = NaN;
+  let walkStartWall = 0;
+  let presses = 0;
+  let lastPress = 0;
+  const letGo = () => page.keyboard.up('KeyW').catch(() => undefined);
   while (Date.now() < deadline) {
     const now = await look(page);
-    if (now.shot !== null) return { calls, ended: true };
+    if (now.shot !== null) {
+      await letGo();
+      return { calls, damage, ended: true };
+    }
     if (!now.fight) {
       if (now.state !== 'introScene') {
+        await letGo();
         fail(`the fight ended in state "${now.state}" without a second film`);
-        return { calls, ended: false };
+        return { calls, damage, ended: false };
       }
     } else {
       calls.add(now.calls);
-      if (clicks < 6 && Date.now() - lastClick > 700) {
+      damage.add(now.damage);
+      if (phase === 'capture') {
         const spot = await clickSpot(page);
         await page.mouse.click(spot.x, spot.y);
-        clicks++;
-        lastClick = Date.now();
+        phase = 'walk';
+      } else if (phase === 'walk') {
+        if (Number.isNaN(walkStartSim)) {
+          walkStartSim = now.sim;
+          walkStartWall = Date.now();
+          await page.keyboard.down('KeyW');
+        } else if (now.sim - walkStartSim >= WALK_S || Date.now() - walkStartWall > WALK_MAX_MS) {
+          await letGo();
+          say(`  fight: walked ${(now.sim - walkStartSim).toFixed(1)} s towards the brothers`);
+          phase = 'press';
+        }
+      } else if (phase === 'press' && Date.now() - lastPress > PRESS_GAP_MS) {
+        if (presses < ABILITY_PRESSES.length) {
+          const [name, key] = ABILITY_PRESSES[presses++];
+          await pressAbility(page, key);
+          lastPress = Date.now();
+          say(`  fight: ${name} (${key})`);
+        } else {
+          phase = 'wait';
+        }
       }
     }
     await page.waitForTimeout(POLL_MS);
   }
+  await letGo();
   fail(`the fight did not end within ${SEGMENT_TIMEOUT_S.fight} s`);
-  return { calls, ended: false };
+  return { calls, damage, ended: false };
 }
 
 /** Waits for the world: the save line names Greyhaven and the loading screen is gone. */
@@ -313,7 +415,12 @@ async function fullRun(page) {
   if (!fightUp) fail('the fight UI (.ui-fight) did not appear after the first film');
   else say('  fight: .ui-fight is up');
   const fight = await playFight(page);
-  say(`fight: ${fight.ended ? 'ended' : 'not ended'} · calls ${fight.calls}`);
+  say(
+    `fight: ${fight.ended ? 'ended' : 'not ended'} · calls ${fight.calls} · damage texts ${fight.damage}`,
+  );
+  if (fight.damage.count('0') + fight.damage.count('Dodged!') === 0) {
+    fail('the fight showed no "0" and no "Dodged!" (did the abilities reach the brothers?)');
+  }
 
   const film2 = await watchFilm(page, 'film 2', (now) => now.state !== 'introScene');
   say(`film 2: ${film2.shots.length} shots [${film2.shots.join(', ')}] · calls ${film2.calls}`);
