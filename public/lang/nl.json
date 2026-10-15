@@ -217,7 +217,7 @@
       "enough": "Genoeg. Laat me het eens goed bekijken.",
       "palm": "Oh, het heeft een piepklein zwaardje. Kijk, broer, het is woedend!",
       "grab": "Geef hier.",
-      "bat": "Slagman klaar!"
+      "bat": "Ik ben aan slag!"
     },
     "fight": {
       "arrive": "Kijk eens, broer. Bezoek!",
@@ -225,11 +225,11 @@
       "hintTouch": "Tik op Slaan, Explosie, Donder of IJspegel.",
       "taunt": "Nou? Toe maar. Probeer eens wat.",
       "wonder": "Wat doen we ermee?",
-      "keep": "Houden! Kijk het nou gaan.",
+      "keep": "Houden! Moet je het zien gaan.",
       "notkeep": "We houden het niet.",
       "behind": "Psst. Hier.",
       "still": "Sta stil.",
-      "name": "Het doet zo z'n best. Mogen we het dan tenminste een naam geven?",
+      "name": "Het doet zo z'n best. Mogen we het een naam geven?",
       "brother": "Broer.",
       "fine": "Goed. Goed dan! Eén keer kijken, en dan gaat het weg.",
       "freeze": "De tijd buigt voor ons. Niet voor jou."

@@ -85,7 +85,7 @@
         },
         {
           "id": "legend",
-          "seconds": 6.5,
+          "seconds": 9,
           "camera": {
             "from": {
               "x": -5.2,
@@ -120,7 +120,7 @@
               },
               "to": {
                 "x": 0,
-                "z": -30
+                "z": -32
               }
             }
           ],
@@ -128,7 +128,7 @@
         },
         {
           "id": "door",
-          "seconds": 4,
+          "seconds": 6.5,
           "camera": {
             "from": {
               "x": -2.6,
@@ -159,7 +159,7 @@
               "actor": "player",
               "from": {
                 "x": 0,
-                "z": -30
+                "z": -32
               },
               "to": {
                 "x": 0,
@@ -243,14 +243,14 @@
           "seconds": 4,
           "camera": {
             "from": {
-              "x": 1.35,
-              "y": 3.55,
-              "z": 7.3
+              "x": 1.34,
+              "y": 3.6,
+              "z": 8.5
             },
             "to": {
               "x": 1.25,
-              "y": 3.5,
-              "z": 7.0
+              "y": 3.55,
+              "z": 8.2
             },
             "lookFrom": {
               "x": 0,
@@ -263,7 +263,7 @@
               "z": -6.1
             },
             "fovFrom": 38,
-            "fovTo": 34,
+            "fovTo": 36,
             "ease": "out"
           },
           "subtitle": {
@@ -374,27 +374,22 @@
           "seconds": 5,
           "camera": {
             "from": {
-              "x": -1.4,
-              "y": 2.3,
-              "z": -4.2
+              "x": -3.9,
+              "y": 2.4,
+              "z": -5.2
             },
             "to": {
-              "x": -1.15,
-              "y": 2.2,
-              "z": -4.45
+              "x": -3.6,
+              "y": 2.4,
+              "z": -5.2
             },
             "lookFrom": {
               "x": 0,
-              "y": 1.55,
-              "z": -6
+              "y": 2.35,
+              "z": -5.2
             },
-            "lookTo": {
-              "x": 0,
-              "y": 1.5,
-              "z": -6.05
-            },
-            "fovFrom": 36,
-            "fovTo": 32,
+            "fovFrom": 50,
+            "fovTo": 48,
             "ease": "out"
           },
           "actors": [
@@ -419,26 +414,26 @@
           "speed": 0.4,
           "camera": {
             "from": {
-              "x": -4.4,
-              "y": 1.0,
-              "z": -9.6
+              "x": 7.4,
+              "y": 1.4,
+              "z": -7.2
             },
             "to": {
-              "x": -3.7,
-              "y": 1.25,
-              "z": -9.1
+              "x": 6.6,
+              "y": 1.5,
+              "z": -6.8
             },
             "lookFrom": {
-              "x": 0.9,
+              "x": 3.3,
               "y": 1.9,
-              "z": -4.6
+              "z": -4.1
             },
             "lookTo": {
-              "x": 1.6,
-              "y": 1.9,
-              "z": -4.0
+              "x": 2.6,
+              "y": 2.1,
+              "z": -3.9
             },
-            "fovFrom": 50,
+            "fovFrom": 52,
             "fovTo": 46,
             "ease": "inOut"
           },
@@ -456,6 +451,10 @@
               "lookAt": "player",
               "ownTime": true,
               "ease": "inOut"
+            },
+            {
+              "actor": "lucael",
+              "wobble": 6
             }
           ],
           "subtitle": {
@@ -668,22 +667,22 @@
           "seconds": 4,
           "camera": {
             "from": {
-              "x": 0.5,
-              "y": 3.0,
-              "z": 1.0
+              "x": 0.4,
+              "y": 2.9,
+              "z": -0.6
             },
             "to": {
               "x": 0.25,
-              "y": 3.0,
-              "z": 1.5
+              "y": 2.9,
+              "z": -0.1
             },
             "lookFrom": {
               "x": 0,
-              "y": 3.05,
+              "y": 3.0,
               "z": 5.3
             },
-            "fovFrom": 40,
-            "fovTo": 36,
+            "fovFrom": 44,
+            "fovTo": 40,
             "ease": "inOut"
           },
           "actors": [
@@ -742,14 +741,14 @@
           "seconds": 3,
           "camera": {
             "from": {
-              "x": -2.93,
-              "y": 3.5,
-              "z": 6.33
+              "x": -3.46,
+              "y": 3.7,
+              "z": 7.42
             },
             "to": {
-              "x": -2.8,
-              "y": 3.45,
-              "z": 6.0
+              "x": -3.3,
+              "y": 3.65,
+              "z": 7.1
             },
             "lookFrom": {
               "x": 0,
@@ -871,10 +870,6 @@
           },
           "actors": [
             {
-              "actor": "lucael",
-              "wobble": 6
-            },
-            {
               "actor": "player",
               "lookAt": "lucael"
             }
@@ -905,7 +900,7 @@
             },
             "lookTo": {
               "x": 0,
-              "y": 2.95,
+              "y": 2.75,
               "z": 4.3
             },
             "fovFrom": 44,
@@ -925,7 +920,7 @@
                 "z": 4.3
               },
               "liftFrom": 2.62,
-              "liftTo": 3.0,
+              "liftTo": 2.7,
               "scaleFrom": 0.3,
               "scaleTo": 1.1,
               "opacityFrom": 0,
@@ -943,7 +938,7 @@
                 "z": 4.3
               },
               "liftFrom": 2.62,
-              "liftTo": 3.0,
+              "liftTo": 2.7,
               "rollFrom": 0,
               "rollTo": 360,
               "ease": "inOut"
@@ -954,7 +949,7 @@
             },
             {
               "actor": "lucael",
-              "lookAt": "player"
+              "heading": 163
             }
           ],
           "subtitle": {
@@ -964,7 +959,7 @@
         },
         {
           "id": "bat",
-          "seconds": 0.9,
+          "seconds": 0.75,
           "speed": 0.3,
           "camera": {
             "from": {
@@ -979,12 +974,12 @@
             },
             "lookFrom": {
               "x": -0.5,
-              "y": 2.9,
+              "y": 2.7,
               "z": 4.6
             },
             "lookTo": {
               "x": -0.3,
-              "y": 2.95,
+              "y": 2.72,
               "z": 4.5
             },
             "fovFrom": 46,
@@ -997,15 +992,15 @@
               "visible": true,
               "from": {
                 "x": -0.86,
-                "z": 4.6
+                "z": 4.52
               },
-              "liftFrom": 3.05,
+              "liftFrom": 2.68,
               "headingFrom": 260,
-              "headingTo": 75
+              "headingTo": 104
             },
             {
               "actor": "lucael",
-              "lookAt": "player"
+              "heading": 163
             }
           ],
           "subtitle": {
@@ -1020,7 +1015,7 @@
         {
           "id": "whack",
           "seconds": 1.6,
-          "flash": 1,
+          "flash": 0.35,
           "shake": 0.8,
           "camera": {
             "from": {
@@ -1050,14 +1045,31 @@
                 "x": 0,
                 "z": 190
               },
-              "liftFrom": 3.0,
+              "liftFrom": 2.7,
               "liftTo": 40,
               "rollFrom": 0,
               "rollTo": 1080
             },
             {
               "actor": "spark",
-              "visible": false
+              "from": {
+                "x": 0,
+                "z": 4.3
+              },
+              "to": {
+                "x": 0,
+                "z": 190
+              },
+              "liftFrom": 2.7,
+              "liftTo": 40,
+              "scaleFrom": 1.1,
+              "scaleTo": 3
+            },
+            {
+              "actor": "bat",
+              "headingFrom": 104,
+              "headingTo": 60,
+              "ease": "out"
             }
           ]
         },
@@ -1088,7 +1100,13 @@
             "fovFrom": 72,
             "fovTo": 58,
             "ease": "inOut"
-          }
+          },
+          "actors": [
+            {
+              "actor": "spark",
+              "visible": false
+            }
+          ]
         },
         {
           "id": "fall",
@@ -1146,8 +1164,8 @@
               "actor": "sultan",
               "visible": true,
               "from": {
-                "x": 6.6,
-                "z": 208.6
+                "x": -4.8,
+                "z": 211.2
               },
               "to": {
                 "x": -0.9,
@@ -1169,27 +1187,27 @@
           "seconds": 2,
           "camera": {
             "from": {
-              "x": -1.47,
-              "y": 0.3,
-              "z": 199.83
+              "x": -2.35,
+              "y": 0.48,
+              "z": 200.55
             },
             "to": {
-              "x": -1.4,
-              "y": 0.32,
-              "z": 199.95
+              "x": -2.3,
+              "y": 0.45,
+              "z": 200.6
             },
             "lookFrom": {
-              "x": -0.78,
-              "y": 0.45,
-              "z": 201.82
+              "x": -0.85,
+              "y": 0.42,
+              "z": 201.9
             },
             "lookTo": {
-              "x": -0.8,
+              "x": -0.85,
               "y": 0.4,
-              "z": 201.75
+              "z": 201.9
             },
-            "fovFrom": 34,
-            "fovTo": 32,
+            "fovFrom": 36,
+            "fovTo": 34,
             "ease": "out"
           },
           "actors": [
@@ -3070,8 +3088,8 @@
           },
           {
             "kind": "rock",
-            "x": -7,
-            "z": 196,
+            "x": -3.5,
+            "z": 204.5,
             "scale": 1.1,
             "headingDegrees": 70,
             "color": "lavasteen"
@@ -3179,7 +3197,7 @@
               "type": "hint",
               "text": "intro.fight.hint",
               "delay": 1,
-              "seconds": 6
+              "seconds": 9
             }
           ]
         },
@@ -3313,10 +3331,14 @@
           "startAfterSeconds": 1.5,
           "actions": [
             {
+              "type": "teleportHome",
+              "foe": "lucael"
+            },
+            {
               "type": "say",
               "foe": "baelor",
               "text": "intro.baelor",
-              "seconds": 4.5
+              "seconds": 6
             }
           ]
         },
