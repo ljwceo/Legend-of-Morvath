@@ -3,6 +3,7 @@ import { playerFileSchema, spellsFileSchema } from '../data/schemas';
 import type { PlayerConfig, SpellsFile } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
 import { applyStats, CombatState } from './Combat';
+import { MIN_SHOWN_COOLDOWN } from './Readiness';
 import {
   affordableCharge,
   chargedManaCost,
@@ -325,9 +326,15 @@ describe('readiness (the HUD chips and the touch buttons)', () => {
       1 - state.spellCooldown / fireball.cooldownSeconds,
       9,
     );
-    // Both at their start: the spell is at 0, however short the recovery is.
+    // The staff's own recovery (0.35 s) is too short to draw (MIN_SHOWN_COOLDOWN): the Shard
+    // reads ready, the spell follows its own cooldown.
     state.cooldown = state.cooldownTotal = 0.35;
     state.spellCooldown = state.spellCooldownTotal = 1.5;
+    expect(staffReadiness(state, 'shard')).toBe(1);
+    expect(staffReadiness(state, 'spell')).toBe(0);
+    // A staff cooldown long enough to draw holds both at 0; once it is over the spell still
+    // waits for its own.
+    state.cooldown = state.cooldownTotal = MIN_SHOWN_COOLDOWN;
     expect(staffReadiness(state, 'shard')).toBe(0);
     expect(staffReadiness(state, 'spell')).toBe(0);
     state.cooldown = 0;

@@ -27,9 +27,11 @@ class HudPart {
  * - zone name banner when entering a zone (top center),
  * - messages: first-visit texts, checkpoint, blocked gate, ... (one at a time, queued),
  * - HP / mana / energy / XP bars (top left) and gold (top right), following the HUD rules,
- * - the interaction icon above the nearest object you can use (tap it on a phone).
- * Everything sits at the top of the screen, so it never covers the joystick or the buttons
- * (their safe zones are the lower corners). Times come from player.json `hud`.
+ * - the interaction icon above the nearest object you can use (tap it on a phone),
+ * - the ability chips (which abilities are ready again), bottom centre, only on a computer.
+ * Everything else sits at the top of the screen, so it never covers the joystick or the
+ * buttons (their safe zones are the lower corners); the chips are left off a touch screen,
+ * where the buttons draw the readiness themselves. Times come from player.json `hud`.
  */
 /** Seconds the red edge glow stays on after a hit (then it fades out). */
 const HURT_SECONDS = 0.12;
@@ -102,12 +104,13 @@ export class HUD {
   private pendingItem: { card: HTMLElement; name: string; seconds: number } | null = null;
   /**
    * Which abilities are ready again (a staff's Shard and spell): shown while fighting or
-   * while one is still cooling, then it lingers like the bars and fades.
+   * while one is still cooling, then it lingers like the bars and fades; hidden under a
+   * dialogue window, which opens on the same spot (HudRules.setAbilities).
    */
   private readonly abilityBar = new AbilityBar();
   private readonly abilities: HudPart;
   private abilitiesInCombat = false;
-  private abilitiesActive = false;
+  private abilitiesCovered = false;
 
   constructor(
     private readonly cfg: HudConfig,
@@ -219,6 +222,7 @@ export class HUD {
       energy: bars.energy.visibility,
       xp: bars.xp.visibility,
       gold: this.gold.visibility,
+      abilities: this.abilities.visibility,
     };
     this.rules = new HudRules(visibility, cfg, lowHpFraction);
   }
@@ -401,6 +405,11 @@ export class HUD {
     this.abilitiesInCombat = fighting;
   }
 
+  /** A dialogue window is open on the chips' spot: they hide until it is closed. */
+  setAbilitiesCovered(covered: boolean): void {
+    this.abilitiesCovered = covered;
+  }
+
   /** Call every rendered frame with real seconds (fades and timers are fps-independent). */
   update(seconds: number): void {
     this.hiddenBy.update(seconds);
@@ -440,23 +449,13 @@ export class HUD {
     this.abilityBar.dispose();
   }
 
-  /**
-   * The ability chips show while fighting or while one still cools down; once both are over
-   * they linger as long as the bars do (`barLingerSeconds`) and fade.
-   */
+  /** The chips' reasons come from the HUD rules: fighting or cooling, a linger, a dialogue. */
   private updateAbilities(seconds: number): void {
-    const active = this.abilitiesInCombat || this.abilityBar.anyCooling;
-    if (active !== this.abilitiesActive) {
-      this.abilitiesActive = active;
-      const visibility = this.abilities.visibility;
-      if (active) {
-        visibility.hide('linger');
-        visibility.show('active');
-      } else {
-        visibility.hide('active');
-        visibility.show('linger', this.cfg.barLingerSeconds);
-      }
-    }
+    this.rules.setAbilities(
+      this.abilitiesInCombat,
+      this.abilityBar.anyCooling,
+      this.abilitiesCovered,
+    );
     this.abilities.update(seconds);
   }
 

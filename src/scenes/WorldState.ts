@@ -1975,6 +1975,9 @@ export class WorldState implements GameState, InstanceHost {
       hud.rules.setCombat(fighting);
       hud.setAbilitiesInCombat(fighting);
     }
+    // The dialogue window opens where the ability chips sit (talking to an NPC right after a
+    // fight, or while a spell still cools): the chips hide until it is closed.
+    hud.setAbilitiesCovered(this.dialog?.isOpen ?? false);
     hud.setBar('hp', c.maxHp > 0 ? c.hp / c.maxHp : 0);
     hud.setBar('mana', c.maxMana > 0 ? c.mana / c.maxMana : 0);
     hud.rules.setHpFraction(c.maxHp > 0 ? c.hp / c.maxHp : 1);

@@ -106,13 +106,11 @@ export class AbilityBar {
     this.coolingCount = 0;
   }
 
-  /** Plays the "ready" pulse, starting over if the last one is still running (a fast Shard). */
+  /**
+   * Plays the "ready" pulse. One that is still running finishes first: starting it over would
+   * take a forced reflow every time, and `animationend` takes the class off again by itself.
+   */
   private pulse(element: HTMLElement): void {
-    if (element.classList.contains('ui-ability-pulse')) {
-      element.classList.remove('ui-ability-pulse');
-      // A reflow between taking the class off and putting it back restarts the animation.
-      void element.offsetWidth;
-    }
     element.classList.add('ui-ability-pulse');
   }
 }

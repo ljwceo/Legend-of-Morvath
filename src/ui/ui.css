@@ -512,6 +512,8 @@
  * How ready the ability on a button is (Bo, 2026-10-15): while it cools down, the part of
  * the ring still to come is darkened, clockwise from the top; `--ready` (0–1) comes from
  * TouchControls.setReadiness. At 1 nothing is drawn, so the button looks as it always did.
+ * The mask cuts the middle out of the disc, so the label and the potion count under it stay
+ * legible (only the mask colour's opacity counts, not the colour).
  */
 .ui-touch-button::after {
   content: '';
@@ -522,6 +524,8 @@
     transparent calc(var(--ready, 1) * 360deg),
     color-mix(in srgb, var(--gh-nachtinkt) 62%, transparent) 0
   );
+  -webkit-mask: radial-gradient(circle closest-side, transparent 76%, black 78%);
+  mask: radial-gradient(circle closest-side, transparent 76%, black 78%);
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.25s ease;
@@ -575,7 +579,8 @@
 
 /*
  * Everything sits at the top of the screen: never in the joystick zone (lower left) or the
- * button zone (lower right). Only the interaction icon can be tapped.
+ * button zone (lower right). The one exception is the row of ability chips, bottom centre
+ * and only on a computer (.ui-ability-bar). Only the interaction icon can be tapped.
  */
 .ui-layer > .ui-hud {
   position: absolute;
@@ -717,12 +722,14 @@
  * bottom with `--ready` (0–1, from AbilityBar.setReadiness); the chip is dimmed meanwhile
  * and bright with a gold edge once ready, with a short pulse at that moment. Only on a
  * computer: on a phone the touch buttons show it. In the world it is a HUD part (it fades
- * like the bars); in the intro fight it is always there.
+ * like the bars, and hides under the dialogue window); in the intro fight it is always there.
+ * The room under it is for the spoken lines (.ui-fight-subtitle, 108px with a name and two
+ * lines of text): a third line still fits, with a small gap.
  */
 .ui-ability-bar {
   position: absolute;
   left: 50%;
-  bottom: calc(max(28px, calc(env(safe-area-inset-bottom) + 16px)) + 108px);
+  bottom: calc(max(28px, calc(env(safe-area-inset-bottom) + 16px)) + 136px);
   display: flex;
   gap: 10px;
   transform: translateX(-50%);
