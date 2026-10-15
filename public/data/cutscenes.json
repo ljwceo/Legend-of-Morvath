@@ -1600,11 +1600,16 @@
   "fights": [
     {
       "id": "intro_fight",
-      "arena": {
+      "set": {
         "radius": 18,
-        "groundColor": "verdorven",
+        "floorColor": "verdorven",
         "fogColor": "schemerviolet",
-        "spikes": 28
+        "fogNear": 10.8,
+        "fogFar": 46.8,
+        "skyLight": "mistpaars",
+        "groundLight": "nachtinkt",
+        "sunColor": "spreukviolet",
+        "props": [{ "kind": "spikes", "x": 0, "z": 0, "radius": 18, "count": 28, "seed": 7 }]
       },
       "player": {
         "x": 0,

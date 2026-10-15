@@ -1644,18 +1644,48 @@ export const combosFileSchema = z.strictObject({
   ),
 });
 
+// ---------------------------------------------------------------- controls (shared)
+
+/**
+ * Actions the player can bind to a key or mouse button (`src/core/Bindings.ts` turns these into
+ * the mapping). `down` only matters while flying in debug mode. Defined here because both
+ * controls.json and the abilities of a scripted fight (cutscenes.json) use it.
+ */
+export const CONTROL_ACTIONS = [
+  'moveForward',
+  'moveBack',
+  'moveLeft',
+  'moveRight',
+  'attack',
+  'heavy',
+  'dash',
+  'interact',
+  'potion',
+  'bag',
+  'status',
+  'lock',
+  'lockSwitch',
+  'confirm',
+  'close',
+  'down',
+] as const;
+export type ControlAction = (typeof CONTROL_ACTIONS)[number];
+
 // ---------------------------------------------------------------- cutscenes.json
 
 /**
  * What a cinematic actor looks like: `player` is your own character (player.glb in Greyhaven,
- * with your colors and gear), `fx:smoke` a cloud of purple smoke, `fx:slash` a streak of light
- * behind a sword, `fx:bolt` a spell flying, `fx:glow` a glowing crystal, `fx:eyes` two golden
- * eyes in the dark, `fx:splinters` a burst of wood (its `scale` is how far it flew: 0 → 1),
- * `prop:barrel` and `prop:plank` simple wooden props; the rest are NPC placeholder models
- * (NpcFactory). Real glTF models replace the placeholders later.
+ * with your colors and gear), `fight` an object the hosting scene owns, found by the actor's id
+ * (a foe of the cutscene's `fight`: Lucael, Baelor), `fx:smoke` a cloud of purple smoke,
+ * `fx:slash` a streak of light behind a sword, `fx:bolt` a spell flying, `fx:glow` a glowing
+ * crystal, `fx:eyes` two golden eyes in the dark, `fx:splinters` a burst of wood (its `scale`
+ * is how far it flew: 0 → 1), `prop:barrel`, `prop:plank` and `prop:bat` (a baseball bat)
+ * simple wooden props; the rest are NPC placeholder models (NpcFactory). Real glTF models
+ * replace the placeholders later.
  */
 export const CINEMATIC_MODELS = [
   'player',
+  'fight',
   'fx:smoke',
   'fx:slash',
   'fx:bolt',
@@ -1664,6 +1694,7 @@ export const CINEMATIC_MODELS = [
   'fx:splinters',
   'prop:barrel',
   'prop:plank',
+  'prop:bat',
   'placeholder:cat',
   'placeholder:catman',
 ] as const;
@@ -1720,6 +1751,26 @@ const cinematicActorMove = z.strictObject({
   wobble: optional(range(0, 90)),
   /** The player: how the weapon is held (`fast` = the slash, `cast` = the staff raised). */
   pose: optional(z.enum(CINEMATIC_WEAPON_POSES)),
+  /**
+   * A teleport flicker (Lucael skittering about): the shot is cut into as many equal parts as
+   * there are points, and in part k the actor simply stands at point k (no walking), facing
+   * `lookAt` if given, otherwise as before. For the last 8 % of every part it is invisible, so
+   * it blinks out before it appears at the next point. `from` / `to` are not used together with
+   * `hops`; after the shot the actor stays at the last point.
+   */
+  hops: optional(z.array(pointSchema).check(z.minLength(2), z.maxLength(12))),
+  /**
+   * Turns from `headingFrom` to `headingTo` (degrees, 0 = +z) over the shot, eased like the
+   * rest of the move. When set they win over `heading` and `lookAt` (the swing of a bat).
+   */
+  headingFrom: optional(range(-720, 720)),
+  headingTo: optional(range(-720, 720)),
+  /**
+   * In a slow-motion shot (`speed` < 1) this actor keeps its own time: its move runs on wall
+   * time instead of the slowed action time, so it moves at normal speed while everything else
+   * crawls (Baelor, who controls time). No effect when `speed` is 1.
+   */
+  ownTime: optional(z.boolean()),
   ease,
 });
 
@@ -1731,6 +1782,8 @@ const cinematicShot = z.strictObject({
   actors: optional(z.array(cinematicActorMove)),
   /** A spoken line at the bottom for the whole shot (the speaker's name stays English). */
   subtitle: optional(z.strictObject({ speaker: name, text: textKey })),
+  /** Story text without a speaker, centred under the top bar for the whole shot. */
+  narration: optional(textKey),
   /** Darkness 0–1 (nachtinkt over the picture), from → to over `seconds` (default: the shot). */
   fade: optional(
     z.strictObject({ from: fraction, to: fraction, seconds: optional(max(positive, 30)) }),
@@ -1753,6 +1806,89 @@ const cinematicShot = z.strictObject({
   /** All sound falls away during this shot (a hook: there is no audio yet). */
   silence: optional(z.boolean()),
 });
+
+/**
+ * One piece of scenery on a fight's set, at (x, z) and `y` m above the floor: `floor` (a
+ * round patch of ground in `color`, `radius` m), `door` (the mist door), `bookshelf`, `chair`,
+ * `spikes` (`count` dead crystal spikes scattered within `radius`, always the same from `seed`)
+ * and `rock`. `headingDegrees` turns it, `rollDegrees` tips it over (a chair on the ceiling:
+ * 180), `scale` sizes it; `drift` makes it float: it bobs `bob` m up and down every `seconds`
+ * and turns `spin` degrees per second.
+ */
+const fightSetProp = z.strictObject({
+  kind: z.enum(['floor', 'door', 'bookshelf', 'chair', 'spikes', 'rock']),
+  x: coord,
+  z: coord,
+  y: optional(range(-5, 60)),
+  headingDegrees: optional(range(-360, 360)),
+  rollDegrees: optional(range(-360, 360)),
+  scale: optional(max(positive, 20)),
+  /** `floor` and `rock`. */
+  color: optional(colorToken),
+  /** `floor` and `spikes`. */
+  radius: optional(max(positive, 200)),
+  /** `spikes`. */
+  count: optional(intRange(1, 400)),
+  seed: optional(intRange(0, 1_000_000_000)),
+  drift: optional(
+    z.strictObject({ bob: range(0, 5), spin: range(-360, 360), seconds: range(0.5, 60) }),
+  ),
+});
+
+/**
+ * The set of a fight: a round floor of `radius` m (the player stays inside it) in `floorColor`,
+ * fog from `fogNear` to `fogFar` m in `fogColor` (also the sky), the light from above and
+ * below (`skyLight`, `groundLight`) and the sun, plus the scenery.
+ */
+const fightSet = z.strictObject({
+  radius: max(positive, 200),
+  floorColor: colorToken,
+  fogColor: colorToken,
+  fogNear: max(positive, 1000),
+  fogFar: max(positive, 1000),
+  skyLight: colorToken,
+  groundLight: colorToken,
+  sunColor: colorToken,
+  props: z.array(fightSetProp),
+});
+
+/** Every ability: which key / touch button (`action`, an id in controls.json) fires it. */
+const fightAbilityBase = { id, action: z.enum(CONTROL_ACTIONS) };
+/** A big ability: its color, its cooldown and the label on its touch button. */
+const fightFlashyAbility = {
+  ...fightAbilityBase,
+  cooldownSeconds: max(positive, 30),
+  color: colorToken,
+  label: textKey,
+};
+
+/**
+ * What the player can do in a scripted fight: `melee` is the sword's hit, `burst` an explosion
+ * around the player (`radius` m), `storm` lightning: `bolts` strikes within `strikeSeconds`,
+ * each hitting a foe within `boltRadius` m (a strike near a foe is kept with `hitChance`,
+ * otherwise it is moved: most miss), `projectile` an icicle (`length` m long, `radius` m thick)
+ * flying along the player's heading at `speed` m/s for up to `range` m.
+ */
+const fightAbility = z.discriminatedUnion('kind', [
+  z.strictObject({ ...fightAbilityBase, kind: z.literal('melee') }),
+  z.strictObject({ ...fightFlashyAbility, kind: z.literal('burst'), radius: max(positive, 20) }),
+  z.strictObject({
+    ...fightFlashyAbility,
+    kind: z.literal('storm'),
+    bolts: intRange(1, 24),
+    boltRadius: max(positive, 10),
+    strikeSeconds: max(positive, 10),
+    hitChance: fraction,
+  }),
+  z.strictObject({
+    ...fightFlashyAbility,
+    kind: z.literal('projectile'),
+    speed: max(positive, 100),
+    radius: max(positive, 5),
+    length: max(positive, 10),
+    range: max(positive, 200),
+  }),
+]);
 
 export const cutscenesFileSchema = z.strictObject({
   /** How every cinematic looks and feels (`type: "cinematic"`). */
@@ -1778,6 +1914,14 @@ export const cutscenesFileSchema = z.strictObject({
       playOnce: optional(z.boolean()),
       /** Cinematic: the camera's heights (`y`) are measured from the ground here. */
       anchor: optional(pointSchema),
+      /**
+       * Cinematic: it plays on the set of this fight (an id in `fights`) in a scene of its own
+       * instead of the world (no `anchor`: the set's floor is the ground), and after its shots
+       * the fight itself plays.
+       */
+      fight: optional(id),
+      /** Cinematic with `fight`: the cinematic that follows the fight (on the same `fight`). */
+      afterFight: optional(id),
       /** Cinematic: who plays in it (placed and moved by the shots). */
       actors: optional(
         z.array(
@@ -1835,13 +1979,8 @@ export const cutscenesFileSchema = z.strictObject({
   fights: z.array(
     z.strictObject({
       id,
-      arena: z.strictObject({
-        radius: max(positive, 200),
-        groundColor: colorToken,
-        fogColor: colorToken,
-        /** Dead crystal spikes scattered around the edge (decoration). */
-        spikes: intRange(0, 200),
-      }),
+      /** The scenery the fight (and the cinematics on it) plays in: its own small scene. */
+      set: fightSet,
       player: z.strictObject({ x: coord, z: coord }),
       foes: atLeast(
         z.array(
@@ -1855,9 +1994,15 @@ export const cutscenesFileSchema = z.strictObject({
             color: colorToken,
             accent: colorToken,
             radius: max(positive, 5),
+            /** 0–1: how often a hit on this foe is a dodge instead (it blinks aside). */
+            dodgeChance: optional(fraction),
           }),
         ),
       ),
+      /** What the player can do in this fight (keys / touch buttons by `action`). */
+      abilities: optional(z.array(fightAbility)),
+      /** Seed for everything random in the fight (dodges, where lightning strikes). */
+      seed: optional(intRange(0, 1_000_000_000)),
       beats: atLeast(
         z.array(
           z.strictObject({
@@ -1867,6 +2012,10 @@ export const cutscenesFileSchema = z.strictObject({
             actions: atLeast(
               z.array(
                 z.strictObject({
+                  /**
+                   * `blink`: the foe teleports to a random free spot (with the purple puff);
+                   * `end`: the fight ends now (on to the cutscene's `afterFight`).
+                   */
                   type: z.enum([
                     'say',
                     'hint',
@@ -1875,6 +2024,8 @@ export const cutscenesFileSchema = z.strictObject({
                     'freezeTime',
                     'levitate',
                     'spell',
+                    'blink',
+                    'end',
                   ]),
                   /** Who does it (an id in `foes`); not for `hint`. */
                   foe: optional(id),
@@ -1947,30 +2098,6 @@ export const dayNightFileSchema = z.strictObject({
     minGlow: range(0, 5),
   }),
 });
-
-/**
- * Actions the player can bind to a key or mouse button (`src/core/Bindings.ts` turns these into
- * the mapping). `down` only matters while flying in debug mode.
- */
-export const CONTROL_ACTIONS = [
-  'moveForward',
-  'moveBack',
-  'moveLeft',
-  'moveRight',
-  'attack',
-  'heavy',
-  'dash',
-  'interact',
-  'potion',
-  'bag',
-  'status',
-  'lock',
-  'lockSwitch',
-  'confirm',
-  'close',
-  'down',
-] as const;
-export type ControlAction = (typeof CONTROL_ACTIONS)[number];
 
 /** A `KeyboardEvent.code` (KeyW, Space, ArrowUp, ...) or a mouse button (Mouse0 - Mouse4). */
 const bindingCode = z

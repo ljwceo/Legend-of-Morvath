@@ -543,11 +543,11 @@ export class IntroFightState implements GameState {
   }
 
   private buildScene(data: GameData, fight: FightDef): void {
-    const arena = fight.arena;
+    const arena = fight.set;
     const fogColor = resolveColorToken(arena.fogColor);
     const scene = new Scene();
     scene.background = new Color(fogColor);
-    scene.fog = new Fog(fogColor, arena.radius * 0.6, arena.radius * 2.6);
+    scene.fog = new Fog(fogColor, arena.fogNear, arena.fogFar);
     scene.add(new HemisphereLight(palette.mistpaars, palette.nachtinkt, 1.6));
     const sun = new DirectionalLight(palette.spreukviolet, 1.6);
     sun.position.set(-3, 5, 2);
@@ -555,27 +555,30 @@ export class IntroFightState implements GameState {
 
     const ground = new Mesh(
       new CircleGeometry(arena.radius * 3, 48),
-      new MeshLambertMaterial({ color: resolveColorToken(arena.groundColor) }),
+      new MeshLambertMaterial({ color: resolveColorToken(arena.floorColor) }),
     );
     ground.rotation.x = -Math.PI / 2;
     scene.add(ground);
 
     // Dead crystal spikes around the edge (always the same, from a fixed seed).
-    if (arena.spikes > 0) {
+    const spikeProp = arena.props.find((prop) => prop.kind === 'spikes');
+    const spikeCount = spikeProp?.count ?? 0;
+    if (spikeProp && spikeCount > 0) {
       const spikes = new InstancedMesh(
         new ConeGeometry(0.35, 2.2, 5),
         new MeshLambertMaterial({ color: palette.schemerviolet }),
-        arena.spikes,
+        spikeCount,
       );
-      const random = new Random(7);
+      const random = new Random(spikeProp.seed ?? 0);
+      const spikeRadius = spikeProp.radius ?? arena.radius;
       const matrix = new Matrix4();
       const rotation = new Quaternion();
       const position = new Vector3();
       const scale = new Vector3();
       const axis = new Vector3(0, 0, 1);
-      for (let i = 0; i < arena.spikes; i++) {
+      for (let i = 0; i < spikeCount; i++) {
         const angle = random.next() * Math.PI * 2;
-        const distance = arena.radius * (0.95 + random.next() * 0.5);
+        const distance = spikeRadius * (0.95 + random.next() * 0.5);
         const size = 0.6 + random.next() * 1.4;
         rotation.setFromAxisAngle(
           axis.set(random.next() - 0.5, 0, random.next() - 0.5).normalize(),
