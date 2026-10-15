@@ -195,6 +195,8 @@ function onMeasured(result: PerfResult): void {
 function updateDebugLines(): void {
   const lines = debugOverlay.lines;
   lines.set('lang', i18n.language);
+  // Which deploy this is (the commit on GitHub Pages): tells an old cached page from a new one.
+  lines.set('build', __BUILD_ID__);
   const seasons = ctx.seasons;
   if (seasons) {
     const ms = seasons.msUntilNext();
