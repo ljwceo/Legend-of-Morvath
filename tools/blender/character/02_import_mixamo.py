@@ -733,9 +733,12 @@ def main(mix_dir, src_blend, out_blend):
         raise RuntimeError('Mixamo folder not found: ' + mix_dir)
     if not os.path.isfile(src_blend):
         raise RuntimeError('source .blend not found: ' + src_blend)
-    if os.path.abspath(src_blend) == os.path.abspath(out_blend):
+    if same_file(src_blend, out_blend):
         raise RuntimeError('the output must not be the source .blend')
     os.makedirs(os.path.dirname(out_blend) or '.', exist_ok=True)
+    stale = os.path.join(mix_dir, 'clips.json')
+    if os.path.exists(stale):
+        os.remove(stale)  # a failed run must not leave the previous report behind
     clear_scene()
     scene = bpy.context.scene
     scene.render.fps = FPS
@@ -913,6 +916,13 @@ def main(mix_dir, src_blend, out_blend):
     P('DONE')
 
 
+def same_file(a, b):
+    """True when both paths name the same file (case, 8.3 names and links do not fool it)."""
+    if os.path.normcase(os.path.realpath(a)) == os.path.normcase(os.path.realpath(b)):
+        return True
+    return os.path.exists(a) and os.path.exists(b) and os.path.samefile(a, b)
+
+
 def paths_from_blender():
     src = bpy.data.filepath
     if not src:
@@ -921,9 +931,23 @@ def paths_from_blender():
     return mix, src, os.path.join(os.path.dirname(src), OUTPUT_NAME)
 
 
+def log_folder(mix, src):
+    """Where log_import.txt goes: the Mixamo folder, else next to the source, else the temp folder."""
+    import tempfile
+    if os.path.isdir(mix):
+        return mix
+    if os.path.isfile(src):
+        return os.path.dirname(src)
+    return tempfile.gettempdir()
+
+
 def relaunch_headless(mix, src, out):
     """From the Scripting tab: run this script in a second, windowless Blender and report back."""
     import subprocess, tempfile
+    if not os.path.isdir(mix):
+        tell('Mixamo folder not found', [mix, 'Set MIXAMO_DIR at the top of the script, or put the',
+                                        'folder "Mixamo" next to the .blend file.'], 'ERROR')
+        raise RuntimeError('Mixamo folder not found: ' + mix)
     script = None
     space = getattr(bpy.context, 'space_data', None)
     text = getattr(space, 'text', None) if space is not None and space.type == 'TEXT_EDITOR' else None
@@ -966,15 +990,14 @@ ARGS = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 if not bpy.app.background:
     relaunch_headless(*paths_from_blender())
 else:
-    if ARGS:
-        MIX = os.path.abspath(ARGS[0])
-        SRC = os.path.abspath(ARGS[1]) if len(ARGS) > 1 else paths_from_blender()[1]
-        OUT = os.path.abspath(ARGS[2]) if len(ARGS) > 2 else os.path.join(os.path.dirname(SRC), OUTPUT_NAME)
-    else:
-        MIX, SRC, OUT = paths_from_blender()
-    if os.path.isdir(MIX):
-        open_log(os.path.join(MIX, 'log_import.txt'))
     try:
+        if ARGS:
+            MIX = os.path.abspath(ARGS[0])
+            SRC = os.path.abspath(ARGS[1]) if len(ARGS) > 1 else paths_from_blender()[1]
+            OUT = os.path.abspath(ARGS[2]) if len(ARGS) > 2 else os.path.join(os.path.dirname(SRC), OUTPUT_NAME)
+        else:
+            MIX, SRC, OUT = paths_from_blender()
+        open_log(os.path.join(log_folder(MIX, SRC), 'log_import.txt'))
         main(MIX, SRC, OUT)
     except Exception as e:
         P('ERROR', repr(e))
