@@ -287,6 +287,16 @@ export class CinematicCutscene {
   private end(skipped: boolean): void {
     if (this.finished) return;
     this.finished = true;
+    // Played to the end: every actor is put where the film's last moment has it, whatever frame
+    // was drawn last. Drawing lags the fixed step by a step or more (several when the loop
+    // catches up), so a scene that takes over from the models (the intro's fight) would
+    // otherwise start from a pose that depends on the frame rate. After a skip whatever
+    // follows places everyone anew.
+    if (!skipped) {
+      const s = this.sample;
+      this.timeline.sample(this.timeline.total, s);
+      this.stage.apply(s.actors, this.timeline.total);
+    }
     this.dispose();
     this.onDone(skipped);
   }

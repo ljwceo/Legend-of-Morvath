@@ -36,6 +36,9 @@ export function formatIssue(issue: ValidationIssue): string {
   return `${issue.file}.json${issue.path ? ` → ${issue.path}` : ''}: ${issue.message}`;
 }
 
+/** The cutscene that plays as the intro (IntroState and IntroSceneState pick it by this id). */
+const INTRO_ID = 'intro';
+
 /**
  * Checks every data file at boot: structure (via schemas), unique ids, references between files,
  * positions inside their zones, sensible number ranges, and text keys that exist in en.json.
@@ -1616,6 +1619,11 @@ class CrossChecker {
     }
     if (cutscene.anchor && cutscene.fight) {
       this.issue(f, `${at}.fight`, "a cinematic on a fight's set has no anchor");
+    }
+    // A cinematic intro plays in its own scene, on its fight's set: without the fight the game
+    // would only find out at the start, and skip the intro.
+    if (cutscene.id === INTRO_ID && !cutscene.fight) {
+      this.issue(f, `${at}.fight`, 'the intro plays in its own scene and needs a fight');
     }
     if (shots[0] && !shots[0].camera) {
       this.issue(f, `${at}.shots[0].camera`, 'the first shot needs a camera');

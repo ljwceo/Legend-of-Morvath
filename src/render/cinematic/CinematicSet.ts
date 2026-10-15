@@ -7,6 +7,7 @@ import {
   ConeGeometry,
   DirectionalLight,
   DoubleSide,
+  DynamicDrawUsage,
   Euler,
   Fog,
   Group,
@@ -54,6 +55,11 @@ const MIST_DRIFTS: readonly FightSetDrift[] = [
   { bob: 0.06, spin: 20, seconds: 4 },
 ];
 const MIST_HEIGHTS: readonly number[] = [1.4, 2.0, 2.6];
+/**
+ * A mist disc turns around a point this far (m) from its own centre: a disc of one colour
+ * spinning in its own plane would not be seen to move, so each one swings around the opening.
+ */
+const MIST_OFF_CENTRE = DOOR_WIDTH * 0.06;
 /** Colors of the book blocks on a shelf (palette tokens, in reading order). */
 const BOOK_COLORS: readonly number[] = [
   palette.spreukviolet,
@@ -271,10 +277,15 @@ export class CinematicSet {
       this.material(new MeshLambertMaterial({ vertexColors: true })),
       props.length,
     );
+    let drifting = false;
     props.forEach(({ prop, index }, i) => {
       this.placeInstance(mesh, i, prop, 0, 0);
-      if (prop.drift) this.drifters.push({ mesh, index: i, prop, propIndex: index });
+      if (prop.drift) {
+        this.drifters.push({ mesh, index: i, prop, propIndex: index });
+        drifting = true;
+      }
     });
+    if (drifting) markDrifting(mesh);
     this.group.add(mesh);
     return mesh;
   }
@@ -291,14 +302,19 @@ export class CinematicSet {
       props.length,
     );
     const color = new Color();
+    let drifting = false;
     props.forEach(({ prop, index }, i) => {
       this.placeInstance(mesh, i, prop, 0, 0);
       mesh.setColorAt(
         i,
         color.setHex(prop.color ? resolveColorToken(prop.color) : palette.steengrijs),
       );
-      if (prop.drift) this.drifters.push({ mesh, index: i, prop, propIndex: index });
+      if (prop.drift) {
+        this.drifters.push({ mesh, index: i, prop, propIndex: index });
+        drifting = true;
+      }
     });
+    if (drifting) markDrifting(mesh);
     this.group.add(mesh);
   }
 
@@ -358,7 +374,9 @@ export class CinematicSet {
     );
     const door = new Group();
     door.add(frame);
-    const disc = this.geometry(new CircleGeometry(DOOR_WIDTH * 0.42, 24));
+    const disc = this.geometry(
+      new CircleGeometry(DOOR_WIDTH * 0.42, 24).translate(MIST_OFF_CENTRE, 0, 0),
+    );
     const mist = this.material(
       new MeshBasicMaterial({
         color: palette.mistpaars,
@@ -387,6 +405,17 @@ export class CinematicSet {
     door.scale.setScalar(prop.scale ?? 1);
     this.group.add(door);
   }
+}
+
+/**
+ * An InstancedMesh whose matrices move every frame: its buffer is dynamic, and it is never
+ * culled, because its bounding sphere is worked out once from the resting places and would not
+ * follow the drift (a shelf bobbing out of it would pop at the edge of the picture). A handful
+ * of shelves and chairs is nothing to save by culling.
+ */
+function markDrifting(mesh: InstancedMesh): void {
+  mesh.instanceMatrix.setUsage(DynamicDrawUsage);
+  mesh.frustumCulled = false;
 }
 
 /** A tall bookshelf (1.2 × 2.4 × 0.4 m) with four shelves and a row of coloured books. */

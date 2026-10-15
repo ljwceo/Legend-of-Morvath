@@ -542,6 +542,63 @@ describe('the intro cinematics on the fight set', () => {
   }
 });
 
+describe('the pose handed over when a film ends', () => {
+  /** One shot: the player walks in, 0 → 12 m, straight through to the film's last moment. */
+  const walkIn: CutsceneDef = {
+    id: 'walk',
+    type: 'cinematic',
+    skippable: true,
+    fight: 'intro_fight',
+    actors: [{ id: 'player', model: 'player' }],
+    shots: [
+      {
+        id: 'in',
+        seconds: 3,
+        camera: { from: { x: 0, y: 2, z: -5 }, lookFrom: { x: 0, y: 1, z: 0 } },
+        actors: [{ actor: 'player', from: { x: 0, z: 0 }, to: { x: 12, z: 0 } }],
+      },
+    ],
+  };
+
+  it("is the film's last moment on 60 and 120 Hz alike, not the frame drawn last", () => {
+    const run = (fps: number): { drawn: number; end: number } => {
+      const start = newPose();
+      start.visible = true;
+      const t = new CinematicTimeline(walkIn, settings, [start], flat);
+      const drawn = newSample(1);
+      const end = newSample(1);
+      let handed = Number.NaN;
+      const loop = new GameLoop({
+        update: (dt) => {
+          if (t.finished) return;
+          t.step(dt);
+          // CinematicCutscene.end runs here, inside the step that reaches the end, before that
+          // step is ever drawn: the models still hold the frame drawn last.
+          if (t.finished) {
+            handed = drawn.actors[0]?.x ?? Number.NaN;
+            t.sample(t.total, end);
+          }
+        },
+        render: (alpha) => {
+          if (!t.finished) t.sample(t.renderTime(alpha), drawn);
+        },
+      });
+      const frameMs = 1000 / fps;
+      for (let i = 0; i <= fps * 4; i++) loop.tick(i * frameMs);
+      return { drawn: handed, end: end.actors[0]?.x ?? Number.NaN };
+    };
+    const at60 = run(60);
+    const at120 = run(120);
+    // The frame drawn last is short of the end, and by a different amount per frame rate...
+    expect(at60.drawn).toBeLessThan(12 - 1e-3);
+    expect(at120.drawn).toBeLessThan(12 - 1e-3);
+    expect(Math.abs(at60.drawn - at120.drawn)).toBeGreaterThan(1e-3);
+    // ...so the cutscene settles everyone at `total` first: the same pose on every screen.
+    expect(at60.end).toBeCloseTo(12, 9);
+    expect(at120.end).toBeCloseTo(12, 9);
+  });
+});
+
 /**
  * On a fight's set: Lucael skitters through four points, Baelor keeps his own time in a slow
  * shot while the player crawls, and a bat swings around.

@@ -466,6 +466,24 @@ describe('validateGameData catches broken data', () => {
     );
   });
 
+  it('refuses a cinematic intro without a fight: it plays in its own scene', () => {
+    const raw = freshData();
+    const intro = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'intro');
+    // A world cutscene's anchor instead of the fight: fine anywhere else, not for the intro.
+    delete intro.fight;
+    delete intro.afterFight;
+    intro.anchor = { x: 0, z: 0 };
+    const found = messages(raw);
+    expect(found).toContainEqual(
+      expect.stringContaining('the intro plays in its own scene and needs a fight'),
+    );
+    expect(found).not.toContainEqual(
+      expect.stringContaining('a cinematic needs an anchor or a fight'),
+    );
+    // With its fight back, the intro passes.
+    expect(messages(freshData())).not.toContainEqual(expect.stringContaining('needs a fight'));
+  });
+
   it("checks a fight's set, abilities and the new beat actions", () => {
     const raw = freshData();
     const fight = raw.cutscenes.fights[0];

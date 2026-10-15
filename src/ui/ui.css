@@ -1754,8 +1754,7 @@
   pointer-events: none;
 }
 
-.ui-fight > .ui-world-input,
-.ui-fight > .ui-skip {
+.ui-fight > .ui-world-input {
   pointer-events: auto;
 }
 
@@ -1829,7 +1828,7 @@
   }
 }
 
-/* Frozen time (violet, washed out), the spell's white flash, then black. */
+/* Frozen time (violet, washed out) and the spell's white flash. */
 .ui-fight-overlay {
   position: absolute;
   inset: 0;
@@ -1848,11 +1847,6 @@
 .ui-fight-overlay.ui-fight-flash {
   background: var(--gh-zonlicht);
   transition: background-color 0.3s ease;
-}
-
-.ui-fight-overlay.ui-fight-black {
-  background: var(--gh-nachtinkt);
-  transition: background-color 1.2s ease;
 }
 
 /* Pack animal (Biscuit): Take / Load and All side by side. */

@@ -75,6 +75,8 @@ interface Foe {
   readonly name: string;
   readonly model: LordModel;
   readonly radius: number;
+  /** Height (m): where its damage numbers appear. */
+  readonly height: number;
   x: number;
   z: number;
   heading: number;
@@ -278,12 +280,15 @@ export class IntroSceneState implements GameState {
   render(alpha: number, frameSeconds: number): void {
     const { scene, rig } = this;
     if (!scene || !rig) return;
-    this.set?.update(this.prevTime + (this.time - this.prevTime) * alpha);
+    // The moment to draw, between the last two steps: the set drifts and the fight's effects
+    // pulse by it, so a 120 fps screen sees every frame move, not every other one.
+    const now = this.prevTime + (this.time - this.prevTime) * alpha;
+    this.set?.update(now);
     if (this.segment === 'cinematic' && this.cinematic) {
       // The stage owns the lords, the player and the camera now: nothing of the fight draws.
       this.cinematic.render(alpha, rig.camera, 0, 0);
     } else if (this.segment === 'fight') {
-      this.renderFight(alpha, frameSeconds);
+      this.renderFight(alpha, frameSeconds, now);
     }
     this.ctx.renderer.render(scene, rig.camera);
   }
@@ -296,6 +301,10 @@ export class IntroSceneState implements GameState {
     if (!data || !player || !scene) return;
     this.segment = 'cinematic';
     this.showFightUi(false);
+    // The fight's input stays attached (one state): the mouse is given back, so the skip button
+    // can be clicked and Escape reaches the ring, and whatever was pressed is forgotten.
+    this.input?.releasePointerLock();
+    this.input?.releaseAll();
     const resolved = resolveCutscene(def, data.cutscenes.cutscenes);
     const actors = resolved.actors ?? [];
     const s = player.state;
@@ -316,7 +325,7 @@ export class IntroSceneState implements GameState {
         poseWeapon: (pose, u) => model.setSwordPose(pose === 'cast' ? 'windup' : pose, u),
         animated: this.animated,
         objectFor: (actorId) => this.foes.find((foe) => foe.id === actorId)?.model.root ?? null,
-        actorStart: (actorId) => this.actorStart(actorId, actors),
+        actorStart: (actorId) => this.actorStart(actorId, actors, part),
       },
       (skipped) => this.onCinematicDone(skipped, part),
     );
@@ -324,13 +333,21 @@ export class IntroSceneState implements GameState {
     this.ctx.ui.append(this.cinematic.root);
   }
 
-  /** Where an actor stands before the first shot: the lords and the player where they are. */
+  /**
+   * Where an actor stands before the first shot: the player where they are; the lords on their
+   * spots, but seen only after the fight (that film starts exactly where the fight left
+   * everyone). In the opening they stay unseen until a shot shows them (`visible: true`), so
+   * nothing of the room shows through the mist door.
+   */
   private actorStart(
     actorId: string,
     actors: ActorDefs,
+    part: Part,
   ): { x: number; z: number; heading: number; visible: boolean } | null {
     const foe = this.foes.find((entry) => entry.id === actorId);
-    if (foe) return { x: foe.x, z: foe.z, heading: foe.heading, visible: true };
+    if (foe) {
+      return { x: foe.x, z: foe.z, heading: foe.heading, visible: part === 'afterFight' };
+    }
     const def = actors.find((actor) => actor.id === actorId);
     const s = this.player?.state;
     if (def?.model === 'player' && s) return { x: s.x, z: s.z, heading: s.heading, visible: true };
@@ -376,12 +393,15 @@ export class IntroSceneState implements GameState {
     if (!data || !fight || !root) return;
     this.segment = 'fight';
     this.showFightUi(true);
+    // Keys tapped and wheel notches turned during the film must not swing, dash or zoom now.
+    this.input?.releaseAll();
     this.script = new FightScript(fight.beats, (action) => this.onAction(action));
     const t = this.ctx.i18n.t.bind(this.ctx.i18n);
+    // The fight skips like the films around it; a comic intro's fight always can.
     this.skip = new SkipRing(
       data.cutscenes.cinematic,
       t(this.usesTouch() ? 'cutscene.holdToSkipTouch' : 'cutscene.holdToSkip'),
-      true,
+      this.intro?.skippable ?? true,
     );
     root.append(this.skip.root);
   }
@@ -398,6 +418,9 @@ export class IntroSceneState implements GameState {
     this.subtitleLeft = this.hintLeft = 0;
     this.spellFoe = null;
     if (this.orb) this.orb.visible = false;
+    // A teleport puff from the last beat must not hang frozen in the film after the fight.
+    this.puffLeft = 0;
+    if (this.puff) this.puff.visible = false;
     if (this.afterFight) {
       this.startCinematic(this.afterFight, 'afterFight');
     } else {
@@ -487,7 +510,8 @@ export class IntroSceneState implements GameState {
     if (script.finished) this.endFight();
   }
 
-  private renderFight(alpha: number, frameSeconds: number): void {
+  /** `now`: the drawn moment (s) between the last two steps, for what pulses and bobs. */
+  private renderFight(alpha: number, frameSeconds: number, now: number): void {
     const { rig, player, input } = this;
     if (!rig || !player || !input) return;
     const s = player.state;
@@ -502,12 +526,12 @@ export class IntroSceneState implements GameState {
     for (const foe of this.foes) {
       const r = foe.model.root;
       // Lucael floats playfully; Baelor stands still and serious.
-      const bob = foe.id === 'lucael' ? Math.sin(this.time * 2.2) * 0.12 + 0.1 : 0;
+      const bob = foe.id === 'lucael' ? Math.sin(now * 2.2) * 0.12 + 0.1 : 0;
       r.position.set(foe.x, bob, foe.z);
       r.rotation.y = foe.heading;
       r.rotation.z = foe.shimmer > 0 ? Math.sin(foe.shimmer * 40) * 0.03 : 0;
     }
-    this.drawSpell();
+    this.drawSpell(now);
     this.drawPuff();
 
     input.consumeLook(this.look);
@@ -693,8 +717,7 @@ export class IntroSceneState implements GameState {
         continue;
       }
       foe.shimmer = 0.3;
-      const top = this.fight?.foes.find((f) => f.id === foe.id)?.height ?? 3.5;
-      this.damageNumbers?.spawn(foe.x, top, foe.z, 0, 'normal');
+      this.damageNumbers?.spawn(foe.x, foe.height, foe.z, 0, 'normal');
       script.registerHit();
     }
   }
@@ -716,7 +739,7 @@ export class IntroSceneState implements GameState {
 
   // ------------------------------------------------------------ drawing effects
 
-  private drawSpell(): void {
+  private drawSpell(now: number): void {
     const orb = this.orb;
     if (!orb) return;
     const foe = this.spellFoe;
@@ -729,7 +752,7 @@ export class IntroSceneState implements GameState {
     orb.visible = true;
     orb.position.copy(this.handPoint);
     orb.position.y += t * 0.6;
-    orb.scale.setScalar(0.1 + t * t * ORB_SIZE + Math.sin(this.time * 30) * 0.03);
+    orb.scale.setScalar(0.1 + t * t * ORB_SIZE + Math.sin(now * 30) * 0.03);
   }
 
   private showPuff(x: number, z: number): void {
@@ -838,6 +861,7 @@ export class IntroSceneState implements GameState {
         name: def.name,
         model,
         radius: def.radius,
+        height: def.height,
         x: def.x,
         z: def.z,
         // Looking at where the player stands.
