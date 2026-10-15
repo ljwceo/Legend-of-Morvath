@@ -1914,6 +1914,8 @@
           "radius": 0.5,
           "length": 2.4,
           "range": 40,
+          "aimRange": 20,
+          "aimArcDegrees": 50,
           "cooldownSeconds": 1.6,
           "color": "sneeuw",
           "label": "intro.ability.icicle"

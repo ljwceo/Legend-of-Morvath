@@ -11,8 +11,9 @@ export type BurstAbility = Extract<FightAbility, { kind: 'burst' }>;
 export type StormAbility = Extract<FightAbility, { kind: 'storm' }>;
 export type ProjectileAbility = Extract<FightAbility, { kind: 'projectile' }>;
 
-/** Icicles in flight at the same time; a press while all are flying does nothing. */
-export const ICICLE_POOL_SIZE = 4;
+const DEG = Math.PI / 180;
+/** Icicles in flight at the same time (§4.3: three); a press while all are flying does nothing. */
+export const ICICLE_POOL_SIZE = 3;
 /** The most strikes one storm may have (the schema's `bolts` ceiling). */
 export const MAX_BOLTS = 24;
 /** Contacts (hits and dodges) one step can report; more are dropped, which never happens. */
@@ -26,7 +27,10 @@ const NEAR_FOE_FACTOR = 2;
 /** A dodging foe blinks this far (m) sideways... */
 const DODGE_MIN = 2;
 const DODGE_MAX = 3;
-/** ...and never lands closer than this (m) to the player. */
+/**
+ * ...and never lands closer than this (m) to the player, nor to another foe when the other
+ * side is clear of them (the scene's `blink` keeps the same distance).
+ */
 const DODGE_CLEARANCE = 3;
 
 /**
@@ -53,6 +57,16 @@ export interface ArsenalPlayer {
   readonly x: number;
   readonly z: number;
   readonly heading: number;
+}
+
+/**
+ * How an icicle snaps to a foe in front when its ability sets no `aimRange`/`aimArcDegrees`:
+ * the staff's aim assist from player.json (the icicle is a spell, so it aims like the staff's
+ * shots), as a range (m) and half an arc (radians).
+ */
+export interface AimAssist {
+  readonly aimRange: number;
+  readonly aimHalfArc: number;
 }
 
 export interface Dodge {
@@ -140,6 +154,8 @@ export class IntroArsenal {
 
   private readonly random: Random;
   private readonly icicle: ShotConfig | null = null;
+  private readonly aimRange: number;
+  private readonly aimHalfArc: number;
   private readonly world: ShotWorld;
   private burstCooldown = 0;
   private stormCooldown = 0;
@@ -161,7 +177,7 @@ export class IntroArsenal {
     private readonly foes: readonly ArsenalFoe[],
     private readonly setRadius: number,
     seed: number,
-    private readonly sword: { aimRange: number; aimHalfArc: number },
+    aim: AimAssist,
   ) {
     this.random = new Random(seed);
     this.actions = { strike: null, burst: null, storm: null, bolt: null };
@@ -206,6 +222,8 @@ export class IntroArsenal {
         charge: null,
       };
     }
+    this.aimRange = p?.aimRange ?? aim.aimRange;
+    this.aimHalfArc = p?.aimArcDegrees !== undefined ? (p.aimArcDegrees / 2) * DEG : aim.aimHalfArc;
     const r2 = setRadius * setRadius;
     this.world = { heightAt: () => 0, blocked: (x, z) => x * x + z * z > r2 };
     const bolts: StormBolt[] = [];
@@ -261,8 +279,9 @@ export class IntroArsenal {
       }
     }
 
+    // A press while a storm is still striking is ignored: starting over would drop its strikes.
     const storm = this.stormDef;
-    if (storm && input.storm && this.stormCooldown <= 0) {
+    if (storm && input.storm && this.stormCooldown <= 0 && !this.stormActive) {
       this.stormCooldown = storm.cooldownSeconds;
       this.startStorm(storm);
       out.storm = true;
@@ -311,9 +330,11 @@ export class IntroArsenal {
   }
 
   /**
-   * Where a dodging foe lands: 2–3 m to one side (as seen from the player). A spot past the
-   * wall is taken on the other side instead; one too close to the player is pushed straight
-   * away from them; and whatever is left outside the room is held at the wall.
+   * Where a dodging foe lands: 2–3 m to one side (as seen from the player). The side is a
+   * roll, but a spot past the wall or within `DODGE_CLEARANCE` of another foe gives way to the
+   * other side when that one is better (so a brother never blinks into his brother while the
+   * other side is free); one too close to the player is pushed straight away from them; and
+   * whatever is left outside the room is held at the wall.
    */
   private dodgeSpot(foe: ArsenalFoe, out: Dodge): void {
     const px = this.playerX;
@@ -332,11 +353,15 @@ export class IntroArsenal {
     const distance = DODGE_MIN + this.random.next() * (DODGE_MAX - DODGE_MIN);
     const max = Math.max(0, this.setRadius - foe.radius);
     // Sideways is perpendicular to the line from the player.
-    let x = foe.x + dirZ * side * distance;
-    let z = foe.z - dirX * side * distance;
-    if (x * x + z * z > max * max) {
-      x = foe.x - dirZ * side * distance;
-      z = foe.z + dirX * side * distance;
+    const sideX = dirZ * distance;
+    const sideZ = -dirX * distance;
+    let x = foe.x + sideX * side;
+    let z = foe.z + sideZ * side;
+    const otherX = foe.x - sideX * side;
+    const otherZ = foe.z - sideZ * side;
+    if (this.spotScore(otherX, otherZ, foe, max) > this.spotScore(x, z, foe, max)) {
+      x = otherX;
+      z = otherZ;
     }
     let ax = x - px;
     let az = z - pz;
@@ -378,6 +403,28 @@ export class IntroArsenal {
     }
     out.x = x;
     out.z = z;
+  }
+
+  /**
+   * How good a dodge spot is for `foe`: inside the room (up to `max` from the middle) counts
+   * most, clear of every other foe counts next.
+   */
+  private spotScore(x: number, z: number, foe: ArsenalFoe, max: number): number {
+    let score = x * x + z * z <= max * max ? 2 : 0;
+    if (this.clearOfOthers(x, z, foe)) score += 1;
+    return score;
+  }
+
+  /** True when no other foe stands within `DODGE_CLEARANCE` of (x, z). */
+  private clearOfOthers(x: number, z: number, foe: ArsenalFoe): boolean {
+    for (let i = 0; i < this.foes.length; i++) {
+      const other = this.foes[i] as ArsenalFoe;
+      if (other === foe) continue;
+      const dx = other.x - x;
+      const dz = other.z - z;
+      if (dx * dx + dz * dz < DODGE_CLEARANCE * DODGE_CLEARANCE) return false;
+    }
+    return true;
   }
 
   /**
@@ -454,8 +501,8 @@ export class IntroArsenal {
       player.z,
       player.heading,
       this.foes,
-      this.sword.aimRange,
-      this.sword.aimHalfArc,
+      this.aimRange,
+      this.aimHalfArc,
     );
     const shot = this.shots.fire(icicle, player.x, ICICLE_HEIGHT, player.z, heading, 0, null);
     const slot = this.shots.list.indexOf(shot);

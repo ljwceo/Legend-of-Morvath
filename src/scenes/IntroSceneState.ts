@@ -24,6 +24,7 @@ import {
 } from '../systems/Combat';
 import { type FightAction, type FightDef, FightScript } from '../systems/FightScript';
 import {
+  type AimAssist,
   type ArsenalInput,
   ArsenalEvents,
   type Dodge,
@@ -77,6 +78,7 @@ const SHAKE_SIDEWAYS = 0.5;
 const CAMERA_FAR_FACTOR = 1.5;
 /** The set's floor is flat: the camera and the ground are at y = 0. */
 const FLAT = { heightAt: () => 0 };
+const DEG = Math.PI / 180;
 const GROUND = (): number => 0;
 
 type Segment = 'cinematic' | 'fight' | 'done';
@@ -160,6 +162,8 @@ export class IntroSceneState implements GameState {
   /** The four abilities (logic) and what they look like (pooled meshes). */
   private arsenal: IntroArsenal | null = null;
   private effects: ArsenalEffects | null = null;
+  /** The floating text of a dodge ("Dodged!"), looked up once per fight. */
+  private dodgedText = '';
 
   private root: HTMLElement | null = null;
   private surface: HTMLElement | null = null;
@@ -435,6 +439,7 @@ export class IntroSceneState implements GameState {
     this.input?.releaseAll();
     this.script = new FightScript(fight.beats, (action) => this.onAction(action));
     const t = this.ctx.i18n.t.bind(this.ctx.i18n);
+    this.dodgedText = t('boss.dodged');
     // The fight skips like the films around it; a comic intro's fight always can.
     this.skip = new SkipRing(
       data.cutscenes.cinematic,
@@ -528,11 +533,14 @@ export class IntroSceneState implements GameState {
     this.command.z = helpless ? 0 : this.moveWorld.z;
     this.command.dash = input.consumePressed('dash') && !helpless;
     input.consumePressed('confirm');
-    // The four abilities fire on the keys the fight's data names. The sword's hit is the
-    // existing fast hit (held keeps swinging); its heavy hit is not used in the intro.
+    // The four abilities fire on the keys the fight's data names (a fight without one of them
+    // never fires it). The sword's hit is the existing fast hit (held keeps swinging); its
+    // heavy hit is not used in the intro.
     const actions = arsenal.actions;
-    const strikeAction = actions.strike ?? 'attack';
-    const fast = input.consumePressed(strikeAction) || input.isPressed(strikeAction);
+    const strikeAction = actions.strike;
+    const fast =
+      strikeAction !== null &&
+      (input.consumePressed(strikeAction) || input.isPressed(strikeAction));
     const burst = actions.burst !== null && input.consumePressed(actions.burst);
     const storm = actions.storm !== null && input.consumePressed(actions.storm);
     const bolt = actions.bolt !== null && input.consumePressed(actions.bolt);
@@ -688,7 +696,7 @@ export class IntroSceneState implements GameState {
     if (!foe || !s || !orbit) return;
     s.heading = Math.atan2(foe.x - s.x, foe.z - s.z);
     orbit.yaw = s.heading;
-    orbit.pitch = (this.ctx.data?.player.camera.pitchDegrees ?? 12) * (Math.PI / 180);
+    orbit.pitch = (this.ctx.data?.player.camera.pitchDegrees ?? 12) * DEG;
   }
 
   private say(name: string, text: string, seconds: number): void {
@@ -821,13 +829,7 @@ export class IntroSceneState implements GameState {
       const dodge = events.dodges[i] as Dodge;
       const foe = this.foes[dodge.foe];
       if (!foe) continue;
-      this.damageNumbers?.spawnText(
-        foe.x,
-        foe.height,
-        foe.z,
-        this.ctx.i18n.t('boss.dodged'),
-        'dodged',
-      );
+      this.damageNumbers?.spawnText(foe.x, foe.height, foe.z, this.dodgedText, 'dodged');
       this.showPuff(foe.x, foe.z);
       foe.x = dodge.x;
       foe.z = dodge.z;
@@ -1028,12 +1030,19 @@ export class IntroSceneState implements GameState {
     this.mover = new ArenaMover(fight.set.radius);
 
     // The four abilities, and their looks from the same data (a fight without one never draws it).
+    // An icicle without its own aim snaps like the staff's shots do (§4.3: ±25°), not like the
+    // sword, whose assist only reaches melee range.
+    const staffAim = data.player.staff.aimAssist;
+    const aim: AimAssist = {
+      aimRange: staffAim.range,
+      aimHalfArc: (staffAim.arcDegrees / 2) * DEG,
+    };
     const arsenal = new IntroArsenal(
       fight.abilities,
       this.foes,
       fight.set.radius,
       fight.seed ?? 0,
-      this.sword,
+      aim,
     );
     this.arsenal = arsenal;
     const { burstDef, stormDef, projectileDef } = arsenal;

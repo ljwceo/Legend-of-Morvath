@@ -5,11 +5,12 @@
  * It drives the real game in a headless browser through a fresh profile: English → New Game →
  * a name → the stats → Begin your journey, and then watches the intro scene go through its
  * three segments — the opening film (every shot id of `.ui-cine[data-shot]` is logged as it
- * changes), the playable fight (`.ui-fight`: it walks up to the brothers and fires all four
- * abilities on their default keys a few times), the film after it — until the debug overlay
- * says the save is in Greyhaven. It reports the shot ids seen, the draw calls (`calls` in the
- * overlay) during each segment and the damage texts the fight showed (at least one "0" or
- * "Dodged!" is expected), and fails on any console error.
+ * changes), the playable fight (`.ui-fight`: it fires all four abilities on their default keys,
+ * and checks each big one did something: the icicle from the start reaches a brother, the
+ * explosion next to them touches both, the thunder flashes the screen per bolt), the film
+ * after it — until the debug overlay says the save is in Greyhaven. It reports the shot ids
+ * seen, the draw calls (`calls` in the overlay) during each segment and the damage texts the
+ * fight showed, and fails on any console error.
  *
  * Playwright is not a dependency of the game, so install it when you want to run this:
  *
@@ -24,7 +25,7 @@
  * catches up at most 0.25 s per frame, so a slow frame makes the intro take longer, not break.
  */
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
@@ -40,25 +41,31 @@ const LOCAL_CHROMIUM = '/opt/pw-browsers/chromium';
 const SKIP_HOLD_S = 1.5;
 const SKIP_HOLD_MAX_MS = 10_000;
 /**
- * In the fight: walk towards the brothers this long on the game's clock (4 m/s brings the
- * player within reach of every ability), then press the abilities' default keys (controls.json)
- * one by one: the sword's hit (left mouse), thunder (Q), the explosion (right mouse) and the
- * icicle (Tab).
+ * The fight, step by step: the abilities' default keys (controls.json) — the sword's hit (left
+ * mouse), thunder (Q), the explosion (right mouse) and the icicle (Tab) — and what each big one
+ * must show within `VERIFY_S` of the game's clock. From the start the brothers stand 9 m ahead,
+ * 11° to either side: the icicle must snap to one (a "0" or "Dodged!" text). The walk (`WALK_S`
+ * on the game's clock, 4 m/s: to about 3 m past the middle, right between the brothers, even
+ * after one dodged 3 m aside) puts both within the explosion's 4.5 m: two texts. The thunder
+ * puts `ui-fight-storm` on the overlay for its strikes and `ui-fight-strike` per bolt. The
+ * presses after that make no promise: by then the script may have frozen the player.
  */
-const WALK_S = 1.7;
+const WALK_S = 2;
 const WALK_MAX_MS = 20_000;
 const PRESS_GAP_MS = 700;
-const ABILITY_PRESSES = [
-  ['strike', 'left'],
-  ['thunder', 'KeyQ'],
-  ['explosion', 'right'],
-  ['icicle', 'Tab'],
-  ['strike', 'left'],
-  ['icicle', 'Tab'],
-  ['explosion', 'right'],
-  ['strike', 'left'],
-  ['thunder', 'KeyQ'],
-  ['icicle', 'Tab'],
+const VERIFY_S = 1.5;
+const VERIFY_MAX_MS = 10_000;
+const FIGHT_PLAN = [
+  { press: 'icicle', key: 'Tab', expect: { texts: 1 } },
+  { walk: true },
+  { press: 'explosion', key: 'right', expect: { texts: 2 } },
+  { press: 'thunder', key: 'KeyQ', expect: { storm: true } },
+  { press: 'strike', key: 'left' },
+  { press: 'icicle', key: 'Tab' },
+  { press: 'explosion', key: 'right' },
+  { press: 'strike', key: 'left' },
+  { press: 'thunder', key: 'KeyQ' },
+  { press: 'icicle', key: 'Tab' },
 ];
 /** How often (ms) the page is looked at while the intro plays. */
 const POLL_MS = 150;
@@ -106,15 +113,20 @@ async function loadPlaywright() {
 
 /** The project (this script lives in its `scripts/` folder). */
 const ROOT = path.resolve(import.meta.dirname, '..');
+/** The texts the fight floats over a brother: a hit shows "0", a dodge `boss.dodged` (en.json). */
+const HIT_TEXT = '0';
+const DODGED_TEXT = JSON.parse(readFileSync(path.join(ROOT, 'public/lang/en.json'), 'utf8')).boss
+  .dodged;
 
 /**
- * Starts `vite` and waits for the address it prints (including the base path). Vite is run
- * directly (not through `npx`, which leaves vite running when it is stopped itself).
+ * Starts `vite` and waits for the address it prints (including the base path), on whatever
+ * free port vite picks. Vite is run directly (not through `npx`, which leaves vite running
+ * when it is stopped itself).
  */
 function startServer() {
   return new Promise((resolve, reject) => {
     const vite = path.join(ROOT, 'node_modules', 'vite', 'bin', 'vite.js');
-    const child = spawn(process.execPath, [vite, '--port', '5180', '--strictPort'], {
+    const child = spawn(process.execPath, [vite], {
       cwd: ROOT,
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -157,9 +169,30 @@ function fail(line) {
 }
 
 /**
+ * Counts, inside the page, how often the fight's overlay gains its thunder classes: the storm
+ * (`ui-fight-storm`, on for the strikes) and the flash per bolt (`ui-fight-strike`, 0.1 s —
+ * too short to be sure of catching by polling, so a MutationObserver counts it).
+ */
+async function watchOverlay(page) {
+  await page.evaluate(() => {
+    const counts = { storm: 0, strike: 0 };
+    window.__introCheckFlashes = counts;
+    const overlay = document.querySelector('.ui-fight-overlay');
+    if (!overlay) return;
+    let had = new Set(overlay.classList);
+    new MutationObserver(() => {
+      const now = new Set(overlay.classList);
+      if (now.has('ui-fight-storm') && !had.has('ui-fight-storm')) counts.storm++;
+      if (now.has('ui-fight-strike') && !had.has('ui-fight-strike')) counts.strike++;
+      had = now;
+    }).observe(overlay, { attributes: true, attributeFilter: ['class'] });
+  });
+}
+
+/**
  * What the page shows right now: the shot of a playing film (or null), whether the fight's
- * UI is up, the damage texts on screen (by their slot in the pool) and the debug overlay's
- * `calls`, `state` and `save` lines.
+ * UI is up, the damage texts on screen (by their slot in the pool), the thunder flashes
+ * counted so far and the debug overlay's `calls`, `state` and `save` lines.
  */
 async function look(page) {
   return page.evaluate(() => {
@@ -176,10 +209,13 @@ async function look(page) {
         damage.push([index, element.textContent ?? '']);
       }
     });
+    const flashes = window.__introCheckFlashes ?? { storm: 0, strike: 0 };
     return {
       shot: cine instanceof HTMLElement ? (cine.dataset.shot ?? '') : null,
       fight: fight instanceof HTMLElement && !fight.hidden,
       damage,
+      storms: flashes.storm,
+      strikes: flashes.strike,
       calls: Number(lines.get('calls') ?? -1),
       state: lines.get('state') ?? '',
       save: lines.get('save') ?? '',
@@ -213,6 +249,10 @@ class DamageTexts {
   }
   count(text) {
     return this.counts.get(text) ?? 0;
+  }
+  /** The texts a brother shows when an ability reaches him: a hit's "0" or a dodge's. */
+  get contacts() {
+    return this.count(HIT_TEXT) + this.count(DODGED_TEXT);
   }
   toString() {
     const parts = [...this.counts].map(([text, n]) => `"${text}"×${n}`);
@@ -308,10 +348,28 @@ async function pressAbility(page, key) {
 }
 
 /**
- * The fight: a first click captures the mouse, then the player walks up to the brothers (W,
- * timed on the game's clock) and fires the four abilities on their keys, one every
- * `PRESS_GAP_MS`, while the damage texts that appear are counted; then it waits for the film
- * after the fight. Returns the draw calls and the damage texts seen.
+ * What a press promised (`FIGHT_PLAN[].expect`) against what the page showed since: the damage
+ * texts a brother floated, and the thunder's overlay classes.
+ */
+function checkPress(step, before, now, damage) {
+  const texts = damage.contacts - before.contacts;
+  const storms = now.storms - before.storms;
+  const strikes = now.strikes - before.strikes;
+  const seen = `${texts} text(s), ${storms} storm(s), ${strikes} bolt flash(es)`;
+  const wanted = step.expect;
+  const ok =
+    (wanted.texts === undefined || texts >= wanted.texts) &&
+    (!wanted.storm || (storms >= 1 && strikes >= 1));
+  if (ok) say(`  fight: ${step.press} showed ${seen}`);
+  else fail(`${step.press} (${step.key}) showed ${seen}, wanted ${JSON.stringify(wanted)}`);
+}
+
+/**
+ * The fight: a first click captures the mouse, then `FIGHT_PLAN` runs: the player fires the
+ * abilities on their keys (one every `PRESS_GAP_MS`, each promise checked after `VERIFY_S` of
+ * the game's clock) and walks up to the brothers in between (W, timed on the game's clock),
+ * while the damage texts that appear are counted; then it waits for the film after the fight.
+ * Returns the draw calls and the damage texts seen.
  */
 async function playFight(page) {
   const calls = new Calls();
@@ -320,8 +378,10 @@ async function playFight(page) {
   let phase = 'capture';
   let walkStartSim = NaN;
   let walkStartWall = 0;
-  let presses = 0;
+  let stepIndex = 0;
   let lastPress = 0;
+  /** The press being verified: the counts before it, and when it was pressed. */
+  let verifying = null;
   const letGo = () => page.keyboard.up('KeyW').catch(() => undefined);
   while (Date.now() < deadline) {
     const now = await look(page);
@@ -339,27 +399,36 @@ async function playFight(page) {
       calls.add(now.calls);
       damage.add(now.damage);
       if (phase === 'capture') {
+        await watchOverlay(page);
         const spot = await clickSpot(page);
         await page.mouse.click(spot.x, spot.y);
-        phase = 'walk';
-      } else if (phase === 'walk') {
-        if (Number.isNaN(walkStartSim)) {
-          walkStartSim = now.sim;
-          walkStartWall = Date.now();
-          await page.keyboard.down('KeyW');
-        } else if (now.sim - walkStartSim >= WALK_S || Date.now() - walkStartWall > WALK_MAX_MS) {
-          await letGo();
-          say(`  fight: walked ${(now.sim - walkStartSim).toFixed(1)} s towards the brothers`);
-          phase = 'press';
+        phase = 'plan';
+      } else if (verifying) {
+        if (now.sim - verifying.sim >= VERIFY_S || Date.now() - verifying.wall > VERIFY_MAX_MS) {
+          checkPress(verifying.step, verifying.before, now, damage);
+          verifying = null;
         }
-      } else if (phase === 'press' && Date.now() - lastPress > PRESS_GAP_MS) {
-        if (presses < ABILITY_PRESSES.length) {
-          const [name, key] = ABILITY_PRESSES[presses++];
-          await pressAbility(page, key);
-          lastPress = Date.now();
-          say(`  fight: ${name} (${key})`);
-        } else {
+      } else if (phase === 'plan') {
+        const step = FIGHT_PLAN[stepIndex];
+        if (!step) {
           phase = 'wait';
+        } else if (step.walk) {
+          if (Number.isNaN(walkStartSim)) {
+            walkStartSim = now.sim;
+            walkStartWall = Date.now();
+            await page.keyboard.down('KeyW');
+          } else if (now.sim - walkStartSim >= WALK_S || Date.now() - walkStartWall > WALK_MAX_MS) {
+            await letGo();
+            say(`  fight: walked ${(now.sim - walkStartSim).toFixed(1)} s towards the brothers`);
+            stepIndex++;
+          }
+        } else if (Date.now() - lastPress > PRESS_GAP_MS) {
+          const before = { contacts: damage.contacts, storms: now.storms, strikes: now.strikes };
+          await pressAbility(page, step.key);
+          lastPress = Date.now();
+          say(`  fight: ${step.press} (${step.key})`);
+          if (step.expect) verifying = { step, before, sim: now.sim, wall: Date.now() };
+          stepIndex++;
         }
       }
     }
@@ -418,8 +487,10 @@ async function fullRun(page) {
   say(
     `fight: ${fight.ended ? 'ended' : 'not ended'} · calls ${fight.calls} · damage texts ${fight.damage}`,
   );
-  if (fight.damage.count('0') + fight.damage.count('Dodged!') === 0) {
-    fail('the fight showed no "0" and no "Dodged!" (did the abilities reach the brothers?)');
+  if (fight.damage.contacts === 0) {
+    fail(
+      `the fight showed no "${HIT_TEXT}" and no "${DODGED_TEXT}" (did the abilities reach the brothers?)`,
+    );
   }
 
   const film2 = await watchFilm(page, 'film 2', (now) => now.state !== 'introScene');

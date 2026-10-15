@@ -1871,7 +1871,9 @@ const fightFlashyAbility = {
  * each hitting a foe within `boltRadius` m (a strike near a foe is kept with `hitChance`,
  * otherwise it is moved: most miss; default `STORM_HIT_CHANCE`), `projectile` an icicle
  * (`length` m long, `radius` m thick) flying along the player's heading at `speed` m/s for up
- * to `range` m (default: across the whole set, twice its radius; it shatters at the edge).
+ * to `range` m (default: across the whole set, twice its radius; it shatters at the edge). It
+ * snaps to the nearest foe within `aimRange` m and half of `aimArcDegrees` to either side
+ * (default: the staff's aim assist in player.json, the icicle being a spell).
  */
 const fightAbility = z.discriminatedUnion('kind', [
   z.strictObject({ ...fightAbilityBase, kind: z.literal('melee') }),
@@ -1891,6 +1893,8 @@ const fightAbility = z.discriminatedUnion('kind', [
     radius: max(positive, 5),
     length: max(positive, 10),
     range: optional(max(positive, 200)),
+    aimRange: optional(max(positive, 200)),
+    aimArcDegrees: optional(range(0, 360)),
   }),
 ]);
 
