@@ -1,3 +1,4 @@
+import { AbilityBar, type AbilityChip } from './AbilityBar';
 import { el } from './dom';
 import { type HudBars, type HudConfig, HudRules, HudVisibility } from './HudVisibility';
 
@@ -99,6 +100,14 @@ export class HUD {
   private itemLeft = 0;
   /** An item card waiting for the victory words to fade first. */
   private pendingItem: { card: HTMLElement; name: string; seconds: number } | null = null;
+  /**
+   * Which abilities are ready again (a staff's Shard and spell): shown while fighting or
+   * while one is still cooling, then it lingers like the bars and fades.
+   */
+  private readonly abilityBar = new AbilityBar();
+  private readonly abilities: HudPart;
+  private abilitiesInCombat = false;
+  private abilitiesActive = false;
 
   constructor(
     private readonly cfg: HudConfig,
@@ -173,6 +182,9 @@ export class HUD {
     this.itemName = el('p', { className: 'ui-hud-item-name' });
     this.item = el('div', { className: 'ui-hud-item' }, this.itemCard, this.itemName);
 
+    this.abilityBar.root.classList.add('ui-hud-part');
+    this.abilities = new HudPart(this.abilityBar.root);
+
     this.hurtGlow = el('div', { className: 'ui-hud-hurt' });
     this.blackoutTitle = el('p', { className: 'ui-hud-blackout-title' });
     this.blackoutText = el('p', { className: 'ui-hud-blackout-text' });
@@ -196,6 +208,7 @@ export class HUD {
       this.subtitle,
       this.victory,
       this.item,
+      this.abilities.element,
       this.blackout,
     );
     this.root.style.setProperty('--hud-fade', `${cfg.fadeSeconds}s`);
@@ -369,6 +382,25 @@ export class HUD {
     this.hurtTime = HURT_SECONDS;
   }
 
+  /**
+   * The abilities whose readiness the HUD shows (a staff: the Shard and its spell), rebuilt
+   * when the weapon, the language or the keys change; an empty list shows nothing (a sword).
+   * The caller leaves it empty on a touch screen, where the buttons show it themselves.
+   */
+  setAbilities(chips: readonly AbilityChip[]): void {
+    this.abilityBar.setChips(chips);
+  }
+
+  /** How ready ability `id` is (0–1) each rendered frame (see AbilityBar.setReadiness). */
+  setAbilityReadiness(id: string, ready: number, blocked = false): void {
+    this.abilityBar.setReadiness(id, ready, blocked);
+  }
+
+  /** In a fight the ability chips stay; out of it they linger while one still cools. */
+  setAbilitiesInCombat(fighting: boolean): void {
+    this.abilitiesInCombat = fighting;
+  }
+
   /** Call every rendered frame with real seconds (fades and timers are fps-independent). */
   update(seconds: number): void {
     this.hiddenBy.update(seconds);
@@ -399,11 +431,33 @@ export class HUD {
     this.interact.update(seconds);
     this.gold.update(seconds);
     for (let i = 0; i < BAR_IDS.length; i++) this.bars[BAR_IDS[i] as BarId].update(seconds);
+    this.updateAbilities(seconds);
   }
 
   dispose(): void {
     this.root.remove();
     this.queue.length = 0;
+    this.abilityBar.dispose();
+  }
+
+  /**
+   * The ability chips show while fighting or while one still cools down; once both are over
+   * they linger as long as the bars do (`barLingerSeconds`) and fade.
+   */
+  private updateAbilities(seconds: number): void {
+    const active = this.abilitiesInCombat || this.abilityBar.anyCooling;
+    if (active !== this.abilitiesActive) {
+      this.abilitiesActive = active;
+      const visibility = this.abilities.visibility;
+      if (active) {
+        visibility.hide('linger');
+        visibility.show('active');
+      } else {
+        visibility.hide('active');
+        visibility.show('linger', this.cfg.barLingerSeconds);
+      }
+    }
+    this.abilities.update(seconds);
   }
 
   /** Victory words, then the item card: one after the other, never under a cinematic. */

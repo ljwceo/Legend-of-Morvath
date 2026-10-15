@@ -8,10 +8,12 @@
  * changes), the playable fight (`.ui-fight`: it fires all four abilities on their default keys,
  * and checks each big one did something: the icicle from the start reaches a brother, the
  * explosion next to them touches both, the thunder flashes the screen per bolt), the film
- * after it — until the debug overlay says the save is in Greyhaven. It reports the shot ids
- * seen, the overlay's numbers during each segment (draw calls `calls`, `tris`, `geo/tex` as
- * first → last sample, `heap`) and once the world's geo/tex stand still, and the damage texts
- * the fight showed, and fails on any console error.
+ * after it — until the debug overlay says the save is in Greyhaven. It also watches the
+ * ability chips (`.ui-ability-chip[data-ability]`): after the thunder the thunder chip must
+ * be cooling and be ready again within its `cooldownSeconds` from cutscenes.json. It reports
+ * the shot ids seen, the overlay's numbers during each segment (draw calls `calls`, `tris`,
+ * `geo/tex` as first → last sample, `heap`) and once the world's geo/tex stand still, and the
+ * damage texts the fight showed, and fails on any console error.
  *
  * Playwright is not a dependency of the game, so install it when you want to run this:
  *
@@ -66,19 +68,22 @@ const SKIP_HOLD_MAX_MS = 10_000;
  * 11° to either side: the icicle must snap to one (a "0" or "Dodged!" text). The walk (`WALK_S`
  * on the game's clock, 4 m/s: to about 3 m past the middle, right between the brothers, even
  * after one dodged 3 m aside) puts both within the explosion's 4.5 m: two texts. The thunder
- * puts `ui-fight-storm` on the overlay for its strikes and `ui-fight-strike` per bolt. The
- * presses after that make no promise: by then the script may have frozen the player.
+ * puts `ui-fight-storm` on the overlay for its strikes and `ui-fight-strike` per bolt, and
+ * its chip (`cooling`, the ability's id in the data) is still cooling at the check and ready
+ * again within its cooldown (plus `READY_SLACK_S` of the game's clock, for the coarse looks).
+ * The presses after that make no promise: by then the script may have frozen the player.
  */
 const WALK_S = 2;
 const WALK_MAX_MS = 20_000;
 const PRESS_GAP_MS = 700;
 const VERIFY_S = 1.5;
 const VERIFY_MAX_MS = 10_000;
+const READY_SLACK_S = 2;
 const FIGHT_PLAN = [
   { press: 'icicle', key: 'Tab', expect: { texts: 1 } },
   { walk: true },
   { press: 'explosion', key: 'right', expect: { texts: 2 } },
-  { press: 'thunder', key: 'KeyQ', expect: { storm: true } },
+  { press: 'thunder', key: 'KeyQ', expect: { storm: true, cooling: 'thunder' } },
   { press: 'strike', key: 'left' },
   { press: 'icicle', key: 'Tab' },
   { press: 'explosion', key: 'right' },
@@ -140,6 +145,17 @@ const ROOT = path.resolve(import.meta.dirname, '..');
 const HIT_TEXT = '0';
 const DODGED_TEXT = JSON.parse(readFileSync(path.join(ROOT, 'public/lang/en.json'), 'utf8')).boss
   .dodged;
+/** The intro fight's abilities (cutscenes.json): each chip's cooldown comes from here. */
+const CUTSCENES = JSON.parse(readFileSync(path.join(ROOT, 'public/data/cutscenes.json'), 'utf8'));
+const INTRO_FIGHT =
+  CUTSCENES.fights.find(
+    (fight) => fight.id === CUTSCENES.cutscenes.find((entry) => entry.id === 'intro')?.fight,
+  ) ?? null;
+
+/** Seconds an ability of the intro fight cools down after a press (0 when it has none). */
+function cooldownOf(abilityId) {
+  return INTRO_FIGHT?.abilities?.find((ability) => ability.id === abilityId)?.cooldownSeconds ?? 0;
+}
 
 /**
  * Starts `vite` and waits for the address it prints (including the base path), on whatever
@@ -215,13 +231,20 @@ async function watchOverlay(page) {
 /**
  * What the page shows right now: the shot of a playing film (or null), whether the fight's
  * UI is up, the damage texts on screen (by their slot in the pool), the thunder flashes
- * counted so far and the debug overlay's lines: `calls`, `tris`, `geo/tex` (as `geo` and
- * `tex`), `heap` (MB; -1 when a line is missing), `quality`, `state` and `save`.
+ * counted so far, which ability chips are ready (`chips`: id → true when ready) and the debug
+ * overlay's lines: `calls`, `tris`, `geo/tex` (as `geo` and `tex`), `heap` (MB; -1 when a
+ * line is missing), `quality`, `state` and `save`.
  */
 async function look(page) {
   return page.evaluate(() => {
     const cine = document.querySelector('.ui-cine');
     const fight = document.querySelector('.ui-fight');
+    const chips = {};
+    document.querySelectorAll('.ui-ability-chip[data-ability]').forEach((element) => {
+      if (element instanceof HTMLElement) {
+        chips[element.dataset.ability ?? ''] = element.classList.contains('ui-ability-ready');
+      }
+    });
     const lines = new Map();
     for (const line of (document.querySelector('.debug-overlay')?.textContent ?? '').split('\n')) {
       const match = /^(\S+)\s+(.*)$/.exec(line);
@@ -243,6 +266,7 @@ async function look(page) {
       shot: cine instanceof HTMLElement ? (cine.dataset.shot ?? '') : null,
       fight: fight instanceof HTMLElement && !fight.hidden,
       damage,
+      chips,
       storms: flashes.storm,
       strikes: flashes.strike,
       calls: Number(lines.get('calls') ?? -1),
@@ -453,19 +477,46 @@ async function pressAbility(page, key) {
 
 /**
  * What a press promised (`FIGHT_PLAN[].expect`) against what the page showed since: the damage
- * texts a brother floated, and the thunder's overlay classes.
+ * texts a brother floated, the thunder's overlay classes, and its chip still cooling (it has
+ * a chip, and that chip is not ready).
  */
 function checkPress(step, before, now, damage) {
   const texts = damage.contacts - before.contacts;
   const storms = now.storms - before.storms;
   const strikes = now.strikes - before.strikes;
-  const seen = `${texts} text(s), ${storms} storm(s), ${strikes} bolt flash(es)`;
   const wanted = step.expect;
+  const chip = wanted.cooling ? now.chips[wanted.cooling] : undefined;
+  const chipText =
+    wanted.cooling === undefined
+      ? ''
+      : `, chip "${wanted.cooling}" ${chip === undefined ? 'missing' : chip ? 'ready' : 'cooling'}`;
+  const seen = `${texts} text(s), ${storms} storm(s), ${strikes} bolt flash(es)${chipText}`;
   const ok =
     (wanted.texts === undefined || texts >= wanted.texts) &&
-    (!wanted.storm || (storms >= 1 && strikes >= 1));
+    (!wanted.storm || (storms >= 1 && strikes >= 1)) &&
+    (wanted.cooling === undefined || chip === false);
   if (ok) say(`  fight: ${step.press} showed ${seen}`);
   else fail(`${step.press} (${step.key}) showed ${seen}, wanted ${JSON.stringify(wanted)}`);
+}
+
+/**
+ * A chip that was cooling must be ready again within its cooldown (plus slack) on the game's
+ * clock: returns true once the watch is over (ready, or failed), false while it goes on.
+ */
+function checkReady(watch, now) {
+  const ready = now.chips[watch.chip];
+  const waited = now.sim - watch.sim;
+  if (ready === true) {
+    say(
+      `  fight: chip "${watch.chip}" ready again after ${waited.toFixed(1)} s (cooldown ${watch.cooldown} s)`,
+    );
+    return true;
+  }
+  if (waited <= watch.cooldown + READY_SLACK_S) return false;
+  fail(
+    `chip "${watch.chip}" is ${ready === undefined ? 'missing' : 'still cooling'} ${waited.toFixed(1)} s after its press (cooldown ${watch.cooldown} s)`,
+  );
+  return true;
 }
 
 /**
@@ -486,11 +537,14 @@ async function playFight(page) {
   let lastPress = 0;
   /** The press being verified: the counts before it, and when it was pressed. */
   let verifying = null;
+  /** A chip that must become ready again: which, when it was pressed and its cooldown. */
+  let readyWatch = null;
   const letGo = () => page.keyboard.up('KeyW').catch(() => undefined);
   while (Date.now() < deadline) {
     const now = await look(page);
     if (now.shot !== null) {
       await letGo();
+      if (readyWatch) fail(`the fight ended before chip "${readyWatch.chip}" was ready again`);
       return { stats, damage, ended: true };
     }
     if (!now.fight) {
@@ -502,6 +556,7 @@ async function playFight(page) {
     } else {
       stats.add(now);
       damage.add(now.damage);
+      if (readyWatch && checkReady(readyWatch, now)) readyWatch = null;
       if (phase === 'capture') {
         await watchOverlay(page);
         const spot = await clickSpot(page);
@@ -510,6 +565,10 @@ async function playFight(page) {
       } else if (verifying) {
         if (now.sim - verifying.sim >= VERIFY_S || Date.now() - verifying.wall > VERIFY_MAX_MS) {
           checkPress(verifying.step, verifying.before, now, damage);
+          const chip = verifying.step.expect.cooling;
+          if (chip !== undefined && now.chips[chip] === false) {
+            readyWatch = { chip, sim: verifying.sim, cooldown: cooldownOf(chip) };
+          }
           verifying = null;
         }
       } else if (phase === 'plan') {

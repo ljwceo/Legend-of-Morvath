@@ -97,6 +97,7 @@ import {
   type StaffConfig,
   staffConfig,
   type StaffInput,
+  staffReadiness,
   type StaffResult,
   StaffState,
   stepStaff,
@@ -162,6 +163,7 @@ import {
 import { type NpcWorld, Npcs } from '../systems/Npcs';
 import { CheatPanel } from '../ui/CheatPanel';
 import { Dialog } from '../ui/Dialog';
+import type { AbilityChip } from '../ui/AbilityBar';
 import { HUD } from '../ui/HUD';
 import { keyLabel } from '../ui/keyLabels';
 import { StructureLabels } from '../ui/StructureLabels';
@@ -262,6 +264,8 @@ const SUN_DISTANCE = 150;
 /** No attack this step (while a dash finishes). */
 const NO_SWORD_INPUT: SwordInput = { fast: false, heavy: false, critRoll: 1 };
 const NO_STAFF_INPUT: StaffInput = { shard: false, spell: false, critRoll: 1 };
+/** No ability chips on the HUD (a sword, or a touch screen whose buttons show it). */
+const NO_CHIPS: readonly AbilityChip[] = [];
 /**
  * Line of sight for lock-on in the open world: this many samples of the terrain along the line,
  * and a hill only blocks when it rises this far (m) above it (so a bumpy field is no wall).
@@ -521,6 +525,8 @@ export class WorldState implements GameState, InstanceHost {
   private lookHintShown = false;
   /** Phones and tablets: no "click to look around" hint (there is no mouse). */
   private coarsePointer = false;
+  /** The ability chips are left off a touch screen: the buttons show the readiness there. */
+  private abilitiesTouch = false;
   private movement: MovementConfig | null = null;
   /** Movement from player.json before gear and equip load (see `applyGear`). */
   private baseMovement: MovementConfig | null = null;
@@ -672,6 +678,7 @@ export class WorldState implements GameState, InstanceHost {
     this.damageNumbers = new DamageNumbers();
     ctx.ui.append(this.damageNumbers.root);
     this.hudInCombat = false;
+    this.abilitiesTouch = false;
     this.knockedOut = false;
     this.deathTimer = NOT_DYING;
     this.potionCooldown = 0;
@@ -777,11 +784,14 @@ export class WorldState implements GameState, InstanceHost {
         this.cheatPanel?.updateTexts();
         this.dialog?.updateTexts();
         this.hud?.setInteractKey(this.interactKeyLabel());
+        this.refreshAbilities();
         this.iconLabelFor = null;
       }),
-      // Other keys (Settings -> Controls): the icon above an NPC shows the new key at once.
+      // Other keys (Settings -> Controls): the icon above an NPC and the ability chips show
+      // the new key at once.
       ctx.events.on('settingsChanged', () => {
         this.hud?.setInteractKey(this.interactKeyLabel());
+        this.refreshAbilities();
         const touch = this.ctx.data?.player.controls.touch;
         if (touch && this.touch) {
           this.touch.setSettings(readTouchSettings(this.ctx.session?.settings, touch));
@@ -1963,6 +1973,7 @@ export class WorldState implements GameState, InstanceHost {
     if (fighting !== this.hudInCombat) {
       this.hudInCombat = fighting;
       hud.rules.setCombat(fighting);
+      hud.setAbilitiesInCombat(fighting);
     }
     hud.setBar('hp', c.maxHp > 0 ? c.hp / c.maxHp : 0);
     hud.setBar('mana', c.maxMana > 0 ? c.mana / c.maxMana : 0);
@@ -1985,6 +1996,52 @@ export class WorldState implements GameState, InstanceHost {
       potion: t.t('controls.potion'),
       lock: t.t('controls.lock'),
     };
+  }
+
+  /**
+   * The HUD's ability chips (Bo, 2026-10-15): a staff shows its Shard and, once it carries
+   * one, its spell (the spell's name from spells.json) with the keys bound to them. A sword
+   * shows none (its fast hit has no cooldown worth showing and the heavy hit's wind-up is on
+   * the sword itself), and a touch screen none either: there the buttons show it. Rebuilt on
+   * a new weapon, language or keys.
+   */
+  private refreshAbilities(): void {
+    const hud = this.hud;
+    if (!hud) return;
+    if (this.abilitiesTouch || this.weaponKind !== 'staff') {
+      hud.setAbilities(NO_CHIPS);
+      return;
+    }
+    const t = this.ctx.i18n;
+    const chips: AbilityChip[] = [
+      { id: 'shard', label: t.t('controls.shard'), keyText: t.t('hud.key.attack') },
+    ];
+    const spell = this.spell;
+    if (spell) {
+      const name = this.ctx.data?.spells.spells.find((entry) => entry.id === spell.id)?.name;
+      chips.push({ id: 'spell', label: name ?? spell.id, keyText: t.t('hud.key.heavy') });
+    }
+    hud.setAbilities(chips);
+  }
+
+  /**
+   * Every rendered frame: how ready the Shard and the spell are, to the HUD chips and to the
+   * attack and heavy touch buttons (both only write to the DOM on a change). A sword is
+   * always ready, so a button that cooled for a staff is drawn plain again.
+   */
+  private updateAbilityReadiness(input: Input): void {
+    const touch = input.usedTouch || this.coarsePointer;
+    if (touch !== this.abilitiesTouch) {
+      this.abilitiesTouch = touch;
+      this.refreshAbilities();
+    }
+    const staff = this.weaponKind === 'staff';
+    const shard = staff ? staffReadiness(this.staffState, 'shard') : 1;
+    const spell = staff ? staffReadiness(this.staffState, 'spell') : 1;
+    this.hud?.setAbilityReadiness('shard', shard);
+    this.hud?.setAbilityReadiness('spell', spell);
+    this.touch?.setReadiness('attack', shard);
+    this.touch?.setReadiness('heavy', spell);
   }
 
   /** The closed city gate (condition false) holds the player back like a wall. */
@@ -2959,6 +3016,7 @@ export class WorldState implements GameState, InstanceHost {
     this.spellPower = data
       ? powerFactor(data.spells.powerCurves, session?.path ?? null, this.conditionContext.level)
       : 1;
+    this.refreshAbilities();
   }
 
   /** The color of a shot: its element's color from spells.json (the Shard has none of its own). */
@@ -3152,6 +3210,7 @@ export class WorldState implements GameState, InstanceHost {
     if (sceneZone) this.updateLamps(s.x, s.y, s.z, origin.x, origin.z);
     this.touch?.update();
     this.touch?.setLocked(this.locked !== null);
+    this.updateAbilityReadiness(input);
     this.updateLookHint(input);
     this.updateFog(scene, frameSeconds);
     this.updateInteraction(rig.camera, origin.x, origin.z, input.usedTouch || this.coarsePointer);

@@ -4,7 +4,7 @@ import { Input, type LookDelta } from '../core/Input';
 import { Random } from '../core/Random';
 import type { GameState } from '../core/StateMachine';
 import { assetUrl } from '../data/DataLoader';
-import { FIGHT_DODGE } from '../data/schemas';
+import { type ControlAction, FIGHT_DODGE } from '../data/schemas';
 import type { GameData } from '../data/types';
 import { buildLord, type LordModel } from '../entities/LordFactory';
 import { Player } from '../entities/Player';
@@ -40,6 +40,8 @@ import {
   screenToWorld,
   stepMovement,
 } from '../systems/Movement';
+import { readiness } from '../systems/Readiness';
+import { AbilityBar, type AbilityChip } from '../ui/AbilityBar';
 import { CinematicCutscene } from '../ui/CinematicCutscene';
 import { DamageNumbers } from '../ui/DamageNumbers';
 import { el } from '../ui/dom';
@@ -170,6 +172,15 @@ export class IntroSceneState implements GameState {
   private effects: ArsenalEffects | null = null;
   /** The floating text of a dodge ("Dodged!"), looked up once per fight. */
   private dodgedText = '';
+  /**
+   * Which abilities are ready again: the chips (pc) and the fill on the touch buttons. The
+   * sword's hit has no `cooldownSeconds` in the data: its total is what `stepSword` set the
+   * cooldown to at the last hit (`strikeTotal`), its chip is the melee ability's id.
+   */
+  private abilityBar: AbilityBar | null = null;
+  private abilityBarHidden = false;
+  private strikeId: string | null = null;
+  private strikeTotal = 0;
 
   private root: HTMLElement | null = null;
   private surface: HTMLElement | null = null;
@@ -287,6 +298,9 @@ export class IntroSceneState implements GameState {
     this.input = null;
     this.touch?.dispose();
     this.touch = null;
+    this.abilityBar?.dispose();
+    this.abilityBar = null;
+    this.strikeId = null;
     this.damageNumbers?.dispose();
     this.damageNumbers = null;
     this.root?.remove();
@@ -454,6 +468,7 @@ export class IntroSceneState implements GameState {
     if (!data || !fight || !root) return;
     this.segment = 'fight';
     this.showFightUi(true);
+    this.strikeTotal = 0;
     // Keys tapped and wheel notches turned during the film must not swing, dash or zoom now.
     this.input?.releaseAll();
     this.script = new FightScript(fight.beats, (action) => this.onAction(action));
@@ -580,7 +595,12 @@ export class IntroSceneState implements GameState {
       // Frozen in time: nothing about you moves, not even your sword.
       if (this.freezeLeft <= 0) {
         const result = stepSword(player.combat, s, this.swordInput, sword, dt, this.swordResult);
-        if (result.landed !== 'none') this.landHit(events);
+        if (result.landed !== 'none') {
+          this.landHit(events);
+          // What the sword set its cooldown to (shorter with Dexterity, longer without
+          // energy): the whole wait the strike's chip fills up over.
+          this.strikeTotal = player.combat.attackCooldown;
+        }
       }
       stepMovement(s, this.command, movement, dt, mover);
       this.pushOutOfFoes();
@@ -658,6 +678,7 @@ export class IntroSceneState implements GameState {
       rig.camera.position.x += shake * SHAKE_SIDEWAYS;
     }
     this.touch?.update();
+    this.updateReadiness();
     this.damageNumbers?.update(
       frameSeconds,
       rig.camera,
@@ -667,6 +688,49 @@ export class IntroSceneState implements GameState {
       window.innerHeight,
     );
     this.skip?.draw();
+  }
+
+  /**
+   * How ready the four abilities are, to the chips and the touch buttons (both only write on
+   * a change): the strike from the sword's cooldown, the rest from the arsenal; the icicle is
+   * blocked while all three fly. The chips stay off a touch screen (the buttons show it).
+   */
+  private updateReadiness(): void {
+    const { arsenal, player, abilityBar } = this;
+    if (!arsenal || !player) return;
+    const hidden = this.usesTouch();
+    if (abilityBar && hidden !== this.abilityBarHidden) {
+      this.abilityBarHidden = hidden;
+      abilityBar.root.hidden = hidden;
+    }
+    const strike = readiness(player.combat.attackCooldown, this.strikeTotal);
+    const burst = arsenal.readiness('burst');
+    const storm = arsenal.readiness('storm');
+    const icicle = arsenal.readiness('projectile');
+    const slotTaken = !arsenal.icicleSlotFree;
+    if (abilityBar) {
+      if (this.strikeId) abilityBar.setReadiness(this.strikeId, strike);
+      if (arsenal.burstDef) abilityBar.setReadiness(arsenal.burstDef.id, burst);
+      if (arsenal.stormDef) abilityBar.setReadiness(arsenal.stormDef.id, storm);
+      if (arsenal.projectileDef) {
+        abilityBar.setReadiness(arsenal.projectileDef.id, icicle, slotTaken);
+      }
+    }
+    const actions = arsenal.actions;
+    this.touchReadiness(actions.strike, strike);
+    this.touchReadiness(actions.burst, burst);
+    this.touchReadiness(actions.storm, storm);
+    // A taken slot darkens the whole ring: a press does nothing until an icicle has landed.
+    this.touchReadiness(actions.bolt, slotTaken ? 0 : icicle);
+  }
+
+  /** The readiness to the touch button an ability's action sits on (the dash has none). */
+  private touchReadiness(action: ControlAction | null, ready: number): void {
+    const touch = this.touch;
+    if (!touch) return;
+    if (action === 'attack' || action === 'heavy' || action === 'potion' || action === 'lock') {
+      touch.setReadiness(action, ready);
+    }
   }
 
   // ------------------------------------------------------------ script actions
@@ -1008,7 +1072,25 @@ export class IntroSceneState implements GameState {
     this.touch.setPotions(storm ? 1 : 0);
     this.touch.setPotionLabel(storm ? t(storm.label) : null);
     this.damageNumbers = new DamageNumbers();
-    this.root.append(this.touch.root, this.damageNumbers.root, this.overlay);
+    // The chips with the four abilities in the data's order, each with the key of its action
+    // (`hud.key.<action>`: "{keyAttack}" and friends, so a changed binding shows). Not on a
+    // touch screen: there the buttons draw the readiness.
+    const chips: AbilityChip[] = [];
+    this.strikeId = null;
+    for (const ability of this.fight?.abilities ?? []) {
+      const keyName = `hud.key.${ability.action}`;
+      if (ability.kind === 'melee') this.strikeId ??= ability.id;
+      chips.push({
+        id: ability.id,
+        label: ability.kind === 'melee' ? t('controls.attack') : t(ability.label),
+        keyText: this.ctx.i18n.has(keyName) ? t(keyName) : '',
+      });
+    }
+    this.abilityBar = new AbilityBar();
+    this.abilityBar.setChips(chips);
+    this.abilityBarHidden = this.usesTouch();
+    this.abilityBar.root.hidden = this.abilityBarHidden;
+    this.root.append(this.touch.root, this.damageNumbers.root, this.overlay, this.abilityBar.root);
   }
 
   private buildScene(data: GameData, fight: FightDef): void {
