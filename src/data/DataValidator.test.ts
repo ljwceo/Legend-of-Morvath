@@ -331,7 +331,7 @@ describe('validateGameData catches broken data', () => {
     expect(found).toContainEqual(expect.stringContaining('"brink_tower" is not a cinematic'));
     expect(found).toContainEqual(expect.stringContaining('actor "sultan" is a different model'));
     expect(found).toContainEqual(expect.stringContaining('only the player holds a weapon'));
-    expect(found).toContainEqual(expect.stringContaining('the player cannot fade or roll'));
+    expect(found).toContainEqual(expect.stringContaining('the player cannot fade'));
     expect(found).toContainEqual(expect.stringContaining('unknown cutscene "nowhere"'));
     expect(found).toContainEqual(expect.stringContaining('an ending needs a lastStand'));
     expect(found).toContainEqual(expect.stringContaining('boss.prop: must lie inside the arena'));
@@ -368,6 +368,206 @@ describe('validateGameData catches broken data', () => {
     model.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle').actors[1].model =
       'placeholder:dragon';
     expect(messages(model).join('\n')).toContain('actors[1].model');
+  });
+
+  it('checks a cinematic on a fight: anchor or fight, foes as actors, hops, headings, narration', () => {
+    const raw = freshData();
+    const camera = { from: { x: 0, y: 2, z: -5 }, lookFrom: { x: 0, y: 1, z: 0 } };
+    raw.cutscenes.cutscenes.push(
+      {
+        id: 'room',
+        type: 'cinematic',
+        skippable: true,
+        fight: 'intro_fight',
+        afterFight: 'landing',
+        actors: [
+          { id: 'player', model: 'player' },
+          { id: 'lucael', model: 'fight' },
+          { id: 'ghost', model: 'fight' },
+        ],
+        shots: [
+          {
+            id: 'one',
+            seconds: 1,
+            camera,
+            narration: 'intro.nope',
+            actors: [
+              {
+                actor: 'lucael',
+                hops: [
+                  { x: 0, z: 0 },
+                  { x: 1, z: 1 },
+                  // Past the set's floor (radius 16).
+                  { x: 40, z: 0 },
+                ],
+                from: { x: 0, z: 0 },
+              },
+              { actor: 'player', headingFrom: 10, rollTo: 90 },
+            ],
+          },
+        ],
+      },
+      // No fight of its own (an anchor instead), yet it leads back to the room.
+      {
+        id: 'landing',
+        type: 'cinematic',
+        skippable: true,
+        anchor: { x: 0, z: 0 },
+        afterFight: 'room',
+        actors: [{ id: 'baelor', model: 'fight' }],
+        shots: [{ id: 'one', seconds: 1, camera }],
+      },
+      // A fight nobody knows, followed by a comic.
+      {
+        id: 'lost',
+        type: 'cinematic',
+        skippable: true,
+        fight: 'nowhere',
+        afterFight: 'brink_tower',
+        shots: [{ id: 'one', seconds: 1, camera }],
+      },
+    );
+    const pringle = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle');
+    pringle.fight = 'intro_fight';
+    pringle.afterFight = 'nowhere';
+    const comic = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'sam_cellar');
+    comic.fight = 'intro_fight';
+    comic.afterFight = 'pringle';
+    const found = messages(raw);
+    expect(found).toContainEqual(
+      expect.stringContaining("a cinematic on a fight's set has no anchor"),
+    );
+    expect(found).toContainEqual(expect.stringContaining('unknown cutscene "nowhere"'));
+    expect(found).toContainEqual(expect.stringContaining('unknown fight "nowhere"'));
+    expect(found).toContainEqual(
+      expect.stringContaining('afterFight: "brink_tower" is not a cinematic'),
+    );
+    expect(found).toContainEqual(expect.stringContaining('only a cinematic has fight'));
+    expect(found).toContainEqual(expect.stringContaining('only a cinematic has afterFight'));
+    expect(found).toContainEqual(expect.stringContaining('"ghost" is not a foe of "intro_fight"'));
+    expect(found).toContainEqual(expect.stringContaining('hops replace from and to'));
+    expect(found).toContainEqual(
+      expect.stringContaining('hops[2]: lies outside the set (radius 16)'),
+    );
+    expect(found).not.toContainEqual(expect.stringContaining('hops[1]: lies outside'));
+    expect(found).toContainEqual(expect.stringContaining('headingFrom and headingTo go together'));
+    expect(found).toContainEqual(expect.stringContaining('"intro.nope" is missing'));
+    expect(found).toContainEqual(expect.stringContaining('"landing" does not play on fight'));
+    expect(found).toContainEqual(expect.stringContaining('the fights lead back to "room"'));
+    expect(found).toContainEqual(
+      expect.stringContaining('only a cinematic with a fight has an afterFight'),
+    );
+    // Without a fight there is no chain to check: no second, puzzling message.
+    expect(found).not.toContainEqual(expect.stringContaining('on fight "undefined"'));
+    expect(found).toContainEqual(
+      expect.stringContaining('a "fight" actor needs a cutscene with a fight'),
+    );
+    // The player may roll over now (lying in the badlands); only fading is still out.
+    expect(found.filter((m) => m.includes('the player cannot'))).toEqual([]);
+
+    const bare = freshData();
+    delete bare.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle').anchor;
+    expect(messages(bare)).toContainEqual(
+      expect.stringContaining('a cinematic needs an anchor or a fight'),
+    );
+  });
+
+  it('refuses a cinematic intro without a fight: it plays in its own scene', () => {
+    const raw = freshData();
+    const intro = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'intro');
+    // A world cutscene's anchor instead of the fight: fine anywhere else, not for the intro.
+    delete intro.fight;
+    delete intro.afterFight;
+    intro.anchor = { x: 0, z: 0 };
+    const found = messages(raw);
+    expect(found).toContainEqual(
+      expect.stringContaining('the intro plays in its own scene and needs a fight'),
+    );
+    expect(found).not.toContainEqual(
+      expect.stringContaining('a cinematic needs an anchor or a fight'),
+    );
+    // With its fight back, the intro passes.
+    expect(messages(freshData())).not.toContainEqual(expect.stringContaining('needs a fight'));
+  });
+
+  it("checks a fight's set, abilities and the new beat actions", () => {
+    const raw = freshData();
+    const fight = raw.cutscenes.fights[0];
+    fight.set.fogNear = fight.set.fogFar;
+    fight.set.skyLight = 'neonpink';
+    delete fight.set.props.find((prop: { kind: string }) => prop.kind === 'spikes').seed;
+    fight.set.props.push(
+      { kind: 'floor', x: 0, z: 200, radius: 30 },
+      { kind: 'rock', x: 5, z: 206, color: 'neonpink' },
+    );
+    const rock = fight.set.props.length - 1;
+    fight.abilities = [
+      { id: 'strike', action: 'attack', kind: 'melee' },
+      {
+        id: 'explosion',
+        action: 'attack',
+        kind: 'burst',
+        radius: 4,
+        cooldownSeconds: 2,
+        color: 'magieblauw',
+        label: 'intro.ability.nope',
+      },
+      // The same id again, in a color that does not exist; no `hitChance` (it has a default).
+      {
+        id: 'strike',
+        action: 'potion',
+        kind: 'storm',
+        bolts: 7,
+        boltRadius: 1.3,
+        strikeSeconds: 1.1,
+        cooldownSeconds: 7,
+        color: 'neonpink',
+        label: 'intro.fight.hint',
+      },
+      // No `range`: it flies until it leaves the set.
+      {
+        id: 'icicle',
+        action: 'lock',
+        kind: 'projectile',
+        speed: 22,
+        radius: 0.5,
+        length: 2.4,
+        cooldownSeconds: 1.6,
+        color: 'magieblauw',
+        label: 'intro.fight.hint',
+      },
+    ];
+    fight.beats[0].actions.push(
+      { type: 'end', foe: 'lucael' },
+      { type: 'blink' },
+      { type: 'blink', foe: 'lucael' },
+    );
+    fight.dodge = { minMeters: 4, maxMeters: 3, clearanceMeters: 3, blinkReach: 0.75 };
+    const found = messages(raw);
+    expect(found).toContainEqual(
+      expect.stringContaining('dodge.minMeters: is larger than maxMeters'),
+    );
+    expect(found).toContainEqual(expect.stringContaining('fogNear: must be smaller than fogFar'));
+    expect(found).toContainEqual(expect.stringContaining('unknown color token "neonpink"'));
+    expect(found).toContainEqual(expect.stringContaining('spikes need count, seed and radius'));
+    expect(found).toContainEqual(expect.stringContaining('a floor needs radius and color'));
+    expect(found).toContainEqual(expect.stringContaining('"attack" already fires another ability'));
+    expect(found).toContainEqual(expect.stringContaining('"intro.ability.nope" is missing'));
+    expect(found).toContainEqual(expect.stringContaining('abilities[2].id: duplicate id "strike"'));
+    expect(found).toContainEqual(
+      expect.stringContaining('abilities[2].color: unknown color token "neonpink"'),
+    );
+    expect(found).toContainEqual(
+      expect.stringContaining(`props[${rock}].color: unknown color token "neonpink"`),
+    );
+    // `hitChance` and `range` may be left out (the design's own example has neither).
+    expect(found).not.toContainEqual(expect.stringContaining('hitChance'));
+    expect(found).not.toContainEqual(expect.stringContaining('abilities[3].range'));
+    expect(found).toContainEqual(expect.stringContaining('an "end" has no foe'));
+    expect(found).toContainEqual(expect.stringContaining('a "blink" needs a foe'));
+    // A blink with a foe is instant: no seconds needed; an end needs neither.
+    expect(found).not.toContainEqual(expect.stringContaining('needs seconds'));
+    expect(found).not.toContainEqual(expect.stringContaining('an "end" needs a foe'));
   });
 
   it('checks the victory words of a boss', () => {

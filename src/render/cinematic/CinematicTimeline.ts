@@ -17,6 +17,8 @@ const DEG = Math.PI / 180;
 const WOBBLE_TURNS = 3;
 /** A freeze-frame fades its "still" look in over this many seconds (no hard jump). */
 const STILL_FADE_SECONDS = 0.08;
+/** `hops`: for this last part of every hop the actor is gone (it blinks out before the next). */
+export const HOP_BLINK = 0.08;
 
 /** Easing 0–1 → 0–1: `in` starts slow, `out` ends slow, `inOut` both (smooth). */
 export function ease(kind: CinematicEase | undefined, u: number): number {
@@ -271,7 +273,7 @@ export class CinematicTimeline {
       this.moves.push(moves);
       this.startPoses.push(pose.map((p) => ({ ...p })));
       // The end of this shot is the start of the next.
-      this.posesAt(s, 1, pose);
+      this.posesAt(s, 1, pose, 1);
     });
     this.total = start;
   }
@@ -327,7 +329,9 @@ export class CinematicTimeline {
     const speed = shot.speed ?? 1;
     const action = local * speed;
     const u = Math.min(1, action / shot.seconds);
-    this.posesAt(s, u, out.actors);
+    // The shot's seconds in wall time, not slowed down: for actors that keep their own time.
+    const uWall = Math.min(1, local / shot.seconds);
+    this.posesAt(s, u, out.actors, uWall);
     this.cameraAt(s, u, out);
     out.slow = speed < 1;
     out.silent = shot.silence === true;
@@ -353,8 +357,12 @@ export class CinematicTimeline {
     out.bars = ease('inOut', Math.min(time / edge, (this.total - time) / edge));
   }
 
-  /** Every actor's pose `u` (0–1) of the way through shot `s`. */
-  private posesAt(s: number, u: number, out: ActorPose[]): void {
+  /**
+   * Every actor's pose `u` (0–1) of the way through the action of shot `s`. `uWall` is how far
+   * the shot's seconds are in wall time: the same as `u`, unless the shot is slowed down (then
+   * it runs ahead of `u`); actors with `ownTime` move by it.
+   */
+  private posesAt(s: number, u: number, out: ActorPose[], uWall: number): void {
     const moves = this.moves[s];
     const starts = this.startPoses[s];
     if (!moves || !starts) return;
@@ -363,9 +371,20 @@ export class CinematicTimeline {
       copyPose(starts[a] as ActorPose, p);
       const move = moves[a];
       if (!move) continue;
-      const e = ease(move.ease, u);
+      const t = move.ownTime ? uWall : u;
+      const e = ease(move.ease, t);
       if (move.visible !== undefined) p.visible = move.visible;
-      if (move.from) {
+      if (move.hops) {
+        // A teleport flicker: it stands at hop k for the k-th part of the shot and is gone for
+        // the last bit of every part. At the very end it stands at the last hop (where the
+        // next shot finds it).
+        const n = move.hops.length;
+        const k = Math.min(n - 1, Math.floor(t * n));
+        const hop = move.hops[k] as (typeof move.hops)[number];
+        p.x = hop.x;
+        p.z = hop.z;
+        if (t < 1 && t * n - k >= 1 - HOP_BLINK) p.visible = false;
+      } else if (move.from) {
         const to = move.to ?? move.from;
         p.x = lerp(move.from.x, to.x, e);
         p.z = lerp(move.from.z, to.z, e);
@@ -401,10 +420,19 @@ export class CinematicTimeline {
       p.y = this.ground(p.x, p.z) + p.lift;
     }
     for (let a = 0; a < moves.length; a++) {
-      const target = moves[a]?.lookAt;
+      const move = moves[a];
+      if (!move) continue;
+      const p = out[a] as ActorPose;
+      if (move.headingFrom !== undefined || move.headingTo !== undefined) {
+        // A turn over the shot (the swing of a bat) wins over where it walks or looks.
+        const from = move.headingFrom ?? move.headingTo ?? 0;
+        const to = move.headingTo ?? from;
+        p.heading = lerp(from, to, ease(move.ease, move.ownTime ? uWall : u)) * DEG;
+        continue;
+      }
+      const target = move.lookAt;
       if (!target) continue;
       const other = out[this.actorIds.indexOf(target)];
-      const p = out[a] as ActorPose;
       if (other && (other.x !== p.x || other.z !== p.z)) {
         p.heading = Math.atan2(other.x - p.x, other.z - p.z);
       }
@@ -412,10 +440,11 @@ export class CinematicTimeline {
     // A head shake on top of where it faces, calming down to nothing by the end of the shot
     // (so the next shot starts facing straight again).
     for (let a = 0; a < moves.length; a++) {
-      const wobble = moves[a]?.wobble;
-      if (!wobble) continue;
+      const move = moves[a];
+      if (!move?.wobble) continue;
+      const t = move.ownTime ? uWall : u;
       const p = out[a] as ActorPose;
-      p.heading += wobble * DEG * (1 - u) * Math.sin(u * WOBBLE_TURNS * 2 * Math.PI);
+      p.heading += move.wobble * DEG * (1 - t) * Math.sin(t * WOBBLE_TURNS * 2 * Math.PI);
     }
   }
 

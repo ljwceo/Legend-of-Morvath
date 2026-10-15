@@ -94,6 +94,8 @@ export class Input {
   private attached = false;
   /** True while the game itself releases the lock, so it is not reported as lost. */
   private releasingLock = false;
+  /** True once this surface has held the mouse: a lock that ends before that was never ours. */
+  private heldLock = false;
 
   constructor(
     private readonly surface: HTMLElement,
@@ -435,12 +437,17 @@ export class Input {
   };
 
   private readonly onPointerLockChange = (): void => {
-    if (this.pointerLocked) return;
+    if (this.pointerLocked) {
+      this.heldLock = true;
+      return;
+    }
     const askedByGame = this.releasingLock;
     this.releasingLock = false;
     // Keys held while Escape was pressed would otherwise keep walking.
     this.releaseAll();
-    if (!askedByGame) this.onPointerLockLost?.();
+    // The lock a previous state let go of ends after its Input is gone, in the next state's
+    // Input: that one never held it, so nothing was lost (no pause menu on arrival).
+    if (!askedByGame && this.heldLock) this.onPointerLockLost?.();
   };
 
   private readonly onContextMenu = (event: Event): void => {

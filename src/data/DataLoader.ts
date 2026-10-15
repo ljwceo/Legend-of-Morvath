@@ -18,6 +18,11 @@ export function publicUrl(path: string): string {
   return `${import.meta.env.BASE_URL}${path}`;
 }
 
+/** URL of a file in public/ with the build id (a new deploy never uses a cached old model). */
+export function assetUrl(path: string): string {
+  return `${publicUrl(path)}?v=${__BUILD_ID__}`;
+}
+
 /**
  * Loads every data file in parallel. Returns the raw JSON; run it through `validateGameData`
  * before use. `onProgress` fires after each file, for the loading bar.
