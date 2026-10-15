@@ -508,6 +508,29 @@
   border-color: var(--gh-ornamentgoud);
 }
 
+/*
+ * How ready the ability on a button is (Bo, 2026-10-15): while it cools down, the part of
+ * the ring still to come is darkened, clockwise from the top; `--ready` (0–1) comes from
+ * TouchControls.setReadiness. At 1 nothing is drawn, so the button looks as it always did.
+ */
+.ui-touch-button::after {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  background: conic-gradient(
+    transparent calc(var(--ready, 1) * 360deg),
+    color-mix(in srgb, var(--gh-nachtinkt) 62%, transparent) 0
+  );
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.ui-touch-button.ui-touch-cooling::after {
+  opacity: 1;
+}
+
 /* Drink potion: a flask with the number of potions; hidden without potions. */
 .ui-potion-button::before {
   content: '';
@@ -686,6 +709,145 @@
   border-radius: 50%;
   background: var(--gh-ornamentgoud);
   box-shadow: 0 0 8px color-mix(in srgb, var(--gh-lantaarnamber) 50%, transparent);
+}
+
+/*
+ * Which abilities are ready again (Bo, 2026-10-15): a row of small chips, bottom centre
+ * above the spoken lines, each with the ability's name and its key. A fill rises from the
+ * bottom with `--ready` (0–1, from AbilityBar.setReadiness); the chip is dimmed meanwhile
+ * and bright with a gold edge once ready, with a short pulse at that moment. Only on a
+ * computer: on a phone the touch buttons show it. In the world it is a HUD part (it fades
+ * like the bars); in the intro fight it is always there.
+ */
+.ui-ability-bar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(max(28px, calc(env(safe-area-inset-bottom) + 16px)) + 108px);
+  display: flex;
+  gap: 10px;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.ui-ability-bar[hidden] {
+  display: none;
+}
+
+.ui-ability-chip {
+  --ready: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  box-sizing: border-box;
+  min-width: 68px;
+  height: 46px;
+  padding: 0 10px;
+  overflow: hidden;
+  font: 600 13px var(--gh-font-tekst);
+  color: var(--gh-tekst-zacht);
+  background: color-mix(in srgb, var(--gh-panel) 82%, transparent);
+  border: 1px solid var(--gh-rand);
+  border-radius: 8px;
+  transition:
+    color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+/* The fill, from the bottom up to --ready. */
+.ui-ability-chip::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, var(--gh-magieblauw), var(--gh-spreukviolet));
+  opacity: 0.35;
+  transform-origin: bottom;
+  transform: scaleY(var(--ready));
+  transition:
+    transform 0.12s linear,
+    opacity 0.2s ease;
+}
+
+.ui-ability-label,
+.ui-ability-key {
+  position: relative;
+  white-space: nowrap;
+}
+
+.ui-ability-label {
+  line-height: 1;
+}
+
+.ui-ability-key {
+  min-width: 18px;
+  padding: 1px 5px;
+  box-sizing: border-box;
+  font: 700 11px var(--gh-font-stats);
+  line-height: 1.2;
+  text-align: center;
+  color: var(--gh-tekst-zacht);
+  background: color-mix(in srgb, var(--gh-rand) 65%, transparent);
+  border-radius: 4px;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.ui-ability-chip.ui-ability-ready {
+  color: var(--gh-tekst);
+  border-color: var(--gh-ornamentgoud);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--gh-ornamentgoud) 35%, transparent);
+}
+
+.ui-ability-chip.ui-ability-ready::before {
+  opacity: 0.55;
+}
+
+.ui-ability-chip.ui-ability-ready .ui-ability-key {
+  color: var(--gh-nachtinkt);
+  background: var(--gh-ornamentgoud);
+}
+
+/* Blocked by something else than its cooldown (every icicle in flight): waits, dimmed. */
+.ui-ability-chip.ui-ability-blocked {
+  color: var(--gh-tekst-zacht);
+  border-color: var(--gh-rand);
+  box-shadow: none;
+}
+
+.ui-ability-chip.ui-ability-blocked::before {
+  opacity: 0.15;
+}
+
+.ui-ability-chip.ui-ability-pulse {
+  animation: ui-ability-pulse 0.45s ease-out;
+}
+
+@keyframes ui-ability-pulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--gh-ornamentgoud) 75%, transparent);
+  }
+  40% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 14px 6px transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-ability-chip.ui-ability-pulse {
+    animation: none;
+  }
+
+  .ui-ability-chip::before {
+    transition: none;
+  }
 }
 
 /* Interaction icon: floats above the object; tap it on a phone, press E on a computer. */

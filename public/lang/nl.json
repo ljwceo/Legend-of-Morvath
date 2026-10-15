@@ -282,6 +282,12 @@
     }
   },
   "hud": {
+    "key": {
+      "attack": "{keyAttack}",
+      "heavy": "{keyHeavy}",
+      "potion": "{keyPotion}",
+      "lock": "{keyLock}"
+    },
     "checkpointSet": "Checkpoint ingesteld",
     "rested": "Je rust uit in je bed. Je HP en mana zijn weer vol.",
     "qualityLowered": "Graphics verlaagd naar {quality} zodat het spel vloeiend blijft.",

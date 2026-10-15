@@ -22,6 +22,11 @@ export interface TouchLabels {
 /** Button sizes if the style sheet cannot be read (the test environment). */
 const FALLBACK_SIZE_PX = 82;
 const FALLBACK_BIG_PX = 92;
+/** `--ready` on a button is written again once it moved this much (see AbilityBar). */
+const READY_STEP = 0.02;
+
+/** The buttons that can show how ready their ability is (the dash has no cooldown to show). */
+export type ReadinessButton = Exclude<TouchButtonId, 'dash'>;
 
 /**
  * On-screen controls for touch screens: the joystick (drawn where the thumb went down, on the
@@ -48,6 +53,19 @@ export class TouchControls {
   private settings: TouchControlSettings = { size: 1, mirrored: false, layout: {} };
   private lockedShown = false;
   private potionShown = -1;
+  /** The `--ready` last written per ability button (0–1), and whether it is drawn cooling. */
+  private readonly readyWritten: Record<ReadinessButton, number> = {
+    attack: 1,
+    heavy: 1,
+    potion: 1,
+    lock: 1,
+  };
+  private readonly coolingShown: Record<ReadinessButton, boolean> = {
+    attack: false,
+    heavy: false,
+    potion: false,
+    lock: false,
+  };
   private shownJoystick = false;
   private shownButtons = false;
   private knobX = Number.NaN;
@@ -164,6 +182,25 @@ export class TouchControls {
     this.lockedShown = locked;
     this.buttons.lock.classList.toggle('ui-touch-button-active', locked);
     this.buttons.lock.setAttribute('aria-pressed', String(locked));
+  }
+
+  /**
+   * How ready the ability on a button is (0–1): below 1 the button darkens the part of its
+   * ring that is still to come (`--ready`, drawn by the style sheet), at 1 it looks as always.
+   * Writes to the DOM only when the value moved by `READY_STEP` or crossed 1.
+   */
+  setReadiness(id: ReadinessButton, ready: number): void {
+    const value = Math.min(1, Math.max(0, ready));
+    const written = this.readyWritten[id];
+    const full = value >= 1;
+    if (Math.abs(value - written) >= READY_STEP || full !== written >= 1) {
+      this.readyWritten[id] = value;
+      this.buttons[id].style.setProperty('--ready', value.toFixed(3));
+    }
+    const cooling = !full;
+    if (cooling === this.coolingShown[id]) return;
+    this.coolingShown[id] = cooling;
+    this.buttons[id].classList.toggle('ui-touch-cooling', cooling);
   }
 
   /** Number of potions the drink key would use; the button hides at 0. */

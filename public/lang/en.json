@@ -282,6 +282,12 @@
     }
   },
   "hud": {
+    "key": {
+      "attack": "{keyAttack}",
+      "heavy": "{keyHeavy}",
+      "potion": "{keyPotion}",
+      "lock": "{keyLock}"
+    },
     "checkpointSet": "Checkpoint set",
     "rested": "You rest in your bed. HP and mana are full again.",
     "qualityLowered": "Graphics lowered to {quality} to keep the game smooth.",
