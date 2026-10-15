@@ -15,6 +15,7 @@
    stap erom vraagt (en dan alleen het stukje dat nodig is).
 3. Klaar? Zet de stap op `[x]`, zet één regel in `docs/PROGRESS.md`, commit, push, pull request. Stop.
 4. Nieuwe wens of besluit van Bo/Lucas? Zet hem als nieuwe stap of in **Notities**, niet in `CLAUDE.md`.
+5. **Klein bouwen, Bo laten testen** (Bo, 2026-10-15): één bouwronde per vraag, geen extra review- en fixrondes; zet het op de branch (of de proefpagina) en wacht op feedback in plaats van zelf door te polijsten.
 
 ---
 
