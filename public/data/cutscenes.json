@@ -26,47 +26,57 @@
         {
           "id": "baelor",
           "model": "fight"
+        },
+        {
+          "id": "smoke",
+          "model": "fx:smoke"
+        },
+        {
+          "id": "spark",
+          "model": "fx:glow",
+          "color": "magieblauw"
         }
       ],
       "shots": [
         {
-          "id": "room",
-          "seconds": 3,
+          "id": "corridor",
+          "seconds": 7,
           "camera": {
             "from": {
-              "x": 0,
-              "y": 7,
-              "z": -17
+              "x": 0.9,
+              "y": 0.9,
+              "z": -3.0
             },
             "to": {
-              "x": 0,
-              "y": 5.5,
-              "z": -14
+              "x": 0.7,
+              "y": 1.2,
+              "z": -2.4
             },
-            "lookFrom": {
-              "x": 0,
-              "y": 1.6,
-              "z": 0
-            },
-            "ease": "inOut"
+            "follow": "player",
+            "followHeight": 1.3,
+            "relative": true,
+            "fovFrom": 55,
+            "fovTo": 50,
+            "ease": "out"
           },
           "actors": [
             {
-              "actor": "lucael",
-              "visible": true,
-              "lookAt": "player"
-            },
-            {
-              "actor": "baelor",
-              "visible": true,
-              "lookAt": "player"
+              "actor": "player",
+              "from": {
+                "x": 0,
+                "z": -58
+              },
+              "to": {
+                "x": 0,
+                "z": -45
+              }
             }
           ],
           "narration": "intro.panel_1",
           "fade": {
             "from": 1,
             "to": 0,
-            "seconds": 1.2
+            "seconds": 1.5
           },
           "tint": {
             "color": "nachtinkt",
@@ -75,54 +85,148 @@
         },
         {
           "id": "legend",
-          "seconds": 3,
+          "seconds": 6.5,
           "camera": {
             "from": {
-              "x": 3.5,
-              "y": 2.6,
-              "z": -9
+              "x": -5.2,
+              "y": 1.7,
+              "z": -50
             },
             "to": {
-              "x": 2.5,
-              "y": 2.3,
-              "z": -7.5
+              "x": -4.4,
+              "y": 1.5,
+              "z": -43.5
             },
             "lookFrom": {
               "x": 0,
-              "y": 2,
-              "z": 3
+              "y": 1.3,
+              "z": -44
             },
+            "lookTo": {
+              "x": 0,
+              "y": 1.4,
+              "z": -31
+            },
+            "fovFrom": 48,
+            "fovTo": 44,
             "ease": "inOut"
-          },
-          "narration": "intro.panel_2"
-        },
-        {
-          "id": "arrive",
-          "seconds": 3,
-          "camera": {
-            "from": {
-              "x": -0.6,
-              "y": 2.4,
-              "z": -1.2
-            },
-            "to": {
-              "x": -0.3,
-              "y": 2.3,
-              "z": -0.6
-            },
-            "lookFrom": {
-              "x": 0,
-              "y": 2.4,
-              "z": 4.3
-            },
-            "fovFrom": 50,
-            "fovTo": 44
           },
           "actors": [
             {
+              "actor": "player",
+              "from": {
+                "x": 0,
+                "z": -45
+              },
+              "to": {
+                "x": 0,
+                "z": -30
+              }
+            }
+          ],
+          "narration": "intro.panel_2"
+        },
+        {
+          "id": "door",
+          "seconds": 4,
+          "camera": {
+            "from": {
+              "x": -2.6,
+              "y": 1.9,
+              "z": -19.6
+            },
+            "to": {
+              "x": -1.7,
+              "y": 1.75,
+              "z": -20.6
+            },
+            "lookFrom": {
+              "x": 0,
+              "y": 2.0,
+              "z": -24.2
+            },
+            "lookTo": {
+              "x": 0,
+              "y": 1.6,
+              "z": -23.6
+            },
+            "fovFrom": 44,
+            "fovTo": 40,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "player",
+              "from": {
+                "x": 0,
+                "z": -30
+              },
+              "to": {
+                "x": 0,
+                "z": -22.8
+              }
+            }
+          ],
+          "narration": "intro.panel_3"
+        },
+        {
+          "id": "room",
+          "seconds": 8,
+          "flash": 1.2,
+          "camera": {
+            "from": {
+              "x": 3.2,
+              "y": 7.8,
+              "z": -31
+            },
+            "to": {
+              "x": 1.4,
+              "y": 4.6,
+              "z": -17.5
+            },
+            "lookFrom": {
+              "x": 0,
+              "y": 3.2,
+              "z": -4
+            },
+            "lookTo": {
+              "x": 0,
+              "y": 2.2,
+              "z": 1.5
+            },
+            "fovFrom": 62,
+            "fovTo": 50,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "player",
+              "from": {
+                "x": 0,
+                "z": -22.8
+              },
+              "to": {
+                "x": 0,
+                "z": -6
+              }
+            },
+            {
               "actor": "lucael",
-              "lookAt": "player",
-              "wobble": 6
+              "visible": true,
+              "from": {
+                "x": -1.8,
+                "z": 5
+              },
+              "lookAt": "player"
+            },
+            {
+              "actor": "baelor",
+              "visible": true,
+              "from": {
+                "x": 1.8,
+                "z": 5.6
+              },
+              "lookAt": "player"
             }
           ],
           "subtitle": {
@@ -131,7 +235,470 @@
           },
           "tint": {
             "color": "spreukviolet",
-            "amount": 0.2
+            "amount": 0.25
+          }
+        },
+        {
+          "id": "greeting",
+          "seconds": 4,
+          "camera": {
+            "from": {
+              "x": 1.35,
+              "y": 3.55,
+              "z": 7.3
+            },
+            "to": {
+              "x": 1.25,
+              "y": 3.5,
+              "z": 7.0
+            },
+            "lookFrom": {
+              "x": 0,
+              "y": 1.5,
+              "z": -6
+            },
+            "lookTo": {
+              "x": 0,
+              "y": 1.4,
+              "z": -6.1
+            },
+            "fovFrom": 38,
+            "fovTo": 34,
+            "ease": "out"
+          },
+          "subtitle": {
+            "speaker": "Baelor",
+            "text": "intro.cine.greeting"
+          }
+        },
+        {
+          "id": "reply",
+          "seconds": 4,
+          "camera": {
+            "from": {
+              "x": 0.5,
+              "y": 2.7,
+              "z": -1.6
+            },
+            "to": {
+              "x": 0.3,
+              "y": 2.75,
+              "z": -0.9
+            },
+            "lookFrom": {
+              "x": 0,
+              "y": 2.7,
+              "z": 5.3
+            },
+            "fovFrom": 46,
+            "fovTo": 42,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "lucael",
+              "wobble": 8
+            }
+          ],
+          "subtitle": {
+            "speaker": "Lucael",
+            "text": "intro.cine.reply"
+          }
+        },
+        {
+          "id": "skitter",
+          "seconds": 5.5,
+          "camera": {
+            "from": {
+              "x": -12,
+              "y": 6,
+              "z": -10
+            },
+            "to": {
+              "x": -11.6,
+              "y": 5.9,
+              "z": -10.3
+            },
+            "lookFrom": {
+              "x": 0,
+              "y": 2,
+              "z": 0
+            },
+            "fovFrom": 60,
+            "fovTo": 60,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "lucael",
+              "hops": [
+                {
+                  "x": 6,
+                  "z": 9
+                },
+                {
+                  "x": -9,
+                  "z": 1
+                },
+                {
+                  "x": 7,
+                  "z": -6
+                },
+                {
+                  "x": -5,
+                  "z": -9
+                },
+                {
+                  "x": 3,
+                  "z": 1.5
+                },
+                {
+                  "x": 0,
+                  "z": -4.4
+                }
+              ],
+              "lookAt": "player"
+            },
+            {
+              "actor": "player",
+              "lookAt": "lucael"
+            }
+          ],
+          "subtitle": {
+            "speaker": "Baelor",
+            "text": "intro.cine.skitter"
+          }
+        },
+        {
+          "id": "inspect",
+          "seconds": 5,
+          "camera": {
+            "from": {
+              "x": -1.4,
+              "y": 2.3,
+              "z": -4.2
+            },
+            "to": {
+              "x": -1.15,
+              "y": 2.2,
+              "z": -4.45
+            },
+            "lookFrom": {
+              "x": 0,
+              "y": 1.55,
+              "z": -6
+            },
+            "lookTo": {
+              "x": 0,
+              "y": 1.5,
+              "z": -6.05
+            },
+            "fovFrom": 36,
+            "fovTo": 32,
+            "ease": "out"
+          },
+          "actors": [
+            {
+              "actor": "lucael",
+              "lookAt": "player",
+              "wobble": 10
+            },
+            {
+              "actor": "player",
+              "lookAt": "lucael"
+            }
+          ],
+          "subtitle": {
+            "speaker": "Lucael",
+            "text": "intro.lucael"
+          }
+        },
+        {
+          "id": "time",
+          "seconds": 2.4,
+          "speed": 0.4,
+          "camera": {
+            "from": {
+              "x": -4.4,
+              "y": 1.0,
+              "z": -9.6
+            },
+            "to": {
+              "x": -3.7,
+              "y": 1.25,
+              "z": -9.1
+            },
+            "lookFrom": {
+              "x": 0.9,
+              "y": 1.9,
+              "z": -4.6
+            },
+            "lookTo": {
+              "x": 1.6,
+              "y": 1.9,
+              "z": -4.0
+            },
+            "fovFrom": 50,
+            "fovTo": 46,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "baelor",
+              "from": {
+                "x": 1.8,
+                "z": 5.6
+              },
+              "to": {
+                "x": 4.4,
+                "z": -2.2
+              },
+              "lookAt": "player",
+              "ownTime": true,
+              "ease": "inOut"
+            }
+          ],
+          "subtitle": {
+            "speaker": "Baelor",
+            "text": "intro.fight.freeze"
+          },
+          "tint": {
+            "color": "nachtinkt",
+            "amount": 0.3
+          }
+        },
+        {
+          "id": "gather",
+          "seconds": 2.5,
+          "camera": {
+            "from": {
+              "x": 1.0,
+              "y": 0.55,
+              "z": -3.3
+            },
+            "to": {
+              "x": 0.75,
+              "y": 0.7,
+              "z": -3.9
+            },
+            "lookFrom": {
+              "x": 0,
+              "y": 1.35,
+              "z": -6
+            },
+            "lookTo": {
+              "x": 0,
+              "y": 1.45,
+              "z": -5.9
+            },
+            "fovFrom": 52,
+            "fovTo": 46,
+            "ease": "out"
+          },
+          "actors": [
+            {
+              "actor": "player",
+              "pose": "cast",
+              "ease": "in"
+            },
+            {
+              "actor": "spark",
+              "visible": true,
+              "from": {
+                "x": 0,
+                "z": -5.1
+              },
+              "liftFrom": 1.25,
+              "scaleFrom": 0.15,
+              "scaleTo": 1.6,
+              "opacityFrom": 0.2,
+              "opacityTo": 1,
+              "ease": "in"
+            },
+            {
+              "actor": "lucael",
+              "from": {
+                "x": -1.8,
+                "z": 5
+              },
+              "lookAt": "player"
+            },
+            {
+              "actor": "baelor",
+              "from": {
+                "x": 4.4,
+                "z": -2.2
+              },
+              "to": {
+                "x": 1.8,
+                "z": 5.6
+              },
+              "lookAt": "player",
+              "ease": "inOut"
+            }
+          ]
+        },
+        {
+          "id": "boom",
+          "seconds": 1.2,
+          "flash": 0.9,
+          "shake": 0.6,
+          "camera": {
+            "from": {
+              "x": -3.2,
+              "y": 2.6,
+              "z": -13
+            },
+            "to": {
+              "x": -2.6,
+              "y": 2.8,
+              "z": -12
+            },
+            "lookFrom": {
+              "x": 0,
+              "y": 1.8,
+              "z": -1
+            },
+            "lookTo": {
+              "x": 0,
+              "y": 2.0,
+              "z": 0
+            },
+            "fovFrom": 56,
+            "fovTo": 62,
+            "ease": "out"
+          },
+          "actors": [
+            {
+              "actor": "smoke",
+              "visible": true,
+              "from": {
+                "x": 0,
+                "z": 2
+              },
+              "scaleFrom": 0.4,
+              "scaleTo": 4.5,
+              "ease": "out"
+            },
+            {
+              "actor": "spark",
+              "scaleFrom": 1.6,
+              "scaleTo": 7,
+              "opacityFrom": 1,
+              "opacityTo": 0,
+              "ease": "out"
+            },
+            {
+              "actor": "lucael",
+              "visible": false
+            },
+            {
+              "actor": "baelor",
+              "visible": false
+            }
+          ],
+          "tint": {
+            "color": "zonlicht",
+            "amount": 0.4
+          }
+        },
+        {
+          "id": "smoke",
+          "seconds": 4,
+          "camera": {
+            "from": {
+              "x": -1.6,
+              "y": 2.3,
+              "z": -8.5
+            },
+            "to": {
+              "x": -0.5,
+              "y": 2.5,
+              "z": -2.5
+            },
+            "lookFrom": {
+              "x": 0,
+              "y": 2.6,
+              "z": 5.3
+            },
+            "fovFrom": 50,
+            "fovTo": 42,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "smoke",
+              "scaleFrom": 4.5,
+              "scaleTo": 6,
+              "opacityFrom": 1,
+              "opacityTo": 0,
+              "ease": "out"
+            },
+            {
+              "actor": "spark",
+              "visible": false
+            },
+            {
+              "actor": "lucael",
+              "visible": true,
+              "from": {
+                "x": -1.8,
+                "z": 5
+              },
+              "lookAt": "player"
+            },
+            {
+              "actor": "baelor",
+              "visible": true,
+              "from": {
+                "x": 1.8,
+                "z": 5.6
+              },
+              "lookAt": "player"
+            },
+            {
+              "actor": "player",
+              "pose": "rest",
+              "ease": "out"
+            }
+          ]
+        },
+        {
+          "id": "unamused",
+          "seconds": 4,
+          "camera": {
+            "from": {
+              "x": 0.5,
+              "y": 3.0,
+              "z": 1.0
+            },
+            "to": {
+              "x": 0.25,
+              "y": 3.0,
+              "z": 1.5
+            },
+            "lookFrom": {
+              "x": 0,
+              "y": 3.05,
+              "z": 5.3
+            },
+            "fovFrom": 40,
+            "fovTo": 36,
+            "ease": "inOut"
+          },
+          "actors": [
+            {
+              "actor": "smoke",
+              "visible": false
+            },
+            {
+              "actor": "lucael",
+              "wobble": 5
+            }
+          ],
+          "subtitle": {
+            "speaker": "Baelor",
+            "text": "intro.cine.unamused"
           }
         }
       ]
@@ -1788,24 +2355,40 @@
     {
       "id": "intro_fight",
       "set": {
-        "radius": 18,
-        "floorColor": "verdorven",
+        "radius": 16,
+        "floorColor": "nachtinkt",
         "fogColor": "schemerviolet",
-        "fogNear": 10.8,
-        "fogFar": 46.8,
+        "fogNear": 10,
+        "fogFar": 70,
         "skyLight": "mistpaars",
         "groundLight": "nachtinkt",
         "sunColor": "spreukviolet",
         "props": [
-          { "kind": "spikes", "x": 0, "z": 0, "radius": 18, "count": 28, "seed": 7 },
-          { "kind": "door", "x": 0, "z": -24, "headingDegrees": 0 },
+          {
+            "kind": "floor",
+            "x": 0,
+            "z": -54,
+            "y": -0.02,
+            "radius": 20,
+            "color": "nachtinkt"
+          },
+          {
+            "kind": "door",
+            "x": 0,
+            "z": -24,
+            "headingDegrees": 0
+          },
           {
             "kind": "bookshelf",
             "x": -7,
             "y": 1.5,
             "z": 5,
             "headingDegrees": 20,
-            "drift": { "bob": 0.4, "spin": 8, "seconds": 7 }
+            "drift": {
+              "bob": 0.4,
+              "spin": 8,
+              "seconds": 7
+            }
           },
           {
             "kind": "bookshelf",
@@ -1813,7 +2396,11 @@
             "y": 2.4,
             "z": 1,
             "headingDegrees": -35,
-            "drift": { "bob": 0.3, "spin": -6, "seconds": 9 }
+            "drift": {
+              "bob": 0.3,
+              "spin": -6,
+              "seconds": 9
+            }
           },
           {
             "kind": "bookshelf",
@@ -1822,7 +2409,93 @@
             "z": 11,
             "headingDegrees": 160,
             "rollDegrees": 25,
-            "drift": { "bob": 0.5, "spin": 4, "seconds": 6 }
+            "drift": {
+              "bob": 0.5,
+              "spin": 4,
+              "seconds": 6
+            }
+          },
+          {
+            "kind": "bookshelf",
+            "x": 6,
+            "y": 1.2,
+            "z": -9,
+            "headingDegrees": 75,
+            "drift": {
+              "bob": 0.25,
+              "spin": 5,
+              "seconds": 8
+            }
+          },
+          {
+            "kind": "bookshelf",
+            "x": -10,
+            "y": 2.8,
+            "z": -4,
+            "headingDegrees": -110,
+            "drift": {
+              "bob": 0.35,
+              "spin": -9,
+              "seconds": 10
+            }
+          },
+          {
+            "kind": "bookshelf",
+            "x": 10,
+            "y": 3.6,
+            "z": 7,
+            "headingDegrees": 40,
+            "rollDegrees": -20,
+            "drift": {
+              "bob": 0.45,
+              "spin": 3,
+              "seconds": 11
+            }
+          },
+          {
+            "kind": "bookshelf",
+            "x": 2,
+            "y": 4,
+            "z": 13,
+            "headingDegrees": -60,
+            "drift": {
+              "bob": 0.2,
+              "spin": 7,
+              "seconds": 5.5
+            }
+          },
+          {
+            "kind": "bookshelf",
+            "x": -6,
+            "y": 1,
+            "z": -12,
+            "headingDegrees": 200,
+            "drift": {
+              "bob": 0.3,
+              "spin": -4,
+              "seconds": 6.5
+            }
+          },
+          {
+            "kind": "bookshelf",
+            "x": 12,
+            "y": 1.8,
+            "z": -3,
+            "headingDegrees": 15,
+            "rollDegrees": 15,
+            "drift": {
+              "bob": 0.4,
+              "spin": 10,
+              "seconds": 8.5
+            }
+          },
+          {
+            "kind": "bookshelf",
+            "x": -9,
+            "y": 0.3,
+            "z": 9,
+            "headingDegrees": 130,
+            "rollDegrees": 70
           },
           {
             "kind": "chair",
@@ -1831,20 +2504,123 @@
             "z": -2,
             "headingDegrees": 40,
             "rollDegrees": 180,
-            "drift": { "bob": 0.2, "spin": 0, "seconds": 5 }
+            "drift": {
+              "bob": 0.2,
+              "spin": 0,
+              "seconds": 5
+            }
           },
           {
             "kind": "chair",
             "x": -5,
-            "y": 6.4,
+            "y": 6.6,
             "z": -6,
             "headingDegrees": -70,
             "rollDegrees": 180,
-            "drift": { "bob": 0.15, "spin": 10, "seconds": 8 }
+            "drift": {
+              "bob": 0.15,
+              "spin": 10,
+              "seconds": 8
+            }
           },
-          { "kind": "floor", "x": 0, "z": 200, "radius": 30, "color": "verdorven" },
-          { "kind": "spikes", "x": 0, "z": 200, "radius": 22, "count": 40, "seed": 11 },
-          { "kind": "rock", "x": 5, "z": 206, "scale": 1.6, "color": "steengrijs" },
+          {
+            "kind": "chair",
+            "x": 7,
+            "y": 7.6,
+            "z": 6,
+            "headingDegrees": 120,
+            "rollDegrees": 180,
+            "drift": {
+              "bob": 0.25,
+              "spin": -5,
+              "seconds": 6
+            }
+          },
+          {
+            "kind": "chair",
+            "x": -2,
+            "y": 8,
+            "z": 9,
+            "headingDegrees": 10,
+            "rollDegrees": 180,
+            "drift": {
+              "bob": 0.1,
+              "spin": 3,
+              "seconds": 9.5
+            }
+          },
+          {
+            "kind": "chair",
+            "x": 0,
+            "y": 6.8,
+            "z": -11,
+            "headingDegrees": -30,
+            "rollDegrees": 180,
+            "drift": {
+              "bob": 0.3,
+              "spin": -3,
+              "seconds": 7.5
+            }
+          },
+          {
+            "kind": "chair",
+            "x": -8,
+            "y": 7.3,
+            "z": 1,
+            "headingDegrees": 200,
+            "rollDegrees": 180
+          },
+          {
+            "kind": "chair",
+            "x": 5,
+            "y": 0.4,
+            "z": 12,
+            "headingDegrees": 80,
+            "rollDegrees": 110
+          },
+          {
+            "kind": "chair",
+            "x": -4.5,
+            "y": 0.25,
+            "z": 1.5,
+            "headingDegrees": -140,
+            "rollDegrees": 95
+          },
+          {
+            "kind": "chair",
+            "x": 9,
+            "y": 0.9,
+            "z": -7,
+            "headingDegrees": 30,
+            "rollDegrees": 240,
+            "drift": {
+              "bob": 0.15,
+              "spin": 6,
+              "seconds": 10.5
+            }
+          },
+          {
+            "kind": "floor",
+            "x": 0,
+            "z": 200,
+            "radius": 30,
+            "color": "verdorven"
+          },
+          {
+            "kind": "spikes",
+            "x": 0,
+            "z": 200,
+            "radius": 22,
+            "count": 40,
+            "seed": 11
+          },
+          {
+            "kind": "rock",
+            "x": 5,
+            "z": 206,
+            "scale": 1.6,
+            "color": "steengrijs"
+          },
           {
             "kind": "rock",
             "x": -7,
@@ -1852,19 +2628,35 @@
             "scale": 1.1,
             "headingDegrees": 70,
             "color": "lavasteen"
+          },
+          {
+            "kind": "rock",
+            "x": 3,
+            "z": 193,
+            "scale": 1.3,
+            "headingDegrees": 200,
+            "color": "steengrijs"
+          },
+          {
+            "kind": "rock",
+            "x": -4.5,
+            "z": 207.5,
+            "scale": 0.8,
+            "headingDegrees": 320,
+            "color": "lavasteen"
           }
         ]
       },
       "player": {
         "x": 0,
-        "z": -5
+        "z": -6
       },
       "foes": [
         {
           "id": "lucael",
           "name": "Lucael",
           "x": -1.8,
-          "z": 4,
+          "z": 5,
           "height": 3.44,
           "color": "spreukviolet",
           "accent": "zonlicht",
@@ -1875,7 +2667,7 @@
           "id": "baelor",
           "name": "Baelor",
           "x": 1.8,
-          "z": 4.6,
+          "z": 5.6,
           "height": 3.55,
           "color": "nachtinkt",
           "accent": "ornamentgoud",
@@ -1884,7 +2676,11 @@
         }
       ],
       "abilities": [
-        { "id": "strike", "action": "attack", "kind": "melee" },
+        {
+          "id": "strike",
+          "action": "attack",
+          "kind": "melee"
+        },
         {
           "id": "explosion",
           "action": "heavy",
