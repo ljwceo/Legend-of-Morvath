@@ -63,6 +63,7 @@ import { NpcRenderer } from '../render/NpcRenderer';
 import { AnimatedModels, AnimatedNpcs, preloadAnimatedModels } from '../render/AnimatedNpcs';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
 import { Cheats, stepFlying } from '../systems/Cheats';
+import { SwingingDoors } from '../systems/Doors';
 import {
   applyStats,
   assistedHeading,
@@ -353,6 +354,8 @@ export class WorldState implements GameState, InstanceHost {
   /** A Blender-built zone being played (zones.json `scene`), or null in the open world. */
   private sceneZone: SceneZone | null = null;
   private sceneZoneDef: Zone | null = null;
+  /** The zone's swinging doors (HingedBodies), pushed by the player; null without doors. */
+  private doors: SwingingDoors | null = null;
   private sceneAssets: SceneAssets | null = null;
   private scenePlayer: ScenePlayerModel | null = null;
   private blob: Mesh | null = null;
@@ -980,6 +983,9 @@ export class WorldState implements GameState, InstanceHost {
     const s = player.state;
     const fromX = s.x;
     const fromZ = s.z;
+    // The swinging doors see every piece of the player's move this step, then where it ended.
+    const doors = this.doors;
+    doors?.begin(movement.radius);
     if (this.cheats.fly) {
       // Debug cheat: Space / ▲ up, Shift / ▼ down, through walls.
       input.consumePressed('dash');
@@ -997,7 +1003,10 @@ export class WorldState implements GameState, InstanceHost {
     } else {
       this.command.dash = input.consumePressed('dash');
       if (this.command.dash && !movement.canDash) this.sayTooHeavy();
+      // Only the player's own move pushes doors (NPCs and monsters walk the same zone).
+      if (doors) sceneZone?.setMoveTrace(doors);
       this.stepAttackAndMove(dt);
+      if (doors) sceneZone?.setMoveTrace(null);
       // You cannot walk through people (or Treewardens, or monsters).
       if (this.npcs?.pushOut(s, movement.radius)) this.resolveCircle(s, movement.radius);
       if (this.enemies?.pushOut(s, movement.radius)) this.resolveCircle(s, movement.radius);
@@ -1012,6 +1021,11 @@ export class WorldState implements GameState, InstanceHost {
       } else if (streamer) {
         s.y = streamer.heightAt(s.x, s.z);
       }
+    }
+    if (doors) {
+      // Where the player stands now counts too: standing in a doorway keeps the door open.
+      doors.add(s.x, s.z);
+      doors.step(dt);
     }
     // Position first: entering a zone autosaves, and that save must have the new position.
     this.syncSave();
@@ -3077,6 +3091,12 @@ export class WorldState implements GameState, InstanceHost {
     worldRoot.position.set(-origin.x, 0, -origin.z);
 
     player.syncModel(a);
+    // The doors turn with the simulation, between the last two steps; the cheat (F6) wins.
+    if (this.doors && sceneZone && this.cheats.doorAngleDegrees === null) {
+      for (let i = 0; i < this.doors.bodies.length; i++) {
+        sceneZone.setDoorAngle(i, this.doors.angleAt(i, a));
+      }
+    }
     if (this.weaponKind === 'staff') player.showStaff(this.staffState.progress);
     else if (this.sword) player.showSword(this.sword);
     const hopSeconds = this.ctx.data?.npcs.settings.petHopSeconds ?? 1;
@@ -4318,6 +4338,15 @@ export class WorldState implements GameState, InstanceHost {
     lighting.uniforms.windowCol.value.setHex(resolveColorToken(def.windowColor));
     this.sceneZone = zone;
     this.mover = zone;
+    // The doors this build has (an instance may lack some), in the order `setDoorAngle` uses.
+    this.doors =
+      zone.doors.length > 0
+        ? new SwingingDoors(
+            zone.doors.map((door) => door.def),
+            def.doorSettings,
+            this.movement?.radius ?? 0,
+          )
+        : null;
     // The door cheat may already be on when a zone loads.
     zone.setDoorCheat(this.cheats.doorAngleDegrees);
     // Tone mapping as in the Blender test page (lanterns glow without burning out).
@@ -4529,6 +4558,7 @@ export class WorldState implements GameState, InstanceHost {
     // A Blender-built zone: its meshes, materials, textures and BVH.
     if (this.sceneZone && this.sceneAssets) this.sceneZone.dispose(this.sceneAssets);
     this.sceneZone = null;
+    this.doors = null;
     this.sceneAssets = null;
     this.sceneZoneDef = null;
     if (this.savedToneMapping !== null) {

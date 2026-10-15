@@ -73,6 +73,14 @@ export interface Mover {
   moveCircle(p: PointXZ, radius: number, dx: number, dz: number): void;
 }
 
+/**
+ * Wants to know every position a move passes through (each substep of `Mover.moveCircle`, after
+ * the walls had their say): the swinging doors read the player's path from it.
+ */
+export interface MoveTrace {
+  add(x: number, z: number): void;
+}
+
 /** What the player wants this step: a world-space direction (length 0–1) and a dash press. */
 export interface MoveCommand {
   x: number;
