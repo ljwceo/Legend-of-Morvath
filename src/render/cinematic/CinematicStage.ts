@@ -5,6 +5,7 @@ import {
   ConeGeometry,
   CylinderGeometry,
   DoubleSide,
+  type EulerOrder,
   Group,
   type Material,
   Mesh,
@@ -67,6 +68,8 @@ interface Actor {
    */
   external: boolean;
   baseScale: number;
+  /** The rotation order the scene's object had (the player's is set to YXZ for the roll). */
+  baseOrder: EulerOrder;
   /** Its own materials (effects and props fade with `opacity`), with their full opacity. */
   materials: { material: Material; opacity: number }[];
   /** Splinters: the pieces that fly apart. */
@@ -113,6 +116,7 @@ export class CinematicStage {
         size: def.scale ?? 1,
         external: false,
         baseScale: 1,
+        baseOrder: 'XYZ',
         materials: [],
         pieces: [],
         rig: null,
@@ -125,6 +129,7 @@ export class CinematicStage {
         actor.external = true;
         if (playerRoot) {
           actor.baseScale = playerRoot.scale.x;
+          actor.baseOrder = playerRoot.rotation.order;
           // Heading first, then the roll (lying down); the game only ever sets the heading.
           playerRoot.rotation.order = 'YXZ';
         }
@@ -137,6 +142,7 @@ export class CinematicStage {
         actor.object = owned;
         actor.external = true;
         actor.baseScale = owned.scale.x;
+        actor.baseOrder = owned.rotation.order;
         continue;
       }
       const object = this.build(def, actor);
@@ -180,8 +186,11 @@ export class CinematicStage {
         continue;
       }
       if (actor.external) {
-        // A foe of the fight: moved, turned and sized; its roll and materials are its own.
+        // A foe of the fight: moved, turned and sized, and upright (the fight's shimmer may
+        // have left it tilted); its materials are its own, so it never fades.
+        object.rotation.x = 0;
         object.rotation.y = pose.heading;
+        object.rotation.z = 0;
         object.scale.setScalar(pose.scale * actor.size * actor.baseScale);
         continue;
       }
@@ -205,8 +214,8 @@ export class CinematicStage {
   }
 
   dispose(): void {
-    // The player's model and the fight's foes are the scene's: shown again, upright and at
-    // their own size; where they stand is for the scene to set.
+    // The player's model and the fight's foes are the scene's: shown again, upright, at their
+    // own size and with their own rotation order; where they stand is for the scene to set.
     if (this.playerRoot) {
       this.playerRoot.visible = true;
       this.playerRoot.rotation.x = 0;
@@ -216,6 +225,7 @@ export class CinematicStage {
       if (actor.external && actor.object) {
         actor.object.visible = true;
         actor.object.scale.setScalar(actor.baseScale);
+        actor.object.rotation.order = actor.baseOrder;
       }
     }
     this.poseWeapon?.('rest', 0);

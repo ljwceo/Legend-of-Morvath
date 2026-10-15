@@ -1514,7 +1514,8 @@ class CrossChecker {
       }
       const panels = cutscene.panels ?? [];
       if (panels.length === 0) this.issue(f, `cutscenes[${i}].panels`, 'a comic needs panels');
-      for (const field of ['shots', 'actors', 'anchor', 'cameraClip'] as const) {
+      const only = ['shots', 'actors', 'anchor', 'cameraClip', 'fight', 'afterFight'] as const;
+      for (const field of only) {
         if (cutscene[field] !== undefined) {
           this.issue(f, `cutscenes[${i}].${field}`, `only a cinematic has ${field}`);
         }
@@ -1700,6 +1701,7 @@ class CrossChecker {
     if (!cutscene.afterFight) return;
     if (!cutscene.fight) {
       this.issue(f, `${at}.afterFight`, 'only a cinematic with a fight has an afterFight');
+      return;
     }
     const all = this.data.cutscenes.cutscenes;
     const seen = new Set([cutscene.id]);

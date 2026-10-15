@@ -1852,6 +1852,9 @@ const fightSet = z.strictObject({
   props: z.array(fightSetProp),
 });
 
+/** A storm bolt that lands near a foe is kept this often when the ability sets no `hitChance`. */
+export const STORM_HIT_CHANCE = 0.25;
+
 /** Every ability: which key / touch button (`action`, an id in controls.json) fires it. */
 const fightAbilityBase = { id, action: z.enum(CONTROL_ACTIONS) };
 /** A big ability: its color, its cooldown and the label on its touch button. */
@@ -1866,8 +1869,9 @@ const fightFlashyAbility = {
  * What the player can do in a scripted fight: `melee` is the sword's hit, `burst` an explosion
  * around the player (`radius` m), `storm` lightning: `bolts` strikes within `strikeSeconds`,
  * each hitting a foe within `boltRadius` m (a strike near a foe is kept with `hitChance`,
- * otherwise it is moved: most miss), `projectile` an icicle (`length` m long, `radius` m thick)
- * flying along the player's heading at `speed` m/s for up to `range` m.
+ * otherwise it is moved: most miss; default `STORM_HIT_CHANCE`), `projectile` an icicle
+ * (`length` m long, `radius` m thick) flying along the player's heading at `speed` m/s for up
+ * to `range` m (default: across the whole set, twice its radius; it shatters at the edge).
  */
 const fightAbility = z.discriminatedUnion('kind', [
   z.strictObject({ ...fightAbilityBase, kind: z.literal('melee') }),
@@ -1878,7 +1882,7 @@ const fightAbility = z.discriminatedUnion('kind', [
     bolts: intRange(1, 24),
     boltRadius: max(positive, 10),
     strikeSeconds: max(positive, 10),
-    hitChance: fraction,
+    hitChance: optional(fraction),
   }),
   z.strictObject({
     ...fightFlashyAbility,
@@ -1886,7 +1890,7 @@ const fightAbility = z.discriminatedUnion('kind', [
     speed: max(positive, 100),
     radius: max(positive, 5),
     length: max(positive, 10),
-    range: max(positive, 200),
+    range: optional(max(positive, 200)),
   }),
 ]);
 

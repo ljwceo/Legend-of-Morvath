@@ -560,6 +560,69 @@ describe('hops, own time and heading turns', () => {
     expect(s.actors[0]?.z).toBeCloseTo(-2);
   });
 
+  it('changes nothing with its own time when the shot runs at full speed', () => {
+    // The same walk twice, once on its own time: at speed 1 the two never differ, not even
+    // in the last digit (wall time and action time are the same time then).
+    const walk = {
+      visible: true,
+      from: { x: -3, z: 2 },
+      to: { x: 5, z: -4 },
+      ease: 'inOut',
+    } as const;
+    const back = { from: { x: 5, z: -4 }, to: { x: 0, z: 0 }, liftTo: 2, scaleTo: 0.5 } as const;
+    const def: CutsceneDef = {
+      id: 'fullspeed',
+      type: 'cinematic',
+      skippable: true,
+      fight: 'intro_fight',
+      actors: [
+        { id: 'player', model: 'player' },
+        { id: 'own', model: 'fight' },
+        { id: 'plain', model: 'fight' },
+      ],
+      shots: [
+        {
+          id: 'walk',
+          seconds: 3,
+          camera: { from: { x: 0, y: 3, z: -8 }, lookFrom: { x: 0, y: 1, z: 0 } },
+          actors: [
+            { actor: 'own', ...walk, ownTime: true },
+            { actor: 'plain', ...walk },
+          ],
+        },
+        {
+          id: 'back',
+          seconds: 2,
+          speed: 1,
+          // A freeze afterwards: wall time is still the action's seconds, not the whole shot.
+          freeze: 0.5,
+          actors: [
+            { actor: 'own', ...back, ownTime: true },
+            { actor: 'plain', ...back },
+          ],
+        },
+      ],
+    };
+    const t = new CinematicTimeline(def, settings, [newPose(), newPose(), newPose()], flat);
+    const s = newSample(3);
+    for (let time = 0; time <= 5; time += 0.07) {
+      t.sample(time, s);
+      const own = s.actors[1];
+      const plain = s.actors[2];
+      if (!own || !plain) throw new Error('no actors');
+      expect(own.x).toBe(plain.x);
+      expect(own.z).toBe(plain.z);
+      expect(own.y).toBe(plain.y);
+      expect(own.scale).toBe(plain.scale);
+      expect(own.heading).toBe(plain.heading);
+    }
+    // And the walk did happen.
+    t.sample(1.5, s);
+    expect(s.actors[2]?.x).toBeCloseTo(1);
+    t.sample(5, s);
+    expect(s.actors[2]).toMatchObject({ x: 0, z: 0, y: 2, scale: 0.5 });
+  });
+
   it('plays exactly the same on 60 and 120 fps, hops, own time and turns included', () => {
     const run = (fps: number): number[][] => {
       const t = hopTimeline();
