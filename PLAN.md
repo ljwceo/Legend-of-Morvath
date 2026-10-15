@@ -108,14 +108,15 @@ _De oude stappen 3.6 en 3.7 zijn fase 3.8 en 3.10 geworden (besluit Bo, 2026-10-
 
 ---
 
-## Extra – Filmische cutscenes (Elden Ring-stijl) · stap 1 en 2 **gebouwd** (2026-10-13)
+## Extra – Filmische cutscenes (Elden Ring-stijl) · stap 1, 2 en C.4a **gebouwd** (2026-10-15)
 
 Besluit uit het concept: cutscenes worden filmisch in de 3D-wereld zelf (`"type": "cinematic"` met `anchor`, `actors` en `shots` in `cutscenes.json`), met je eigen personage en gear in beeld. De strips blijven werken tot ze vervangen zijn. Overslaan = ±1 s ingedrukt houden. Alles op de vaste tijdstap, dus 60 en 120 fps zijn precies gelijk.
 
 - [x] **C.1 Systeem + proef Pringle → Sultan** — `CinematicTimeline` (pure logica), `CinematicStage` (actors in 3D), `CinematicCutscene` (balken, ondertitels, naamkaart, fade/flits/tint, skip-ring), HUD en knoppen weg tijdens de film, overwinningstekst na een baas (`boss.victory`). _Klaar als:_ de zes shots van Pringle → Sultan lopen door in het baasgevecht en 60 en 120 fps geven precies hetzelfde (test).
 - [x] **C.2 Eindscène na Sultan** — twee varianten (zwaard en mage) gekozen door de laatste treffer, slow motion, bevroren beeld, de ton, Pringle uit de rook, het ei als kaart, BOND FORGED in de balk van de zonenaam, Sultan vertelt als NPC waar je items vindt. _Klaar als:_ beide varianten spelen en zijn overslaanbaar.
 - [ ] **C.3 Kijken en meten (Bo/Lucas)** — beide eindscènes bekijken via cheatmenu → Baasgevecht, en "Meet 20 s" tijdens een cutscene op Low en High. _Klaar als:_ Bo zegt of de scènes goed voelen en de fps staat in `docs/PROGRESS.md`.
-- [ ] **C.4 De overige strips omzetten** — de intro (6 panelen + het intro-gevecht), de uitleg in de toren van Brink en de kelder van Sam, en de Crystal Ceremony. _Klaar als:_ elke omgezette cutscene is overslaanbaar en de oude strip-code is alleen nog voor wat nog niet om is.
+- [x] **C.4a Intro filmisch (nieuw verhaal van Bo)** — de intro is één filmische scène met het speelbare gevecht erin: door de mistdeur van het kasteel van Morvath een kamer in waar tijd en werkelijkheid niet gelden; Lucael teleporteert om je heen en bekijkt je, Baelor loopt door bevroren tijd; jouw explosie; het gevecht (±1 min, vier vaardigheden: slaan, explosie, donder, ijspegel — bijna alles mist, wat raakt doet 0) terwijl de broers ruziën wat ze met je moeten; Lucael krimpt je, Baelor tilt je op, Lucael slaat je weg met een honkbalknuppel; je landt in de badlands, de kat likt je gezicht; zwart; wakker in het klooster. Alles in `cutscenes.json` (`fight`/`afterFight`, `set`, `abilities`, `hops`, `ownTime`, …), ontwerp in `docs/intro-cinematic-design.md`, headless check `scripts/intro-check.mjs`. _Klaar als:_ de hele intro speelt en is in elk deel overslaanbaar, en de check loopt zonder fouten. (Gebouwd 2026-10-15; `IntroFightState` is vervangen door `IntroSceneState`. Bo: spelen op pc en iPhone, en open vraag 20 en 21.)
+- [ ] **C.4 De overige strips omzetten** — de uitleg in de toren van Brink en de kelder van Sam, en de Crystal Ceremony. _Klaar als:_ elke omgezette cutscene is overslaanbaar en de oude strip-code is alleen nog voor wat nog niet om is.
 - [ ] **C.5 Blender-camera's en echte modellen** — `cameraClip` (camera-animatie uit glTF) echt laten werken en de placeholders in `CinematicStage` vervangen. _Klaar als:_ een camera uit Blender speelt een shot en de draw calls blijven gelijk.
 
 ---
@@ -283,6 +284,8 @@ Seizoenseffecten · crafting en drogen · de Garden en farming (ook de bedden `M
 | 10  | Moet de snel-drink-knop ook mana potions pakken?                     | Voorstel: zo laten, of een tweede knop                                                                                                          |
 | A.5 | Vier vragen over rennen en springen (zie stap A.5a)                  | Nog niet gesteld                                                                                                                                |
 | 19  | Hoe komt de speler het klooster uit? De kerk (met het portaal) heeft geen deur naar de kloostergang en de tuinmuur is dicht | Game: `openings` in `zones.json` maakt deuren beloopbaar (hal → kloostergang, hal → tuin, portaal). Nodig in Blender: een deur(opening) kloostergang → zuidbeuk van de kerk, of een hek in de tuinmuur; daarna één regel data |
+| 20  | Brother Ansel zegt nog dat hij je **bewusteloos langs de weg** vond (`quest.a_quiet_awakening.offer.1`, `quest.tales_by_the_fire.offer.1`), terwijl in de nieuwe intro de kat je eerst vindt in de badlands | Zo gelaten: de reis van Morvath naar Greyhaven is een sprong naar zwart. Wil Bo de zin anders, dan is het alleen tekst in `en.json` en `nl.json` |
+| 21  | Is het kasteel van de intro **The Black Citadel**? | De intro noemt het kasteel niet bij naam (verhaaltekst `intro.panel_1..3`, ongewijzigd); een naam is één tekstregel |
 
 ### Nog te doen door Bo en Lucas
 
