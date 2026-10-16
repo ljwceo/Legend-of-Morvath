@@ -1070,7 +1070,10 @@
     "eggForget": "Forget found eggs",
     "eggsFound": "Found: {found} of {total}.",
     "bossEndingSword": "Ending: sword",
-    "bossEndingStaff": "Ending: mage"
+    "bossEndingStaff": "Ending: mage",
+    "animation": "Animation",
+    "animationAuto": "Auto",
+    "animationNote": "Plays one clip on its own, over and over, while you keep walking. Auto follows the game again."
   },
   "bag": {
     "title": "Bag",

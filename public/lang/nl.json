@@ -1070,7 +1070,10 @@
     "eggForget": "Vergeet gevonden eieren",
     "eggsFound": "Gevonden: {found} van {total}.",
     "bossEndingSword": "Eindscène: zwaard",
-    "bossEndingStaff": "Eindscène: mage"
+    "bossEndingStaff": "Eindscène: mage",
+    "animation": "Animatie",
+    "animationAuto": "Auto",
+    "animationNote": "Speelt één clip los af, steeds opnieuw, terwijl je gewoon kunt lopen. Auto volgt het spel weer."
   },
   "bag": {
     "title": "Tas",

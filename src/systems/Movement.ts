@@ -132,9 +132,28 @@ export class MoverState implements PointXZ {
   recoverTime = 0;
   /** True while walking or dashing this step (the camera turns back behind the character). */
   moving = false;
+  /**
+   * Seconds in the air so far (0 on the ground), since the last landing, and how long that
+   * last fall took. Only read: the animator draws falling and landing from them.
+   */
+  airTime = 0;
+  sinceLanded = Infinity;
+  lastAirTime = 0;
 
   get dashing(): boolean {
     return this.dashTime > 0;
+  }
+}
+
+/** Keeps the air markers of `s` up to date after a step that ended `falling` or on the ground. */
+export function stepAirTime(s: MoverState, falling: boolean, dt: number): void {
+  s.sinceLanded += dt;
+  if (falling) {
+    s.airTime += dt;
+  } else if (s.airTime > 0) {
+    s.lastAirTime = s.airTime;
+    s.airTime = 0;
+    s.sinceLanded = 0;
   }
 }
 

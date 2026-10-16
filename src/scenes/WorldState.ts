@@ -62,6 +62,13 @@ import { PropLibrary } from '../entities/PropFactory';
 import { CameraRig, metersPerPixel } from '../render/CameraRig';
 import { NpcRenderer } from '../render/NpcRenderer';
 import { AnimatedModels, AnimatedNpcs, preloadAnimatedModels } from '../render/AnimatedNpcs';
+import { SIM_DT, SIM_HZ } from '../core/Time';
+import {
+  createPlayerAnimInput,
+  fillPlayerAnimInput,
+  type PlayerAnimSources,
+  PlayerAnimator,
+} from '../render/PlayerAnimator';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
 import { Cheats, stepFlying } from '../systems/Cheats';
 import { SwingingDoors } from '../systems/Doors';
@@ -160,6 +167,7 @@ import {
   type MovementConfig,
   movementConfig,
   screenToWorld,
+  stepAirTime,
   stepMovement,
 } from '../systems/Movement';
 import { type NpcWorld, Npcs } from '../systems/Npcs';
@@ -263,6 +271,7 @@ const DEBUG_KEYS = [
   'quests',
   'camera',
   'daynight',
+  'anim',
   'cheats',
 ] as const;
 /** Light intensities of the open world's Three.js lights at the golden hour look. */
@@ -378,6 +387,10 @@ export class WorldState implements GameState, InstanceHost {
   private doors: SwingingDoors | null = null;
   private sceneAssets: SceneAssets | null = null;
   private scenePlayer: ScenePlayerModel | null = null;
+  /** Plays the clips of the Blender character (null with the placeholder model). */
+  private playerAnimator: PlayerAnimator | null = null;
+  private readonly animInput = createPlayerAnimInput();
+  private animSources: PlayerAnimSources | null = null;
   private blob: Mesh | null = null;
   /** Day and night: shared light uniforms, Three.js lights, fog and sky follow it. */
   private lighting: DayNightLighting | null = null;
@@ -778,6 +791,16 @@ export class WorldState implements GameState, InstanceHost {
         eggs: () => this.eggTally(),
         giveEgg: () => this.giveEgg(),
         forgetEggs: () => this.forgetEggs(),
+        clips: () => {
+          const animator = this.playerAnimator;
+          const names = this.ctx.data?.animations.player.clips;
+          if (!animator || !names) return [];
+          return animator.roles.map((role) => ({ role, name: names[role] }));
+        },
+        clip: () => this.playerAnimator?.preview ?? null,
+        setClip: (role) => {
+          if (this.playerAnimator) this.playerAnimator.preview = role;
+        },
       },
     );
     // Next to the UI layer (not inside it), so it can sit above the debug overlay.
@@ -1014,7 +1037,7 @@ export class WorldState implements GameState, InstanceHost {
       this.stepDeath(dt);
     }
 
-    player.beginStep();
+    player.beginStep(dt);
     // What monster hits left on you (slow, burning, weaken) before you walk and fight.
     this.stepStatusEffects(dt);
     const s = player.state;
@@ -1053,7 +1076,9 @@ export class WorldState implements GameState, InstanceHost {
       this.checkGate(fromX, fromZ);
       if (sceneZone) {
         // Stairs, ledges and falling; under the water or off the map: back to the spawn.
-        if (sceneZone.settle(s, dt) === 'lost') this.respawnInScene();
+        const settled = sceneZone.settle(s, dt);
+        if (settled === 'lost') this.respawnInScene();
+        stepAirTime(s, settled === 'falling', dt);
         sceneZone.setReferenceHeight(s.y);
       } else if (streamer) {
         s.y = streamer.heightAt(s.x, s.z);
@@ -1543,6 +1568,7 @@ export class WorldState implements GameState, InstanceHost {
     const taken = damageTaken(c, damage);
     c.hp = Math.max(0, c.hp - taken);
     c.sinceCombat = 0;
+    c.sinceHurt = 0;
     this.damageNumbers?.spawn(s.x, s.y + 2, s.z, taken, 'player');
     this.hud?.hurt();
     if (from) this.applyOnHit(from, taken);
@@ -1856,6 +1882,8 @@ export class WorldState implements GameState, InstanceHost {
     c.hp = c.maxHp;
     c.mana = c.maxMana;
     c.sinceCombat = Infinity;
+    c.sinceHurt = Infinity;
+    c.sinceSwing = Infinity;
     c.heavyWindup = 0;
     c.swing = 'none';
     player.state.energy = data.player.base.energy;
@@ -1868,6 +1896,47 @@ export class WorldState implements GameState, InstanceHost {
     this.ctx.events.emit('playerDied', { goldLost: lost });
     this.syncSave(true);
     this.ctx.persist();
+  }
+
+  /**
+   * The Blender character's clips for this frame, read from the simulation (drawing only:
+   * nothing here changes what happens). `seconds` is 0 while the game waits.
+   */
+  private animatePlayer(animator: PlayerAnimator, alpha: number, seconds: number): void {
+    const { player, sword, movement } = this;
+    const death = this.ctx.data?.player.death;
+    if (!player || !sword || !movement) return;
+    let src = this.animSources;
+    if (!src) {
+      src = {
+        mover: player.state,
+        combat: player.combat,
+        staff: null,
+        sword,
+        dashSeconds: 0,
+        recoverSeconds: 0,
+        deathSeconds: -1,
+        sinceInteract: Infinity,
+      };
+      this.animSources = src;
+    }
+    src.staff = this.weaponKind === 'staff' ? this.staffState : null;
+    src.sword = sword;
+    src.dashSeconds = movement.dashDurationSeconds;
+    src.recoverSeconds = movement.dashRecoverySeconds;
+    src.sinceInteract = player.sinceInteract;
+    // Down from the blow until you wake up at the checkpoint (then you stand there again).
+    const wakeAt = death ? death.fadeSeconds + death.blackSeconds : 0;
+    const dying = this.deathTimer !== NOT_DYING && this.deathTimer < wakeAt;
+    src.deathSeconds = this.knockedOut ? 0 : dying ? this.deathTimer : -1;
+    fillPlayerAnimInput(this.animInput, src, (1 - alpha) * SIM_DT);
+    animator.update(
+      this.animInput,
+      player.stepDeltaX() * SIM_HZ,
+      player.stepDeltaZ() * SIM_HZ,
+      player.model.root.rotation.y,
+      seconds,
+    );
   }
 
   /** The screen during dying (drawn every frame from the simulation's death timer). */
@@ -2352,7 +2421,8 @@ export class WorldState implements GameState, InstanceHost {
     }
     const near = this.checkpoints?.near;
     const c = this.player?.combat;
-    if (!near || !c) return;
+    if (!near || !c || !this.player) return;
+    this.player.sinceInteract = 0;
     c.hp = c.maxHp;
     c.mana = c.maxMana;
     this.hud?.showMessage(this.ctx.i18n.t('hud.rested'));
@@ -2371,6 +2441,10 @@ export class WorldState implements GameState, InstanceHost {
       ctx.events.emit('npcMet', { npcId: npc.id });
     }
     ctx.events.emit('npcTalked', { npcId: npc.id });
+    // Petting and opening a pack play Interact; talking does not (you just stand and listen).
+    if (this.player && (npc.def.interaction === 'pet' || npc.def.interaction === 'pack')) {
+      this.player.sinceInteract = 0;
+    }
     if (npc.def.interaction === 'pet') {
       npc.hop = data.npcs.settings.petHopSeconds;
       npc.petHold = data.npcs.settings.petHoldSeconds;
@@ -3125,6 +3199,7 @@ export class WorldState implements GameState, InstanceHost {
     const kind = def?.weapon?.kind === 'staff' ? 'staff' : 'sword';
     if (kind !== this.weaponKind) {
       this.weaponKind = kind;
+      this.scenePlayer?.showWeapon(kind);
       this.staffState.reset();
       this.clearAttackInput();
       this.touch?.setLabels(this.touchLabels());
@@ -3382,7 +3457,8 @@ export class WorldState implements GameState, InstanceHost {
         sceneZone.setDoorAngle(i, this.doors.angleAt(i, a));
       }
     }
-    if (this.weaponKind === 'staff') player.showStaff(this.staffState.progress);
+    if (this.playerAnimator) this.animatePlayer(this.playerAnimator, a, waiting ? 0 : frameSeconds);
+    else if (this.weaponKind === 'staff') player.showStaff(this.staffState.progress);
     else if (this.sword) player.showSword(this.sword);
     const hopSeconds = this.ctx.data?.npcs.settings.petHopSeconds ?? 1;
     this.npcRenderer?.update(a, hopSeconds);
@@ -4480,11 +4556,20 @@ export class WorldState implements GameState, InstanceHost {
       this.scenePlayer = buildPlayerModel(
         this.sceneAssets,
         def,
+        data.animations.player,
         this.lighting.uniforms,
         resolveColorToken,
         player.model.colors,
       );
       player.model.useModel(this.scenePlayer.root);
+      // The model swings its own sword (or holds its staff): the placeholder sword goes.
+      player.model.setSwordVisible(false);
+      this.scenePlayer.showWeapon(this.weaponKind);
+      this.playerAnimator = new PlayerAnimator(
+        this.scenePlayer.rig,
+        this.scenePlayer.clips,
+        data.animations.player,
+      );
       const blob = new Mesh(
         new CircleGeometry(BLOB_RADIUS, 24),
         new MeshBasicMaterial({
@@ -4859,6 +4944,9 @@ export class WorldState implements GameState, InstanceHost {
     this.disposeBossProps();
     this.player?.dispose();
     this.player = null;
+    this.playerAnimator?.dispose();
+    this.playerAnimator = null;
+    this.animSources = null;
     this.scenePlayer?.dispose();
     this.scenePlayer = null;
     this.blob?.geometry.dispose();
@@ -5018,6 +5106,7 @@ export class WorldState implements GameState, InstanceHost {
       `yaw ${Math.round(o.yaw / DEG)}° pitch ${Math.round(o.pitch / DEG)}° dist ${o.distance.toFixed(1)} m · sens ${Math.round((this.ctx.session?.settings.cameraSensitivity ?? 1) * 100)}%`,
     );
     debug.lines.set('daynight', this.dayNightLine());
+    debug.lines.set('anim', this.playerAnimator?.debugLine() ?? 'placeholder');
     debug.lines.set(
       'cheats',
       `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'} · F6 = cheat menu`,
