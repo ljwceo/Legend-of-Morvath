@@ -2270,6 +2270,29 @@ export const animationsFileSchema = z.strictObject({
     fallAfterSeconds: nonNegative,
     /** Where Land starts (s): the moment its feet touch the ground. */
     landFromSeconds: nonNegative,
+    /**
+     * The upper-body layer (step A.3d): `rootBone` and every bone under it. While walking or
+     * running, the clips of `roles` play on those bones only and the legs keep walking;
+     * standing still they move the whole body.
+     */
+    upperBody: z.strictObject({
+      rootBone: nodeName,
+      roles: z.array(z.enum(PLAYER_CLIP_ROLES)),
+    }),
+    /**
+     * Leaning (drawing only): `bone` tilts towards where the player speeds up, so it leans into
+     * a turn and back when braking. Degrees per m/s² of acceleration, at most the max angles;
+     * smoothed over about `smoothingSeconds`.
+     */
+    lean: z.strictObject({
+      bone: nodeName,
+      sidewaysDegPerMps2: nonNegative,
+      forwardDegPerMps2: nonNegative,
+      maxSidewaysDeg: max(nonNegative, 30),
+      maxForwardDeg: max(nonNegative, 30),
+      maxBackDeg: max(nonNegative, 30),
+      smoothingSeconds: nonNegative,
+    }),
   }),
 });
 

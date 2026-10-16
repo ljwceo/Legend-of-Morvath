@@ -1,6 +1,6 @@
 import type { GameContext } from '../core/GameContext';
 import type { Input } from '../core/Input';
-import { PLAYER_PATHS, type PlayerPath } from '../data/schemas';
+import { PLAYER_PATHS, type PlayerClipRole, type PlayerPath } from '../data/schemas';
 import { DEBUG_VIEWS } from '../render/DebugOverlay';
 import {
   CHEAT_AIM_SCALES,
@@ -53,6 +53,12 @@ export interface CheatPanelHandlers {
   giveEgg(): void;
   /** Forgets which eggs were found, so the mini-bosses give theirs again. */
   forgetEggs(): void;
+  /** The player's clips (step A.3d), empty with the placeholder character. */
+  clips(): readonly { role: PlayerClipRole; name: string }[];
+  /** The clip playing on its own, null = the simulation decides. */
+  clip(): PlayerClipRole | null;
+  /** Plays that clip on its own, over and over, or (null) follows the simulation again. */
+  setClip(role: PlayerClipRole | null): void;
 }
 
 type SaveTool = 'none' | 'export' | 'import';
@@ -407,6 +413,7 @@ export class CheatPanel {
       ),
       this.seasonSection(chip, section),
       this.dayNightSection(chip, section),
+      this.animationSection(chip, section),
       section(
         t('cheats.quality'),
         el('p', { className: 'ui-note', text: this.ctx.quality.debugLine() }),
@@ -541,6 +548,35 @@ export class CheatPanel {
     target.textContent =
       `${t('cheats.dayNightNow', { phase: t(phase.label), time })} · ` +
       t('cheats.dayNightMonsters', { count: this.handlers.nightMonsters() });
+  }
+
+  /**
+   * Plays one of the character's clips on its own (step A.3d), to look at it without having
+   * to do the thing in the game. Only with the animated character.
+   */
+  private animationSection(
+    chip: (label: string, active: boolean, onClick: () => void) => HTMLButtonElement,
+    section: (label: string, ...content: (HTMLElement | null)[]) => HTMLElement,
+  ): HTMLElement | null {
+    const clips = this.handlers.clips();
+    if (clips.length === 0) return null;
+    const t = this.ctx.i18n.t.bind(this.ctx.i18n);
+    const current = this.handlers.clip();
+    const set = (role: PlayerClipRole | null): void => {
+      this.handlers.setClip(role);
+      this.rebuild();
+    };
+    return section(
+      t('cheats.animation'),
+      el(
+        'div',
+        { className: 'ui-chips' },
+        chip(t('cheats.animationAuto'), current === null, () => set(null)),
+        // Clip names are the names in player.glb: the same in both languages.
+        ...clips.map(({ role, name }) => chip(name, current === role, () => set(role))),
+      ),
+      el('p', { className: 'ui-note', text: t('cheats.animationNote') }),
+    );
   }
 
   /** Save as a text code: export (to copy) and import (paste a code), for testing. */

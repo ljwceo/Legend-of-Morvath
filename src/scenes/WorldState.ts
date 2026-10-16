@@ -268,6 +268,7 @@ const DEBUG_KEYS = [
   'quests',
   'camera',
   'daynight',
+  'anim',
   'cheats',
 ] as const;
 /** Light intensities of the open world's Three.js lights at the golden hour look. */
@@ -777,6 +778,16 @@ export class WorldState implements GameState, InstanceHost {
         eggs: () => this.eggTally(),
         giveEgg: () => this.giveEgg(),
         forgetEggs: () => this.forgetEggs(),
+        clips: () => {
+          const animator = this.playerAnimator;
+          const names = this.ctx.data?.animations.player.clips;
+          if (!animator || !names) return [];
+          return animator.roles.map((role) => ({ role, name: names[role] }));
+        },
+        clip: () => this.playerAnimator?.preview ?? null,
+        setClip: (role) => {
+          if (this.playerAnimator) this.playerAnimator.preview = role;
+        },
       },
     );
     // Next to the UI layer (not inside it), so it can sit above the debug overlay.
@@ -1823,7 +1834,13 @@ export class WorldState implements GameState, InstanceHost {
     const dying = this.deathTimer !== NOT_DYING && this.deathTimer < wakeAt;
     src.deathSeconds = this.knockedOut ? 0 : dying ? this.deathTimer : -1;
     fillPlayerAnimInput(this.animInput, src, (1 - alpha) * SIM_DT);
-    animator.update(this.animInput, player.stepDistance() * SIM_HZ, seconds);
+    animator.update(
+      this.animInput,
+      player.stepDeltaX() * SIM_HZ,
+      player.stepDeltaZ() * SIM_HZ,
+      player.model.root.rotation.y,
+      seconds,
+    );
   }
 
   /** The screen during dying (drawn every frame from the simulation's death timer). */
@@ -4981,6 +4998,7 @@ export class WorldState implements GameState, InstanceHost {
       `yaw ${Math.round(o.yaw / DEG)}° pitch ${Math.round(o.pitch / DEG)}° dist ${o.distance.toFixed(1)} m · sens ${Math.round((this.ctx.session?.settings.cameraSensitivity ?? 1) * 100)}%`,
     );
     debug.lines.set('daynight', this.dayNightLine());
+    debug.lines.set('anim', this.playerAnimator?.debugLine() ?? 'placeholder');
     debug.lines.set(
       'cheats',
       `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'} · F6 = cheat menu`,

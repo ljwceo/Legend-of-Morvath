@@ -1,4 +1,4 @@
-import { AnimationClip, Bone, Group, NumberKeyframeTrack } from 'three';
+import { AnimationClip, Bone, Group, NumberKeyframeTrack, QuaternionKeyframeTrack } from 'three';
 import { describe, expect, it } from 'vitest';
 import type { AnimationsFile, PlayerClipRole } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
@@ -7,17 +7,22 @@ import { MoverState, stepAirTime } from '../systems/Movement';
 import { StaffState } from '../systems/StaffCombat';
 import {
   chooseGait,
+  chooseLayers,
   choosePlayerState,
   chooseRole,
   clipTime,
   createPlayerAnimInput,
+  createPlayerAnimLayers,
   fadeInto,
   fillPlayerAnimInput,
   gaitTimeScale,
+  leanTarget,
+  namesUnder,
   type PlayerAnimInput,
   PlayerAnimator,
   type PlayerAnimSources,
   slashRole,
+  splitClip,
   strikeTime,
 } from './PlayerAnimator';
 
@@ -75,13 +80,18 @@ describe('choosePlayerState', () => {
     expect(choosePlayerState('run', swing, anim)).toBe('attack');
   });
 
-  it('lets a finished swing settle while standing, but not after walking off', () => {
+  it('lets a finished swing settle while standing, and on the upper body while walking', () => {
     const after = input({ sinceSwing: 0.3, swingSeconds: 0.22, landedCombo: 2 });
     expect(choosePlayerState('attack', after, anim)).toBe('attack');
     after.sinceSwing = 0.22 + s.settleSeconds + 0.01;
     expect(choosePlayerState('attack', after, anim)).toBe('idle');
     const walking = input({ sinceSwing: 0.3, swingSeconds: 0.22, landedCombo: 2, speed: 2 });
+    expect(choosePlayerState('attack', walking, anim)).toBe('attack');
+    walking.sinceSwing = 0.22 + s.settleSeconds + 0.01;
     expect(choosePlayerState('attack', walking, anim)).toBe('walk');
+    // A heavy strike moves the whole body: walking off breaks it off.
+    const heavy = input({ sinceSwing: 0.3, swingSeconds: 0.22, landedCombo: 0, speed: 2 });
+    expect(choosePlayerState('attack', heavy, anim)).toBe('walk');
     // Settling never starts from another state (the swing was long over).
     expect(choosePlayerState('idle', input({ sinceSwing: 0.3, swingSeconds: 0.22 }), anim)).toBe(
       'idle',
@@ -93,8 +103,10 @@ describe('choosePlayerState', () => {
     const lead = s.leadSeconds + s.followSeconds;
     expect(choosePlayerState('cast', input({ sinceFired: lead + 0.1 }), anim)).toBe('cast');
     expect(choosePlayerState('cast', input({ sinceFired: lead + 0.1, speed: 4 }), anim)).toBe(
-      'run',
+      'cast',
     );
+    const over = input({ sinceFired: lead + s.settleSeconds + 0.1, speed: 4 });
+    expect(choosePlayerState('cast', over, anim)).toBe('run');
   });
 
   it('flinches and interacts only while standing', () => {
@@ -284,40 +296,228 @@ describe('stepAirTime', () => {
   });
 });
 
-describe('PlayerAnimator', () => {
-  function rig(): { root: Group; clips: Map<PlayerClipRole, AnimationClip> } {
+describe('chooseLayers (upper body while walking)', () => {
+  const layers = () => createPlayerAnimLayers();
+
+  it('plays a whole-body clip standing still', () => {
+    const i = input({ sinceSwing: 0, swingSeconds: 0.22, landedCombo: 1 });
+    expect(chooseLayers('attack', 'idle', i, anim, layers())).toEqual({
+      lower: 'slash1',
+      upper: 'slash1',
+    });
+    expect(chooseLayers('idle', 'idle', input(), anim, layers())).toEqual({
+      lower: 'idle',
+      upper: 'idle',
+    });
+  });
+
+  it('keeps the legs walking under a swing, a cast or a flinch', () => {
+    const swing = input({ sinceSwing: 0, swingSeconds: 0.22, landedCombo: 3, speed: 4 });
+    expect(chooseLayers('attack', 'run', swing, anim, layers())).toEqual({
+      lower: 'run',
+      upper: 'slash3',
+    });
+    const cast = input({ gathering: true, speed: 1.5 });
+    expect(chooseLayers('cast', 'walk', cast, anim, layers())).toEqual({
+      lower: 'walk',
+      upper: 'castGather',
+    });
+    const hurt = input({ sinceHurt: 0.1, speed: 4 });
+    expect(chooseLayers('run', 'run', hurt, anim, layers())).toEqual({
+      lower: 'run',
+      upper: 'hit',
+    });
+    expect(chooseLayers('run', 'run', input({ sinceHurt: anim.hold.hit }), anim, layers())).toEqual(
+      { lower: 'run', upper: 'run' },
+    );
+  });
+
+  it('moves the whole body for the heavy hit, a dash and dying, also while moving', () => {
+    const windup = input({ windupProgress: 0.5, speed: 2 });
+    expect(chooseLayers('attack', 'walk', windup, anim, layers())).toEqual({
+      lower: 'heavyWindup',
+      upper: 'heavyWindup',
+    });
+    expect(chooseLayers('dash', 'run', input({ dashProgress: 0.5 }), anim, layers())).toEqual({
+      lower: 'dash',
+      upper: 'dash',
+    });
+    expect(chooseLayers('death', 'run', input({ deathSeconds: 1 }), anim, layers())).toEqual({
+      lower: 'death',
+      upper: 'death',
+    });
+  });
+
+  it('only splits roles named in animations.json', () => {
+    const only = { ...anim, upperBody: { rootBone: 'Spine', roles: ['castGather' as const] } };
+    const swing = input({ sinceSwing: 0, swingSeconds: 0.22, landedCombo: 1, speed: 4 });
+    expect(chooseLayers('attack', 'run', swing, only, layers())).toEqual({
+      lower: 'slash1',
+      upper: 'slash1',
+    });
+  });
+});
+
+describe('splitClip and namesUnder', () => {
+  it('splits the tracks by bone, keeping the clip length', () => {
     const root = new Group();
-    const bone = new Bone();
-    bone.name = 'Hips';
-    root.add(bone);
+    const hips = new Bone();
+    hips.name = 'Hips';
+    const spine = new Bone();
+    spine.name = 'Spine';
+    const head = new Bone();
+    head.name = 'Head';
+    const leg = new Bone();
+    leg.name = 'LeftUpLeg';
+    root.add(hips);
+    hips.add(spine, leg);
+    spine.add(head);
+    const upper = namesUnder(root, 'Spine');
+    expect([...upper].sort()).toEqual(['Head', 'Spine']);
+    expect(namesUnder(root, 'Nothing').size).toBe(0);
+    const clip = new AnimationClip('Run', 1.2, [
+      new NumberKeyframeTrack('Hips.position[x]', [0, 1], [0, 1]),
+      new NumberKeyframeTrack('Hips.quaternion[x]', [0, 1], [0, 1]),
+      new NumberKeyframeTrack('LeftUpLeg.quaternion[x]', [0, 1], [0, 1]),
+      new NumberKeyframeTrack('Spine.quaternion[x]', [0, 1], [0, 1]),
+      new NumberKeyframeTrack('Head.quaternion[x]', [0, 1], [0, 1]),
+    ]);
+    const [legs, top] = splitClip(clip, upper);
+    expect(legs.name).toBe('Run');
+    expect(legs.duration).toBe(1.2);
+    expect(top.duration).toBe(1.2);
+    expect(legs.tracks.map((t) => t.name)).toEqual([
+      'Hips.position[x]',
+      'Hips.quaternion[x]',
+      'LeftUpLeg.quaternion[x]',
+    ]);
+    expect(top.tracks.map((t) => t.name)).toEqual(['Spine.quaternion[x]', 'Head.quaternion[x]']);
+  });
+});
+
+describe('leanTarget', () => {
+  const l = anim.lean;
+  const DEG = Math.PI / 180;
+  const out = { x: 0, z: 0 };
+
+  it('leans forward when setting off, back when braking', () => {
+    // Heading 0 looks along +z: speeding up along +z is forward.
+    expect(leanTarget(0, 4, 0, l, out).z).toBeCloseTo(
+      Math.min(l.maxForwardDeg, 4 * l.forwardDegPerMps2) * DEG,
+      9,
+    );
+    expect(out.x).toBeCloseTo(0, 9);
+    expect(leanTarget(0, -40, 0, l, out).z).toBeCloseTo(-l.maxBackDeg * DEG, 9);
+  });
+
+  it('leans into a turn, in the model frame', () => {
+    // Heading π/2 looks along +x, so the model's own +x points along world −z: a push along
+    // world +z tips it towards its −x.
+    expect(leanTarget(0, 4, Math.PI / 2, l, out).x).toBeCloseTo(
+      -Math.min(l.maxSidewaysDeg, 4 * l.sidewaysDegPerMps2) * DEG,
+      9,
+    );
+    expect(out.z).toBeCloseTo(0, 9);
+    expect(leanTarget(0, -100, Math.PI / 2, l, out).x).toBeCloseTo(l.maxSidewaysDeg * DEG, 9);
+  });
+
+  it('stands straight without acceleration', () => {
+    expect(leanTarget(0, 0, 1.3, l, out)).toEqual({ x: 0, z: 0 });
+  });
+});
+
+describe('PlayerAnimator', () => {
+  function rig(): { root: Group; clips: Map<PlayerClipRole, AnimationClip>; spine: Bone } {
+    const root = new Group();
+    const hips = new Bone();
+    hips.name = 'Hips';
+    const spine = new Bone();
+    spine.name = 'Spine';
+    root.add(hips);
+    hips.add(spine);
     const clips = new Map<PlayerClipRole, AnimationClip>();
-    for (const role of ['idle', 'run', 'slash1', 'death'] as PlayerClipRole[]) {
-      const track = new NumberKeyframeTrack('Hips.position[x]', [0, 1], [0, 1]);
-      clips.set(role, new AnimationClip(role, 1, [track]));
+    for (const role of [
+      'idle',
+      'walk',
+      'run',
+      'slash1',
+      'castGather',
+      'death',
+    ] as PlayerClipRole[]) {
+      clips.set(
+        role,
+        new AnimationClip(role, 1, [
+          new NumberKeyframeTrack('Hips.position[x]', [0, 1], [0, 1]),
+          new QuaternionKeyframeTrack('Spine.quaternion', [0, 1], [0, 0, 0, 1, 0, 0, 0, 1]),
+        ]),
+      );
     }
-    return { root, clips };
+    return { root, clips, spine };
   }
 
   it('crossfades into the chosen clip, keeping the weights at 1 in total', () => {
     const { root, clips } = rig();
     const animator = new PlayerAnimator(root, clips, anim);
     const i = input();
-    for (let f = 0; f < 60; f++) animator.update(i, 4, 1 / 60);
+    for (let f = 0; f < 60; f++) animator.update(i, 0, 4, 0, 1 / 60);
     expect(animator.state).toBe('run');
     expect(animator.role).toBe('run');
-    animator.update(i, 0, 0);
+    expect(animator.upperRole).toBe('run');
+    animator.update(i, 0, 0, 0, 0);
     expect(animator.clipName).toBe('run');
   });
 
   it('falls back to Idle when a clip is missing, and follows the strike time', () => {
     const { root, clips } = rig();
     const animator = new PlayerAnimator(root, clips, anim);
-    animator.update(input({ deathSeconds: 0.5 }), 0, 1 / 60);
+    animator.update(input({ deathSeconds: 0.5 }), 0, 0, 0, 1 / 60);
     expect(animator.role).toBe('death');
     // Slash_2 is not in this rig: Idle plays instead of nothing.
-    animator.update(input({ sinceSwing: 0, swingSeconds: 0.22, landedCombo: 2 }), 0, 1 / 60);
+    animator.update(input({ sinceSwing: 0, swingSeconds: 0.22, landedCombo: 2 }), 0, 0, 0, 1 / 60);
     expect(animator.state).toBe('attack');
     expect(animator.role).toBe('idle');
     animator.dispose();
+  });
+
+  it('swings on the upper body while the legs run on', () => {
+    const { root, clips } = rig();
+    const animator = new PlayerAnimator(root, clips, anim);
+    const run = input();
+    for (let f = 0; f < 60; f++) animator.update(run, 0, 4, 0, 1 / 60);
+    const swing = input({ sinceSwing: 0, swingSeconds: 0.22, landedCombo: 1 });
+    animator.update(swing, 0, 4, 0, 1 / 60);
+    expect(animator.state).toBe('attack');
+    expect(animator.role).toBe('run');
+    expect(animator.upperRole).toBe('slash1');
+    expect(animator.debugLine()).toContain('Run + Slash_1 (upper)');
+  });
+
+  it('leans into a turn and settles straight again', () => {
+    const { root, clips, spine } = rig();
+    const animator = new PlayerAnimator(root, clips, anim);
+    const i = input();
+    // Running along +z, then pushed along +x (at heading 0 that is the model's own +x): the
+    // spine tips sideways, and straightens once the velocity is steady again.
+    for (let f = 0; f < 60; f++) animator.update(i, 0, 4, 0, 1 / 60);
+    const straight = spine.quaternion.clone();
+    for (let f = 0; f < 10; f++) animator.update(i, 4, 4, 0, 1 / 60);
+    expect(spine.quaternion.angleTo(straight)).toBeGreaterThan(0.5 * (Math.PI / 180));
+    expect(animator.debugLine()).toMatch(/lean -?\d+\.\d° side/);
+    for (let f = 0; f < 120; f++) animator.update(i, 4, 4, 0, 1 / 60);
+    expect(spine.quaternion.angleTo(straight)).toBeLessThan(0.1 * (Math.PI / 180));
+  });
+
+  it('plays a preview clip on its own and follows the game again after it', () => {
+    const { root, clips } = rig();
+    const animator = new PlayerAnimator(root, clips, anim);
+    animator.preview = 'castGather';
+    animator.update(input(), 0, 4, 0, 1 / 60);
+    expect(animator.role).toBe('castGather');
+    expect(animator.upperRole).toBe('castGather');
+    expect(animator.debugLine()).toContain('F6 preview');
+    animator.preview = null;
+    for (let f = 0; f < 30; f++) animator.update(input(), 0, 4, 0, 1 / 60);
+    expect(animator.role).toBe('run');
+    expect(animator.roles).toContain('slash1');
   });
 });
