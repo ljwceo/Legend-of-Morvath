@@ -82,9 +82,9 @@
         ["Cape_R1", "Cape_R2", "Cape_R3"]
       ],
       "places": [
-        { "stiffness": 120, "damping": 4, "gravity": 9.81, "maxAngleDeg": 35 },
-        { "stiffness": 90, "damping": 3.5, "gravity": 9.81, "maxAngleDeg": 45 },
-        { "stiffness": 60, "damping": 3, "gravity": 9.81, "maxAngleDeg": 55 }
+        { "stiffness": 250, "damping": 6, "gravity": 15, "maxAngleDeg": 30 },
+        { "stiffness": 160, "damping": 5.5, "gravity": 15, "maxAngleDeg": 40 },
+        { "stiffness": 100, "damping": 5, "gravity": 15, "maxAngleDeg": 50 }
       ]
     }
   }
