@@ -165,6 +165,7 @@ import {
 import { DamageNumbers } from '../ui/DamageNumbers';
 import { type Bounds, CollisionWorld } from '../systems/Collision';
 import {
+  angleDelta,
   type MoveCommand,
   loadedMovement,
   type MovementConfig,
@@ -1300,7 +1301,7 @@ export class WorldState implements GameState, InstanceHost {
     const s = this.player?.state;
     if (!s) return;
     const locked = this.locked;
-    if (locked?.hittable) {
+    if (locked?.lockable) {
       s.heading = headingTo(s.x, s.z, locked.x, locked.z, s.heading);
       return;
     }
@@ -1323,7 +1324,7 @@ export class WorldState implements GameState, InstanceHost {
       s.z,
       s.heading,
       damage,
-      locked?.hittable ? locked : null,
+      locked?.lockable ? locked : null,
       charge,
       crit,
       this.shotPoiseDamage(shot, charge, crit),
@@ -5301,21 +5302,28 @@ export class WorldState implements GameState, InstanceHost {
       // Nothing locked: say what is within range, and how much of it is out of sight.
       let inRange = 0;
       let hidden = 0;
+      let inView = 0;
+      const yaw = this.rig?.orbit.yaw ?? 0;
       const enemies = this.enemies?.shown ?? [];
       for (const enemy of enemies) {
-        if (!enemy.hittable) continue;
+        if (!enemy.lockable) continue;
         if (Math.hypot(enemy.x - px, enemy.z - pz) > (cfg?.range ?? 0)) continue;
         inRange++;
         if (!this.canSeeFromCamera(enemy)) hidden++;
+        const off = Math.abs(angleDelta(yaw, Math.atan2(enemy.x - px, enemy.z - pz)));
+        if (cfg && off <= cfg.pickHalfArc) inView++;
       }
-      return `none · in range ${inRange} (${hidden} hidden) · range ${cfg ? cfg.range.toFixed(0) : '-'} m`;
+      return `none · in range ${inRange} (${hidden} hidden, ${inView} in view) · range ${cfg ? cfg.range.toFixed(0) : '-'} m`;
     }
     const distance = Math.hypot(locked.x - px, locked.z - pz);
+    const off = Math.abs(
+      angleDelta(this.rig?.orbit.yaw ?? 0, Math.atan2(locked.x - px, locked.z - pz)),
+    );
     const seen = this.canSeeFromCamera(locked);
     const marker = this.ctx.data?.player.lockOn.marker;
     const size = marker ? marker.dotPixels : 0;
     return (
-      `${locked.def.id} ${distance.toFixed(1)} m · ${seen ? 'in sight' : 'hidden'} ` +
+      `${locked.def.id} ${distance.toFixed(1)} m · off ${Math.round((off * 180) / Math.PI)}° · ${seen ? 'in sight' : 'hidden'} ` +
       `(${this.lockBlindSeconds.toFixed(2)}/${cfg.loseSightSeconds.toFixed(2)} s) · dot ${size} px`
     );
   }

@@ -52,6 +52,21 @@ describe('picking a target', () => {
     expect(pickLockTarget(0, 0, 0, [dummy, slime], cfg)).toBe(slime);
   });
 
+  it('locks on to a guarded boss: hittable only in its openings, but a target all the time', () => {
+    const boss = monster(0, 8, false, true);
+    expect(pickLockTarget(0, 0, 0, [boss], cfg)).toBe(boss);
+    expect(lockBroken(boss, 0, 0, 0, cfg)).toBe(false);
+  });
+
+  it('takes the enemy in view and never the one behind you', () => {
+    const inView = monster(3, 9);
+    const behind = monster(0, -3);
+    expect(pickLockTarget(0, 0, 0, [behind, inView], cfg)).toBe(inView);
+    expect(pickLockTarget(0, 0, 0, [behind], cfg)).toBeNull();
+    // Turn the camera round and the other one is in view.
+    expect(pickLockTarget(0, 0, Math.PI, [behind, inView], cfg)).toBe(behind);
+  });
+
   it('follows where the camera looks, not where the player faces', () => {
     const behindRight = monster(10, 0);
     expect(pickLockTarget(0, 0, 0, [behindRight], cfg)).toBeNull();

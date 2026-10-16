@@ -119,12 +119,14 @@ export class Enemy implements SwordTarget, ShotTarget {
   }
 
   /**
-   * Can you lock on to it? Everything you can hit except something that does not move or
-   * fight: a training dummy stands in the middle of the Academy field, and locking on to it
-   * while a wave of slimes comes at you only gets in the way.
+   * Can you lock on to it? Everything alive and in the open except something that does not
+   * move or fight: a training dummy stands in the middle of the Academy field, and locking on
+   * to it while a wave of slimes comes at you only gets in the way. A guarded boss (Sultan
+   * between his openings) is a target too: the lock is there to follow him while you dodge, and
+   * must not let go every time he guards.
    */
   get lockable(): boolean {
-    return this.hittable && this.def.behavior !== 'static';
+    return this.alive && !this.safe && this.def.behavior !== 'static';
   }
 
   /**
