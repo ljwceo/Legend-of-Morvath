@@ -6,7 +6,8 @@ De scripts draaien zonder venster en **slaan het .blend-bestand nooit op**.
 | Bestand | Chat | Wat |
 |---|---|---|
 | `01_prep_mixamo.py` | 1 (A.1) | Lijf klaarmaken voor Mixamo → `body_for_mixamo.fbx` |
-| `02_import_mixamo.py` | 2 (A.2a) | Mixamo-rig + clips terug in Blender → `Hero_Start_Animated.blend` (Deel C). Hoed, haar, zwaard, cape en de export naar `player.glb` komen in A.2b en A.2c |
+| `02_import_mixamo.py` | 2 (A.2a) | Mixamo-rig + clips terug in Blender → `Hero_Start_Animated.blend` (Deel C) |
+| `03_attach_gear.py` | 2 (A.2b) | Hoed, haar, cape, zwaard en tijdelijke staf aan het skelet → `Hero_Start_Player.blend` (Deel D). De export naar `player.glb` komt in A.2c |
 
 **Mixamo-licentie:** de bestanden uit Mixamo (en `body_for_mixamo.fbx`) gaan **nooit** in git.
 Ze staan in de map `Mixamo` naast `Greyhaven.blend` (buiten de repo) of in `art-source/` (in `.gitignore`). Alleen de
@@ -181,3 +182,43 @@ bronbestand, frames, duur in seconden, lus ja/nee, wat er geknipt is, verwijderd
 drift (`driftCm`, hoort onder 2), uitwijking binnen de clip (`swayCm`) en de retarget-fout.
 Let op: `Heavy_Windup` duurt 1,23 s (de game rekent met 0,9 s); het script meldt dat alleen, de
 animator speelt aanvallen straks op voortgang, dus het blijft kloppen met de hitbox.
+
+---
+
+## Deel D – `03_attach_gear.py` draaien (stap A.2b)
+
+Neemt `Hero_Start_Animated.blend` (uit Deel C) en zet de spullen van het oude poppetje uit
+`Greyhaven.blend` erop. Resultaat: **`Hero_Start_Player.blend`** naast `Hero_Start_Animated.blend`.
+Beide invoerbestanden blijven onaangeroerd.
+
+**In Blender:** open `Hero_Start_Animated.blend`, tabblad **Scripting**, **New**, plak het script,
+controleer bovenin `GREYHAVEN` (pad naar `Greyhaven.blend`) en klik **▶**. Er start een tweede
+Blender in een consolevenster; een melding zegt wanneer hij klaar is.
+
+**Zonder venster:**
+`blender -b --factory-startup --python tools/blender/character/03_attach_gear.py -- <Hero_Start_Animated.blend> <Greyhaven.blend> [<uitvoer.blend>]`
+
+Wat erin zit:
+- `Hair`, `Hat`, `Hat_Band`, `Hat_Brim` stijf aan het bot `Head`.
+- `Sword_Blade`, `Sword_Guard`, `Sword_Grip` en de tijdelijke staf `Staff_Shaft`, `Staff_Crystal`
+  stijf aan `RightHand` (de greep loopt dwars door de vuist; zwaard en staf staan allebei in het
+  bestand, de game kiest straks welke zichtbaar is).
+- `Collar_Trim` stijf aan `Spine2`; `Cloak` en `Cloak_Trim` op de cape-botten `Cape_L1-3`,
+  `Cape_M1-3`, `Cape_R1-3` (aan `Spine2`, links = +X). Geen clip beweegt de cape-botten.
+- In `Cast_Gather` en `Cast_Release` heeft de rechterhand een vuist (de greep uit `Idle_Sword`).
+
+Wat je onderaan `log_gear.txt` moet zien:
+
+```
+stiff on bones (Head, RightHand, Spine2), largest jump 0.000000 m
+cape bones ['Cape_L1', ..., 'Cape_R3'] from z 1.501 to 0.395
+Cast_Gather: 80 finger channels of the right hand take the grip of Idle_Sword
+triangles (with modifiers) 17378, limit 30000
+saved ...\Hero_Start_Player.blend
+DONE
+```
+
+`gear.json` (naast het resultaat) noemt per object het bot, of het meebuigt met de cape, de materialen
+en het aantal driehoeken. Wil je de pasvorm bijstellen: de getallen staan bovenin het script
+(`HEAD_SCALE`, `CLOAK_SCALE`, `SWORD_SCALE`, `STAFF_LENGTH`, ...).
+
