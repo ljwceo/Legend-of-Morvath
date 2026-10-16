@@ -1,4 +1,5 @@
-// Morning test bench (tools/testbank/README.md). Tonight: steps 4.1 (Forge), 4.2 (shops) and 4.3 (spellbook).
+// Test bench for group S (Souls-like combat), branch auto/souls (tools/testbank/README.md).
+// Built steps: S.2 (gamepad). Earlier panels (Forge, shops, spellbook) stay on the bench.
 // The panels, rules, data and texts are the real ones; only the world around them is faked,
 // copied from WorldState (buy, sell, upgradeItem, chooseSpell, applyWeapon, learnSpells).
 import '../../docs/art-style/tokens.css';
@@ -8,11 +9,18 @@ import './bench.css';
 import itemsJson from '../../public/data/items.json';
 import npcsJson from '../../public/data/npcs.json';
 import spellsJson from '../../public/data/spells.json';
+import controlsJson from '../../public/data/controls.json';
+import playerJson from '../../public/data/player.json';
 import en from '../../public/lang/en.json';
 import nl from '../../public/lang/nl.json';
 
+import { Bindings } from '../../src/core/Bindings';
+import { Input } from '../../src/core/Input';
+import { PadHub, padCode } from '../../src/core/gamepad';
+import { keyLabel, keyParams } from '../../src/ui/keyLabels';
+import { controlsPanel } from '../../src/ui/menus/ControlsPanel';
 import { I18n } from '../../src/i18n/I18n';
-import { Overlays } from '../../src/ui/Overlays';
+import { Overlays, type Panel } from '../../src/ui/Overlays';
 import { forgePanel } from '../../src/ui/menus/ForgePanel';
 import { shopPanel, type BuyResult, type SellResult } from '../../src/ui/menus/ShopPanel';
 import { spellbookPanel } from '../../src/ui/menus/SpellbookPanel';
@@ -45,6 +53,7 @@ const elements: string[] = (spellsJson as any).elements.map((e: any) => e.id);
 function freshSession() {
   return {
     playTimeSeconds: 0,
+    settings: { debug: true, keybindings: {} as Record<string, string[]> },
     shopStock: {} as Record<string, { left: number; at: number }>,
     level: 1,
     inCombat: false,
@@ -77,11 +86,20 @@ const events = {
   emit: (name: string) => listeners[name]?.forEach((fn) => fn()),
 };
 
+// S.2: the real Bindings, and a real PadHub reading navigator.getGamepads().
+const bindings = new Bindings();
+bindings.configure(controlsJson as any, null);
+i18n.defaultParams = () => keyParams(bindings, i18n);
+const pads = new PadHub();
+pads.configure((controlsJson as any).gamepad);
 const stage = document.getElementById('app') as HTMLElement;
-const overlays = new Overlays(stage, events as any, i18n);
+const overlays = new Overlays(stage, events as any, i18n, bindings, pads);
 const ctx: any = {
   i18n,
   overlays,
+  bindings,
+  pads,
+  events,
   data: { items: itemsJson, spells: spellsJson },
   get session() {
     return session;
@@ -163,10 +181,214 @@ function chooseSpell(slot: number, spellId: string): void {
   refresh();
 }
 
+
+// ----------------------------------------------------------------- S.2: controller test
+
+const pc: any = (playerJson as any).controls ?? {};
+const inputSurface = document.createElement('div');
+const input = new Input(
+  inputSurface,
+  {
+    joystickRadiusPx: pc.joystickRadiusPx ?? 56,
+    joystickDeadZone: pc.joystickDeadZone ?? 0.12,
+    rotateRadiansPerPixelMouse: 0.003,
+    rotateRadiansPerPixelTouch: 0.004,
+    zoomStepPerWheelNotch: 0.1,
+    joystickZoneWidth: 0.45,
+    joystickZoneTop: 0.5,
+  },
+  bindings,
+  pads,
+);
+input.attach();
+const lookTotal = { yaw: 0, pitch: 0, zoom: 1 };
+const lookTmp = { yaw: 0, pitch: 0, zoom: 1 };
+const moveTmp = { x: 0, y: 0 };
+let pauseCount = 0;
+input.onPausePressed = () => {
+  pauseCount++;
+};
+
+/** Why the Gamepad API cannot be used here, or '' when it can. */
+function padApiProblem(): string {
+  if (typeof navigator.getGamepads !== 'function') return 'api';
+  try {
+    navigator.getGamepads();
+  } catch {
+    return 'blocked';
+  }
+  const policy: any = (document as any).featurePolicy ?? (document as any).permissionsPolicy;
+  if (policy?.allowsFeature && !policy.allowsFeature('gamepad')) return 'blocked';
+  return '';
+}
+
+let padUpdate: (() => void) | null = null;
+let lastFrame = performance.now();
+function frame(now: number): void {
+  const seconds = Math.min(0.1, (now - lastFrame) / 1000);
+  lastFrame = now;
+  pads.beginFrame(seconds);
+  input.consumeLook(lookTmp);
+  lookTotal.yaw += lookTmp.yaw;
+  lookTotal.pitch += lookTmp.pitch;
+  padUpdate?.();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+const ACTION_ORDER = bindings.actions;
+const actionName = (a: string) => i18n.t(`controls.action.${a}`);
+
+function stickBox(label: string): { root: HTMLElement; dot: HTMLElement; text: HTMLElement } {
+  const dot = h('div', { className: 'pt-dot' });
+  const text = h('div', { className: 'pt-num' }, '0.00 / 0.00');
+  const root = h(
+    'div',
+    { className: 'pt-stick' },
+    h('div', { className: 'pt-ring' }, dot),
+    h('div', { className: 'pt-cap' }, label),
+    text,
+  );
+  return { root, dot, text };
+}
+
+function padTestPanel(): Panel {
+  return {
+    closeActions: [],
+    build() {
+      const problem = padApiProblem();
+      const left = stickBox('Linker stick (lopen)');
+      const right = stickBox('Rechter stick (camera)');
+      const info = h('p', { className: 'pt-status', role: 'status' }, '');
+      const cells: { el: HTMLElement; index: number; act: HTMLElement }[] = [];
+      const grid = h('div', { className: 'pt-grid' });
+      for (let i = 0; i < 16; i++) {
+        const act = h('span', { className: 'pt-act' }, '');
+        const el = h(
+          'div',
+          { className: 'pt-btn', 'data-pad': String(i) },
+          h('b', {}, i18n.t(`pad.${i}`)),
+          act,
+        );
+        cells.push({ el, index: i, act });
+        grid.append(el);
+      }
+      const actionRows = new Map<string, HTMLElement>();
+      const actionList = h('div', { className: 'pt-actions' });
+      for (const a of ACTION_ORDER) {
+        if (bindings.isDebugOnly(a)) continue;
+        const chip = h('span', { className: 'pt-chip', 'data-action': a }, actionName(a));
+        actionRows.set(a, chip);
+        actionList.append(chip);
+      }
+      const look = h('div', { className: 'pt-num' }, '');
+      const pause = h('div', { className: 'pt-num' }, '');
+
+      const tableRows = ACTION_ORDER.filter((a) => !bindings.isDebugOnly(a)).map((a) => {
+        const keys = bindings.codesFor(a).map((c) => keyLabel(c, i18n.t.bind(i18n)));
+        const padKeys = bindings.padCodesFor(a).map((c) => keyLabel(c, i18n.t.bind(i18n)));
+        return h(
+          'tr',
+          {},
+          h('td', {}, actionName(a)),
+          h('td', {}, keys.join(' / ') || '—'),
+          h('td', {}, padKeys.join(' / ') || '— (linker stick)'),
+        );
+      });
+      const gp: any = (controlsJson as any).gamepad;
+
+      padUpdate = () => {
+        if (!root.isConnected) {
+          padUpdate = null;
+          return;
+        }
+        const down = pads.down;
+        for (const c of cells) {
+          c.el.classList.toggle('pt-on', (down & (1 << c.index)) !== 0);
+          const action = bindings.actionForPad(c.index);
+          const text = action ? actionName(action) : '—';
+          if (c.act.textContent !== text) c.act.textContent = text;
+        }
+        for (const [a, chip] of actionRows)
+          chip.classList.toggle('pt-on', input.isPressed(a as any));
+        const mv = input.getMoveVector(moveTmp);
+        const place = (box: typeof left, x: number, y: number) => {
+          box.dot.style.transform = `translate(${x * 34}px, ${-y * 34}px)`;
+          box.text.textContent = `${x.toFixed(2)} / ${y.toFixed(2)}`;
+        };
+        place(left, mv.x, mv.y);
+        place(right, pads.lookX, -pads.lookY);
+        look.textContent = `Camera gedraaid: yaw ${lookTotal.yaw.toFixed(2)} rad, pitch ${lookTotal.pitch.toFixed(2)} rad`;
+        pause.textContent = `Start (pauze) ingedrukt: ${pauseCount}×`;
+        const msg = pads.present
+          ? 'Controller gevonden. Druk op knoppen en beweeg de sticks.'
+          : 'Nog geen controller gezien. Sluit er een aan (of koppel via Bluetooth) en druk op een knop.';
+        if (info.textContent !== msg && !problem) info.textContent = msg;
+      };
+
+      const warn = problem
+        ? h(
+            'p',
+            { className: 'pt-warn', role: 'alert' },
+            'De Gamepad API werkt niet in dit venster (het artifact-frame blokkeert hem). ' +
+              'Open tools/testbank/out/testbank.html lokaal om te testen. De mapping hieronder staat er wel gewoon.',
+          )
+        : null;
+
+      const root = h(
+        'div',
+        { className: 'ui-panel pt-panel', role: 'dialog' },
+        h('h2', { className: 'ui-heading' }, 'Controllertest'),
+        h(
+          'p',
+          { className: 'ui-note' },
+          'Dit is de echte gamepadlaag van het spel (PadHub + Input + Bindings). Wat hier oplicht, doet het ook in het spel.',
+        ),
+        warn,
+        info,
+        h('div', { className: 'pt-sticks' }, left.root, right.root),
+        h('h3', {}, 'Knoppen'),
+        grid,
+        h('h3', {}, 'Acties die het spel nu ziet'),
+        actionList,
+        look,
+        pause,
+        h(
+          'p',
+          { className: 'ui-note' },
+          `Getallen uit controls.json: dode zone ${gp.deadZone}, trekker telt vanaf ${gp.triggerThreshold}, camera ${gp.lookRadiansPerSecond} rad/s bij vol uitslaan. Start pauzeert altijd en is niet bindbaar.`,
+        ),
+        h('h3', {}, 'Mapping (uit controls.json en je eigen keuzes)'),
+        h(
+          'table',
+          { className: 'pt-table' },
+          h(
+            'thead',
+            {},
+            h('tr', {}, h('th', {}, 'Actie'), h('th', {}, 'Toets / muis'), h('th', {}, 'Controller')),
+          ),
+          h('tbody', {}, ...tableRows),
+        ),
+        h(
+          'p',
+          { className: 'ui-note' },
+          'Andere knop? Open "Besturing (Settings)" links, klik op een controller-vakje en druk op een knop.',
+        ),
+        h('button', { type: 'button', className: 'ui-button', onclick: () => overlays.close() }, i18n.t('common.close')),
+      );
+      return root;
+    },
+    onClose() {
+      padUpdate = null;
+    },
+  };
+}
+
 // ----------------------------------------------------------------- opening the panels
 
-let openPanel: 'forge' | 'shop' | 'spellbook' | null = null;
-function open(which: 'forge' | 'shop' | 'spellbook'): void {
+type PanelId = 'forge' | 'shop' | 'spellbook' | 'controls' | 'padtest';
+let openPanel: PanelId | null = null;
+function open(which: PanelId): void {
   overlays.closeAll();
   say('');
   openPanel = which;
@@ -174,6 +396,8 @@ function open(which: 'forge' | 'shop' | 'spellbook'): void {
     openPanel = null;
     renderBench();
   };
+  if (which === 'controls') overlays.open(controlsPanel(ctx));
+  if (which === 'padtest') overlays.open(padTestPanel());
   if (which === 'forge')
     overlays.open(forgePanel(ctx, hilda?.name ?? 'Hilda', upgradeItem, closed));
   if (which === 'shop') {
@@ -259,6 +483,17 @@ function renderBench(): void {
       ),
     ),
     group(
+      'Stap S.2 – Gamepad',
+      row(
+        btn('Controllertest', () => open('padtest'), openPanel === 'padtest'),
+        btn('Besturing (Settings)', () => open('controls'), openPanel === 'controls'),
+      ),
+      row(
+        btn('Standaard knoppen terug', () => (bindings.resetToDefaults(), saveBindings(), refresh())),
+      ),
+      h('p', { className: 'b-hint' }, 'Controllertest werkt alleen met een echte controller; zonder zie je de mapping als tabel.'),
+    ),
+    group(
       'Taal',
       row(
         btn('English', () => setLang('en'), i18n.language === 'en'),
@@ -342,9 +577,25 @@ function renderBench(): void {
     ],
     ['Gear-bonus (Forge)', `+${gear.hp} hp, +${gear.damageReductionPercent}% reductie`],
     ['Geleerde spells', c.spells.map(name).join(', ') || '—'],
+    [
+      'Controller (pad:…)',
+      bindings.actions
+        .filter((a) => !bindings.isDebugOnly(a))
+        .map((a) => `${a}=${bindings.padCodesFor(a).join('+') || '—'}`)
+        .join(', '),
+    ],
     ['Spell op cast-knop', staffSlots() > 0 ? name(activeSpell(c.spellLoadout)) : '— (geen staf)'],
   ];
   state.replaceChildren(
+    h('h3', {}, 'Alleen in het spel te zien'),
+    h(
+      'ul',
+      {},
+      h('li', {}, 'S.2: lopen, camera draaien, lock-on, slaan en rollen met een echte controller in de 3D-wereld: start het spel (npm run dev of GitHub Pages) en pak je controller.'),
+      h('li', {}, 'S.2: de knophints in teksten (A, RB, …) die verschijnen nadat je een controller gebruikt hebt: in het spel zelf, bij gesprekken en tips.'),
+      h('li', {}, 'S.2: Start = pauze in de wereld; hier telt de Controllertest hem alleen.'),
+      h('li', {}, 'S.3 t/m S.9 (stamina, rol, aanvalsfases, poise, Sultan) zijn nog niet gebouwd en staan dus niet op deze pagina.'),
+    ),
     h('h3', {}, 'Wat het spel zou opslaan'),
     h('dl', {}, ...lines.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
     h(
@@ -352,6 +603,7 @@ function renderBench(): void {
       {},
       JSON.stringify(
         {
+          'settings.keybindings': session.settings.keybindings,
           'character.upgrades': c.upgrades,
           'character.spellLoadout': c.spellLoadout,
           shopStock: session.shopStock,
@@ -363,6 +615,9 @@ function renderBench(): void {
   );
 }
 
+function saveBindings(): void {
+  session.settings.keybindings = bindings.toSave() as Record<string, string[]>;
+}
 function setLang(lang: 'en' | 'nl'): void {
   i18n.setStrings(lang, lang === 'en' ? en : nl, en);
   events.emit('languageChanged');
@@ -385,6 +640,7 @@ function setLevel(level: number): void {
 function reset(): void {
   const lang = i18n.language;
   session = freshSession();
+  bindings.resetToDefaults();
   applyWeapon();
   setLang(lang as 'en' | 'nl');
   if (openPanel) open(openPanel);

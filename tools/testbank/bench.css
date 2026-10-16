@@ -160,3 +160,20 @@ header p {
     min-height: 600px;
   }
 }
+
+/* S.2 controller test */
+.pt-panel { max-width: 640px; }
+.pt-sticks { display: flex; gap: 24px; margin: 8px 0; }
+.pt-stick { text-align: center; }
+.pt-ring { position: relative; width: 84px; height: 84px; border: 2px solid var(--gh-ornamentgoud); border-radius: 50%; margin: 0 auto 4px; }
+.pt-dot { position: absolute; left: 34px; top: 34px; width: 16px; height: 16px; border-radius: 50%; background: var(--gh-ornamentgoud); }
+.pt-num, .pt-cap { font: 12px var(--gh-font-mono, monospace); }
+.pt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.pt-btn { border: 1px solid #8886; border-radius: 6px; padding: 4px 6px; display: flex; flex-direction: column; font-size: 12px; }
+.pt-act { opacity: .75; font-size: 11px; }
+.pt-on { background: var(--gh-ornamentgoud); color: #111; }
+.pt-actions { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.pt-chip { border: 1px solid #8886; border-radius: 12px; padding: 1px 8px; font-size: 12px; }
+.pt-warn { border: 1px solid #c55; border-radius: 6px; padding: 8px; background: #5222; }
+.pt-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.pt-table th, .pt-table td { text-align: left; border-bottom: 1px solid #8884; padding: 2px 6px; }
