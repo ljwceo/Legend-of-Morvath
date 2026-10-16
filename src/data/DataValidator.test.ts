@@ -66,6 +66,24 @@ describe('validateGameData on the real data in public/data', () => {
   });
 });
 
+describe('merchants are only data', () => {
+  it('a second merchant with a shop validates', () => {
+    const raw = freshData();
+    const marco = raw.npcs.npcs.find((n: { id: string }) => n.id === 'marco');
+    const second = structuredClone(marco);
+    second.id = 'test_merchant';
+    second.shop = {
+      sellRatio: 0.4,
+      items: [{ item: 'health_potion', price: 11, stock: { max: 3, restockSeconds: 60 } }],
+    };
+    raw.npcs.npcs.push(second);
+    const found = messages(raw);
+    expect(found.filter((m) => m.includes('test_merchant'))).toEqual([]);
+    second.shop.items[0].item = 'no_such_item';
+    expect(messages(raw).some((m) => m.includes('shop.items[0].item'))).toBe(true);
+  });
+});
+
 describe('validateGameData catches broken data', () => {
   it('reports structural problems with file and path', () => {
     const raw = freshData();
@@ -315,7 +333,6 @@ describe('validateGameData catches broken data', () => {
     const raw = freshData();
     const find = (id: string) => raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === id);
     find('sultan_end_shared').then = 'sultan_end_sword';
-    find('sultan_end_staff').then = 'brink_tower';
     find('sultan_end_sword').actors[1].model = 'placeholder:cat';
     find('sultan_end_sword').shots[0].actors[1].pose = 'fast';
     find('sultan_end_sword').shots[0].actors[0].opacityTo = 0.5;
@@ -328,7 +345,6 @@ describe('validateGameData catches broken data', () => {
     npc.finder.when = 'neverEver';
     const found = messages(raw);
     expect(found).toContainEqual(expect.stringContaining('the chain comes back to'));
-    expect(found).toContainEqual(expect.stringContaining('"brink_tower" is not a cinematic'));
     expect(found).toContainEqual(expect.stringContaining('actor "sultan" is a different model'));
     expect(found).toContainEqual(expect.stringContaining('only the player holds a weapon'));
     expect(found).toContainEqual(expect.stringContaining('the player cannot fade'));
@@ -347,7 +363,7 @@ describe('validateGameData catches broken data', () => {
     expect(found).toEqual([expect.stringContaining('"dragon_scale", which is not in items.json')]);
   });
 
-  it('rejects unknown shot fields and models, and mixing comics with cinematics', () => {
+  it('rejects unknown shot fields and models, and a first shot without a camera', () => {
     const misspelled = freshData();
     const pringle = misspelled.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle');
     pringle.shots[0].zoomz = true;
@@ -356,13 +372,8 @@ describe('validateGameData catches broken data', () => {
     const raw = freshData();
     const cine = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle');
     delete cine.shots[0].camera;
-    cine.panels = [{ id: 'oops' }];
-    const comic = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'brink_tower');
-    comic.shots = cine.shots;
     const found = messages(raw);
     expect(found).toContainEqual(expect.stringContaining('the first shot needs a camera'));
-    expect(found).toContainEqual(expect.stringContaining('a cinematic has shots, not panels'));
-    expect(found).toContainEqual(expect.stringContaining('only a cinematic has shots'));
 
     const model = freshData();
     model.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle').actors[1].model =
@@ -417,33 +428,25 @@ describe('validateGameData catches broken data', () => {
         actors: [{ id: 'baelor', model: 'fight' }],
         shots: [{ id: 'one', seconds: 1, camera }],
       },
-      // A fight nobody knows, followed by a comic.
+      // A fight nobody knows, followed by the room.
       {
         id: 'lost',
         type: 'cinematic',
         skippable: true,
         fight: 'nowhere',
-        afterFight: 'brink_tower',
+        afterFight: 'room',
         shots: [{ id: 'one', seconds: 1, camera }],
       },
     );
     const pringle = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'pringle');
     pringle.fight = 'intro_fight';
     pringle.afterFight = 'nowhere';
-    const comic = raw.cutscenes.cutscenes.find((c: { id: string }) => c.id === 'sam_cellar');
-    comic.fight = 'intro_fight';
-    comic.afterFight = 'pringle';
     const found = messages(raw);
     expect(found).toContainEqual(
       expect.stringContaining("a cinematic on a fight's set has no anchor"),
     );
     expect(found).toContainEqual(expect.stringContaining('unknown cutscene "nowhere"'));
     expect(found).toContainEqual(expect.stringContaining('unknown fight "nowhere"'));
-    expect(found).toContainEqual(
-      expect.stringContaining('afterFight: "brink_tower" is not a cinematic'),
-    );
-    expect(found).toContainEqual(expect.stringContaining('only a cinematic has fight'));
-    expect(found).toContainEqual(expect.stringContaining('only a cinematic has afterFight'));
     expect(found).toContainEqual(expect.stringContaining('"ghost" is not a foe of "intro_fight"'));
     expect(found).toContainEqual(expect.stringContaining('hops replace from and to'));
     expect(found).toContainEqual(

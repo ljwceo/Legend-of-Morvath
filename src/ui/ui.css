@@ -290,90 +290,6 @@
   background: radial-gradient(ellipse at 50% 60%, var(--gh-schemerviolet) 0%, var(--gh-bg) 70%);
 }
 
-/* ------------------------------------------------------------ intro */
-
-.ui-intro {
-  cursor: pointer;
-}
-
-.ui-intro-card {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 16px;
-  width: min(720px, 100%);
-  min-height: 40vh;
-  padding: 32px;
-  box-sizing: border-box;
-  border: 1px solid var(--gh-koper);
-  border-radius: 6px;
-}
-
-/* Placeholder "pictures" until the comic panels exist: one twilight mood per panel. */
-.ui-intro-card-0 {
-  background: linear-gradient(160deg, var(--gh-nachtinkt), var(--gh-schemerviolet));
-}
-.ui-intro-card-1 {
-  background: linear-gradient(160deg, var(--gh-schemerviolet), var(--gh-mistpaars));
-}
-.ui-intro-card-2 {
-  background: linear-gradient(160deg, var(--gh-nachtinkt), var(--gh-terrein-verdorven));
-}
-.ui-intro-card-3 {
-  background: linear-gradient(160deg, var(--gh-terrein-verdorven), var(--gh-schemerviolet));
-}
-.ui-intro-card-4 {
-  background: var(--gh-nachtinkt);
-}
-.ui-intro-card-5 {
-  background: linear-gradient(160deg, var(--gh-schemerviolet), var(--gh-zonsondergang));
-}
-
-.ui-story {
-  margin: 0;
-  font-family: var(--gh-font-verhaal);
-  font-style: italic;
-  font-size: clamp(20px, 4vw, 28px);
-  line-height: 1.4;
-  text-align: center;
-}
-
-.ui-line {
-  text-align: left;
-}
-
-.ui-speaker {
-  display: block;
-  font-family: var(--gh-font-titel);
-  font-style: normal;
-  font-size: 0.75em;
-  color: var(--gh-ornamentgoud);
-}
-
-.ui-dots {
-  display: flex;
-  gap: 8px;
-}
-
-.ui-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--gh-rand);
-}
-
-.ui-dot-active {
-  background: var(--gh-ornamentgoud);
-}
-
-.ui-skip {
-  position: absolute;
-  top: max(16px, env(safe-area-inset-top));
-  right: max(16px, env(safe-area-inset-right));
-  min-height: 40px;
-  font-size: 16px;
-}
-
 /* ------------------------------------------------------------ world */
 
 /* Top right: outside the joystick (bottom left) and action buttons (bottom right). */
@@ -1485,178 +1401,6 @@
   }
 }
 
-/* ------------------------------------------------------------ comic cutscene */
-
-.ui-layer > .ui-comic {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  padding: 16px;
-  box-sizing: border-box;
-  background: color-mix(in srgb, var(--gh-nachtinkt) 92%, transparent);
-  pointer-events: auto;
-  overflow: hidden;
-}
-
-.ui-comic-stage {
-  display: flex;
-  justify-content: center;
-  /* 16:9 and never taller than the screen (landscape phones) minus the note below. */
-  width: min(760px, 100%, calc((100dvh - 110px) * 16 / 9));
-}
-
-.ui-comic-frame {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  border: 4px solid var(--gh-tekst);
-  border-radius: 4px;
-  box-shadow: 0 10px 40px color-mix(in srgb, var(--gh-nachtinkt) 80%, transparent);
-  animation: ui-comic-in 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.1);
-}
-
-.ui-comic-art {
-  position: absolute;
-  inset: 0;
-}
-
-.ui-comic-zoom .ui-comic-art {
-  animation: ui-comic-zoom 4s ease-out forwards;
-}
-
-.ui-comic-shake {
-  animation:
-    ui-comic-in 0.45s cubic-bezier(0.2, 0.8, 0.3, 1.1),
-    ui-comic-shake 0.5s linear 0.45s 2;
-}
-
-.ui-comic-flash::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: #fff;
-  animation: ui-comic-flash 0.6s ease-out forwards;
-  pointer-events: none;
-}
-
-.ui-comic-caption {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  max-width: 70%;
-  padding: 6px 10px;
-  font: italic 15px/1.35 var(--gh-font-tekst);
-  color: var(--gh-nachtinkt);
-  background: var(--gh-zonlicht);
-  border: 2px solid var(--gh-nachtinkt);
-}
-
-.ui-comic-bubble {
-  position: absolute;
-  right: 6%;
-  bottom: 10%;
-  max-width: 62%;
-  padding: 10px 16px;
-  font: 19px/1.35 var(--gh-font-tekst);
-  color: var(--gh-nachtinkt);
-  background: #fffaf0;
-  border: 3px solid var(--gh-nachtinkt);
-  border-radius: 22px;
-  animation: ui-comic-pop 0.3s ease-out 0.35s both;
-}
-
-.ui-comic-bubble::after {
-  content: '';
-  position: absolute;
-  left: 22%;
-  bottom: -18px;
-  border: 9px solid transparent;
-  border-top: 12px solid var(--gh-nachtinkt);
-}
-
-.ui-comic-speaker {
-  display: block;
-  font: 13px var(--gh-font-titel);
-  color: var(--gh-schemerviolet);
-}
-
-.ui-layer > .ui-comic > .ui-skip {
-  z-index: 1;
-}
-
-@keyframes ui-comic-in {
-  from {
-    transform: translateX(60%) rotate(3deg);
-    opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
-  }
-}
-
-@keyframes ui-comic-zoom {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.25);
-  }
-}
-
-@keyframes ui-comic-shake {
-  0%,
-  100% {
-    transform: translate(0, 0);
-  }
-  20% {
-    transform: translate(-8px, 4px);
-  }
-  40% {
-    transform: translate(7px, -5px);
-  }
-  60% {
-    transform: translate(-6px, -3px);
-  }
-  80% {
-    transform: translate(5px, 5px);
-  }
-}
-
-@keyframes ui-comic-flash {
-  from {
-    opacity: 0.95;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes ui-comic-pop {
-  from {
-    transform: scale(0.6);
-    opacity: 0;
-  }
-  to {
-    transform: none;
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ui-comic-frame,
-  .ui-comic-shake,
-  .ui-comic-zoom .ui-comic-art,
-  .ui-comic-bubble {
-    animation: none;
-  }
-}
-
 /* ------------------------------------------------------------ bag */
 
 /* Next to the pause button (top right): a small bag shape. */
@@ -2623,8 +2367,7 @@
   color: var(--gh-ornamentgoud);
 }
 
-/* Story text without a speaker, just under the top bar: the storybook letters of the intro
-   cards (.ui-story), with a shadow so they read over the 3D picture. */
+/* Story text without a speaker, just under the top bar: storybook letters, with a shadow so they read over the 3D picture. */
 .ui-cine-narration {
   position: absolute;
   left: 50%;
@@ -2832,4 +2575,15 @@
   letter-spacing: 0.06em;
   color: var(--gh-ornamentgoud);
   text-shadow: 0 1px 8px var(--gh-nachtinkt);
+}
+
+.ui-spellbook {
+  width: min(420px, 100%);
+}
+
+.ui-spellbook-slot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
 }

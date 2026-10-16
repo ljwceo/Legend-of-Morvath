@@ -6,7 +6,6 @@ import {
   bootRoute,
   canContinue,
   frameCapFor,
-  PanelSequence,
   placeAtStart,
   type StateId,
   startNewGame,
@@ -15,7 +14,7 @@ import {
 describe('StateId', () => {
   it('knows every scene, the filmed intro (introScene) among them', () => {
     // A compile-time check as much as a runtime one: a renamed state breaks this list.
-    const ids: StateId[] = ['boot', 'language', 'title', 'create', 'intro', 'introScene', 'world'];
+    const ids: StateId[] = ['boot', 'language', 'title', 'create', 'introScene', 'world'];
     expect(ids).toContain('introScene');
     expect(ids).not.toContain('introFight');
   });
@@ -108,30 +107,5 @@ describe('placeAtStart', () => {
     placeAtStart(save, data);
     expect(save.world.zone).toBe('other');
     expect(save.world.position).toEqual({ x: 1, y: 2, z: 3 });
-  });
-});
-
-describe('PanelSequence', () => {
-  it('steps through panels and finishes once', () => {
-    const sequence = new PanelSequence(3);
-    expect(sequence.index).toBe(0);
-    expect(sequence.next()).toBe(false);
-    expect(sequence.next()).toBe(false);
-    expect(sequence.index).toBe(2);
-    expect(sequence.next()).toBe(true);
-    expect(sequence.finished).toBe(true);
-    expect(sequence.next()).toBe(false);
-    expect(sequence.skip()).toBe(false);
-  });
-
-  it('can be skipped at any point', () => {
-    const sequence = new PanelSequence(6);
-    sequence.next();
-    expect(sequence.skip()).toBe(true);
-    expect(sequence.finished).toBe(true);
-  });
-
-  it('rejects an empty sequence', () => {
-    expect(() => new PanelSequence(0)).toThrow();
   });
 });

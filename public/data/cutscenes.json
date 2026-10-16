@@ -1269,84 +1269,270 @@
     },
     {
       "id": "brink_tower",
+      "type": "cinematic",
       "skippable": true,
       "playOnce": true,
-      "panels": [
+      "anchor": {
+        "x": -1695.52,
+        "z": -108.02
+      },
+      "actors": [
+        {
+          "id": "player",
+          "model": "player"
+        }
+      ],
+      "shots": [
         {
           "id": "tower",
-          "caption": "cutscene.brink_tower.caption1",
-          "background": "magieblauw",
-          "lines": [
-            {
-              "speaker": "Master Brink",
-              "text": "cutscene.brink_tower.1"
-            }
-          ]
+          "seconds": 5,
+          "camera": {
+            "from": {
+              "x": -1692.5,
+              "y": 2.0,
+              "z": -105.0
+            },
+            "to": {
+              "x": -1693.5,
+              "y": 1.7,
+              "z": -106.5
+            },
+            "lookFrom": {
+              "x": -1697.5,
+              "y": 1.5,
+              "z": -112.3
+            },
+            "lookTo": {
+              "x": -1697.5,
+              "y": 1.6,
+              "z": -112.3
+            },
+            "fovFrom": 55,
+            "fovTo": 48,
+            "ease": "inOut"
+          },
+          "subtitle": {
+            "speaker": "Master Brink",
+            "text": "cutscene.brink_tower.1"
+          },
+          "fade": {
+            "from": 1,
+            "to": 0,
+            "seconds": 1.0
+          },
+          "tint": {
+            "color": "magieblauw",
+            "amount": 0.2
+          }
         },
         {
           "id": "crystals",
-          "caption": "cutscene.brink_tower.caption2",
-          "background": "ornamentgoud",
-          "zoom": true,
-          "lines": [
-            {
-              "speaker": "Master Brink",
-              "text": "cutscene.brink_tower.2"
-            }
-          ]
+          "seconds": 6.5,
+          "camera": {
+            "from": {
+              "x": -1694.0,
+              "y": 1.2,
+              "z": -109.8
+            },
+            "to": {
+              "x": -1695.2,
+              "y": 1.5,
+              "z": -110.8
+            },
+            "lookFrom": {
+              "x": -1697.5,
+              "y": 1.4,
+              "z": -112.3
+            },
+            "lookTo": {
+              "x": -1697.5,
+              "y": 2.2,
+              "z": -112.3
+            },
+            "fovFrom": 50,
+            "fovTo": 36,
+            "ease": "inOut"
+          },
+          "subtitle": {
+            "speaker": "Master Brink",
+            "text": "cutscene.brink_tower.2"
+          },
+          "tint": {
+            "color": "ornamentgoud",
+            "amount": 0.3
+          }
         },
         {
           "id": "patience",
-          "caption": "cutscene.brink_tower.caption3",
-          "background": "schemerviolet",
-          "lines": [
-            {
-              "speaker": "Master Brink",
-              "text": "cutscene.brink_tower.3"
-            }
-          ]
+          "seconds": 5.5,
+          "camera": {
+            "from": {
+              "x": -1693.0,
+              "y": 2.0,
+              "z": -107.0
+            },
+            "to": {
+              "x": -1692.0,
+              "y": 1.9,
+              "z": -106.0
+            },
+            "lookFrom": {
+              "x": -1697.5,
+              "y": 1.6,
+              "z": -112.3
+            },
+            "lookTo": {
+              "x": -1697.5,
+              "y": 1.6,
+              "z": -112.3
+            },
+            "fovFrom": 45,
+            "fovTo": 52,
+            "ease": "out"
+          },
+          "subtitle": {
+            "speaker": "Master Brink",
+            "text": "cutscene.brink_tower.3"
+          },
+          "tint": {
+            "color": "schemerviolet",
+            "amount": 0.2
+          }
         }
       ]
     },
     {
       "id": "sam_cellar",
+      "type": "cinematic",
       "skippable": true,
       "playOnce": true,
-      "panels": [
+      "anchor": {
+        "x": -1647.7,
+        "z": -47.3
+      },
+      "actors": [
+        {
+          "id": "player",
+          "model": "player"
+        }
+      ],
+      "shots": [
         {
           "id": "cellar",
-          "caption": "cutscene.sam_cellar.caption1",
-          "background": "nachtinkt",
-          "lines": [
-            {
-              "speaker": "Wizard Sam",
-              "text": "cutscene.sam_cellar.1"
-            }
-          ]
+          "seconds": 5,
+          "camera": {
+            "from": {
+              "x": -1645.0,
+              "y": 1.8,
+              "z": -52.0
+            },
+            "to": {
+              "x": -1643.0,
+              "y": 1.6,
+              "z": -56.0
+            },
+            "lookFrom": {
+              "x": -1638.5,
+              "y": 1.5,
+              "z": -63.0
+            },
+            "lookTo": {
+              "x": -1638.5,
+              "y": 1.5,
+              "z": -63.0
+            },
+            "fovFrom": 55,
+            "fovTo": 45,
+            "ease": "inOut"
+          },
+          "subtitle": {
+            "speaker": "Wizard Sam",
+            "text": "cutscene.sam_cellar.1"
+          },
+          "fade": {
+            "from": 1,
+            "to": 0,
+            "seconds": 1.0
+          },
+          "tint": {
+            "color": "nachtinkt",
+            "amount": 0.25
+          }
         },
         {
           "id": "circle",
-          "caption": "cutscene.sam_cellar.caption2",
-          "background": "spreukviolet",
-          "shake": true,
-          "lines": [
-            {
-              "speaker": "Wizard Sam",
-              "text": "cutscene.sam_cellar.2"
-            }
-          ]
+          "seconds": 6.5,
+          "shake": 0.12,
+          "camera": {
+            "from": {
+              "x": -1642.5,
+              "y": 1.4,
+              "z": -58.0
+            },
+            "to": {
+              "x": -1641.0,
+              "y": 1.5,
+              "z": -60.0
+            },
+            "lookFrom": {
+              "x": -1638.5,
+              "y": 1.8,
+              "z": -63.0
+            },
+            "lookTo": {
+              "x": -1638.5,
+              "y": 1.8,
+              "z": -63.0
+            },
+            "fovFrom": 50,
+            "fovTo": 38,
+            "ease": "inOut"
+          },
+          "subtitle": {
+            "speaker": "Wizard Sam",
+            "text": "cutscene.sam_cellar.2"
+          },
+          "tint": {
+            "color": "spreukviolet",
+            "amount": 0.35
+          }
         },
         {
           "id": "warning",
-          "caption": "cutscene.sam_cellar.caption3",
-          "background": "schemerviolet",
-          "zoom": true,
-          "lines": [
-            {
-              "speaker": "Wizard Sam",
-              "text": "cutscene.sam_cellar.3"
-            }
-          ]
+          "seconds": 5.5,
+          "camera": {
+            "from": {
+              "x": -1641.0,
+              "y": 1.8,
+              "z": -59.0
+            },
+            "to": {
+              "x": -1642.0,
+              "y": 1.7,
+              "z": -57.5
+            },
+            "lookFrom": {
+              "x": -1638.5,
+              "y": 1.6,
+              "z": -63.0
+            },
+            "lookTo": {
+              "x": -1638.5,
+              "y": 1.6,
+              "z": -63.0
+            },
+            "fovFrom": 38,
+            "fovTo": 46,
+            "ease": "out"
+          },
+          "subtitle": {
+            "speaker": "Wizard Sam",
+            "text": "cutscene.sam_cellar.3"
+          },
+          "tint": {
+            "color": "schemerviolet",
+            "amount": 0.25
+          }
         }
       ]
     },
@@ -1639,107 +1825,303 @@
     },
     {
       "id": "crystal_ceremony_light",
+      "type": "cinematic",
       "skippable": true,
       "playOnce": true,
-      "panels": [
+      "anchor": {
+        "x": 0,
+        "z": 0
+      },
+      "actors": [
+        {
+          "id": "player",
+          "model": "player"
+        }
+      ],
+      "shots": [
         {
           "id": "vault",
-          "caption": "cutscene.crystal_ceremony.caption1",
-          "background": "magieblauw",
-          "lines": [
-            {
-              "speaker": "Master Brink",
-              "text": "cutscene.crystal_ceremony.1"
-            }
-          ]
+          "seconds": 4.5,
+          "camera": {
+            "from": {
+              "x": 0.9,
+              "y": 1.5,
+              "z": 2.6
+            },
+            "to": {
+              "x": 0.5,
+              "y": 1.5,
+              "z": 2.0
+            },
+            "follow": "player",
+            "followHeight": 1.2,
+            "relative": true,
+            "fovFrom": 50,
+            "fovTo": 42,
+            "ease": "inOut"
+          },
+          "subtitle": {
+            "speaker": "Master Brink",
+            "text": "cutscene.crystal_ceremony.1"
+          },
+          "fade": {
+            "from": 1,
+            "to": 0,
+            "seconds": 1.0
+          },
+          "tint": {
+            "color": "magieblauw",
+            "amount": 0.25
+          }
         },
         {
           "id": "choosing",
-          "caption": "cutscene.crystal_ceremony.caption2",
-          "background": "ornamentgoud",
-          "zoom": true,
-          "lines": [
-            {
-              "speaker": "Master Brink",
-              "text": "cutscene.crystal_ceremony.2"
-            }
-          ]
+          "seconds": 4.5,
+          "camera": {
+            "from": {
+              "x": 0.3,
+              "y": 1.0,
+              "z": 1.8
+            },
+            "to": {
+              "x": 0.0,
+              "y": 1.6,
+              "z": 1.4
+            },
+            "follow": "player",
+            "followHeight": 1.4,
+            "relative": true,
+            "fovFrom": 45,
+            "fovTo": 30,
+            "ease": "inOut"
+          },
+          "subtitle": {
+            "speaker": "Master Brink",
+            "text": "cutscene.crystal_ceremony.2"
+          },
+          "tint": {
+            "color": "ornamentgoud",
+            "amount": 0.3
+          }
         },
         {
           "id": "bond",
-          "caption": "cutscene.crystal_ceremony.caption3",
-          "background": "spreukviolet",
-          "shake": true,
-          "lines": [
+          "seconds": 4.5,
+          "shake": 0.12,
+          "flash": 0.7,
+          "camera": {
+            "from": {
+              "x": -0.6,
+              "y": 0.8,
+              "z": 2.0
+            },
+            "to": {
+              "x": -0.3,
+              "y": 1.0,
+              "z": 1.5
+            },
+            "follow": "player",
+            "followHeight": 1.6,
+            "relative": true,
+            "fovFrom": 50,
+            "fovTo": 40,
+            "ease": "out"
+          },
+          "actors": [
             {
-              "speaker": "Master Brink",
-              "text": "cutscene.crystal_ceremony.3"
+              "actor": "player",
+              "pose": "cast"
             }
-          ]
+          ],
+          "subtitle": {
+            "speaker": "Master Brink",
+            "text": "cutscene.crystal_ceremony.3"
+          },
+          "tint": {
+            "color": "spreukviolet",
+            "amount": 0.35
+          }
         },
         {
           "id": "spell",
-          "caption": "cutscene.crystal_ceremony.caption4",
-          "background": "schemerviolet",
-          "lines": [
-            {
-              "speaker": "Master Brink",
-              "text": "cutscene.crystal_ceremony.4"
-            }
-          ]
+          "seconds": 5,
+          "camera": {
+            "from": {
+              "x": 1.4,
+              "y": 1.7,
+              "z": 3.4
+            },
+            "to": {
+              "x": 1.8,
+              "y": 1.9,
+              "z": 4.2
+            },
+            "follow": "player",
+            "followHeight": 1.2,
+            "relative": true,
+            "fovFrom": 45,
+            "fovTo": 45,
+            "ease": "out"
+          },
+          "subtitle": {
+            "speaker": "Master Brink",
+            "text": "cutscene.crystal_ceremony.4"
+          },
+          "tint": {
+            "color": "schemerviolet",
+            "amount": 0.15
+          }
         }
       ]
     },
     {
       "id": "crystal_ceremony_dark",
+      "type": "cinematic",
       "skippable": true,
       "playOnce": true,
-      "panels": [
+      "anchor": {
+        "x": 0,
+        "z": 0
+      },
+      "actors": [
+        {
+          "id": "player",
+          "model": "player"
+        }
+      ],
+      "shots": [
         {
           "id": "vault",
-          "caption": "cutscene.crystal_ceremony.caption1",
-          "background": "magieblauw",
-          "lines": [
-            {
-              "speaker": "Wizard Sam",
-              "text": "cutscene.crystal_ceremony.1"
-            }
-          ]
+          "seconds": 4.5,
+          "camera": {
+            "from": {
+              "x": 0.9,
+              "y": 1.5,
+              "z": 2.6
+            },
+            "to": {
+              "x": 0.5,
+              "y": 1.5,
+              "z": 2.0
+            },
+            "follow": "player",
+            "followHeight": 1.2,
+            "relative": true,
+            "fovFrom": 50,
+            "fovTo": 42,
+            "ease": "inOut"
+          },
+          "subtitle": {
+            "speaker": "Wizard Sam",
+            "text": "cutscene.crystal_ceremony.1"
+          },
+          "fade": {
+            "from": 1,
+            "to": 0,
+            "seconds": 1.0
+          },
+          "tint": {
+            "color": "magieblauw",
+            "amount": 0.25
+          }
         },
         {
           "id": "choosing",
-          "caption": "cutscene.crystal_ceremony.caption2",
-          "background": "ornamentgoud",
-          "zoom": true,
-          "lines": [
-            {
-              "speaker": "Wizard Sam",
-              "text": "cutscene.crystal_ceremony.2"
-            }
-          ]
+          "seconds": 4.5,
+          "camera": {
+            "from": {
+              "x": 0.3,
+              "y": 1.0,
+              "z": 1.8
+            },
+            "to": {
+              "x": 0.0,
+              "y": 1.6,
+              "z": 1.4
+            },
+            "follow": "player",
+            "followHeight": 1.4,
+            "relative": true,
+            "fovFrom": 45,
+            "fovTo": 30,
+            "ease": "inOut"
+          },
+          "subtitle": {
+            "speaker": "Wizard Sam",
+            "text": "cutscene.crystal_ceremony.2"
+          },
+          "tint": {
+            "color": "ornamentgoud",
+            "amount": 0.3
+          }
         },
         {
           "id": "bond",
-          "caption": "cutscene.crystal_ceremony.caption3",
-          "background": "spreukviolet",
-          "shake": true,
-          "lines": [
+          "seconds": 4.5,
+          "shake": 0.12,
+          "flash": 0.7,
+          "camera": {
+            "from": {
+              "x": -0.6,
+              "y": 0.8,
+              "z": 2.0
+            },
+            "to": {
+              "x": -0.3,
+              "y": 1.0,
+              "z": 1.5
+            },
+            "follow": "player",
+            "followHeight": 1.6,
+            "relative": true,
+            "fovFrom": 50,
+            "fovTo": 40,
+            "ease": "out"
+          },
+          "actors": [
             {
-              "speaker": "Wizard Sam",
-              "text": "cutscene.crystal_ceremony.3"
+              "actor": "player",
+              "pose": "cast"
             }
-          ]
+          ],
+          "subtitle": {
+            "speaker": "Wizard Sam",
+            "text": "cutscene.crystal_ceremony.3"
+          },
+          "tint": {
+            "color": "spreukviolet",
+            "amount": 0.35
+          }
         },
         {
           "id": "spell",
-          "caption": "cutscene.crystal_ceremony.caption4",
-          "background": "schemerviolet",
-          "lines": [
-            {
-              "speaker": "Wizard Sam",
-              "text": "cutscene.crystal_ceremony.4"
-            }
-          ]
+          "seconds": 5,
+          "camera": {
+            "from": {
+              "x": 1.4,
+              "y": 1.7,
+              "z": 3.4
+            },
+            "to": {
+              "x": 1.8,
+              "y": 1.9,
+              "z": 4.2
+            },
+            "follow": "player",
+            "followHeight": 1.2,
+            "relative": true,
+            "fovFrom": 45,
+            "fovTo": 45,
+            "ease": "out"
+          },
+          "subtitle": {
+            "speaker": "Wizard Sam",
+            "text": "cutscene.crystal_ceremony.4"
+          },
+          "tint": {
+            "color": "schemerviolet",
+            "amount": 0.15
+          }
         }
       ]
     },

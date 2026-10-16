@@ -470,7 +470,6 @@ describe('the intro cinematics on the fight set', () => {
     expect(intro.fight).toBe('intro_fight');
     expect(intro.afterFight).toBe('intro_landing');
     expect(landing.fight).toBe('intro_fight');
-    expect(intro.panels).toBeUndefined();
     for (const def of [intro, landing]) {
       const models = new Map((def.actors ?? []).map((a) => [a.id, a.model]));
       expect(models.get('player')).toBe('player');

@@ -1,0 +1,162 @@
+/* Layout: bench on the left, the game's panel stage on the right, the save state under the bench. */
+:root {
+  color-scheme: dark;
+}
+html,
+body {
+  background: var(--gh-bg);
+  color: var(--gh-tekst);
+  font: 15px/1.45 var(--gh-font-tekst);
+}
+.page {
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  grid-template-areas: 'head head' 'bench stage' 'state stage';
+  grid-template-rows: auto auto 1fr;
+  gap: 16px 20px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding-block: 20px 28px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+}
+header {
+  grid-area: head;
+}
+header h1 {
+  margin: 0;
+  font: 30px/1.1 var(--gh-font-titel);
+  color: var(--gh-ornamentgoud);
+  text-wrap: balance;
+}
+header p {
+  margin: 6px 0 0;
+  max-width: 68ch;
+  color: var(--gh-tekst-zacht);
+}
+#bench {
+  grid-area: bench;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+#app {
+  grid-area: stage;
+  position: relative;
+  min-height: 660px;
+  border: 1px solid var(--gh-rand);
+  border-radius: 6px;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      ellipse at 50% 35%,
+      color-mix(in srgb, var(--gh-schemerviolet) 35%, transparent),
+      transparent 70%
+    ),
+    var(--gh-nachtinkt);
+}
+#app:not(:has(.ui-overlay))::after {
+  content: 'Kies links een scherm om te openen.';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--gh-tekst-zacht);
+}
+#app .ui-overlay {
+  background: transparent;
+}
+.b-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.b-group h3,
+#state h3 {
+  margin: 0;
+  font: 500 12px var(--gh-font-stats);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gh-koper);
+}
+.b-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.b-btn {
+  min-height: 34px;
+  padding: 4px 11px;
+  font: 14px var(--gh-font-tekst);
+  color: var(--gh-tekst);
+  background: var(--gh-panel);
+  border: 1px solid var(--gh-rand);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.b-btn:hover {
+  border-color: var(--gh-koper);
+}
+.b-btn:focus-visible {
+  outline: 2px solid var(--gh-ornamentgoud);
+  outline-offset: 2px;
+}
+.b-on {
+  color: var(--gh-nachtinkt);
+  background: var(--gh-ornamentgoud);
+  border-color: var(--gh-ornamentgoud);
+}
+.b-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--gh-tekst-zacht);
+}
+.b-msg {
+  margin: 0;
+  color: var(--gh-lantaarnamber);
+}
+#state {
+  grid-area: state;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--gh-rand);
+  border-radius: 6px;
+  min-width: 0;
+}
+#state dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 3px 12px;
+  margin: 0;
+  font-size: 14px;
+}
+#state dt {
+  color: var(--gh-tekst-zacht);
+}
+#state dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+#state pre {
+  margin: 0;
+  padding: 8px;
+  overflow-x: auto;
+  font: 12px/1.4 var(--gh-font-stats);
+  font-variant-numeric: tabular-nums;
+  color: var(--gh-zonlicht);
+  background: var(--gh-nachtinkt);
+  border-radius: 4px;
+}
+@media (max-width: 760px) {
+  .page {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: 'head' 'bench' 'stage' 'state';
+    grid-template-rows: auto;
+  }
+  #app {
+    min-height: 600px;
+  }
+}

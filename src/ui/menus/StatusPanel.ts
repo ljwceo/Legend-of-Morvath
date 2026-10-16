@@ -1,3 +1,4 @@
+import { effectiveDamageBonus } from '../../systems/Forge';
 import type { GameContext } from '../../core/GameContext';
 import { emptyGearStats, gearStats } from '../../systems/Gear';
 import type { StatPoints } from '../../systems/Stats';
@@ -74,7 +75,7 @@ function gearLine(ctx: GameContext): HTMLElement | null {
   const items = ctx.data?.items.items;
   if (!character || !items) return null;
   const byId = new Map(items.map((item) => [item.id, item]));
-  const stats = gearStats(character.equipment, byId, emptyGearStats());
+  const stats = gearStats(character.equipment, byId, emptyGearStats(), character.upgrades);
   const parts: string[] = [];
   const n = (value: number): string => value.toLocaleString(ctx.i18n.language);
   if (stats.hp) parts.push(t('bag.stat.hp', { n: n(stats.hp) }));
@@ -89,7 +90,7 @@ function gearLine(ctx: GameContext): HTMLElement | null {
     parts.push(t('bag.stat.moveSpeedPercent', { n: n(stats.moveSpeedPercent) }));
   }
   const weapon = character.equipment.weapon;
-  const bonus = weapon ? byId.get(weapon)?.weapon?.damageBonus : undefined;
+  const bonus = weapon ? effectiveDamageBonus(byId.get(weapon), character.upgrades) : undefined;
   if (bonus) parts.push(t('bag.stat.weaponDamage', { n: n(bonus) }));
   return el(
     'div',
