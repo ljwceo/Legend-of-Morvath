@@ -1,13 +1,16 @@
 # Phase A, chat 1: the body of the starting character, ready for Mixamo's auto-rigger.
 # Two ways to run it (the .blend is never saved; the scene is left as it was):
-# - In Blender: open Greyhaven.blend, Scripting tab, open (or paste) this script, press Run.
-# - Headless: blender -b Greyhaven.blend --python 01_prep_mixamo.py -- <OUT folder>
-# <OUT folder> defaults to a folder "Mixamo" next to Greyhaven.blend.
+# - In Blender: open the character file (Hero_Start_Rigged.blend; before A.0: Greyhaven.blend),
+#   Scripting tab, open (or paste) this script, press Run.
+# - Headless: blender -b Hero_Start_Rigged.blend --python 01_prep_mixamo.py -- <OUT folder>
+# <OUT folder> defaults to a folder "Mixamo" next to the .blend file.
 #
-# - Copies the body pieces of the "StartCharacter" collection (modifiers applied, curves as mesh)
-#   and joins them into one mesh "Body". Hair, Hat*, Cloak*, Collar_Trim and Sword_* stay out;
-#   they come back in chat 2 (stiff on a bone, or the cape on its own bones).
-# - Arms, legs, torso and neck get extra edge rings (RINGS), so they can bend.
+# - Copies the body of the "StartCharacter" collection (modifiers applied, curves as mesh). Since
+#   A.0 (2026-10-15) that is one sculpted mesh "Body" (Hero_Start_Rigged.blend; its Rigify rig is
+#   left out, Mixamo makes its own). The old build of loose pieces (Torso, Arm_L, ...) still works:
+#   the pieces are joined into one mesh "Body". Hair, Hat*, Cloak*, Collar_Trim and Sword_* stay
+#   out; they come back in chat 2 (stiff on a bone, or the cape on its own bones).
+# - Loose pieces get extra edge rings (RINGS), so they can bend; the sculpted body has enough.
 # - Arms that hang straight down are turned out to an A-pose (ARM_ANGLE), around the shoulder:
 #   Mixamo then finds the elbows and wrists.
 # - The copy faces Blender -Y (Mixamo's front), feet at z = 0, centred on the torso, transforms
@@ -40,9 +43,11 @@ def tell(title, lines, icon):
     bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
 
 
-BODY = ['Torso', 'Neck', 'Head', 'Shoulder_L', 'Shoulder_R', 'Arm_L', 'Arm_R', 'Hand_L', 'Hand_R',
-        'Belt', 'Leg_L', 'Leg_R', 'Boot_L', 'Boot_R']
+PIECES = ['Torso', 'Neck', 'Head', 'Shoulder_L', 'Shoulder_R', 'Arm_L', 'Arm_R', 'Hand_L', 'Hand_R',
+          'Belt', 'Leg_L', 'Leg_R', 'Boot_L', 'Boot_R']
 ARMS = {'L': ('Shoulder_L', ['Arm_L', 'Hand_L']), 'R': ('Shoulder_R', ['Arm_R', 'Hand_R'])}
+# Materials the game recolors (character creator) or expects; anything else is reported.
+KNOWN_MATERIALS = {'Skin', 'Tunic', 'Hair', 'Cloak_Navy', 'Hat_Navy', 'Gold_Trim'}
 ARM_ANGLE = 45.0          # degrees from straight down
 STRAIGHT_DOWN = 20.0      # an arm closer than this to vertical counts as "hanging down"
 # Extra edge rings across the height, so elbows, knees and the spine can bend (the pieces are
@@ -56,9 +61,15 @@ def main():
         bpy.ops.object.mode_set(mode='OBJECT')
     src = bpy.data.collections['StartCharacter']
     by_name = {o.name.split('.')[0]: o for o in src.all_objects if o.type in ('MESH', 'CURVE')}
-    missing = [n for n in BODY if n not in by_name]
-    if missing:
-        raise RuntimeError('StartCharacter is missing: ' + ', '.join(missing))
+    if 'Body' in by_name:
+        # One sculpted body (A.0). Its own armature is not copied: Mixamo rigs the plain mesh.
+        BODY, RINGS_HERE, ARMS_HERE = ['Body'], {}, {}
+        P('single mesh Body:', len(by_name['Body'].data.vertices), 'vertices')
+    else:
+        BODY, RINGS_HERE, ARMS_HERE = PIECES, RINGS, ARMS
+        missing = [n for n in BODY if n not in by_name]
+        if missing:
+            raise RuntimeError('StartCharacter is missing: ' + ', '.join(missing))
     P('skipped (chat 2):', sorted(n for n in by_name if n not in BODY))
 
     # ---------- world-space copies (modifiers applied) ----------
@@ -68,10 +79,18 @@ def main():
     parts = {}
     for name in BODY:
         o = by_name[name]
+        # The armature modifier (rest pose anyway) must not bake a pose into the copy.
+        armature_mods = [m for m in o.modifiers if m.type == 'ARMATURE' and m.show_viewport]
+        for m in armature_mods:
+            m.show_viewport = False
+        dg.update()
         ev = o.evaluated_get(dg)
         me = bpy.data.meshes.new_from_object(ev, preserve_all_data_layers=True, depsgraph=dg)
+        for m in armature_mods:
+            m.show_viewport = True
         me.transform(o.matrix_world)
         c = bpy.data.objects.new('prep_' + name, me)
+        # The copy has no vertex groups (object-level data), so no old rig leaks into the FBX.
         work.objects.link(c)
         parts[name] = c
 
@@ -101,7 +120,7 @@ def main():
     everything = list(parts.values())
 
     # ---------- edge rings (before posing: the pieces still stand upright) ----------
-    for name, n in RINGS.items():
+    for name, n in RINGS_HERE.items():
         me = parts[name].data
         zs = [v.co.z for v in me.vertices]
         lo_z, hi_z = min(zs), max(zs)
@@ -114,8 +133,9 @@ def main():
         bm.to_mesh(me)
         bm.free()
         me.update()
-    P('edge rings', RINGS)
-    torso = center([parts['Torso']])
+    P('edge rings', RINGS_HERE)
+    main_part = parts['Body'] if 'Body' in parts else parts['Torso']
+    torso = center([main_part])
 
     # ---------- face Blender -Y ----------
     # The cloak hangs on the back: the side it sits on is the back. Without a cloak: trust the model.
@@ -140,7 +160,7 @@ def main():
 
     # ---------- A-pose ----------
     arm_info = {}
-    for side, (shoulder, pieces) in ARMS.items():
+    for side, (shoulder, pieces) in ARMS_HERE.items():
         arm = parts[pieces[0]]
         lo, hi = bounds([arm])
         size = hi - lo
@@ -161,7 +181,7 @@ def main():
 
     # ---------- feet on 0, centred on the torso ----------
     lo, hi = bounds(everything)
-    torso = center([parts['Torso']])
+    torso = center([main_part])
     offset = Vector((-torso.x, -torso.y, -lo.z))
     transform(everything, Matrix.Translation(offset))
 
@@ -170,11 +190,12 @@ def main():
         o.select_set(False)
     for o in everything:
         o.select_set(True)
-    vl.objects.active = parts['Torso']
-    with bpy.context.temp_override(active_object=parts['Torso'], selected_objects=everything,
-                                   selected_editable_objects=everything):
-        bpy.ops.object.join()
-    body = parts['Torso']
+    vl.objects.active = main_part
+    if len(everything) > 1:
+        with bpy.context.temp_override(active_object=main_part, selected_objects=everything,
+                                       selected_editable_objects=everything):
+            bpy.ops.object.join()
+    body = main_part
     body.name = 'Body'
     body.data.name = 'Body'
     # Overlapping pieces stay separate shells (Mixamo copes); only weld exact duplicates.
@@ -198,6 +219,17 @@ def main():
     mats = [s.material.name for s in body.material_slots if s.material]
     P('body size (m)', tuple(round(v, 3) for v in (hi - lo)), 'feet z', round(lo.z, 4))
     P('triangles', tris, 'materials', mats)
+    unknown = [m for m in mats if m not in KNOWN_MATERIALS]
+    if unknown:
+        P('WARNING: materials the game does not know (rename in Blender):', unknown)
+    if not ARMS_HERE:
+        # Single mesh: the hands are the widest points above the hips; report the arm angle.
+        shoulder_z = lo.z + (hi.z - lo.z) * 0.82
+        wide = [v.co for v in body.data.vertices if v.co.z > lo.z + (hi.z - lo.z) * 0.4]
+        hand = max(wide, key=lambda c: abs(c.x))
+        tilt = math.degrees(math.atan2(abs(hand.x), max(1e-6, shoulder_z - hand.z)))
+        P('arm angle from straight down ~', round(tilt, 1), 'deg (Mixamo likes 30-45; A-pose is in the sculpt)')
+        arm_info['single'] = {'angle': 0.0, 'measuredTilt': round(tilt, 1)}
 
     # ---------- export ----------
     for o in vl.objects:
