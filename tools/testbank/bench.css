@@ -205,3 +205,4 @@ header p {
 #app:has(.lab-panel) { min-height: 1750px; }
 #app:has(.lab-panel) .ui-overlay { align-items: flex-start; }
 .lab-panel { width: min(720px, 100%); }
+.lab-cols{display:flex;gap:12px;flex-wrap:wrap}.lab-col{flex:1 1 260px}

@@ -17,6 +17,7 @@ import nl from '../../public/lang/nl.json';
 import { Bindings } from '../../src/core/Bindings';
 import { Input } from '../../src/core/Input';
 import { labPanel } from './lab';
+import { sultanPanel } from './sultan';
 import { PadHub, padCode } from '../../src/core/gamepad';
 import { keyLabel, keyParams } from '../../src/ui/keyLabels';
 import { controlsPanel } from '../../src/ui/menus/ControlsPanel';
@@ -387,7 +388,7 @@ function padTestPanel(): Panel {
 
 // ----------------------------------------------------------------- opening the panels
 
-type PanelId = 'forge' | 'shop' | 'spellbook' | 'controls' | 'padtest' | 'lab';
+type PanelId = 'forge' | 'shop' | 'spellbook' | 'controls' | 'padtest' | 'lab' | 'sultan';
 const labFields: Record<string, unknown> = {};
 let openPanel: PanelId | null = null;
 function open(which: PanelId): void {
@@ -400,6 +401,8 @@ function open(which: PanelId): void {
   };
   if (which === 'controls') overlays.open(controlsPanel(ctx));
   if (which === 'padtest') overlays.open(padTestPanel());
+  if (which === 'sultan')
+    overlays.open(sultanPanel(h as any, (f) => (Object.assign(labFields, f), renderBench())));
   if (which === 'lab')
     overlays.open(
       labPanel({
@@ -500,8 +503,8 @@ function renderBench(): void {
       ),
     ),
     group(
-      'Stappen S.3 t/m S.7 – Souls-like gevecht',
-      row(btn('Gevechtslab', () => open('lab'), openPanel === 'lab')),
+      'Stappen S.3 t/m S.8 – Souls-like gevecht',
+      row(btn('Gevechtslab', () => open('lab'), openPanel === 'lab'), btn('Sultan-lab (S.8)', () => open('sultan'), openPanel === 'sultan')),
       h('p', { className: 'b-hint' }, 'Rol, blok en parry, stamina, poise, aanvalsfases en gold bij je lijk met de echte regels en data. 60 Hz naast 120 Hz.'),
     ),
     group(
@@ -621,7 +624,7 @@ function renderBench(): void {
       h('li', {}, 'S.5a/S.5b: de echte aankondiging-cues op de grond (schijf, lijn, gebied) bij Green Slime en Goblin in de wereld; hier alleen een schetsje met dezelfde duur.'),
       h('li', {}, 'S.6: de wankel-animatie van vijanden en de poise-balk van de HUD (verschijnt bij minder dan vol): in de wereld.'),
       h('li', {}, 'S.7: het blokken zelf (toets R / L3), animatie en geluid: in de wereld; er is nog geen guard-animatie of HUD-indicator.'),
-      h('li', {}, 'S.8 (Sultan) en S.9 zijn nog niet gebouwd en staan dus niet op deze pagina.'),
+      h('li', {}, 'S.8: Sultan zelf (model, de sprong, de run, de rode lijn en de cues op de grond) en of hij eerlijk en leesbaar voelt: de bosgevechtsarena in het spel (poort bij de Greenwood). S.9 is nog niet gebouwd.'),
     ),
     h('h3', {}, 'Wat het spel zou opslaan'),
     h('dl', {}, ...lines.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
@@ -632,6 +635,7 @@ function renderBench(): void {
         {
           'settings.keybindings': session.settings.keybindings,
           goldMarker: (labFields as any).goldMarker ?? null,
+          sultanLab: (labFields as any).sultanLab ?? null,
           'character.upgrades': c.upgrades,
           'character.spellLoadout': c.spellLoadout,
           shopStock: session.shopStock,
