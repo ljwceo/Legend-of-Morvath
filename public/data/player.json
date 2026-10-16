@@ -24,7 +24,9 @@
     "energyCost": 25,
     "cooldownSeconds": 1,
     "distance": 4,
-    "durationSeconds": 0.18
+    "durationSeconds": 0.18,
+    "recoverySeconds": 0.05,
+    "iFrames": { "startSeconds": 0.03, "endSeconds": 0.15 }
   },
   "load": {
     "baseKg": 30,

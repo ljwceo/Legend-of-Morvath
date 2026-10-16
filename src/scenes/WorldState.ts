@@ -1531,6 +1531,8 @@ export class WorldState implements GameState, InstanceHost {
     const c = player.combat;
     const s = player.state;
     if (this.knockedOut || this.deathTimer !== NOT_DYING) return;
+    // Rolling through it: the hit (or arrow, or burn tick) misses.
+    if (s.invulnerable) return;
     const taken = damageTaken(c, damage);
     c.hp = Math.max(0, c.hp - taken);
     c.sinceCombat = 0;
@@ -2082,6 +2084,7 @@ export class WorldState implements GameState, InstanceHost {
     s.x = fromX;
     s.z = fromZ;
     s.dashTime = 0;
+    s.invulnerable = false;
     if (!this.gateBlocked && gate.blockedText) {
       this.hud?.showMessage(this.ctx.i18n.t(gate.blockedText));
     }
@@ -4634,6 +4637,7 @@ export class WorldState implements GameState, InstanceHost {
     const s = player.state;
     player.place(s.x, s.y, s.z, s.heading);
     s.dashTime = 0;
+    s.invulnerable = false;
     rig.orbit.snap(s.x, s.y, s.z, s.heading);
     this.damageNumbers?.clear();
     if (npcWorld) this.npcs?.snapCompanions(s.x, s.z, s.heading, npcWorld);

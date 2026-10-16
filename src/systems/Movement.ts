@@ -22,8 +22,12 @@ export interface MovementConfig {
   dashDurationSeconds: number;
   /** False when overloaded (equip load): no dash at all. */
   canDash: boolean;
-  /** Stuck this long after a dash (the "fat roll" when carrying a heavy load). */
+  /** Stuck this long after a dash (the roll's own recovery plus the load's "fat roll"). */
   dashRecoverySeconds: number;
+  /** Invulnerable from this many seconds after the dash starts... */
+  dashIFrameStartSeconds: number;
+  /** ...until this many seconds after it starts (data: player.json `dash.iFrames`). */
+  dashIFrameEndSeconds: number;
 }
 
 export function movementConfig(player: PlayerConfig): MovementConfig {
@@ -41,7 +45,9 @@ export function movementConfig(player: PlayerConfig): MovementConfig {
     dashDistance: player.dash.distance,
     dashDurationSeconds: player.dash.durationSeconds,
     canDash: true,
-    dashRecoverySeconds: 0,
+    dashRecoverySeconds: player.dash.recoverySeconds,
+    dashIFrameStartSeconds: player.dash.iFrames.startSeconds,
+    dashIFrameEndSeconds: player.dash.iFrames.endSeconds,
   };
 }
 
@@ -68,7 +74,7 @@ export function loadedMovement(
   out.walkSpeed = base.walkSpeed * load.walkFactor * (1 + speedPercent / 100);
   out.dashDistance = base.dashDistance * load.dashDistanceFactor;
   out.dashEnergyCost = base.dashEnergyCost + load.dashExtraEnergy;
-  out.dashRecoverySeconds = load.dashRecoverySeconds;
+  out.dashRecoverySeconds = base.dashRecoverySeconds + load.dashRecoverySeconds;
   out.canDash = load.canDash && out.dashDistance > 0;
   return out;
 }
@@ -93,6 +99,9 @@ export interface MoveCommand {
   dash: boolean;
 }
 
+/** Float slack when comparing summed fixed steps with the seconds in the data. */
+const IFRAME_EPSILON = 1e-9;
+
 /**
  * Simulation state of a walking character. Heading 0 faces +z; heading h faces
  * (sin h, cos h), which matches `object.rotation.y = h` in Three.js.
@@ -111,6 +120,12 @@ export class MoverState implements PointXZ {
   dashCooldown = 0;
   /** Seconds of dash left (0 = not dashing). */
   dashTime = 0;
+  /** Seconds since this dash started, counted on the fixed step. */
+  dashElapsed = 0;
+  /** True while the roll's invulnerable frames are on: the damage check skips the player. */
+  invulnerable = false;
+  /** In the air (jump, fall): no roll (decision S-8). Set by the jump system once it exists. */
+  airborne = false;
   dashDirX = 0;
   dashDirZ = 1;
   /** Seconds left of getting up after a heavy-load dash (no walking, no dashing). */
@@ -143,6 +158,7 @@ export function stepMovement(
   world: Mover,
 ): void {
   s.dashCooldown = Math.max(0, s.dashCooldown - dt);
+  s.invulnerable = false;
   stepEnergyRegen(s, cfg, dt);
 
   const length = Math.sqrt(cmd.x * cmd.x + cmd.z * cmd.z);
@@ -153,10 +169,18 @@ export function stepMovement(
     return;
   }
 
-  if (cmd.dash && cfg.canDash && s.dashTime <= 0 && s.dashCooldown <= 0 && canSpendEnergy(s)) {
+  if (
+    cmd.dash &&
+    cfg.canDash &&
+    !s.airborne &&
+    s.dashTime <= 0 &&
+    s.dashCooldown <= 0 &&
+    canSpendEnergy(s)
+  ) {
     spendEnergy(s, cfg.dashEnergyCost);
     s.dashCooldown = cfg.dashCooldownSeconds;
     s.dashTime = cfg.dashDurationSeconds;
+    s.dashElapsed = 0;
     // Dash where you walk; standing still, dash where you face.
     if (length > EPSILON) {
       s.dashDirX = cmd.x / length;
@@ -174,6 +198,11 @@ export function stepMovement(
     const distance = (cfg.dashDistance / cfg.dashDurationSeconds) * time;
     world.moveCircle(s, cfg.radius, s.dashDirX * distance, s.dashDirZ * distance);
     s.dashTime = Math.max(0, s.dashTime - dt);
+    // Time since the start, at the end of this step; the window is [start, end).
+    s.dashElapsed += dt;
+    s.invulnerable =
+      s.dashElapsed >= cfg.dashIFrameStartSeconds - IFRAME_EPSILON &&
+      s.dashElapsed < cfg.dashIFrameEndSeconds - IFRAME_EPSILON;
     if (s.dashTime === 0) s.recoverTime = cfg.dashRecoverySeconds;
     s.moving = true;
     return;

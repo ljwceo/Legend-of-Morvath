@@ -662,12 +662,28 @@ export const playerFileSchema = z.strictObject({
     /** How fast the character turns towards where it walks. */
     turnSpeedDegrees: max(positive, 10_000),
   }),
-  dash: z.strictObject({
-    energyCost: nonNegative,
-    cooldownSeconds: max(nonNegative, 30),
-    distance: max(positive, 30),
-    durationSeconds: max(positive, 2),
-  }),
+  dash: z
+    .strictObject({
+      energyCost: nonNegative,
+      cooldownSeconds: max(nonNegative, 30),
+      distance: max(positive, 30),
+      durationSeconds: max(positive, 2),
+      /** Standing still after the roll (s), on top of the load's own recovery. */
+      recoverySeconds: max(nonNegative, 5),
+      /** Invulnerable window (s since the dash started, counted on the 60 Hz step): [start, end). */
+      iFrames: z
+        .strictObject({
+          startSeconds: max(nonNegative, 2),
+          endSeconds: max(positive, 2),
+        })
+        .check(z.refine((w) => w.endSeconds > w.startSeconds, 'iFrames end must be after start')),
+    })
+    .check(
+      z.refine((d) => d.iFrames.endSeconds <= d.durationSeconds, {
+        message: 'iFrames must end within the dash',
+        path: ['iFrames', 'endSeconds'],
+      }),
+    ),
   /**
    * Equip load (like Elden Ring): the weight of the weapons and gear you carry (worn or spare in
    * the bag; resources, potions and quest items weigh nothing) as a share of what you can carry.
