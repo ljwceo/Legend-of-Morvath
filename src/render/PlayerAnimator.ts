@@ -195,14 +195,25 @@ export function choosePlayerState(
   if (i.windupProgress >= 0 || i.sinceSwing < i.swingSeconds) return 'attack';
   if (i.gathering || i.sinceFired < releaseSeconds(a)) return 'cast';
   if (i.airTime >= a.fallAfterSeconds) return i.rising ? 'jump' : 'fall';
+  const settle = a.strike.settleSeconds;
+  const swingSettles = current === 'attack' && i.sinceSwing < i.swingSeconds + settle;
+  const releaseSettles = current === 'cast' && i.sinceFired < releaseSeconds(a) + settle;
   const gait = chooseGait(isGait(current) ? current : 'idle', i.speed, i.sprinting, a);
-  if (gait !== 'idle') return gait;
+  if (gait !== 'idle') {
+    // Walking on, a slash or a release ends on the upper body (step A.3d); a heavy strike
+    // moves the whole body and breaks off.
+    const roles = a.upperBody.roles;
+    if (swingSettles && i.landedCombo > 0 && roles.includes(slashRole(i.landedCombo))) {
+      return 'attack';
+    }
+    if (releaseSettles && roles.includes('castRelease')) return 'cast';
+    return gait;
+  }
   if (i.sinceLanded < a.hold.land && i.lastAirTime >= a.fallAfterSeconds) return 'land';
   if (i.sinceHurt < a.hold.hit) return 'hit';
   if (i.sinceInteract < a.hold.interact) return 'interact';
-  const settle = a.strike.settleSeconds;
-  if (current === 'attack' && i.sinceSwing < i.swingSeconds + settle) return 'attack';
-  if (current === 'cast' && i.sinceFired < releaseSeconds(a) + settle) return 'cast';
+  if (swingSettles) return 'attack';
+  if (releaseSettles) return 'cast';
   return 'idle';
 }
 

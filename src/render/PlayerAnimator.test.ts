@@ -80,13 +80,18 @@ describe('choosePlayerState', () => {
     expect(choosePlayerState('run', swing, anim)).toBe('attack');
   });
 
-  it('lets a finished swing settle while standing, but not after walking off', () => {
+  it('lets a finished swing settle while standing, and on the upper body while walking', () => {
     const after = input({ sinceSwing: 0.3, swingSeconds: 0.22, landedCombo: 2 });
     expect(choosePlayerState('attack', after, anim)).toBe('attack');
     after.sinceSwing = 0.22 + s.settleSeconds + 0.01;
     expect(choosePlayerState('attack', after, anim)).toBe('idle');
     const walking = input({ sinceSwing: 0.3, swingSeconds: 0.22, landedCombo: 2, speed: 2 });
+    expect(choosePlayerState('attack', walking, anim)).toBe('attack');
+    walking.sinceSwing = 0.22 + s.settleSeconds + 0.01;
     expect(choosePlayerState('attack', walking, anim)).toBe('walk');
+    // A heavy strike moves the whole body: walking off breaks it off.
+    const heavy = input({ sinceSwing: 0.3, swingSeconds: 0.22, landedCombo: 0, speed: 2 });
+    expect(choosePlayerState('attack', heavy, anim)).toBe('walk');
     // Settling never starts from another state (the swing was long over).
     expect(choosePlayerState('idle', input({ sinceSwing: 0.3, swingSeconds: 0.22 }), anim)).toBe(
       'idle',
@@ -98,8 +103,10 @@ describe('choosePlayerState', () => {
     const lead = s.leadSeconds + s.followSeconds;
     expect(choosePlayerState('cast', input({ sinceFired: lead + 0.1 }), anim)).toBe('cast');
     expect(choosePlayerState('cast', input({ sinceFired: lead + 0.1, speed: 4 }), anim)).toBe(
-      'run',
+      'cast',
     );
+    const over = input({ sinceFired: lead + s.settleSeconds + 0.1, speed: 4 });
+    expect(choosePlayerState('cast', over, anim)).toBe('run');
   });
 
   it('flinches and interacts only while standing', () => {
