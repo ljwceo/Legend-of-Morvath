@@ -42,6 +42,7 @@ function sampleSave() {
     pack: [],
     stats: { hp: 6, power: 5 },
     spells: [],
+    spellLoadout: [],
     crystal: null,
     upgrades: {},
   };
@@ -267,6 +268,35 @@ describe('migrate', () => {
     expect(result.save.version).toBe(SAVE_VERSION);
     expect(result.save.character?.crystal).toBe(null);
     expect(result.save.character?.spells).toEqual(['fireball']);
+  });
+
+  it('upgrades a version 17 save with a character: an empty spellbook choice', () => {
+    const current = sampleSave();
+    const character: Record<string, unknown> = { ...current.character, spells: ['fireball'] };
+    delete character.spellLoadout;
+    const v17 = { ...current, version: 17, character };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v17));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.character?.spellLoadout).toEqual([]);
+    expect(result.save.character?.spells).toEqual(['fireball']);
+  });
+
+  it('keeps a chosen spell loadout after saving and loading again', () => {
+    const save = sampleSave();
+    if (!save.character) throw new Error('sample has a character');
+    save.character.spells = ['fireball', 'ember_burst'];
+    save.character.spellLoadout = ['ember_burst', 'fireball'];
+    const storage = new MemoryStorage();
+    const manager = new SaveManager(storage);
+    manager.write(save);
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.character?.spellLoadout).toEqual(['ember_burst', 'fireball']);
   });
 
   it('upgrades a version 13 save: the bag starts as a small window', () => {

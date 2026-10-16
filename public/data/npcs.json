@@ -160,6 +160,11 @@
             "item": "padded_mantle",
             "price": 60,
             "stock": { "max": 2, "restockSeconds": 600 }
+          },
+          {
+            "item": "adept_staff",
+            "price": 250,
+            "stock": { "max": 1, "restockSeconds": 1800 }
           }
         ]
       }

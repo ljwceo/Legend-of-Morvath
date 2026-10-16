@@ -37,7 +37,8 @@
     "title": "Paused",
     "resume": "Resume",
     "settings": "Settings",
-    "toTitle": "Back to title screen"
+    "toTitle": "Back to title screen",
+    "spellbook": "Spellbook"
   },
   "settings": {
     "title": "Settings",
@@ -565,6 +566,9 @@
     },
     "sultan_egg": {
       "desc": "Sultan's own egg. He gave it to you after the fight: \"You'll understand later.\""
+    },
+    "adept_staff": {
+      "desc": "A staff with two spell slots. It only works with a crystal."
     }
   },
   "quest": {
@@ -1241,5 +1245,15 @@
       "title": "GODS HAVE FALLEN",
       "subtitle": "Even divinity has an end."
     }
+  },
+  "spellbook": {
+    "title": "Spellbook",
+    "slot": "Slot {n}",
+    "empty": "Empty",
+    "noStaff": "Equip a staff to use the spellbook.",
+    "noSpells": "You do not know any spells yet.",
+    "noSlots": "This staff has no spell slots.",
+    "hint": "The first filled slot is the spell your cast button fires. Spells can only be changed outside a fight.",
+    "inCombat": "Not while you are fighting."
   }
 }

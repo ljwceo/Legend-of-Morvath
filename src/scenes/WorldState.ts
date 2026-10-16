@@ -197,6 +197,14 @@ import {
   unspentPoints,
 } from '../systems/Stats';
 import { redistributePanel } from '../ui/menus/RedistributePanel';
+import {
+  activeSpell,
+  normalizeLoadout,
+  setSlot,
+  spellsToLearn,
+  usableSpells,
+} from '../systems/Spellbook';
+import { spellbookPanel } from '../ui/menus/SpellbookPanel';
 import { statusPanel } from '../ui/menus/StatusPanel';
 import type { Panel } from '../ui/Overlays';
 import { type TouchLabels, TouchControls } from '../ui/TouchControls';
@@ -476,6 +484,8 @@ export class WorldState implements GameState, InstanceHost {
   private weaponKind: 'sword' | 'staff' = 'sword';
   /** The spell the right button casts (the first one you know), or null without one. */
   private spell: ShotConfig | null = null;
+  /** Spell slots of the equipped staff (0 for a sword), for the spellbook. */
+  private staffSlots = 0;
   /** The power curve factor of your path at your level (light grows, dark shrinks). */
   private spellPower = 1;
   /** The player's shots in flight (Arcane Shard and spells). */
@@ -2854,8 +2864,15 @@ export class WorldState implements GameState, InstanceHost {
         : this.lootRng.pick(elements);
     character.crystal = drawn;
     this.gainItem(crystalId, 1);
-    const spell = data.spells.spells.find((entry) => entry.element === drawn);
-    if (spell && !character.spells.includes(spell.id)) character.spells.push(spell.id);
+    const spell = data.spells.spells.find(
+      (entry) => entry.element === drawn && entry.learnLevel === undefined,
+    );
+    if (spell && !character.spells.includes(spell.id)) {
+      character.spells.push(spell.id);
+      // A new spell takes the first free slot of a loadout you already chose.
+      const free = character.spellLoadout.indexOf('');
+      if (free >= 0) character.spellLoadout[free] = spell.id;
+    }
     this.ctx.persist();
     const elementName = data.spells.elements.find((entry) => entry.id === drawn)?.name ?? drawn;
     const params = {
@@ -3015,14 +3032,47 @@ export class WorldState implements GameState, InstanceHost {
       this.clearAttackInput();
       this.touch?.setLabels(this.touchLabels());
     }
-    const slots = def?.weapon?.spellSlots ?? 0;
-    const known = session?.character?.spells ?? [];
-    const carried = kind === 'staff' && slots > 0 ? known[0] : undefined;
+    const slots = kind === 'staff' ? (def?.weapon?.spellSlots ?? 0) : 0;
+    const character = session?.character;
+    this.learnSpells();
+    const known = this.usableKnown();
+    // The staff decides how many slots count; the loadout (spellbook, step 4.3) fills them.
+    if (character && slots > 0) {
+      character.spellLoadout = normalizeLoadout(character.spellLoadout, known, slots);
+    }
+    this.staffSlots = slots;
+    const carried = character && slots > 0 ? activeSpell(character.spellLoadout) : null;
     this.spell = (carried && this.staff?.spells.get(carried)) || null;
     this.spellPower = data
       ? powerFactor(data.spells.powerCurves, session?.path ?? null, this.conditionContext.level)
       : 1;
     this.refreshAbilities();
+  }
+
+  /** The known spells that fit the element of your crystal (the spellbook offers only these). */
+  private usableKnown(): string[] {
+    const character = this.ctx.session?.character;
+    return usableSpells(
+      character?.spells ?? [],
+      this.ctx.data?.spells.spells ?? [],
+      character?.crystal ?? null,
+    );
+  }
+
+  /** Spells that come with your level (spells.json `learnLevel`) join the ones you know. */
+  private learnSpells(): void {
+    const character = this.ctx.session?.character;
+    const data = this.ctx.data;
+    if (!character || !data) return;
+    const level = this.ctx.session?.progress.level ?? 1;
+    for (const id of spellsToLearn(
+      character.spells,
+      data.spells.spells,
+      character.crystal,
+      level,
+    )) {
+      character.spells.push(id);
+    }
   }
 
   /** The color of a shot: its element's color from spells.json (the Shard has none of its own). */
@@ -3716,7 +3766,14 @@ export class WorldState implements GameState, InstanceHost {
   private pause(): void {
     // A cutscene already waits (and has its own Skip); the pause menu comes after it.
     if (this.cutscenePlaying) return;
-    this.openMenu((resume) => pausePanel(this.ctx, resume, () => this.openStatus()));
+    this.openMenu((resume) =>
+      pausePanel(
+        this.ctx,
+        resume,
+        () => this.openStatus(),
+        () => this.openSpellbook(),
+      ),
+    );
   }
 
   /** The bag (I / B or the bag button); the game waits while it is open. */
@@ -3761,6 +3818,47 @@ export class WorldState implements GameState, InstanceHost {
         resume,
       ),
     );
+  }
+
+  /** The spellbook (pause menu): which known spells sit in the staff's slots. */
+  private openSpellbook(): void {
+    if (this.dialog?.isOpen || this.deathTimer !== NOT_DYING) return;
+    this.learnSpells();
+    this.openMenu((resume) =>
+      spellbookPanel(
+        this.ctx,
+        {
+          slots: () => this.staffSlots,
+          usable: () => this.usableKnown(),
+          locked: () => this.player?.combat.inCombat ?? false,
+          choose: (slot, spellId) => this.chooseSpell(slot, spellId),
+        },
+        resume,
+      ),
+    );
+  }
+
+  /** Puts a spell in a slot (never in a fight), saves it and recomputes the cast spell. */
+  private chooseSpell(slot: number, spellId: string): void {
+    const character = this.ctx.session?.character;
+    if (!character) return;
+    const next = setSlot(
+      character.spellLoadout,
+      slot,
+      spellId,
+      this.usableKnown(),
+      this.staffSlots,
+      this.player?.combat.inCombat ?? false,
+    );
+    if (!next) {
+      this.hud?.showMessage(this.ctx.i18n.t('spellbook.inCombat'));
+      return;
+    }
+    character.spellLoadout = next;
+    this.applyGear(true);
+    this.syncSave();
+    this.ctx.persist();
+    this.ctx.overlays.refreshTop();
   }
 
   /**
@@ -4087,6 +4185,10 @@ export class WorldState implements GameState, InstanceHost {
     const character = this.ctx.session?.character;
     if (!character) return;
     character.spells = spellId ? [spellId] : [];
+    character.spellLoadout = [];
+    // The spellbook only offers spells of your crystal's element, so the crystal follows.
+    const element = this.ctx.data?.spells.spells.find((entry) => entry.id === spellId)?.element;
+    if (element) character.crystal = element;
     if (spellId) this.grantStaff();
     this.applyGear(false);
     this.ctx.persist();

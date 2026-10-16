@@ -2576,3 +2576,14 @@
   color: var(--gh-ornamentgoud);
   text-shadow: 0 1px 8px var(--gh-nachtinkt);
 }
+
+.ui-spellbook {
+  width: min(420px, 100%);
+}
+
+.ui-spellbook-slot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}

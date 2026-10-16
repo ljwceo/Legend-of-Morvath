@@ -37,7 +37,8 @@
     "title": "Pauze",
     "resume": "Verder",
     "settings": "Instellingen",
-    "toTitle": "Terug naar het titelscherm"
+    "toTitle": "Terug naar het titelscherm",
+    "spellbook": "Spellboek"
   },
   "settings": {
     "title": "Instellingen",
@@ -565,6 +566,9 @@
     },
     "sultan_egg": {
       "desc": "Het ei van Sultan zelf. Hij gaf het je na het gevecht: \"Later begrijp je het wel.\""
+    },
+    "adept_staff": {
+      "desc": "Een staf met twee spellplekken. Hij werkt alleen met een kristal."
     }
   },
   "quest": {
@@ -1241,5 +1245,15 @@
       "title": "GODS HAVE FALLEN",
       "subtitle": "Zelfs aan goddelijkheid komt een eind."
     }
+  },
+  "spellbook": {
+    "title": "Spellboek",
+    "slot": "Plek {n}",
+    "empty": "Leeg",
+    "noStaff": "Draag een staf om het spellboek te gebruiken.",
+    "noSpells": "Je kent nog geen spells.",
+    "noSlots": "Deze staf heeft geen spellplekken.",
+    "hint": "De eerste gevulde plek is de spell die je cast-knop afvuurt. Spells wissel je alleen buiten een gevecht.",
+    "inCombat": "Niet terwijl je vecht."
   }
 }

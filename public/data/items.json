@@ -663,6 +663,21 @@
       }
     },
     {
+      "id": "adept_staff",
+      "name": "Adept Staff",
+      "type": "weapon",
+      "rarity": "rare",
+      "tradeable": true,
+      "weight": 3,
+      "description": "item.adept_staff.desc",
+      "weapon": {
+        "kind": "staff",
+        "damageBonus": 2,
+        "spellSlots": 2,
+        "maxCrystalSize": "small"
+      }
+    },
+    {
       "id": "wizard_crystal",
       "name": "Wizard Crystal",
       "type": "crystal",

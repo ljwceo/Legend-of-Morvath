@@ -1513,6 +1513,8 @@ export const spellsFileSchema = z.strictObject({
       id,
       name,
       element: id,
+      /** Known automatically from this level on (fase 4.3); missing = learned another way. */
+      learnLevel: optional(level),
       manaCost: nonNegative,
       cooldownSeconds: max(nonNegative, 120),
       damage: nonNegative,

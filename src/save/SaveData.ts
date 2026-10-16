@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 17;
+export const SAVE_VERSION = 18;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -79,6 +79,12 @@ export const saveDataSchema = z.object({
        * A mage gets his first one from his crystal (Crystal Ceremony, step 3.6).
        */
       spells: z.array(id),
+      /**
+       * The spellbook (step 4.3): the spell in each slot of your staff, '' for an empty slot.
+       * Empty list = never chosen, then the spells you know fill the slots in order learned.
+       * The first filled slot is the spell the right button casts.
+       */
+      spellLoadout: z.array(z.string()),
       /**
        * The element of the crystal in your staff (spells.json element id), drawn in the Crystal
        * Ceremony: Master Brink's vault gives one of four, Wizard Sam gives Dark. Null for a
@@ -285,6 +291,15 @@ export const migrations: Readonly<Record<number, Migration>> = {
   },
   // v17 (step 4.2): limited shop stock; every shop starts full.
   16: (save) => ({ ...save, version: 17, shopStock: {} }),
+  // v18 (step 4.3): the spellbook; nobody chose slots yet (the known spells fill them).
+  17: (save) => {
+    const character = save.character as Record<string, unknown> | null | undefined;
+    return {
+      ...save,
+      version: 18,
+      character: character ? { ...character, spellLoadout: [] } : null,
+    };
+  },
   // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged
   // them). Everyone starts on the default size and the default places.
   10: (save) => {

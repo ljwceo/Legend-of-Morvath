@@ -1444,6 +1444,17 @@ class CrossChecker {
     this.data.spells.spells.forEach((spell, i) =>
       this.ref('element', f, `spells[${i}].element`, spell.element),
     );
+    // A staff cannot have more slots than the spellbook allows (step 4.3).
+    this.data.items.items.forEach((item, i) => {
+      const slots = item.weapon?.spellSlots;
+      if (slots !== undefined && slots > this.data.spells.maxSpellSlots) {
+        this.issue(
+          'items',
+          `items[${i}].weapon.spellSlots`,
+          `more than maxSpellSlots in spells.json`,
+        );
+      }
+    });
     // Every element needs a spell: a mage's crystal decides his element (Crystal Ceremony).
     this.data.spells.elements.forEach((element, i) => {
       if (!this.data.spells.spells.some((spell) => spell.element === element.id)) {
