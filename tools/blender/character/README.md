@@ -249,10 +249,16 @@ Wat het schrijft in de zonemap:
   staat aan (three.js leest skinned Draco goed). Botten die in een clip niet bewegen en geen keys
   hebben (de cape-botten, alle verschuivingen behalve `Hips`) laat de exporter weg: three.js houdt
   die op hun rustpose, net als in Blender.
+- **Omlijning op het lijf (stap A.3a):** `Body` heeft in het .blend geen Solidify "Outline"; het script
+  zet er tijdens de export een op (kopie van die van `Hair`, na de Armature, met een extra
+  materiaalslot `Outline`) en de export bakt hem in. Zo krijgt de hull de skin-weights van het lijf
+  en buigt hij mee. Het .blend verandert niet. Kosten: +5.342 driehoeken (`Body` 10.684).
 - `materials.json`: alleen de speler-materialen (`Skin`, `Tunic`, `Hair`, `Hat_Navy`, `Cloak_Navy`,
   `Gold_Trim`, `Leather`, `Old_Steel`, `Outline`, `Staff_Crystal` als `emit`). `Skin` en `Tunic` zijn
-  voorlopig `flat` met de gemiddelde kleur van de texture onder hun vlakken; de `tex` staat er al bij
-  voor als de game ze getextureerd tekent (stap A.3).
+  `textured`: de game tekent de `tex` (toon-shader `mode: 'textured'`) en `color` is de gemiddelde
+  kleur van de texture onder hun vlakken. Die gemiddelde kleur is de referentie voor de huidskleur uit
+  de character creator: tint = gekozen kleur ÷ gemiddelde, zodat de huid gemiddeld precies de gekozen
+  kleur wordt en het gezicht zijn schaduwen houdt (`ScenePlayerModel.textureTint`).
 - `tex/Hero_BaseColor.jpg` (1024 px). Normal en ORM gebruikt de toon-shader niet.
 
 Daarna draait het vanzelf `check_player_glb.py`. Los draaien kan ook:
@@ -262,17 +268,17 @@ Daarna draait het vanzelf `check_player_glb.py`. Los draaien kan ook:
 ```
 bones 74 (skins 1)
 ...
-mesh Body             5342 triangles, skinned
+mesh Body            10684 triangles, skinned
 mesh Cloak            6368 triangles, skinned
 mesh Cloak_Trim        384 triangles, skinned
-triangles 17378, limit 30000
+triangles 22720, limit 30000
 clips 24
   Idle            6.500 s   66 channels
   ...
   Idle_Sword_2   11.100 s   66 channels
   Idle_Sword_3    2.000 s   66 channels
 extensions KHR_draco_mesh_compression
-size 1506096 bytes (1.51 MB), limit 2.00 MB
+size 1551484 bytes (1.55 MB), limit 2.00 MB
 OK
 DONE
 ```
@@ -281,7 +287,9 @@ DONE
 `http://localhost:5173/Legend-of-Morvath/tools/player-preview/index.html`. Die losse pagina
 (`tools/player-preview/`, niet in de game en niet in de build) laadt `player.glb` met de kleuren uit
 `materials.json` en speelt elke clip af: kiezen in de lijst, pauze, schuifbalk, snelheid, herhalen,
-zwaard of staf aan/uit. De cape zwaait nog niet (stap A.4).
+zwaard of staf aan/uit. Vink **Game-shader** aan voor de echte toon-shader van de game (texture op
+huid en tunic, omlijning, vast middaglicht) en kies bij **Huid** een huidskleur uit `appearance.json`
+om de tint over de texture te zien. De cape zwaait nog niet (stap A.4).
 
 Klopt iets niet (niet 74 botten, een clipnaam ontbreekt, een duur wijkt meer dan één frame af van de
 Action, te veel driehoeken of groter dan 2 MB), dan staat er `NOT OK` met de reden en stopt het script
