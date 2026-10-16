@@ -28,6 +28,16 @@
     "recoverySeconds": 0.05,
     "iFrames": { "startSeconds": 0.03, "endSeconds": 0.15 }
   },
+  "block": {
+    "parryWindowSeconds": 0.2,
+    "damageFactor": 0.25,
+    "energyPerDamage": 1.5,
+    "parryEnergyCost": 5,
+    "cooldownSeconds": 0.3,
+    "arcDegrees": 140,
+    "moveFactor": 0.5,
+    "parryPoiseDamage": 40
+  },
   "load": {
     "baseKg": 30,
     "perLevelKg": 0,

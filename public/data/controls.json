@@ -44,6 +44,10 @@
       "pad": ["Pad0"]
     },
     {
+      "id": "block",
+      "keys": ["KeyR"]
+    },
+    {
       "id": "interact",
       "keys": ["KeyE"],
       "pad": ["Pad2"]

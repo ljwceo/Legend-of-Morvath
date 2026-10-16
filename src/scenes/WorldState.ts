@@ -111,6 +111,8 @@ import {
   StaffState,
   stepStaff,
 } from '../systems/StaffCombat';
+import { canSpendEnergy } from '../systems/Stamina';
+import { resolveBlock, stepBlock, type BlockConfig } from '../systems/Block';
 import { damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
   carriedWeight,
@@ -165,6 +167,7 @@ import { DamageNumbers } from '../ui/DamageNumbers';
 import { type Bounds, CollisionWorld } from '../systems/Collision';
 import {
   type MoveCommand,
+  angleDelta,
   loadedMovement,
   type MovementConfig,
   movementConfig,
@@ -502,6 +505,12 @@ export class WorldState implements GameState, InstanceHost {
   private lockCfg: LockOnConfig | null = null;
   /** What the equipped weapon is: a sword swings, a staff shoots. */
   private weaponKind: 'sword' | 'staff' = 'sword';
+  /** The block key is down this step (fase S.7). */
+  private blockHeld = false;
+  /** The block tip was shown (once per session). */
+  private blockHintShown = false;
+  /** player.json `block` with the arc in radians; built on first use. */
+  private blockCfg: BlockConfig | null = null;
   /** The spell the right button casts (the first one you know), or null without one. */
   private spell: ShotConfig | null = null;
   /** Spell slots of the equipped staff (0 for a sword), for the spellbook. */
@@ -1020,6 +1029,7 @@ export class WorldState implements GameState, InstanceHost {
       this.swordInput.heavy = right;
       this.staffInput.shard = left;
       this.staffInput.spell = right;
+      this.blockHeld = input.isPressed('block');
       if (input.consumePressed('potion')) this.drink(null);
       if (input.consumePressed('bag')) {
         this.openBag();
@@ -1144,6 +1154,7 @@ export class WorldState implements GameState, InstanceHost {
     this.swordInput.heavy = false;
     this.staffInput.shard = false;
     this.staffInput.spell = false;
+    this.blockHeld = false;
   }
 
   /** Fighting and walking for one step: with a sword you swing, with a staff you shoot. */
@@ -1160,12 +1171,41 @@ export class WorldState implements GameState, InstanceHost {
         this.clearAttackInput();
       }
     }
+    this.stepGuard(dt);
     // One fresh roll per step decides whether a hit that lands is critical (Luck).
     const roll = this.critRng.next();
     this.swordInput.critRoll = roll;
     this.staffInput.critRoll = roll;
     if (this.weaponKind === 'staff') this.stepStaffAndMove(dt);
     else this.stepSwordAndMove(dt);
+  }
+
+  /**
+   * The guard for one step (fase S.7, sword only): it goes up while the key is held and you are
+   * free to act, and while it is up you cannot swing. Walking is slower (see stepSwordAndMove).
+   */
+  private stepGuard(dt: number): void {
+    const player = this.player;
+    const cfg = this.blockConfig();
+    if (!player || !cfg) return;
+    const c = player.combat;
+    const s = player.state;
+    const sword = this.weaponKind === 'sword';
+    // Raising the guard needs a free moment; keeping it only needs you not to be thrown off.
+    const keep = sword && !c.poise.staggered && s.dashTime <= 0 && !s.exhausted;
+    const raise =
+      keep && s.recoverTime <= 0 && !s.airborne && c.heavyWindup <= 0 && c.swingTime <= 0;
+    stepBlock(c.block, this.blockHeld, c.block.holding ? keep : raise && canSpendEnergy(s), cfg, dt);
+    if (c.block.holding) {
+      this.swordInput.fast = false;
+      this.swordInput.heavy = false;
+      c.bufferedFast = 0;
+      c.bufferedHeavy = 0;
+      if (!this.blockHintShown) {
+        this.blockHintShown = true;
+        this.hud?.showMessage(this.ctx.i18n.t('hud.blockHint'));
+      }
+    }
   }
 
   /**
@@ -1196,6 +1236,7 @@ export class WorldState implements GameState, InstanceHost {
       this.baseWalkSpeed *
       this.cheats.speed *
       (windingUp ? sword.heavyMoveFactor : 1) *
+      (c.block.holding ? (this.blockCfg?.moveFactor ?? 1) : 1) *
       slowFactor(this.statusTotals.slowPercent);
     stepMovement(s, this.command, movement, dt, mover);
     this.stepRegen(c, dt);
@@ -1592,7 +1633,11 @@ export class WorldState implements GameState, InstanceHost {
     if (this.knockedOut || this.deathTimer !== NOT_DYING) return;
     // Rolling through it: the hit (or arrow, or burn tick) misses.
     if (s.invulnerable) return;
-    const taken = damageTaken(c, damage);
+    let incoming = damage;
+    const guard = from ? this.guardAgainst(from, damage) : 'none';
+    if (guard === 'parry') return;
+    if (guard === 'block') incoming = damage * (this.blockConfig()?.damageFactor ?? 1);
+    const taken = damageTaken(c, incoming);
     c.hp = Math.max(0, c.hp - taken);
     c.sinceCombat = 0;
     c.sinceHurt = 0;
@@ -1602,6 +1647,37 @@ export class WorldState implements GameState, InstanceHost {
     if (from) this.applyOnHit(from, taken);
     if (c.hp <= 0) this.knockedOut = true;
   };
+
+  /** player.json `block` for the step code (arc in radians), or null before the data is there. */
+  private blockConfig(): BlockConfig | null {
+    if (this.blockCfg) return this.blockCfg;
+    const b = this.ctx.data?.player.block;
+    if (!b) return null;
+    this.blockCfg = { ...b, halfArc: (b.arcDegrees / 2) * (Math.PI / 180) };
+    return this.blockCfg;
+  }
+
+  /**
+   * A monster's blow reaches your guard (fase S.7). A parry catches it (no damage, the monster
+   * staggers), a block softens it (the caller applies `damageFactor`), a broken guard lets it
+   * all through. Returns what happened; 'none' when the guard is down or the blow came from
+   * behind.
+   */
+  private guardAgainst(from: Enemy, damage: number): 'none' | 'block' | 'parry' | 'broken' {
+    const player = this.player;
+    const cfg = this.blockConfig();
+    if (!player || !cfg || !player.combat.block.holding) return 'none';
+    const s = player.state;
+    const delta = angleDelta(s.heading, Math.atan2(from.x - s.x, from.z - s.z));
+    const outcome = resolveBlock(player.combat.block, s, cfg, damage, delta);
+    if (outcome === 'parry') {
+      this.enemies?.hit(from, 0, cfg.parryPoiseDamage);
+      this.damageNumbers?.spawnText(s.x, s.y + 2, s.z, this.ctx.i18n.t('hud.parried'), 'dodged');
+    } else if (outcome === 'block') {
+      this.damageNumbers?.spawnText(s.x, s.y + 2, s.z, this.ctx.i18n.t('hud.blocked'), 'dodged');
+    }
+    return outcome;
+  }
 
   /**
    * A monster's hit drains your poise (fase S.6). When it breaks you stagger: a swing or cast

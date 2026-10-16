@@ -688,6 +688,24 @@ export const playerFileSchema = z.strictObject({
       }),
     ),
   /**
+   * Blocking and parrying (fase S.7, sword only): holding the block key raises the guard against
+   * hits from the front arc. A guard held for less than `parryWindowSeconds` (counted on the
+   * 60 Hz step) catches the hit (parry: no damage, the monster takes `parryPoiseDamage`);
+   * later a hit costs `energyPerDamage` per point and you take `damageFactor` of it. Too little
+   * energy breaks the guard and the whole hit lands. `cooldownSeconds` is the pause after
+   * lowering the guard, `moveFactor` your walking speed with the guard up.
+   */
+  block: z.strictObject({
+    parryWindowSeconds: max(nonNegative, 2),
+    damageFactor: range(0, 1),
+    energyPerDamage: max(nonNegative, 100),
+    parryEnergyCost: max(nonNegative, 100),
+    cooldownSeconds: max(nonNegative, 5),
+    arcDegrees: range(1, 360),
+    moveFactor: range(0, 1),
+    parryPoiseDamage: max(nonNegative, 1000),
+  }),
+  /**
    * Equip load (like Elden Ring): the weight of the weapons and gear you carry (worn or spare in
    * the bag; resources, potions and quest items weigh nothing) as a share of what you can carry.
    * Tiers are checked in order; the first whose `maxRatio` is not exceeded applies, the last one
@@ -1760,6 +1778,7 @@ export const CONTROL_ACTIONS = [
   'attack',
   'heavy',
   'dash',
+  'block',
   'interact',
   'potion',
   'bag',
