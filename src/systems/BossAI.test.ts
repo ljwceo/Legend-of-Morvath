@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { monstersFileSchema, zonesFileSchema } from '../data/schemas';
-import type { MonstersFile } from '../data/types';
+import type { MonstersFile, PlayerConfig } from '../data/types';
 import { Enemy } from '../entities/Enemy';
 import { readPublicJson } from '../test/loadPublic';
 import type { PointXZ } from '../world/Colliders';
@@ -16,8 +16,12 @@ import {
 } from './BossAI';
 import type { EnemyTarget } from './EnemyAI';
 import { Enemies, type EnemiesWorld } from './Enemies';
+import { angleDelta } from './Movement';
+import { backstabPoiseDamage } from './Poise';
+import { inSwingArc, swordConfig } from './Combat';
 
 const monsters = monstersFileSchema.parse(readPublicJson('data/monsters.json')) as MonstersFile;
+const playerCfg = readPublicJson('data/player.json') as PlayerConfig;
 const zones = zonesFileSchema.parse(readPublicJson('data/zones.json'));
 const sultan = monsters.monsters.find((m) => m.id === 'sultan');
 if (!sultan?.boss) throw new Error('sultan with boss settings missing');
@@ -346,6 +350,131 @@ describe('boss last stand (Sultan backs off to the barrel)', () => {
       f.boss.hp = f.boss.maxHp * stand.belowHpFraction - 1;
       f.until((fight) => fight.state.phase === 'opening', 20, hz);
       expect(Math.hypot(f.boss.x - stand.x, f.boss.z - stand.z)).toBeLessThan(0.01);
+    }
+  });
+});
+
+describe('boss turn speed per phase (Sultan can be walked round)', () => {
+  const turn = BOSS.turnDegreesPerSecond;
+  const poise = monsters.settings.poise;
+  const DEG = Math.PI / 180;
+  const PHASE_RATE: Record<string, number> = {
+    stalk: turn.stalk,
+    telegraph: turn.telegraph,
+    attack: turn.attack,
+    retreat: 0,
+    opening: turn.recovery,
+    idle: 0,
+  };
+
+  it('is slower in the warning and the hit window than while stalking', () => {
+    expect(turn.telegraph).toBeLessThan(turn.stalk);
+    expect(turn.attack).toBeLessThanOrEqual(turn.telegraph);
+  });
+
+  it('never turns faster than the data says in any phase, at 60 and 120 Hz', () => {
+    for (const hz of [60, 120]) {
+      const f = new Fight();
+      const dt = 1 / hz;
+      let angle = 0;
+      let worst = 0;
+      let before: number;
+      let phase = 'idle';
+      for (let i = 0; i < 40 * hz; i++) {
+        angle += 3 * dt;
+        f.target.x = f.boss.x + Math.sin(angle) * 2.5;
+        f.target.z = f.boss.z + Math.cos(angle) * 2.5;
+        keepInArena(f.target, ARENA, 0.4);
+        before = f.boss.heading;
+        f.run(dt, hz);
+        // The phase the step ran in is the one before it, or the new one for a phase that began
+        // in this step: take the larger of the two limits.
+        const limit = Math.max(PHASE_RATE[phase] ?? 0, PHASE_RATE[f.state.phase] ?? 0);
+        const turned = Math.abs(angleDelta(before, f.boss.heading)) / DEG / dt;
+        if (turned > limit + 1e-6) worst = Math.max(worst, turned);
+        phase = f.state.phase;
+      }
+      expect(worst, `${hz} Hz`).toBe(0);
+    }
+  });
+
+  it('a player who rolls round him gets behind him and hits his back in the opening', () => {
+    const sword = swordConfig(playerCfg);
+    const roll = playerCfg.dash;
+    const rollSpeed = roll.distance / roll.durationSeconds;
+    for (const hz of [60, 120]) {
+      const f = new Fight();
+      f.force('claw_combo');
+      f.until((fight) => fight.state.phase === 'telegraph', 20, hz);
+      const dt = 1 / hz;
+      // Rolls again whenever the dash is ready (cooldown from data), like a player would.
+      let sinceRoll = 0;
+      let backstabbed = false;
+      f.until(
+        (fight) => {
+          const boss = fight.boss;
+          const me = fight.target;
+          // Walks (or rolls) round him on a ring of 1.6 m between the centres to the spot straight
+          // behind him: never through him. First the distance to the ring, then the arc.
+          if (sinceRoll >= roll.cooldownSeconds) sinceRoll = 0;
+          const speed = sinceRoll < roll.durationSeconds ? rollSpeed : playerCfg.movement.walkSpeed;
+          sinceRoll += dt;
+          let budget = speed * dt;
+          const ring = 1.6;
+          const now = Math.atan2(me.x - boss.x, me.z - boss.z);
+          let r = Math.hypot(me.x - boss.x, me.z - boss.z);
+          const radial = Math.max(-budget, Math.min(budget, ring - r));
+          r += radial;
+          budget -= Math.abs(radial);
+          const want = angleDelta(now, boss.heading + Math.PI);
+          const arc = Math.max(-budget / r, Math.min(budget / r, want));
+          me.x = boss.x + Math.sin(now + arc) * r;
+          me.z = boss.z + Math.cos(now + arc) * r;
+          // Bodies do not overlap: push the player out of Sultan (like Enemies.separate).
+          const ox = me.x - boss.x;
+          const oz = me.z - boss.z;
+          const od = Math.hypot(ox, oz);
+          const min = me.radius + boss.radius;
+          if (od < min && od > 1e-6) {
+            me.x = boss.x + (ox / od) * min;
+            me.z = boss.z + (oz / od) * min;
+          }
+          keepInArena(me, ARENA, me.radius);
+          expect(Math.hypot(me.x - boss.x, me.z - boss.z)).toBeGreaterThanOrEqual(min - 1e-9);
+          if (fight.state.phase !== 'opening') return false;
+          // The player swings at his back, facing him.
+          const facing = Math.atan2(boss.x - me.x, boss.z - me.z);
+          const reaches = inSwingArc(
+            me.x,
+            me.z,
+            facing,
+            boss.x,
+            boss.z,
+            boss.radius,
+            sword.range,
+            sword.halfArc,
+          );
+          if (!reaches) return false;
+          const amount = backstabPoiseDamage(
+            10,
+            boss.x,
+            boss.z,
+            boss.heading,
+            me.x,
+            me.z,
+            poise.backstabAngleDegrees,
+            poise.backstabFactor,
+          );
+          expect(boss.hittable).toBe(true);
+          backstabbed = amount === 10 * poise.backstabFactor;
+          return true;
+        },
+        10,
+        hz,
+      );
+      // No swipe ever caught the player, and the back was open in the opening.
+      expect(f.hits, `${hz} Hz`).toEqual([]);
+      expect(backstabbed, `${hz} Hz`).toBe(true);
     }
   });
 });

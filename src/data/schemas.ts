@@ -1057,6 +1057,17 @@ const bossSchema = z.strictObject({
   playerStart: z.strictObject({ x: coord, z: coord }),
   /** Seconds between two attacks [min, max] (shorter when enraged); longer while out of range. */
   pauseSeconds: z.tuple([nonNegative, nonNegative]),
+  /**
+   * How fast the boss turns (degrees per second) in each phase, so you can walk or roll round
+   * him: `stalk` (circling), `telegraph` (the warning), `attack` (the hit window) and
+   * `recovery` (the opening). While it leaps away it does not turn.
+   */
+  turnDegreesPerSecond: z.strictObject({
+    stalk: range(0, 3600),
+    telegraph: range(0, 3600),
+    attack: range(0, 3600),
+    recovery: range(0, 3600),
+  }),
   retreatGap: max(nonNegative, 20),
   retreatSeconds: max(positive, 5),
   vulnerableSeconds: max(positive, 10),
