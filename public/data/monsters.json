@@ -804,7 +804,8 @@
           "hitIntervalSeconds": 0.3,
           "reach": 1.3,
           "stepPerHit": 0.5,
-          "hint": "boss.sultan.hint.claw"
+          "hint": "boss.sultan.hint.claw",
+          "pose": { "lean": -0.45, "roll": 0.7, "crouch": 0, "shakeAmplitude": 0, "shakeHz": 0, "spin": 0, "flickerHz": 0, "gold": false }
         },
         {
           "id": "pounce",
@@ -820,7 +821,8 @@
           "aimLockSeconds": 0.3,
           "travelSeconds": 0.35,
           "reach": 0.9,
-          "hint": "boss.sultan.hint.pounce"
+          "hint": "boss.sultan.hint.pounce",
+          "pose": { "lean": 0.3, "roll": 0, "crouch": 0.3, "shakeAmplitude": 0.12, "shakeHz": 14, "spin": 0, "flickerHz": 0, "gold": true }
         },
         {
           "id": "dash_strike",
@@ -835,7 +837,8 @@
           "travelSeconds": 0.5,
           "length": 16,
           "width": 1.4,
-          "hint": "boss.sultan.hint.charge"
+          "hint": "boss.sultan.hint.charge",
+          "pose": { "lean": -0.6, "roll": 0, "crouch": 0.08, "shakeAmplitude": 0, "shakeHz": 0, "spin": 0, "flickerHz": 0, "gold": false }
         },
         {
           "id": "flurry",
@@ -853,7 +856,8 @@
           "hitIntervalSeconds": 0.22,
           "reach": 1.4,
           "stepPerHit": 0.4,
-          "hint": "boss.sultan.hint.flurry"
+          "hint": "boss.sultan.hint.flurry",
+          "pose": { "lean": 0.1, "roll": 0, "crouch": 0, "shakeAmplitude": 0, "shakeHz": 0, "spin": 12.566, "flickerHz": 10, "gold": false }
         }
       ],
       "drops": []

@@ -1412,3 +1412,4 @@ De ene texture die na een hele intro blijft staan (constant over rondes, dus gee
 - Stap S.10 Lock-on repareren (auto-run 2026-10-16): oorzaak was dat een bewaakte baas (`guarded`, Sultan bijna altijd) niet `hittable` is en lock-on op `hittable` filterde; nu filtert lock-on op `Enemy.lockable` (levend, niet veilig, niet static); tests in `LockOn.test.ts` en headless-run `scripts/lock-check.mjs`, debugregel `lock` toont hoek en aantal in beeld.
 - 2026-10-16: Stap S.11 (auto/souls): vijand-poisebalk, extra poise-schade van achteren, Sultan wankelt zichtbaar (poise 45).
 - 2026-10-16 Stap S.12: Sultan draait per fase met eigen snelheid uit data (stalk 720, telegraph 150, attack 60, recovery 90 °/s); je kunt hem omlopen en zijn rug raken.
+- 2026-10-16 Stap S.13: elke Sultan-aanval heeft in de aankondiging een eigen houding uit data (`attacks[].pose`, `BossPose.ts`); duur = `warningSeconds`, gelijk op 60/120 Hz en alle grafische standen.

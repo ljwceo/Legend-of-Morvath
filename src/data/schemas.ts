@@ -998,6 +998,30 @@ const onHitSchema = z.strictObject({
   leechFraction: optional(fraction),
 });
 
+/**
+ * A boss attack's body pose while it is announced (visual only, the Sultan placeholder has no
+ * skeleton). Everything is reached at the end of the announcement (`warningSeconds`) and
+ * shaped by `progress`; angles in radians, frequencies in Hz (cycles per announced second).
+ * It never changes timing, reach or hitboxes.
+ */
+const attackPoseSchema = z.strictObject({
+  /** Lean forward (+) or back (-) at the end. */
+  lean: range(-1.5, 1.5),
+  /** Roll sideways at the end: a raised paw. */
+  roll: range(-1.5, 1.5),
+  /** Squash down (0..0.6) at the end. */
+  crouch: range(0, 0.6),
+  /** Shaking: yaw wobble of `shakeAmplitude` rad at `shakeHz`, growing with progress. */
+  shakeAmplitude: range(0, 0.6),
+  shakeHz: range(0, 30),
+  /** Total turn about the up axis over the announcement (rad). */
+  spin: range(-12.6, 12.6),
+  /** Colour flicker (on/off) at `flickerHz`, 0 = none. */
+  flickerHz: range(0, 30),
+  /** Colour tint the pose uses instead of the usual orange glow. */
+  gold: z.boolean(),
+});
+
 const attackSchema = z.strictObject({
   id,
   name,
@@ -1039,6 +1063,8 @@ const attackSchema = z.strictObject({
   hitSeconds: optional(max(positive, 2)),
   /** Shown the first time this attack is wound up (a short tip, e.g. "Dash sideways!"). */
   hint: optional(textKey),
+  /** Boss only: the body pose while the attack is announced. */
+  pose: optional(attackPoseSchema),
 });
 
 /**

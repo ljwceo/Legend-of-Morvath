@@ -10,6 +10,7 @@ import {
 } from 'three';
 import { type Enemy, WOBBLE_SECONDS } from '../entities/Enemy';
 import { buildEnemyModel, type EnemyModel } from '../entities/EnemyFactory';
+import { bossPoseAt, newBossPose } from '../systems/BossPose';
 import { currentSpecial, windupSeconds } from '../systems/EnemyAI';
 
 const WHITE = new Color(0xffffff);
@@ -65,6 +66,9 @@ export class EnemyRenderer {
   private readonly scale = new Vector3(1, 1, 1);
   private readonly xAxis = new Vector3(1, 0, 0);
   private readonly yAxis = new Vector3(0, 1, 0);
+  private readonly zAxis = new Vector3(0, 0, 1);
+  private readonly roll = new Quaternion();
+  private readonly bossPose = newBossPose();
   private readonly color = new Color();
   private readonly heights = new Map<Enemy, number>();
 
@@ -138,6 +142,7 @@ export class EnemyRenderer {
     let warn = 0;
     let warnColor = WARN;
     let twist = 0;
+    let rollAngle = 0;
     if (!e.alive) {
       lean = blob ? 0 : -FALLEN_ANGLE;
       lift = blob ? 0 : -FALLEN_SINK;
@@ -149,7 +154,17 @@ export class EnemyRenderer {
       const progress = b.duration > 0 ? Math.min(1, b.elapsed / b.duration) : 1;
       if (b.phase === 'telegraph') {
         warn = (0.45 + 0.35 * Math.sin(time * (8 + progress * 18))) * (0.4 + 0.6 * progress);
-        if (pattern === 'pounce') {
+        const pose = b.attack?.pose;
+        if (pose) {
+          // Own pose per attack, from data; lasts exactly the announcement (sim time).
+          const p = bossPoseAt(pose, b.elapsed, b.duration, this.bossPose);
+          lean += p.lean;
+          rollAngle = p.roll;
+          squash = p.squash;
+          twist = p.twist;
+          if (pose.gold) warnColor = WARN_GOLD;
+          if (p.flicker > 0) warn = Math.max(warn, 0.9);
+        } else if (pattern === 'pounce') {
           // Crouching, eyes glowing gold.
           warnColor = WARN_GOLD;
           squash = 0.25 * progress;
@@ -219,6 +234,10 @@ export class EnemyRenderer {
     this.rotation.setFromAxisAngle(this.yAxis, e.drawHeading(alpha) + twist);
     this.tilt.setFromAxisAngle(this.xAxis, lean);
     this.rotation.multiply(this.tilt);
+    if (rollAngle !== 0) {
+      this.roll.setFromAxisAngle(this.zAxis, rollAngle);
+      this.rotation.multiply(this.roll);
+    }
     this.position.set(e.drawX(alpha), e.drawY(alpha) + lift * size, e.drawZ(alpha));
     const wide = 1 + squash * 0.5;
     this.scale.set(size * wide, size * (1 - squash), size * wide);
