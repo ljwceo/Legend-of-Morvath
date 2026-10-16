@@ -41,6 +41,23 @@ Na het spelen op de telefoon: de game speel je **alleen liggend**. Het beeld hou
 | 20 | Brother Ansel zegt nog dat hij je **bewusteloos langs de weg** vond (`quest.a_quiet_awakening.offer.1`, `quest.tales_by_the_fire.offer.1`), terwijl in de nieuwe intro de kat je eerst vindt in de badlands | Zo gelaten (2026-10-15): de reis van Morvath naar Greyhaven is een sprong naar zwart. Anders is het alleen tekst in `en.json` en `nl.json` |
 | 21 | Is het kasteel van de intro **The Black Citadel**? | De intro noemt het kasteel niet bij naam; een naam is één tekstregel |
 
+### Besluiten Fase S – Souls-like gevecht (Bo/Lucas, 2026-10-16)
+
+Stap S.0: de acht vragen uit `PLAN.md` → Fase S zijn beantwoord.
+
+| Nr | Besluit |
+|---|---|
+| S-1 | Uitdagend maar eerlijk: één moeilijkheid, duidelijke aankondiging per aanval, geen difficulty-instelling |
+| S-2 | Eén knop: de dash wordt de rol met onkwetsbare frames; in lock-on rol je in de stickrichting |
+| S-3 | Blokkeren en parry: **ja, nu meebouwen** (stap S.7) |
+| S-4 | Doodgaan: gold verliezen en terughalen bij je lijk (nieuwe stap S.4b); opnieuw dood voor je het ophaalt = weg |
+| S-5 | **Pc en console (controller). De iPhone en de telefoon vallen af.** De game blijft voorlopig een browsergame; een echte console-release is nog niet besloten |
+| S-6 | Magie staat centraal en een goede mage is lastiger te beheersen dan brute force (omgekeerd aan Elden Ring); de zwaardvechter is de toegankelijke keuze |
+| S-7 | Raids: de eigen client beslist over zijn eigen rol, de host controleert ruim |
+| S-8 | Springen blijft, geen dash of rol in de lucht |
+
+Gevolgen: harde eis 1 in `CLAUDE.md` noemt de iPhone niet meer; in Fase S vervallen de iPhone-delen van S.1 en S.9 en de touch-rolknop in S.4. De bestaande touch-code en de stappen buiten Fase S die de iPhone of touch noemen (o.a. 6.5 en de Notities in `PLAN.md`) zijn nog niet herzien. Het spelconcept in Google Docs is nog niet bijgewerkt.
+
 ---
 
 ## Fase 3 opgesplitst (2026-10-12) – fase 3.6 t/m 3.10

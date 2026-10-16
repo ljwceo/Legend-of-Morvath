@@ -268,16 +268,16 @@ _Chat 5 (A.5a–c) heeft geen Blender nodig en mag vóór of tegelijk met A.2–
 
 Doel: het gevecht souls-like maken (stamina, rol met onkwetsbare frames, aankondiging en raakvensters per aanval, poise) binnen de bestaande 3D-opzet, zonder enginewissel. Alle stappen van deze fase gaan via branch `auto/souls` en worden pas na akkoord van Bo/Lucas in `main` gezet. Concept: Claude Doc "Concept: Fase S – Souls-like gevecht".
 
-**Uitgangspunten (voorstel; gelden tot Bo/Lucas in S.0 anders besluiten)**
+**Besluiten (S.0, Bo/Lucas, 2026-10-16)**
 
-| Nr | Vraag | Uitgangspunt |
+| Nr | Vraag | Besluit |
 | --- | --- | --- |
 | S-1 | Hoe zwaar? | Uitdagend maar eerlijk: één moeilijkheid, duidelijke aankondiging per aanval, geen difficulty-instelling |
 | S-2 | Rol en dash | Eén knop: de dash wordt de rol (met onkwetsbare frames); in lock-on rol je in de stickrichting |
-| S-3 | Blokkeren en parry | Nog niet; later als pad-perk voor de zwaardvechter |
-| S-4 | Doodgaan | Zoals nu (−10% gold, checkpoint), geen verloren zielen |
-| S-5 | iPhone | Volwaardig, dezelfde timing als pc, grote rol-knop, gamepad via Bluetooth |
-| S-6 | Mage | Mana blijft; casten kost tijd waarin je kwetsbaar bent, je kunt eruit rollen. Aanvulling van Bo/Lucas (2026-10-16): de mage is de hoofdrol met veel spells, enchants en boosts en blijft veelzijdig; de zwaardvechter is voor wie geen poespas wil en is bewust wat makkelijker (de zin in het doc is afgebroken na "makkelijker dan") |
+| S-3 | Blokkeren en parry | **Ja, nu meebouwen** (stap S.7); timingvenster en staminakosten uit data |
+| S-4 | Doodgaan | **Gold verliezen en terughalen bij je lijk** (nieuwe stap S.4b). Sterf je opnieuw voordat je het hebt opgehaald, dan is het weg. Geen verloren zielen |
+| S-5 | Platform | **Pc en console (controller). De iPhone en de telefoon vallen af:** geen touch-besturing meer bouwen en niet meer meten op een iPhone. De bestaande touch-code blijft staan tot Bo/Lucas besluiten hem te verwijderen |
+| S-6 | Mage | Mana blijft; casten kost tijd waarin je kwetsbaar bent, je kunt eruit rollen. **Magie staat centraal en een goede mage is lastiger te beheersen dan brute force** (omgekeerd aan Elden Ring, waar mages als de makkelijke weg gelden): hogere vaardigheidsdrempel, veelzijdig (spells, enchants, boosts) en sterker voor wie het onder de knie heeft. De zwaardvechter is de toegankelijke keuze |
 | S-7 | Raids | De eigen client beslist over zijn eigen rol, de host controleert ruim |
 | S-8 | Springen | Blijft, geen dash of rol in de lucht; sluit aan op A.5a |
 
@@ -288,21 +288,24 @@ Doel: het gevecht souls-like maken (stamina, rol met onkwetsbare frames, aankond
 - Data buiten de code: alle tijden, kosten en vensters in `public/data/`, alle teksten in `en.json` en `nl.json`, met `{keyDodge}`-achtige tokens voor toetsen.
 - Geen allocaties in de gameloop en alle nieuwe effecten uit een pool.
 - Eén stap per sessie en klein bouwen: niet vooruit werken; Bo en Lucas testen na elke stap.
+- Pc en controller: in Fase S geen touch-besturing en geen iPhone-eisen (besluit S-5). Andere stappen die de iPhone of touch noemen, moeten nog herzien worden.
 
 **Stappen**
 
-- [ ] **S.0 Besluiten (Bo/Lucas)** — vragen S-1 t/m S-8 beantwoorden en vastleggen in `docs/PROGRESS.md` → Besluiten, in `CLAUDE.md` sectie 1 en in het spelconcept. _Klaar als:_ alle acht vragen een antwoord hebben en sectie 1 souls-like noemt.
-- [ ] **S.1 Meten vóór bouwen (Bo/Lucas)** — stap 3.10.2 uitvoeren en uitbreiden met de iPhone (Safari) op Low, Mid en High. _Klaar als:_ de fps per stand, ook op de iPhone, in `docs/PROGRESS.md` staan.
+- [x] **S.0 Besluiten (Bo/Lucas)** — vragen S-1 t/m S-8 beantwoorden en vastleggen in `docs/PROGRESS.md` → Besluiten, in `CLAUDE.md` sectie 1 en in het spelconcept. _Klaar als:_ alle acht vragen een antwoord hebben en sectie 1 souls-like noemt.
+  - _2026-10-16: alle acht beantwoord (zie tabel hierboven en `docs/PROGRESS.md` → Besluiten Fase S). S-3 = **ja**, dus S.7 mag gebouwd worden. `CLAUDE.md` is bijgewerkt. Het spelconcept in Google Docs is nog niet bijgewerkt; dat doen Bo/Lucas zelf._
+- [ ] **S.1 Meten vóór bouwen (Bo/Lucas)** — stap 3.10.2 uitvoeren op de pc (Low, Mid en High). _Klaar als:_ de fps per stand op de pc in `docs/PROGRESS.md` staan.
 - [x] **S.2 Gamepad** — `Input` krijgt de Gamepad API als bron, standaardbindingen in `controls.json`, bindbaar in Settings → Besturing. _Klaar als:_ lopen, camera, lock-on, slaan en dash met een controller werken in Chrome en Safari en de mapping getest is.
   - _Auto-run 2026-10-16: goedgekeurd (vierde poging). Nog door Bo/Lucas te testen met een echte controller in Chrome en Safari; op de iPhone werkt de Gamepad API waarschijnlijk alleen via HTTPS (GitHub Pages), niet via `npm run dev` op het LAN. Start = pauze (niet bindbaar); menu's kiezen met controller komt later. Bekend klein punt: bij twee controllers kan de allereerste druk op de tweede verloren gaan._
 - [ ] **S.3 Stamina-regels** — de energiebalk blijft; erbij komen: regen pas na een pauze (`energyDelaySeconds` bestaat al), uitgeput zijn bij 0 en kosten per actie uit `player.json`. _Klaar als:_ elke actie kost wat de data zegt en 60 en 120 Hz exact dezelfde uitkomst geven (test).
-- [ ] **S.4 Rol met onkwetsbare frames** — de dash krijgt `iFrames` (start en einde), `recoverySeconds` en afstand in `player.json`; de schadecheck slaat je over tijdens de onkwetsbare frames; richting volgt de lock-on; touch krijgt een eigen rol-knop. _Klaar als:_ een aanval die binnen het venster raakt mist, erbuiten wel raakt, en dat op 60 en 120 Hz gelijk is (test).
+- [ ] **S.4 Rol met onkwetsbare frames** — de dash krijgt `iFrames` (start en einde), `recoverySeconds` en afstand in `player.json`; de schadecheck slaat je over tijdens de onkwetsbare frames; richting volgt de lock-on. _Klaar als:_ een aanval die binnen het venster raakt mist, erbuiten wel raakt, en dat op 60 en 120 Hz gelijk is (test).
+- [ ] **S.4b Gold terughalen bij je lijk** — bij doodgaan verlies je gold (percentage in `player.json`, startwaarde de huidige 10%) en blijft het liggen op de plek waar je viel, als herkenbare markering in toon-stijl. Loop je erheen en pak je het op, dan krijg je het terug; ga je eerst opnieuw dood, dan is het oude gold weg en komt er een nieuwe markering. Opslaan en laden bewaren de markering (save-versie ophogen met migratie), teksten in `en.json` en `nl.json`. _Klaar als:_ doodgaan zet de markering, ophalen geeft het gold terug, een tweede dood vervangt de markering, en save en laden behouden hem (tests).
 - [ ] **S.5a Aanvalsfases van vijanden** — elke vijandaanval in data in fases: aankondiging, raakvenster, herstel (`monsters.json`, `EnemyAI.ts`). _Klaar als:_ Green Slime en Goblin hun aanvallen uit data halen en een test bewijst dat schade alleen in het raakvenster valt.
 - [ ] **S.5b Aankondiging zichtbaar** — per aanval een duidelijke visuele cue in toon-stijl, de aankondigingstijd uit data. _Klaar als:_ elke aanval van tevoren te zien is en de cue op Low, Mid en High even lang duurt.
 - [ ] **S.6 Stagger en poise** — een poise-balk voor vijanden en speler; een zware slag of kritieke treffer breekt poise; het gewicht van je uitrusting (draaglast) bepaalt hoe stabiel je staat. _Klaar als:_ een vijand wankelt als zijn poise breekt en zwaardere uitrusting jou stabieler maakt (test).
-- [ ] **S.7 Blokkeren of parry (alleen als S-3 ja is)** — timingvenster uit data, kost stamina. _Klaar als:_ een goed getimede parry de aanval afvangt en het venster op 60 en 120 Hz gelijk is (test).
+- [ ] **S.7 Blokkeren en parry (S-3 = ja)** — timingvenster uit data, kost stamina. _Klaar als:_ een goed getimede parry de aanval afvangt en het venster op 60 en 120 Hz gelijk is (test).
 - [ ] **S.8 Sultan opnieuw afstellen** — Sultan (Claw Combo, Pounce, Dash Strike, Flurry) herbouwen met de aanvalsfases uit S.5a; hij is de proefbaas. _Klaar als:_ Sultan alleen schade doet in zijn raakvensters en een nagebootste speler hem met rollen kan ontwijken (test).
-- [ ] **S.9 Spelen en meten (Bo/Lucas)** — Sultan en een goblinkamp spelen op pc, met controller en op de iPhone; "Meet 20 s" tijdens een gevecht op Low en High. _Klaar als:_ Bo en Lucas zeggen of het souls-like genoeg voelt en de fps in `docs/PROGRESS.md` staat.
+- [ ] **S.9 Spelen en meten (Bo/Lucas)** — Sultan en een goblinkamp spelen op pc, met toetsenbord en met controller; "Meet 20 s" tijdens een gevecht op Low en High. _Klaar als:_ Bo en Lucas zeggen of het souls-like genoeg voelt en de fps in `docs/PROGRESS.md` staat.
 
 ---
 
