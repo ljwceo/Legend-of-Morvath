@@ -59,6 +59,19 @@
       "land": 0.45
     },
     "fallAfterSeconds": 0.15,
-    "landFromSeconds": 0.3
+    "landFromSeconds": 0.3,
+    "upperBody": {
+      "rootBone": "Spine",
+      "roles": ["slash1", "slash2", "slash3", "castGather", "castRelease", "hit"]
+    },
+    "lean": {
+      "bone": "Spine",
+      "sidewaysDegPerMps2": 0.5,
+      "forwardDegPerMps2": 0.15,
+      "maxSidewaysDeg": 6,
+      "maxForwardDeg": 2,
+      "maxBackDeg": 4,
+      "smoothingSeconds": 0.15
+    }
   }
 }

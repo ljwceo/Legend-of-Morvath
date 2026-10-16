@@ -51,9 +51,18 @@ export class Player {
 
   /** How far the last step moved along the ground (m); times SIM_HZ it is the speed. */
   stepDistance(): number {
-    const dx = this.state.x - this.prevX;
-    const dz = this.state.z - this.prevZ;
+    const dx = this.stepDeltaX();
+    const dz = this.stepDeltaZ();
     return Math.sqrt(dx * dx + dz * dz);
+  }
+
+  /** How far the last step moved along x and z (m); times SIM_HZ it is the velocity. */
+  stepDeltaX(): number {
+    return this.state.x - this.prevX;
+  }
+
+  stepDeltaZ(): number {
+    return this.state.z - this.prevZ;
   }
 
   interpolatedX(alpha: number): number {

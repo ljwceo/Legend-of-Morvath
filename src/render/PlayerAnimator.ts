@@ -1,10 +1,14 @@
 import {
   type AnimationAction,
-  type AnimationClip,
+  AnimationClip,
   AnimationMixer,
+  type KeyframeTrack,
   LoopOnce,
   LoopRepeat,
   type Object3D,
+  PropertyBinding,
+  Quaternion,
+  Vector3,
 } from 'three';
 import { PLAYER_CLIP_ROLES } from '../data/schemas';
 import type { PlayerAnimationsDef, PlayerClipRole } from '../data/types';
@@ -29,7 +33,7 @@ export type PlayerAnimState =
   | 'death'
   | 'interact';
 
-type Gait = 'idle' | 'walk' | 'run' | 'sprint';
+export type Gait = 'idle' | 'walk' | 'run' | 'sprint';
 
 /**
  * What the animator reads from the simulation for one rendered frame. Times and progress are
@@ -38,11 +42,11 @@ type Gait = 'idle' | 'walk' | 'run' | 'sprint';
 export interface PlayerAnimInput {
   /** Seconds since the player was knocked out (0 at the blow), or -1 when alive. */
   deathSeconds: number;
-  /** 0–1 along the dash, or -1. */
+  /** 0â€“1 along the dash, or -1. */
   dashProgress: number;
-  /** 0–1 along getting up after a heavy-load dash, or -1. */
+  /** 0â€“1 along getting up after a heavy-load dash, or -1. */
   recoverProgress: number;
-  /** 0–1 along the heavy hit's wind-up, or -1. */
+  /** 0â€“1 along the heavy hit's wind-up, or -1. */
   windupProgress: number;
   /** Seconds since the last hit landed, and how long that swing lasts in the simulation. */
   sinceSwing: number;
@@ -106,7 +110,7 @@ function sinceAt(lag: number, seconds: number): number {
   return Math.max(0, seconds - lag);
 }
 
-/** 0–1 along something that has `left` of `total` seconds to go, `lag` seconds ago; or -1. */
+/** 0â€“1 along something that has `left` of `total` seconds to go, `lag` seconds ago; or -1. */
 function progressAt(left: number, total: number, lag: number): number {
   if (left <= 0) return -1;
   if (total <= 0) return 1;
@@ -115,7 +119,7 @@ function progressAt(left: number, total: number, lag: number): number {
 
 /**
  * Fills `out` from the simulation for a frame drawn `lag` seconds before its latest step (the
- * renderer interpolates between the last two steps: lag = (1 - alpha) × step). Pure.
+ * renderer interpolates between the last two steps: lag = (1 - alpha) Ã— step). Pure.
  */
 export function fillPlayerAnimInput(
   out: PlayerAnimInput,
@@ -207,6 +211,42 @@ const SLASHES = ['slash1', 'slash2', 'slash3'] as const;
 /** Which slash a fast hit draws: Slash_1, 2, 3, then Slash_1 again. */
 export function slashRole(landedCombo: number): 'slash1' | 'slash2' | 'slash3' {
   return SLASHES[(Math.max(1, landedCombo) - 1) % SLASHES.length] as (typeof SLASHES)[number];
+}
+
+/** The clip each layer plays: the legs (with the hips), and the upper body. */
+export interface PlayerAnimLayers {
+  lower: PlayerClipRole;
+  upper: PlayerClipRole;
+}
+
+export function createPlayerAnimLayers(): PlayerAnimLayers {
+  return { lower: 'idle', upper: 'idle' };
+}
+
+/**
+ * Which clip the legs and the upper body play (step A.3d). Standing still, the state's clip
+ * moves the whole body. Walking or running (`gait`), a clip of `upperBody.roles` (a swing, a
+ * cast, a flinch) goes on the upper body only and the legs keep walking, so the feet do not
+ * slide. Fills and returns `out`. Pure.
+ */
+export function chooseLayers(
+  state: PlayerAnimState,
+  gait: Gait,
+  i: PlayerAnimInput,
+  a: PlayerAnimationsDef,
+  out: PlayerAnimLayers,
+): PlayerAnimLayers {
+  const role = chooseRole(state, i);
+  out.lower = role;
+  out.upper = role;
+  const roles = a.upperBody.roles;
+  if (isGait(state)) {
+    // Hit while walking: the legs walk on and the upper body flinches.
+    if (state !== 'idle' && i.sinceHurt < a.hold.hit && roles.includes('hit')) out.upper = 'hit';
+    return out;
+  }
+  if (gait !== 'idle' && roles.includes(role)) out.lower = gait;
+  return out;
 }
 
 /** The clip (role) a state plays now. */
@@ -349,106 +389,108 @@ const LOOPING: ReadonlySet<PlayerClipRole> = new Set([
 /** Faster than this (m/s) is a teleport or a respawn, not walking. */
 const JUMP_SPEED = 25;
 
+const DEG = Math.PI / 180;
+
 /**
- * Plays the player's clips (player.glb) from the simulation. Drawing only: it reads the
- * state each frame, picks a state and a clip (`choosePlayerState`, `chooseRole`), and either
- * puts the clip at the time the simulation says (`clipTime`) or lets it play (the loops, at
- * `gaitTimeScale`). Clips crossfade by their own weights, so a clip that is still fading out
- * keeps its place when it comes back. No allocations per frame.
+ * Splits a clip in two: the tracks of the bones in `upper` (the upper body), and the rest (the
+ * legs and the hips). Both parts keep the clip's length, so they can play in step.
  */
-export class PlayerAnimator {
-  state: PlayerAnimState = 'idle';
+export function splitClip(
+  clip: AnimationClip,
+  upper: ReadonlySet<string>,
+): [AnimationClip, AnimationClip] {
+  const legs: KeyframeTrack[] = [];
+  const top: KeyframeTrack[] = [];
+  for (const track of clip.tracks) {
+    const node = PropertyBinding.parseTrackName(track.name).nodeName;
+    (upper.has(node) ? top : legs).push(track);
+  }
+  return [
+    new AnimationClip(clip.name, clip.duration, legs),
+    new AnimationClip(`${clip.name}@upper`, clip.duration, top),
+  ];
+}
+
+/** The names of the node `name` in `root` and of everything under it (none when it is missing). */
+export function namesUnder(root: Object3D, name: string): Set<string> {
+  const out = new Set<string>();
+  root.getObjectByName(name)?.traverse((node) => out.add(node.name));
+  return out;
+}
+
+export type PlayerLeanDef = PlayerAnimationsDef['lean'];
+
+/** A lean (radians): towards the model's +x (sideways) and its +z (forward, negative = back). */
+export interface PlayerLean {
+  x: number;
+  z: number;
+}
+
+function clamp(value: number, low: number, high: number): number {
+  return Math.min(high, Math.max(low, value));
+}
+
+/**
+ * How far the upper body leans for an acceleration (ax, az) along the ground (m/s², world) and
+ * the model's heading. It leans where the body speeds up: into a turn, back when braking,
+ * a little forward when setting off. Fills and returns `out`. Pure.
+ */
+export function leanTarget(
+  ax: number,
+  az: number,
+  heading: number,
+  l: PlayerLeanDef,
+  out: PlayerLean,
+): PlayerLean {
+  const cos = Math.cos(heading);
+  const sin = Math.sin(heading);
+  // The model looks along +z at heading 0; turned by `heading` around y.
+  const side = ax * cos - az * sin;
+  const forward = ax * sin + az * cos;
+  out.x = clamp(side * l.sidewaysDegPerMps2, -l.maxSidewaysDeg, l.maxSidewaysDeg) * DEG;
+  out.z = clamp(forward * l.forwardDegPerMps2, -l.maxBackDeg, l.maxForwardDeg) * DEG;
+  return out;
+}
+
+/** One layer of clips: an action per role, crossfading by their own weights. */
+class ClipLayer {
   role: PlayerClipRole = 'idle';
-  private readonly mixer: AnimationMixer;
-  private readonly actions: AnimationAction[] = [];
-  private readonly byRole = new Map<PlayerClipRole, AnimationAction>();
+  readonly actions: AnimationAction[] = [];
+  readonly byRole = new Map<PlayerClipRole, AnimationAction>();
   private fade = 0;
-  private speed = 0;
 
-  constructor(
-    private readonly root: Object3D,
-    clips: ReadonlyMap<PlayerClipRole, AnimationClip>,
-    private readonly def: PlayerAnimationsDef,
-  ) {
-    this.mixer = new AnimationMixer(root);
-    for (const role of PLAYER_CLIP_ROLES) {
-      const clip = clips.get(role);
-      if (!clip) continue;
-      const action = this.mixer.clipAction(clip);
-      if (LOOPING.has(role)) action.setLoop(LoopRepeat, Infinity);
-      else {
-        action.setLoop(LoopOnce, 1);
-        action.clampWhenFinished = true;
-      }
-      action.setEffectiveWeight(0);
-      action.play();
-      this.byRole.set(role, action);
-      this.actions.push(action);
-    }
-    const idle = this.byRole.get('idle');
-    idle?.setEffectiveWeight(1);
-  }
-
-  /** The clip name playing now (debug). */
-  get clipName(): string {
-    return this.byRole.get(this.role)?.getClip().name ?? '-';
-  }
-
-  /** Back to standing, no fading (spawn, teleport, respawn). */
-  reset(): void {
-    this.speed = 0;
-    this.state = 'idle';
-    this.role = 'idle';
-    for (const action of this.actions) action.setEffectiveWeight(0);
-    const idle = this.byRole.get('idle');
-    if (idle) {
-      idle.reset();
-      idle.setEffectiveWeight(1);
-    }
+  add(role: PlayerClipRole, action: AnimationAction): void {
+    this.byRole.set(role, action);
+    this.actions.push(action);
   }
 
   /**
-   * One rendered frame. `measuredSpeed` is the ground speed of the last simulation step (m/s);
-   * `seconds` moves the animation on (0 = frozen, e.g. paused). `input.speed` is ignored and
-   * replaced by the smoothed speed.
+   * The action of `role`, fading in from now on when it is new. A clip that has faded out
+   * completely starts over, unless its copy in the other layer still shows: then it goes on
+   * from there (stopping while you cast, the legs pick up the cast where the arms are).
    */
-  update(input: PlayerAnimInput, measuredSpeed: number, seconds: number): void {
-    const def = this.def;
-    if (seconds > 0) {
-      const measured = measuredSpeed > JUMP_SPEED ? 0 : measuredSpeed;
-      const smoothing = def.gait.smoothingSeconds;
-      const k = smoothing > 0 ? 1 - Math.exp(-seconds / smoothing) : 1;
-      this.speed += (measured - this.speed) * k;
-    }
-    input.speed = this.speed;
-    this.state = choosePlayerState(this.state, input, def);
-    let role = chooseRole(this.state, input);
-    if (!this.byRole.has(role)) role = 'idle';
+  target(
+    role: PlayerClipRole,
+    other: ClipLayer,
+    def: PlayerAnimationsDef,
+  ): AnimationAction | undefined {
     const action = this.byRole.get(role);
-    if (!action) return;
-    if (role !== this.role) {
-      // A clip that has faded out completely starts over; one still fading out goes on.
-      if (action.getEffectiveWeight() <= 0) action.reset();
-      this.fade = fadeInto(role, def);
-      this.role = role;
+    if (!action || role === this.role) return action;
+    if (action.getEffectiveWeight() <= 0) {
+      action.reset();
+      const twin = other.byRole.get(role);
+      if (twin && twin.getEffectiveWeight() > 0) action.time = twin.time;
     }
-    const time = clipTime(role, input, def, action.getClip().duration);
-    if (time >= 0) {
-      action.paused = false;
-      action.timeScale = 0;
-      action.time = time;
-    } else {
-      action.timeScale = gaitTimeScale(role, this.speed, def);
-    }
-    this.blend(action, seconds);
-    this.mixer.update(seconds);
+    this.fade = fadeInto(role, def);
+    this.role = role;
+    return action;
   }
 
   /**
    * Moves the weight of `target` up over the fade; the others share what is left in their own
    * proportion, so the weights always add up to 1 (less would blend in the bind pose).
    */
-  private blend(target: AnimationAction, seconds: number): void {
+  blend(target: AnimationAction, seconds: number): void {
     const step = this.fade > 0 ? seconds / this.fade : 1;
     let others = 0;
     for (const action of this.actions) {
@@ -466,6 +508,263 @@ export class PlayerAnimator {
       const w = action.getEffectiveWeight() * scale;
       action.setEffectiveWeight(w < 1e-3 ? 0 : w);
     }
+  }
+
+  /** Only `role` shows, at full weight, from its start. */
+  snap(role: PlayerClipRole): void {
+    for (const action of this.actions) action.setEffectiveWeight(0);
+    const action = this.byRole.get(role);
+    action?.reset();
+    action?.setEffectiveWeight(1);
+    this.role = role;
+    this.fade = 0;
+  }
+}
+
+/**
+ * Plays the player's clips (player.glb) from the simulation. Drawing only: it reads the
+ * state each frame, picks a state and the clips (`choosePlayerState`, `chooseLayers`), and
+ * either puts a clip at the time the simulation says (`clipTime`) or lets it play (the loops,
+ * at `gaitTimeScale`). Every clip is split in two layers that share one mixer: the legs with
+ * the hips, and the upper body (`upperBody.rootBone` and up). Each layer crossfades on its own
+ * and its weights add up to 1, so every bone gets exactly one full pose. Standing still both
+ * play the same clip in step; walking, a swing or a cast plays on the upper body only. After
+ * the clips the upper body leans with the acceleration (`leanTarget`). No allocations per
+ * frame.
+ */
+export class PlayerAnimator {
+  state: PlayerAnimState = 'idle';
+  private readonly mixer: AnimationMixer;
+  private readonly lower = new ClipLayer();
+  private readonly upper = new ClipLayer();
+  private readonly layers = createPlayerAnimLayers();
+  private gait: Gait = 'idle';
+  private speed = 0;
+  /** Smoothed velocity along the ground (m/s) and the acceleration that follows from it. */
+  private vx = 0;
+  private vz = 0;
+  private ax = 0;
+  private az = 0;
+  private readonly lean: PlayerLean = { x: 0, z: 0 };
+  private readonly leanGoal: PlayerLean = { x: 0, z: 0 };
+  private readonly leanBone: Object3D | null;
+  /** The lean bone's pose from the clips, and that pose with the lean on it (see `applyLean`). */
+  private readonly clipPose = new Quaternion();
+  private readonly leanedPose = new Quaternion();
+  private leanApplied = false;
+  private readonly leanAxis = new Vector3();
+  private readonly leanTurn = new Quaternion();
+  private readonly parentTurn = new Quaternion();
+  private readonly parentInverse = new Quaternion();
+  private previewRole: PlayerClipRole | null = null;
+  private previewTime = 0;
+
+  constructor(
+    private readonly root: Object3D,
+    clips: ReadonlyMap<PlayerClipRole, AnimationClip>,
+    private readonly def: PlayerAnimationsDef,
+  ) {
+    this.mixer = new AnimationMixer(root);
+    const upperBones = namesUnder(root, def.upperBody.rootBone);
+    const leanTrack = `${def.lean.bone}.quaternion`;
+    let leanAnimated = false;
+    for (const role of PLAYER_CLIP_ROLES) {
+      const clip = clips.get(role);
+      if (!clip) continue;
+      const [legs, top] = splitClip(clip, upperBones);
+      this.lower.add(role, this.action(legs, role));
+      this.upper.add(role, this.action(top, role));
+      leanAnimated ||= clip.tracks.some((track) => track.name === leanTrack);
+    }
+    // The lean goes on top of the clip's pose; a bone no clip moves would keep turning.
+    this.leanBone = leanAnimated ? (root.getObjectByName(def.lean.bone) ?? null) : null;
+  }
+
+  private action(clip: AnimationClip, role: PlayerClipRole): AnimationAction {
+    const action = this.mixer.clipAction(clip);
+    if (LOOPING.has(role)) action.setLoop(LoopRepeat, Infinity);
+    else {
+      action.setLoop(LoopOnce, 1);
+      action.clampWhenFinished = true;
+    }
+    action.setEffectiveWeight(role === 'idle' ? 1 : 0);
+    action.play();
+    return action;
+  }
+
+  /** The clip (role) of the legs, and of the whole body when nothing plays on top. */
+  get role(): PlayerClipRole {
+    return this.lower.role;
+  }
+
+  /** The clip (role) of the upper body. */
+  get upperRole(): PlayerClipRole {
+    return this.upper.role;
+  }
+
+  /** The clip name of the legs (debug). */
+  get clipName(): string {
+    return this.lower.byRole.get(this.lower.role)?.getClip().name ?? '-';
+  }
+
+  /** The roles that have a clip in the model (for the cheat menu). */
+  get roles(): PlayerClipRole[] {
+    return [...this.lower.byRole.keys()];
+  }
+
+  /** A clip the cheat menu (F6) plays on its own, over and over, or null: the simulation. */
+  get preview(): PlayerClipRole | null {
+    return this.previewRole;
+  }
+
+  set preview(role: PlayerClipRole | null) {
+    this.previewRole = role;
+    this.previewTime = 0;
+    if (role) {
+      this.lower.snap(role);
+      this.upper.snap(role);
+    }
+  }
+
+  /** The state and the clips, for the debug overlay (F3). */
+  debugLine(): string {
+    const clips = this.def.clips;
+    const top = this.upper.role === this.lower.role ? '' : ` + ${clips[this.upper.role]} (upper)`;
+    const lean = `lean ${(this.lean.x / DEG).toFixed(1)}° side ${(this.lean.z / DEG).toFixed(1)}° fwd`;
+    const mode = this.previewRole ? ' · F6 preview' : '';
+    return `${this.state} · ${clips[this.lower.role]}${top} · ${lean}${mode}`;
+  }
+
+  /** Back to standing, no fading (spawn, teleport, respawn). */
+  reset(): void {
+    this.speed = 0;
+    this.vx = this.vz = this.ax = this.az = 0;
+    this.lean.x = this.lean.z = 0;
+    this.state = 'idle';
+    this.gait = 'idle';
+    this.lower.snap('idle');
+    this.upper.snap('idle');
+  }
+
+  /**
+   * One rendered frame. `velocityX/Z` is the ground velocity of the last simulation step (m/s),
+   * `heading` the model's drawn heading; `seconds` moves the animation on (0 = frozen, e.g.
+   * paused). `input.speed` is ignored and replaced by the smoothed speed.
+   */
+  update(
+    input: PlayerAnimInput,
+    velocityX: number,
+    velocityZ: number,
+    heading: number,
+    seconds: number,
+  ): void {
+    const def = this.def;
+    if (seconds > 0) this.measure(velocityX, velocityZ, seconds);
+    input.speed = this.speed;
+    this.state = choosePlayerState(this.state, input, def);
+    this.gait = chooseGait(this.gait, this.speed, input.sprinting, def);
+    const layers = this.layers;
+    const preview = this.previewRole;
+    if (preview) {
+      this.previewTime += seconds;
+      layers.lower = preview;
+      layers.upper = preview;
+    } else {
+      chooseLayers(this.state, this.gait, input, def, layers);
+    }
+    if (!this.lower.byRole.has(layers.lower)) layers.lower = 'idle';
+    if (!this.upper.byRole.has(layers.upper)) layers.upper = layers.lower;
+    const legs = this.lower.target(layers.lower, this.upper, def);
+    const top = this.upper.target(layers.upper, this.lower, def);
+    if (!legs || !top) return;
+    this.drive(legs, layers.lower, input);
+    // The upper copy of the legs' clip runs in step with it: it shows when nothing plays on
+    // top, and it is ready to fade back in when a swing on top ends.
+    const twin = this.upper.byRole.get(layers.lower);
+    if (twin) {
+      twin.paused = legs.paused;
+      twin.timeScale = legs.timeScale;
+      twin.time = legs.time;
+    }
+    if (top !== twin) this.drive(top, layers.upper, input);
+    this.lower.blend(legs, seconds);
+    this.upper.blend(top, seconds);
+    this.mixer.update(seconds);
+    this.applyLean(heading, seconds);
+  }
+
+  /** Smooths the speed and the velocity; the acceleration is how far the velocity lags. */
+  private measure(velocityX: number, velocityZ: number, seconds: number): void {
+    const smoothing = this.def.gait.smoothingSeconds;
+    const k = smoothing > 0 ? 1 - Math.exp(-seconds / smoothing) : 1;
+    const measured = Math.sqrt(velocityX * velocityX + velocityZ * velocityZ);
+    if (measured > JUMP_SPEED) {
+      // A teleport: no walking and no lean from it.
+      this.speed -= this.speed * k;
+      this.ax = this.az = 0;
+      return;
+    }
+    this.speed += (measured - this.speed) * k;
+    // An exponential follower lags a steady acceleration a by a × smoothing.
+    this.ax = smoothing > 0 ? (velocityX - this.vx) / smoothing : 0;
+    this.az = smoothing > 0 ? (velocityZ - this.vz) / smoothing : 0;
+    this.vx += (velocityX - this.vx) * k;
+    this.vz += (velocityZ - this.vz) * k;
+  }
+
+  /** Puts a clip at the time the simulation says, or lets a loop play at walking pace. */
+  private drive(action: AnimationAction, role: PlayerClipRole, input: PlayerAnimInput): void {
+    const duration = action.getClip().duration;
+    const time =
+      this.previewRole && duration > 0
+        ? this.previewTime % duration
+        : clipTime(role, input, this.def, duration);
+    if (time >= 0) {
+      action.paused = false;
+      action.timeScale = 0;
+      action.time = time;
+    } else {
+      action.timeScale = gaitTimeScale(role, this.speed, this.def);
+    }
+  }
+
+  /**
+   * Tilts the lean bone over the clip's pose, in the model's own frame (y up, looking along
+   * +z): only while standing, walking or running (a dash or a fall has its own pose).
+   */
+  private applyLean(heading: number, seconds: number): void {
+    const bone = this.leanBone;
+    if (!bone) return;
+    // The mixer writes a bone only when its clips changed it (not at all while paused): then
+    // the last frame's lean is still on it, and it comes off before this frame's goes on.
+    if (this.leanApplied && bone.quaternion.equals(this.leanedPose)) {
+      bone.quaternion.copy(this.clipPose);
+    }
+    this.clipPose.copy(bone.quaternion);
+    this.leanApplied = false;
+    const l = this.def.lean;
+    const goal = this.leanGoal;
+    if (!this.previewRole && isGait(this.state)) leanTarget(this.ax, this.az, heading, l, goal);
+    else goal.x = goal.z = 0;
+    const lean = this.lean;
+    if (seconds > 0) {
+      const k = l.smoothingSeconds > 0 ? 1 - Math.exp(-seconds / l.smoothingSeconds) : 1;
+      lean.x += (goal.x - lean.x) * k;
+      lean.z += (goal.z - lean.z) * k;
+    }
+    const angle = Math.sqrt(lean.x * lean.x + lean.z * lean.z);
+    if (angle < 1e-5) return;
+    // Turning about (z, 0, -x) tips y towards (x, 0, z).
+    this.leanTurn.setFromAxisAngle(this.leanAxis.set(lean.z / angle, 0, -lean.x / angle), angle);
+    // The bone's own frame: local' = P⁻¹ · lean · P · local, P = its parents' turn in the model.
+    const p = this.parentTurn.identity();
+    for (let node = bone.parent; node && node !== this.root; node = node.parent) {
+      p.premultiply(node.quaternion);
+    }
+    this.leanTurn.premultiply(this.parentInverse.copy(p).invert()).multiply(p);
+    bone.quaternion.premultiply(this.leanTurn);
+    this.leanedPose.copy(bone.quaternion);
+    this.leanApplied = true;
   }
 
   dispose(): void {
