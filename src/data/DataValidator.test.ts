@@ -131,6 +131,31 @@ describe('validateGameData catches broken data', () => {
     );
   });
 
+  it('reports a cape chain without numbers, a bone in two chains and a spring too stiff for its step', () => {
+    const raw = freshData();
+    const cape = raw.animations.player.cape;
+    cape.chains[0].push('Cape_L4');
+    cape.chains[1][0] = cape.chains[2][0];
+    cape.substepHz = 30;
+    cape.places[1].stiffness = 3000;
+    let found = messages(raw);
+    expect(found).toContainEqual(
+      'animations.json → player.cape.chains[0]: has 4 bones but places has 3',
+    );
+    expect(found).toContainEqual(
+      'animations.json → player.cape.chains[2]: "Cape_R1" is used twice',
+    );
+    expect(
+      found.some((m) => m.startsWith('animations.json → player.cape.places[1].stiffness')),
+    ).toBe(true);
+    // And the shape of the numbers is checked by the schema (strict: a misspelled field fails).
+    const typo = freshData();
+    delete typo.animations.player.cape.places[0].gravity;
+    typo.animations.player.cape.places[0].gravty = 9.81;
+    found = messages(typo);
+    expect(found.some((m) => m.startsWith('animations.json → player.cape.places[0]'))).toBe(true);
+  });
+
   it('reports animated NPC models whose speeds do not fit together', () => {
     const raw = freshData();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
