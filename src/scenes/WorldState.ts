@@ -3,6 +3,8 @@ import {
   type Camera,
   CircleGeometry,
   Color,
+  ConeGeometry,
+  CylinderGeometry,
   Vector3,
   DirectionalLight,
   Fog,
@@ -137,6 +139,7 @@ import {
 } from '../systems/StatusEffects';
 import { WaveFight, type WaveResetReason } from '../systems/WaveFight';
 import { addXp, deathGoldLoss, xpFraction, xpToNext } from '../systems/Progression';
+import { canPickUpMarker, markerAfterDeath } from '../systems/GoldMarker';
 import type { EnemyTarget } from '../systems/EnemyAI';
 import { keepInArena } from '../systems/BossAI';
 import { BossEncounter, type KillingBlow } from './BossEncounter';
@@ -437,6 +440,8 @@ export class WorldState implements GameState, InstanceHost {
   private deathTimer = NOT_DYING;
   /** Gold lost by this death (taken from the save at once, shown when you wake up). */
   private deathGoldLost = 0;
+  /** The glowing heap that marks the gold you left where you fell (one mesh, reused). */
+  private goldMarkerMesh: Group | null = null;
   /** Where you wake up after dying. */
   private readonly respawn = { x: 0, z: 0 };
   private deathTitle = '';
@@ -903,6 +908,7 @@ export class WorldState implements GameState, InstanceHost {
     this.lookHint = null;
     this.hud?.dispose();
     this.hud = null;
+    this.goldMarkerMesh = null;
     this.dialog?.dispose();
     this.dialog = null;
     this.damageNumbers?.dispose();
@@ -1053,6 +1059,7 @@ export class WorldState implements GameState, InstanceHost {
         s.y = streamer.heightAt(s.x, s.z);
       }
     }
+    this.stepGoldMarker();
     if (doors) {
       // Where the player stands now counts too: standing in a doorway keeps the door open.
       doors.add(s.x, s.z);
@@ -1722,6 +1729,14 @@ export class WorldState implements GameState, InstanceHost {
       data.player.death.goldLossFraction,
     );
     if (session.character) session.character.gold -= this.deathGoldLost;
+    // The lost gold stays where you fell; an older marker (its gold) is gone for good.
+    session.goldMarker = markerAfterDeath(
+      player.state.x,
+      player.state.y,
+      player.state.z,
+      session.world.instance,
+      this.deathGoldLost,
+    );
     // From now on the save holds where you will wake up (syncSave waits until then).
     const checkpoint = this.checkpoints?.byId(session.world.checkpoint);
     const zone = data.zones.zones.find((entry) => entry.id === data.player.start.zone);
@@ -1742,6 +1757,76 @@ export class WorldState implements GameState, InstanceHost {
         ? t.t('death.goldLost', { amount: this.deathGoldLost, gold: this.goldName() })
         : t.t('death.wakeUp');
     this.dialog?.close();
+  }
+
+  /** The glowing heap of gold: a flat disc, a small cone and a ring, in the palette's gold. */
+  private buildGoldMarker(): Group {
+    const group = new Group();
+    group.name = 'goldMarker';
+    const gold = new MeshBasicMaterial({ color: palette.zonlicht });
+    const ring = new MeshBasicMaterial({
+      color: palette.ornamentgoud,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false,
+    });
+    const heap = new Mesh(new ConeGeometry(0.45, 0.5, 7), gold);
+    heap.position.y = 0.25;
+    const disc = new Mesh(new CylinderGeometry(0.6, 0.65, 0.12, 12), gold);
+    disc.position.y = 0.06;
+    const halo = new Mesh(new CircleGeometry(1.1, 24), ring);
+    halo.rotation.x = -Math.PI / 2;
+    halo.position.y = 0.04;
+    group.add(heap, disc, halo);
+    group.visible = false;
+    return group;
+  }
+
+  /** Shows the marker where the save says it lies (bobbing a little); hides it when none. */
+  private updateGoldMarker(): void {
+    const mesh = this.goldMarkerMesh;
+    if (!mesh) return;
+    const session = this.ctx.session;
+    const marker = session?.goldMarker ?? null;
+    const show = marker !== null && marker.instance === (session?.world.instance ?? null);
+    mesh.visible = show;
+    if (!show || !marker) return;
+    mesh.position.set(marker.x, marker.y + Math.sin(this.time * 2) * 0.05, marker.z);
+    mesh.rotation.y = this.time * 0.8;
+  }
+
+  /** Walking onto the gold you left behind gives it back (fixed step, no allocations). */
+  private stepGoldMarker(): void {
+    const session = this.ctx.session;
+    const data = this.ctx.data;
+    const player = this.player;
+    const marker = session?.goldMarker;
+    if (!session || !data || !player || !marker || this.deathTimer !== NOT_DYING) return;
+    const s = player.state;
+    if (
+      !canPickUpMarker(
+        marker,
+        s.x,
+        s.z,
+        session.world.instance,
+        data.player.death.markerPickupRadius,
+      )
+    ) {
+      return;
+    }
+    const amount = marker.amount;
+    session.goldMarker = null;
+    if (session.character) {
+      session.character.gold += amount;
+      this.hud?.setGold(session.character.gold);
+      this.hud?.rules.goldChanged();
+    }
+    this.hud?.showMessage(
+      this.ctx.i18n.t('death.goldRecovered', { amount, gold: this.goldName() }),
+    );
+    this.ctx.events.emit('itemsGained', { itemId: GOLD_ITEM, count: amount });
+    this.syncSave();
+    this.ctx.persist();
   }
 
   /** One step of dying: fade out, (black) wake up at the checkpoint, fade back in. */
@@ -3303,6 +3388,7 @@ export class WorldState implements GameState, InstanceHost {
     this.npcRenderer?.update(a, hopSeconds);
     this.animatedNpcs?.update(a, waiting ? 0 : frameSeconds, hopSeconds);
     this.npcRenderer?.updateMarkers(a, this.time);
+    this.updateGoldMarker();
     if (!waiting) this.time += frameSeconds;
     this.enemyRenderer?.update(a, this.time);
     if (this.enemies) this.warningRenderer?.update(this.enemies.shown, a);
@@ -4418,6 +4504,8 @@ export class WorldState implements GameState, InstanceHost {
       });
     }
     worldRoot.add(player.model.root);
+    this.goldMarkerMesh = this.buildGoldMarker();
+    worldRoot.add(this.goldMarkerMesh);
     this.player = player;
 
     this.npcWorld = {

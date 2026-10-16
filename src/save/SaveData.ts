@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 18;
+export const SAVE_VERSION = 19;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -140,6 +140,19 @@ export const saveDataSchema = z.object({
    * playTimeSeconds of the last change (restocking is worked out from that). Missing = full.
    */
   shopStock: z.record(z.string(), z.object({ left: z.int().check(z.nonnegative()), at: finite })),
+  /**
+   * Gold left where you fell (step S.4b): picked up by walking onto it. Only one exists; dying
+   * again replaces it. Null when nothing lies on the ground.
+   */
+  goldMarker: z.nullable(
+    z.object({
+      x: finite,
+      y: finite,
+      z: finite,
+      instance: z.nullable(id),
+      amount: z.int().check(z.positive()),
+    }),
+  ),
   playTimeSeconds: z.number().check(z.nonnegative()),
 });
 
@@ -185,6 +198,7 @@ export function createNewSave(language: Language, now: Date = new Date()): SaveD
     seenHints: [],
     foundEggs: [],
     shopStock: {},
+    goldMarker: null,
     playTimeSeconds: 0,
   };
 }
@@ -300,6 +314,8 @@ export const migrations: Readonly<Record<number, Migration>> = {
       character: character ? { ...character, spellLoadout: [] } : null,
     };
   },
+  // v19 (step S.4b): gold left at your corpse; nothing lies on the ground yet.
+  18: (save) => ({ ...save, version: 19, goldMarker: null }),
   // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged
   // them). Everyone starts on the default size and the default places.
   10: (save) => {

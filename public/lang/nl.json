@@ -1139,8 +1139,9 @@
   },
   "death": {
     "title": "Je bent verslagen",
-    "goldLost": "Je bent {amount} {gold} kwijt. Je wordt wakker bij je checkpoint.",
-    "wakeUp": "Je wordt wakker bij je checkpoint."
+    "goldLost": "Je bent {amount} {gold} kwijt. Je wordt wakker bij je checkpoint. Het ligt waar je viel.",
+    "wakeUp": "Je wordt wakker bij je checkpoint.",
+    "goldRecovered": "Je hebt je {gold} teruggevonden: {amount}."
   },
   "forge": {
     "title": "Smidse",

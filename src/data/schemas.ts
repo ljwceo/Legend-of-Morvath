@@ -882,6 +882,8 @@ export const playerFileSchema = z.strictObject({
   }),
   death: z.strictObject({
     goldLossFraction: fraction,
+    /** Walk within this distance (metres) of the gold you left behind to pick it up. */
+    markerPickupRadius: max(positive, 20),
     /** The screen fades to black in this time, stays black, then fades back in. */
     fadeSeconds: max(nonNegative, 10),
     blackSeconds: max(nonNegative, 10),

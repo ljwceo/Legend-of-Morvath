@@ -206,6 +206,7 @@
   },
   "death": {
     "goldLossFraction": 0.1,
+    "markerPickupRadius": 1.6,
     "fadeSeconds": 0.8,
     "blackSeconds": 1.6
   },

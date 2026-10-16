@@ -1139,8 +1139,9 @@
   },
   "death": {
     "title": "You were defeated",
-    "goldLost": "You lost {amount} {gold}. You wake up at your checkpoint.",
-    "wakeUp": "You wake up at your checkpoint."
+    "goldLost": "You lost {amount} {gold}. You wake up at your checkpoint. It lies where you fell.",
+    "wakeUp": "You wake up at your checkpoint.",
+    "goldRecovered": "You found your {gold} again: {amount}."
   },
   "forge": {
     "title": "Forge",
