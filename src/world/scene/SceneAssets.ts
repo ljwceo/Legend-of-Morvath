@@ -14,10 +14,11 @@ import type { SceneDef } from '../../data/types';
 export interface BlenderMaterial {
   /**
    * tri = triplanar texture, flat = color, emit = glows, terrain = baked map, water, outline,
-   * foliage = cut-out cards (leaf tufts, grass, flowers): UV texture with alpha × `tint`.
+   * foliage = cut-out cards (leaf tufts, grass, flowers): UV texture with alpha × `tint`,
+   * textured = a character's own UV texture (`tex`) × `tint`, with `color` its average color.
    */
-  kind: 'tri' | 'flat' | 'emit' | 'terrain' | 'water' | 'outline' | 'foliage';
-  /** Linear RGB (Blender values). */
+  kind: 'tri' | 'flat' | 'emit' | 'terrain' | 'water' | 'outline' | 'foliage' | 'textured';
+  /** Linear RGB (Blender values). For `textured`: the average of the texture under its faces. */
   color?: [number, number, number];
   tex?: string;
   scale?: number;
@@ -107,10 +108,12 @@ export async function loadSceneAssets(
   ]).finally(() => draco.dispose());
   // The terrain map is not repeated (it covers the land once); the others tile.
   for (const [name, texture] of textures) {
-    const terrain = Object.values(info.materials).some(
-      (m) => m.kind === 'terrain' && m.tex === name,
-    );
-    texture.wrapS = texture.wrapT = terrain ? ClampToEdgeWrapping : RepeatWrapping;
+    const kinds = Object.values(info.materials).flatMap((m) => (m.tex === name ? [m.kind] : []));
+    const once = kinds.includes('terrain') || kinds.includes('textured');
+    texture.wrapS = texture.wrapT = once ? ClampToEdgeWrapping : RepeatWrapping;
+    // A character's UV texture is read with glTF UVs (v runs top-down), like GLTFLoader does;
+    // the tiling textures keep the usual orientation (the triplanar shader expects it).
+    if (kinds.includes('textured')) texture.flipY = false;
     texture.needsUpdate = true;
   }
   onProgress(1);
