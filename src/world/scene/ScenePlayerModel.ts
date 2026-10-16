@@ -1,7 +1,7 @@
-import { Box3, type Color, Group, type Material, Mesh, Vector3 } from 'three';
+import { Box3, Color, Group, type Material, Mesh, Vector3 } from 'three';
 import type { SceneDef } from '../../data/types';
 import type { SharedLightUniforms } from '../../render/toon/ToonMaterial';
-import type { SceneAssets } from './SceneAssets';
+import type { BlenderMaterial, SceneAssets } from './SceneAssets';
 import { buildMaterial, materialName } from './SceneZone';
 
 /**
@@ -19,6 +19,9 @@ const APPEARANCE_MATERIALS: Record<string, 'hair' | 'skin' | 'mantle' | 'embroid
   Skin: 'skin',
 };
 
+/** The brightest a tint channel gets (a very light skin on a dark spot of the texture). */
+const MAX_TINT = 4;
+
 export interface ScenePlayerModel {
   /** Feet at y = 0, facing +z (the game's heading 0). */
   root: Group;
@@ -26,9 +29,25 @@ export interface ScenePlayerModel {
 }
 
 /**
+ * The tint that makes a textured material's average color the chosen color (decision of
+ * 2026-10-16: the skin tone of the character creator is a tint over the painted skin, so the
+ * shading and the face stay and the whole skin shifts to the chosen tone). Per channel
+ * chosen ÷ average; a channel of the average that is 0 keeps the texture as it is.
+ */
+export function textureTint(chosen: Color, average: [number, number, number], out: Color): Color {
+  const ratio = (value: number, avg: number) => (avg > 0 ? Math.min(MAX_TINT, value / avg) : 1);
+  return out.setRGB(
+    ratio(chosen.r, average[0]),
+    ratio(chosen.g, average[1]),
+    ratio(chosen.b, average[2]),
+  );
+}
+
+/**
  * The starting character from player.glb with the toon material, in the colors chosen in the
  * character creator (mantle, embroidery, hair, skin). The "Outline" material is an inverted
- * hull, drawn front-side only.
+ * hull, drawn front-side only. A textured material (the skin) takes its creator color as a
+ * tint over the texture; a flat one takes it as its color.
  */
 export function buildPlayerModel(
   assets: SceneAssets,
@@ -50,19 +69,10 @@ export function buildPlayerModel(
     const name = materialName(object);
     let material = materials.get(name);
     if (!material) {
-      material = buildMaterial(
-        name,
-        object.material,
-        assets.info.materials[name],
-        assets,
-        def,
-        shared,
-        color,
-      );
+      const blender = assets.info.materials[name];
+      material = buildMaterial(name, object.material, blender, assets, def, shared, color);
       const key = APPEARANCE_MATERIALS[name];
-      const uniforms = (material as { uniforms?: Record<string, { value: unknown }> }).uniforms;
-      const target = uniforms?.color?.value as Color | undefined;
-      if (key && target) target.copy(colors[key]);
+      if (key) applyCreatorColor(material, blender, colors[key]);
       materials.set(name, material);
     }
     object.material = material;
@@ -84,4 +94,20 @@ export function buildPlayerModel(
       for (const material of materials.values()) material.dispose();
     },
   };
+}
+
+function applyCreatorColor(
+  material: Material,
+  blender: BlenderMaterial | undefined,
+  chosen: Color,
+): void {
+  const uniforms = (material as { uniforms?: Record<string, { value: unknown }> }).uniforms;
+  if (!uniforms) return;
+  if (blender?.kind === 'textured') {
+    const tint = uniforms.tint?.value;
+    if (tint instanceof Color) textureTint(chosen, blender.color ?? [1, 1, 1], tint);
+    return;
+  }
+  const target = uniforms.color?.value;
+  if (target instanceof Color) target.copy(chosen);
 }
