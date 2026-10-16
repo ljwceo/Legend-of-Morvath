@@ -378,6 +378,11 @@ export class CharacterModel {
     this.sword.scale.setScalar(look.swordScale);
   }
 
+  /** Hides the placeholder sword (a real model that holds its own weapon) or shows it again. */
+  setSwordVisible(visible: boolean): void {
+    this.sword.visible = visible;
+  }
+
   /** Shows a sword swing (`t` 0–1 along the swing); 'rest' puts it back at the hip. */
   setSwordPose(pose: SwordPose, t: number): void {
     setSwordPose(this.sword, pose, t);

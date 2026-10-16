@@ -14,6 +14,11 @@ export class Player {
   /** HP, mana and the sword (fixed step). */
   readonly combat = new CombatState();
   readonly model: CharacterModel;
+  /**
+   * Seconds since the player last petted, rested or opened a pack (fixed step; only read, the
+   * animator plays Interact from it).
+   */
+  sinceInteract = Infinity;
   private prevX = 0;
   private prevY = 0;
   private prevZ = 0;
@@ -31,14 +36,24 @@ export class Player {
     s.y = this.prevY = y;
     s.z = this.prevZ = z;
     s.heading = this.prevHeading = heading;
+    s.airTime = 0;
+    s.sinceLanded = Infinity;
   }
 
   /** Call before each simulation step: remembers where the step started. */
-  beginStep(): void {
+  beginStep(dt = 0): void {
     this.prevX = this.state.x;
     this.prevY = this.state.y;
     this.prevZ = this.state.z;
     this.prevHeading = this.state.heading;
+    this.sinceInteract += dt;
+  }
+
+  /** How far the last step moved along the ground (m); times SIM_HZ it is the speed. */
+  stepDistance(): number {
+    const dx = this.state.x - this.prevX;
+    const dz = this.state.z - this.prevZ;
+    return Math.sqrt(dx * dx + dz * dz);
   }
 
   interpolatedX(alpha: number): number {

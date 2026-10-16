@@ -25,6 +25,9 @@ export const PLAYER_PATHS = ['sword', 'light', 'dark'] as const;
 export type PlayerPath = (typeof PLAYER_PATHS)[number];
 /** A path condition: none chosen yet, any chosen, or this one. */
 export type PathCheck = 'none' | 'any' | PlayerPath;
+/** What a weapon item is; it decides how you fight and which weapon the player model holds. */
+export const WEAPON_KINDS = ['sword', 'staff'] as const;
+export type WeaponKind = (typeof WEAPON_KINDS)[number];
 // zod 4 numbers are always finite (no Infinity / NaN).
 const nonNegative = z.number().check(z.nonnegative());
 const positive = z.number().check(z.positive());
@@ -1176,7 +1179,7 @@ const itemSchema = z.strictObject({
   dryHours: optional(positive),
   weapon: optional(
     z.object({
-      kind: z.enum(['sword', 'staff']),
+      kind: z.enum(WEAPON_KINDS),
       damageBonus: nonNegative,
       spellSlots: optional(intRange(0, 3)),
       maxCrystalSize: optional(id),
@@ -2164,6 +2167,112 @@ export const controlsFileSchema = z.strictObject({
   ),
 });
 
+// ---------------------------------------------------------------- animations.json
+
+/**
+ * The parts of the animated player model the game uses, by role (the clip names of PLAN.md,
+ * phase A). The animator (step A.3c) picks a role; the clip name says which clip in player.glb
+ * plays it.
+ */
+export const PLAYER_CLIP_ROLES = [
+  'idle',
+  'walk',
+  'run',
+  'sprint',
+  'jumpStart',
+  'jumpAir',
+  'land',
+  'dash',
+  'dashRecover',
+  'slash1',
+  'slash2',
+  'slash3',
+  'heavyWindup',
+  'heavyStrike',
+  'castGather',
+  'castRelease',
+  'hit',
+  'death',
+  'interact',
+] as const;
+export type PlayerClipRole = (typeof PLAYER_CLIP_ROLES)[number];
+
+/** A node name in a .glb, or the start of one (e.g. "Sword_"). */
+const nodeName = z.string().check(z.regex(/^[A-Za-z0-9_.:-]+$/, 'not a valid node name'));
+
+export const animationsFileSchema = z.strictObject({
+  player: z.strictObject({
+    /** Clip name in player.glb per role; every role needs one. */
+    clips: z.strictObject(
+      Object.fromEntries(PLAYER_CLIP_ROLES.map((role) => [role, nodeName])) as Record<
+        PlayerClipRole,
+        typeof nodeName
+      >,
+    ),
+    /** The bone the weapons hang from (only a check: the weapons must sit under it). */
+    handBone: nodeName,
+    /** Per weapon kind, the start of the names of its meshes in player.glb (e.g. "Sword_"). */
+    weapons: z.strictObject(
+      Object.fromEntries(WEAPON_KINDS.map((kind) => [kind, nodeName])) as Record<
+        WeaponKind,
+        typeof nodeName
+      >,
+    ),
+    /**
+     * Crossfade lengths (s): between walking clips, into any other clip, and into a strike
+     * (short, so the blow is already clear at the moment of the damage).
+     */
+    fadeSeconds: z.strictObject({
+      move: nonNegative,
+      action: nonNegative,
+      strike: nonNegative,
+    }),
+    /**
+     * Walking, running and sprinting by speed (m/s). The reference speeds are how fast the feet
+     * of each clip go (measured in player.glb): played at `speed / reference` they do not slide.
+     */
+    gait: z.strictObject({
+      idleBelow: positive,
+      runAbove: positive,
+      walkSpeed: positive,
+      runSpeed: positive,
+      sprintSpeed: positive,
+      minTimeScale: positive,
+      maxTimeScale: positive,
+      /** Speed is smoothed over about this long, so speeding up and slowing down look natural. */
+      smoothingSeconds: nonNegative,
+    }),
+    /**
+     * Strikes follow the simulation: when the damage lands (or the shot leaves) the clip stands
+     * `leadSeconds` before its contact moment, and the swing itself covers up to `followSeconds`
+     * after it. Standing still, the rest plays for at most `settleSeconds` more.
+     */
+    strike: z.strictObject({
+      leadSeconds: nonNegative,
+      followSeconds: nonNegative,
+      settleSeconds: nonNegative,
+      /** Where in each strike clip the blade (or the staff) is fastest: the contact moment. */
+      contactSeconds: z.strictObject({
+        slash1: nonNegative,
+        slash2: nonNegative,
+        slash3: nonNegative,
+        heavyStrike: nonNegative,
+        castRelease: nonNegative,
+      }),
+    }),
+    /** How long the one-off clips play (s, they fade out sooner when you walk off). */
+    hold: z.strictObject({
+      hit: nonNegative,
+      interact: nonNegative,
+      land: nonNegative,
+    }),
+    /** A fall shorter than this (s) is a step down, not a fall: no Fall, no Land. */
+    fallAfterSeconds: nonNegative,
+    /** Where Land starts (s): the moment its feet touch the ground. */
+    landFromSeconds: nonNegative,
+  }),
+});
+
 export const dataSchemas = {
   zones: zonesFileSchema,
   controls: controlsFileSchema,
@@ -2182,6 +2291,7 @@ export const dataSchemas = {
   combos: combosFileSchema,
   cutscenes: cutscenesFileSchema,
   daynight: dayNightFileSchema,
+  animations: animationsFileSchema,
 } as const;
 
 export type DataFileName = keyof typeof dataSchemas;
