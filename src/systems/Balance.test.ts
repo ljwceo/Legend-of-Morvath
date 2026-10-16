@@ -95,6 +95,8 @@ interface Bot {
   dodges: boolean;
   /** Seconds before reacting to a warning. */
   reaction: number;
+  /** Starts a heavy hit as he retreats so it lands in his opening (fase S.11). */
+  heavy?: boolean;
   level: number;
   weaponBonus: number;
   /** The build: points spent per stat (fase 3.7). */
@@ -119,14 +121,18 @@ interface FightResult {
   hpLeft: number;
   hitsTaken: number;
   damageTaken: number;
+  /** How many times Sultan's poise broke (he staggered). */
+  poiseBreaks?: number;
 }
 
 /** One Sultan fight with a simulated player; stops at a win, a loss or after `maxSeconds`. */
-function fightSultan(bot: Bot, seed: number, maxSeconds = 400): FightResult {
+function fightSultan(bot: Bot, seed: number, maxSeconds = 400, sultanPoise?: number): FightResult {
   const enemies = new Enemies(zones.zones, monsters, { showRadius: 160, hideMargin: 20 });
   const boss = enemies.bossOf('sultan') as Enemy;
   const def = boss.boss?.def;
   if (!def) throw new Error('no boss');
+  let poiseBreaks = 0;
+  let wasStaggered = false;
   // A different but repeatable fight per seed.
   for (let i = 0; i < seed; i++) boss.rng.next();
   const s = new MoverState();
@@ -159,6 +165,7 @@ function fightSultan(bot: Bot, seed: number, maxSeconds = 400): FightResult {
   };
   enemies.step(DT, target, world);
   enemies.startBoss(boss, s.heading + Math.PI);
+  if (sultanPoise !== undefined) boss.poise.reset(sultanPoise);
   const cmd: MoveCommand = { x: 0, z: 0, dash: false };
   const input = { fast: false, heavy: false, critRoll: 1 };
   const result: SwordResult = {
@@ -179,6 +186,7 @@ function fightSultan(bot: Bot, seed: number, maxSeconds = 400): FightResult {
     cmd.z = 0;
     cmd.dash = false;
     input.fast = false;
+    input.heavy = false;
     const dx = boss.x - s.x;
     const dz = boss.z - s.z;
     const d = Math.max(1e-6, Math.hypot(dx, dz));
@@ -211,7 +219,9 @@ function fightSultan(bot: Bot, seed: number, maxSeconds = 400): FightResult {
         cmd.z = dz / d;
       }
       // Hits once it sees him stand still (the same reaction time).
-      input.fast = gap < sword.range && opened >= bot.reaction;
+      input.fast = gap < sword.range && opened >= bot.reaction && c.heavyWindup <= 0;
+      // The heavy hit starts as he retreats, so it lands in the opening.
+      input.heavy = !!bot.heavy && b.phase === 'retreat' && gap < sword.range + 1;
     } else if (!bot.dodges) {
       // The button masher: walks up and keeps hitting.
       if (gap > 1) {
@@ -246,7 +256,7 @@ function fightSultan(bot: Bot, seed: number, maxSeconds = 400): FightResult {
           !inSwingArc(s.x, s.z, s.heading, e.x, e.z, e.radius, sword.range, sword.halfArc)
         )
           continue;
-        if (e.hittable) enemies.hit(e, result.damage);
+        if (e.hittable) enemies.hit(e, result.damage, result.poiseDamage);
       }
     }
     stepMovement(s, cmd, moveCfg, DT, free);
@@ -254,10 +264,14 @@ function fightSultan(bot: Bot, seed: number, maxSeconds = 400): FightResult {
     target.x = s.x;
     target.z = s.z;
     enemies.step(DT, target, world);
-    if (!boss.alive) return { won: true, seconds: time, hpLeft: c.hp, hitsTaken, damageTaken };
-    if (c.hp <= 0) return { won: false, seconds: time, hpLeft: 0, hitsTaken, damageTaken };
+    if (boss.poise.staggered && !wasStaggered) poiseBreaks++;
+    wasStaggered = boss.poise.staggered;
+    if (!boss.alive)
+      return { won: true, seconds: time, hpLeft: c.hp, hitsTaken, damageTaken, poiseBreaks };
+    if (c.hp <= 0)
+      return { won: false, seconds: time, hpLeft: 0, hitsTaken, damageTaken, poiseBreaks };
   }
-  return { won: false, seconds: time, hpLeft: c.hp, hitsTaken, damageTaken };
+  return { won: false, seconds: time, hpLeft: c.hp, hitsTaken, damageTaken, poiseBreaks };
 }
 
 const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -293,6 +307,22 @@ describe('balance: Sultan (beginner boss)', () => {
     // one misses some, so the fight takes longer than here.
     expect(avgSeconds).toBeGreaterThan(50);
     expect(avgSeconds).toBeLessThan(150);
+  });
+
+  it("a player with heavy hits breaks Sultan's poise (S.11)", () => {
+    const heavyBot = { ...level3, dodges: true, reaction: 0.3, heavy: true };
+    const breaks = (poise?: number) =>
+      SEEDS.map((seed) => fightSultan(heavyBot, seed, 400, poise).poiseBreaks ?? 0);
+    const sum = (a: number[]) => a.reduce((x, y) => x + y, 0);
+    const data = breaks();
+    console.log(`heavy bot poise breaks per fight, data poise: ${data.join(',')}`);
+    console.log(
+      `  with poise 60: ${breaks(60).join(',')}, with poise 200: ${breaks(200).join(',')}`,
+    );
+    // Every fight sees him stagger at least once, with the poise from the data.
+    expect(data.every((n) => n >= 1)).toBe(true);
+    // Poise still means something: a much sturdier Sultan breaks far less often.
+    expect(sum(data)).toBeGreaterThan(sum(breaks(200)) * 2);
   });
 
   it('is lost by a player who never dodges ("wie niet op tijd ontwijkt, verliest")', () => {

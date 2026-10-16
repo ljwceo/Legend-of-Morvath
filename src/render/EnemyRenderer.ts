@@ -181,6 +181,11 @@ export class EnemyRenderer {
         squash = 0.05 + 0.04 * Math.sin(time * 9);
         lean -= 0.12;
       }
+      if (e.poise.staggered) {
+        // Poise broken in his opening: he reels back and shakes, like any staggered monster.
+        lean -= STAGGER_LEAN;
+        lean += Math.sin(time * STAGGER_SHAKE) * STAGGER_WOBBLE;
+      }
     } else {
       lean = Math.sin(e.wobble * 30) * WOBBLE_ANGLE * (e.wobble / WOBBLE_SECONDS);
       if (e.poise.staggered) {

@@ -148,6 +148,8 @@ export class Enemies {
   /** The enemies shown this step (a reused array). */
   readonly shown: Enemy[] = [];
   readonly ai: EnemyAiConfig;
+  /** Monster poise settings from data: backstab cone and factor, poise bar look. */
+  readonly poiseSettings: MonstersFile['settings']['poise'];
   /** Bosses (monsters with `boss`): one slot each, only in the world during their fight. */
   readonly bosses: Enemy[] = [];
   private readonly packs: Pack[] = [];
@@ -174,6 +176,7 @@ export class Enemies {
     waveFights: readonly WaveFightDef[] = [],
   ) {
     this.ai = enemyAiConfig(monsters);
+    this.poiseSettings = monsters.settings.poise;
     this.speeds = monsters.speedClasses;
     this.simulateRadius = monsters.settings.simulateRadius;
     this.respawnDistance = monsters.settings.respawnMinPlayerDistance;

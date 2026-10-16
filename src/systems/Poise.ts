@@ -77,3 +77,28 @@ export function stepPoise(s: PoiseState, cfg: PoiseConfig, dt: number): void {
 export function playerMaxPoise(baseMax: number, perKg: number, carriedKg: number): number {
   return Math.max(0, baseMax + perKg * Math.max(0, carriedKg));
 }
+
+/**
+ * Poise damage after the angle of the hit: a hit from inside the cone behind the target
+ * (`angleDegrees` wide, centred on the opposite of its `heading`) is a backstab and does
+ * `factor` times as much. Heading is atan2(dx, dz), like the swing arc.
+ */
+export function backstabPoiseDamage(
+  amount: number,
+  targetX: number,
+  targetZ: number,
+  targetHeading: number,
+  fromX: number,
+  fromZ: number,
+  angleDegrees: number,
+  factor: number,
+): number {
+  const dx = fromX - targetX;
+  const dz = fromZ - targetZ;
+  if (dx === 0 && dz === 0) return amount;
+  let delta = (Math.atan2(dx, dz) - targetHeading) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  else if (delta < -Math.PI) delta += Math.PI * 2;
+  const fromBehind = Math.PI - Math.abs(delta);
+  return fromBehind <= (angleDegrees * Math.PI) / 360 + EPSILON ? amount * factor : amount;
+}

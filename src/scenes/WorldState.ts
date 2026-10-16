@@ -112,7 +112,7 @@ import {
   stepStaff,
 } from '../systems/StaffCombat';
 import { guardHit, makeGuardResult, stepGuard } from '../systems/Guard';
-import { damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
+import { backstabPoiseDamage, damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
   carriedWeight,
   dropMissingEquipment,
@@ -163,6 +163,7 @@ import {
   WarningRenderer,
 } from '../render/CombatEffects';
 import { DamageNumbers } from '../ui/DamageNumbers';
+import { EnemyPoiseBars } from '../ui/EnemyPoiseBars';
 import { type Bounds, CollisionWorld } from '../systems/Collision';
 import {
   angleDelta,
@@ -498,6 +499,7 @@ export class WorldState implements GameState, InstanceHost {
   /** Seconds since the world was entered (drawing only: pulsing warnings). */
   private time = 0;
   private damageNumbers: DamageNumbers | null = null;
+  private poiseBars: EnemyPoiseBars | null = null;
   private sword: SwordConfig | null = null;
   /** Staff numbers (Arcane Shard and the spells), null until the world is built. */
   private staff: StaffConfig | null = null;
@@ -726,6 +728,8 @@ export class WorldState implements GameState, InstanceHost {
     ctx.ui.append(this.dialog.root);
     this.damageNumbers = new DamageNumbers();
     ctx.ui.append(this.damageNumbers.root);
+    this.poiseBars = new EnemyPoiseBars();
+    ctx.ui.append(this.poiseBars.root);
     this.hudInCombat = false;
     this.abilitiesTouch = false;
     this.knockedOut = false;
@@ -944,6 +948,8 @@ export class WorldState implements GameState, InstanceHost {
     this.dialog = null;
     this.damageNumbers?.dispose();
     this.damageNumbers = null;
+    this.poiseBars?.dispose();
+    this.poiseBars = null;
     this.talkingTo = null;
     this.targetNpc = null;
     this.encounter?.dispose();
@@ -1560,7 +1566,18 @@ export class WorldState implements GameState, InstanceHost {
         else this.showProtected(e);
         continue;
       }
-      const defeated = enemies.hit(e, damage, result.poiseDamage);
+      const bs = enemies.poiseSettings;
+      const poiseDamage = backstabPoiseDamage(
+        result.poiseDamage,
+        e.x,
+        e.z,
+        e.heading,
+        s.x,
+        s.z,
+        bs.backstabAngleDegrees,
+        bs.backstabFactor,
+      );
+      const defeated = enemies.hit(e, damage, poiseDamage);
       hitAny = true;
       // Practising at the training field (the Entrance Exams, fase 3.8).
       this.recordTraining(e);
@@ -3626,6 +3643,19 @@ export class WorldState implements GameState, InstanceHost {
     );
     this.updateBlackout();
     this.hud?.update(frameSeconds);
+    if (this.enemies && this.poiseBars) {
+      this.poiseBars.update(
+        this.enemies.shown,
+        this.enemies.poiseSettings,
+        this.enemyRenderer,
+        a,
+        rig.camera,
+        origin.x,
+        origin.z,
+        window.innerWidth,
+        window.innerHeight,
+      );
+    }
     this.damageNumbers?.update(
       waiting ? 0 : frameSeconds,
       rig.camera,
@@ -4327,6 +4357,7 @@ export class WorldState implements GameState, InstanceHost {
     rig.orbit.snap(player.state.x, player.state.y, player.state.z, heading ?? rig.orbit.yaw);
     this.dialog?.close();
     this.damageNumbers?.clear();
+    this.poiseBars?.clear();
     // Shots in flight and your locked target belong to where you came from.
     this.shots?.clear();
     this.staffState.reset();
@@ -4918,6 +4949,7 @@ export class WorldState implements GameState, InstanceHost {
     s.invulnerable = false;
     rig.orbit.snap(s.x, s.y, s.z, s.heading);
     this.damageNumbers?.clear();
+    this.poiseBars?.clear();
     if (npcWorld) this.npcs?.snapCompanions(s.x, s.z, s.heading, npcWorld);
   }
 

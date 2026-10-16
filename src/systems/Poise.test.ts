@@ -16,7 +16,8 @@ import type { EnemyTarget } from './EnemyAI';
 import { carriedWeight } from './Gear';
 import type { Mover } from './Movement';
 import { chargeScale, staffConfig } from './StaffCombat';
-import { damagePoise, PoiseState, playerMaxPoise, stepPoise } from './Poise';
+import { backstabPoiseDamage, damagePoise, PoiseState, playerMaxPoise, stepPoise } from './Poise';
+import { EnemyPoiseBars } from '../ui/EnemyPoiseBars';
 
 const player = playerFileSchema.parse(readPublicJson('data/player.json')) as PlayerConfig;
 const monsters = monstersFileSchema.parse(readPublicJson('data/monsters.json')) as MonstersFile;
@@ -225,5 +226,45 @@ describe('poise (S.6)', () => {
     }
     expect(seconds[0]).toBeCloseTo(player.poise.staggerSeconds, 6);
     expect(seconds[1]).toBeCloseTo(seconds[0] as number, 6);
+  });
+});
+
+describe('poise bar, backstab and Sultan (S.11)', () => {
+  const st = monsters.settings.poise;
+
+  it('a hit from behind does more poise damage than from the front (data cone and factor)', () => {
+    // Target at the origin facing +z (heading 0).
+    const hit = (fx: number, fz: number) =>
+      backstabPoiseDamage(10, 0, 0, 0, fx, fz, st.backstabAngleDegrees, st.backstabFactor);
+    expect(st.backstabFactor).toBeGreaterThan(1);
+    expect(hit(0, 2)).toBe(10); // front
+    expect(hit(2, 0)).toBe(10); // side
+    expect(hit(0, -2)).toBe(10 * st.backstabFactor); // behind
+    // The cone edge comes from data.
+    const edge = (st.backstabAngleDegrees / 2) * (Math.PI / 180);
+    expect(hit(Math.sin(edge - 0.01) * 2, -Math.cos(edge - 0.01) * 2)).toBe(10 * st.backstabFactor);
+    expect(hit(Math.sin(edge + 0.01) * 2, -Math.cos(edge + 0.01) * 2)).toBe(10);
+    // A backstab breaks what a frontal heavy hit does not.
+    const goblin = monsters.monsters.find((m) => m.id === 'goblin')?.poise ?? 0;
+    const heavy = player.sword.heavyHit.poiseDamage;
+    expect(heavy).toBeLessThan(goblin);
+    expect(heavy * st.backstabFactor).toBeGreaterThanOrEqual(goblin);
+  });
+
+  it('a bar shows only after poise damage, stays a while and then goes away', () => {
+    const a = arena('goblin');
+    a.run(0.1, 1 / 60);
+    expect(a.e.shown && a.e.active).toBe(true);
+    expect(EnemyPoiseBars.visible(a.e, st.barLingerSeconds)).toBe(false);
+    a.enemies.hit(a.e, 1, 5);
+    expect(EnemyPoiseBars.visible(a.e, st.barLingerSeconds)).toBe(true);
+    expect(a.e.poise.poise).toBeLessThan(a.e.poise.max);
+    // Poise regenerates (delay + refill), but the bar lingers `barLingerSeconds` after that hit.
+    a.e.mode = 'idle';
+    a.e.poise.poise = a.e.poise.max;
+    a.e.poise.sinceHit = st.barLingerSeconds - 0.1;
+    expect(EnemyPoiseBars.visible(a.e, st.barLingerSeconds)).toBe(true);
+    a.e.poise.sinceHit = st.barLingerSeconds + 0.1;
+    expect(EnemyPoiseBars.visible(a.e, st.barLingerSeconds)).toBe(false);
   });
 });

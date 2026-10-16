@@ -43,7 +43,16 @@
     "hitArcDegrees": 140,
     "calmDownSeconds": 8,
     "packAggroRadius": 14,
-    "poise": { "regenDelaySeconds": 4, "regenPerSecond": 8, "staggerSeconds": 0.9 }
+    "poise": {
+      "regenDelaySeconds": 4,
+      "regenPerSecond": 8,
+      "staggerSeconds": 0.9,
+      "backstabAngleDegrees": 100,
+      "backstabFactor": 2,
+      "barLingerSeconds": 1.5,
+      "barWidthPixels": 56,
+      "barHeightMeters": 0.35
+    }
   },
   "monsters": [
     {
@@ -722,7 +731,7 @@
       "name": "Sultan",
       "levelRange": [3, 3],
       "hp": 800,
-      "poise": 60,
+      "poise": 45,
       "damage": {
         "min": 12,
         "max": 15

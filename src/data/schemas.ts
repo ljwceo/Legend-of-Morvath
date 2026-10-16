@@ -1221,6 +1221,15 @@ export const monstersFileSchema = z.strictObject({
       regenDelaySeconds: max(nonNegative, 60),
       regenPerSecond: max(nonNegative, 1000),
       staggerSeconds: max(positive, 10),
+      /** A hit from inside this cone (full width, degrees) behind a monster is a backstab. */
+      backstabAngleDegrees: range(0, 360),
+      /** Poise damage of a backstab is multiplied by this. */
+      backstabFactor: range(1, 20),
+      /** The poise bar over a monster stays this long (s) after its last poise damage. */
+      barLingerSeconds: max(nonNegative, 60),
+      /** Width (px) of that bar, and how far (m) it floats above the monster's top. */
+      barWidthPixels: range(8, 400),
+      barHeightMeters: max(nonNegative, 5),
     }),
   }),
   monsters: z.array(monsterSchema),
