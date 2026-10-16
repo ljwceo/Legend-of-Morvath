@@ -612,6 +612,17 @@ function renderBench(): void {
     ['Spell op cast-knop', staffSlots() > 0 ? name(activeSpell(c.spellLoadout)) : '— (geen staf)'],
   ];
   state.replaceChildren(
+    h('h3', {}, 'Per stap: proberen en zien (pc en controller)'),
+    h('ul', {},
+      h('li', {}, h('strong', {}, 'S.2 Gamepad'), ' — Proberen: ', 'Controllertest openen en een echte controller aansluiten; Besturing (Settings) openen.', ' Zien: ', 'Sticks en knoppen bewegen live met hun actie; de mapping klopt met controls.json. Zonder controller: de tabel.'),
+      h('li', {}, h('strong', {}, 'S.3 Stamina'), ' — Proberen: ', 'Gevechtslab: slaan tot de energie op is.', ' Zien: ', 'Kosten per actie uit player.json; bij 0 uitgeput, herstel pas na de pauze.'),
+      h('li', {}, h('strong', {}, 'S.4 Rol met onkwetsbare frames'), ' — Proberen: ', 'Gevechtslab: rol vlak voor een aanval; kijk naar de scan 60 versus 120 Hz.', ' Zien: ', 'Een aanval binnen het venster mist, erbuiten raakt; 60 en 120 Hz gelijk.'),
+      h('li', {}, h('strong', {}, 'S.4b Gold bij je lijk'), ' — Proberen: ', 'Gevechtslab, kaart: Sterf, loop erheen; sterf nog eens voor je het ophaalt.', ' Zien: ', "Gold ligt op de plek van je dood, ophalen geeft het terug, een tweede dood vervangt de markering; zie goldMarker onder 'Wat het spel zou opslaan'."),
+      h('li', {}, h('strong', {}, 'S.5a/b Aanvalsfases en aankondiging'), ' — Proberen: ', 'Gevechtslab: kies Green Slime of Goblin en start een aanval.', ' Zien: ', 'Aankondiging, raakvenster en herstel op de tijdlijn met de duur uit data; schade valt alleen in het raakvenster.'),
+      h('li', {}, h('strong', {}, 'S.6 Poise en stagger'), ' — Proberen: ', 'Gevechtslab: zware en kritieke slagen, schuif het gedragen gewicht.', ' Zien: ', 'De vijand wankelt als zijn poise breekt; meer gewicht geeft jou meer poise.'),
+      h('li', {}, h('strong', {}, 'S.7 Blokkeren en parry'), ' — Proberen: ', 'Gevechtslab: houd blok vast (R) en laat een aanval komen.', ' Zien: ', 'Goed getimed: parry (alles afgevangen, vijand wankelt); anders blok met 30% schade en energiekosten; bij 0 energie breekt het blok.'),
+      h('li', {}, h('strong', {}, 'S.8 Sultan'), ' — Proberen: ', 'Sultan-lab: speler staat stil, speler rolt weg, kwaad aan/uit.', ' Zien: ', 'Alle vier de aanvallen raken alleen in hun raakvenster; een rollende speler krijgt 0 schade; 60 en 120 Hz geven dezelfde aanvallen.'),
+    ),
     h('h3', {}, 'Alleen in het spel te zien'),
     h(
       'ul',
