@@ -91,13 +91,12 @@ describe('poise (S.6)', () => {
     expect(damagePoise(s, 100, cfg)).toBe(false);
   });
 
-  it('no poise (max 0) never staggers: dummies and bosses', () => {
+  it('no poise (max 0) never staggers: the dummy has none, Sultan has some (S.8)', () => {
     const cfg = { regenDelaySeconds: 1, regenPerSecond: 10, staggerSeconds: 0.5 };
     const s = new PoiseState();
     expect(damagePoise(s, 1000, cfg)).toBe(false);
-    for (const id of ['training_dummy', 'sultan']) {
-      expect(monsters.monsters.find((m) => m.id === id)?.poise).toBeUndefined();
-    }
+    expect(monsters.monsters.find((m) => m.id === 'training_dummy')?.poise).toBeUndefined();
+    expect(monsters.monsters.find((m) => m.id === 'sultan')?.poise).toBeGreaterThan(0);
   });
 
   it('a heavy hit breaks a slime, a fast hit does not; a critical hit does more poise damage', () => {

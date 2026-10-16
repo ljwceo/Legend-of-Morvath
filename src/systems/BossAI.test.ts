@@ -105,7 +105,7 @@ describe('boss fight (Sultan)', () => {
     expect(attackDef('pounce').damage).toBe(15);
     expect(attackDef('dash_strike').damage).toBe(15);
     expect(attackDef('flurry').hits).toBe(5);
-    expect(attackDef('flurry').openingSeconds).toBe(2);
+    expect(attackDef('flurry').recoverySeconds).toBe(2);
     expect(BOSS.vulnerableSeconds).toBe(1);
   });
 
@@ -209,7 +209,7 @@ describe('boss fight (Sultan)', () => {
     expect(b.hits.length).toBe(a.hits.length);
     expect(b.events.map((e) => e.attack)).toEqual(a.events.map((e) => e.attack));
     for (let i = 0; i < a.hits.length; i++) {
-      expect(Math.abs((b.hits[i]?.time ?? 0) - (a.hits[i]?.time ?? 0))).toBeLessThan(0.07);
+      expect(Math.abs((b.hits[i]?.time ?? 0) - (a.hits[i]?.time ?? 0))).toBeLessThan(0.1);
     }
   });
 

@@ -38,6 +38,7 @@ export function attackCueFor(e: Enemy, out: AttackCue): AttackCue {
   out.length = 0;
   out.progress = 0;
   out.seconds = 0;
+  if (e.boss) return bossCueFor(e, out);
   const attack = e.def.ai?.attack;
   if (!e.alive || e.mode !== 'windup' || !attack) return out;
   const seconds = windupSeconds(e);
@@ -62,6 +63,28 @@ export function attackCueFor(e: Enemy, out: AttackCue): AttackCue {
       out.shape = 'line';
       out.length = Math.min(MAX_CUE_LINE, attack.range);
       break;
+  }
+  return out;
+}
+
+/**
+ * The cue of a boss attack (Sultan): while it announces, a combo shows its reach as a disc, a
+ * pounce a line in its leaping direction (the length of its longest leap). The charge keeps its
+ * own red line on the ground (CombatEffects), so it gets no second cue here. Progress comes from
+ * the simulation timer; the length is `warningSeconds` from monsters.json.
+ */
+function bossCueFor(e: Enemy, out: AttackCue): AttackCue {
+  const boss = e.boss;
+  const attack = boss?.attack;
+  if (!boss || !attack || !e.alive || boss.phase !== 'telegraph') return out;
+  out.seconds = boss.duration;
+  out.progress = Math.min(1, Math.max(0, boss.elapsed / Math.max(1e-3, boss.duration)));
+  if (attack.pattern === 'combo') {
+    out.shape = 'disc';
+    out.radius = e.radius + (attack.reach ?? 1);
+  } else if (attack.pattern === 'pounce') {
+    out.shape = 'line';
+    out.length = Math.min(MAX_CUE_LINE, (attack.maxGap ?? 8) + e.radius);
   }
   return out;
 }

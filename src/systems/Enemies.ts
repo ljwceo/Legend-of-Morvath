@@ -494,7 +494,13 @@ export class Enemies {
       return true;
     }
     if (e.boss) {
-      if (e.hp > 0) return false;
+      if (e.hp > 0) {
+        // A boss breaks poise only while it can be hit (its opening): it staggers, so the
+        // opening lasts one stagger longer (it cannot start its next attack).
+        if (damagePoise(e.poise, poiseDamage, this.ai.poise))
+          e.boss.duration += this.ai.poise.staggerSeconds;
+        return false;
+      }
       e.guarded = false;
       defeat(e, this.ai);
       return true;

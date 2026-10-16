@@ -722,6 +722,7 @@
       "name": "Sultan",
       "levelRange": [3, 3],
       "hp": 800,
+      "poise": 60,
       "damage": {
         "min": 12,
         "max": 15
@@ -784,6 +785,7 @@
           "damage": 12,
           "hits": 3,
           "minHits": 2,
+          "hitSeconds": 0.1,
           "warningSeconds": 0.7,
           "recoverySeconds": 1,
           "pattern": "combo",
@@ -799,6 +801,7 @@
           "name": "Pounce",
           "damage": 15,
           "hits": 1,
+          "hitSeconds": 0.1,
           "warningSeconds": 0.9,
           "recoverySeconds": 1,
           "pattern": "pounce",
@@ -829,6 +832,7 @@
           "name": "Flurry",
           "damage": 12,
           "hits": 5,
+          "hitSeconds": 0.1,
           "warningSeconds": 0.9,
           "recoverySeconds": 2,
           "onlyWhenEnraged": true,
@@ -839,7 +843,6 @@
           "hitIntervalSeconds": 0.22,
           "reach": 1.4,
           "stepPerHit": 0.4,
-          "openingSeconds": 2,
           "hint": "boss.sultan.hint.flurry"
         }
       ],

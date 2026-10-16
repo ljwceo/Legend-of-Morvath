@@ -1005,6 +1005,10 @@ const attackSchema = z.strictObject({
   hits: posInt,
   minHits: optional(posInt),
   warningSeconds: max(nonNegative, 5),
+  /**
+   * Seconds after the attack: for monsters the recovery before the next one; for a boss the
+   * opening, when it stands still and can be hit (default `vulnerableSeconds`).
+   */
   recoverySeconds: optional(max(nonNegative, 10)),
   onlyWhenEnraged: optional(z.boolean()),
   /** Used instead of the normal attack every n-th attack (1 = always). */
@@ -1028,8 +1032,11 @@ const attackSchema = z.strictObject({
   travelSeconds: optional(max(positive, 5)),
   length: optional(max(positive, 60)),
   width: optional(max(positive, 10)),
-  /** Seconds the boss stands still after this attack (your chance); default `vulnerableSeconds`. */
-  openingSeconds: optional(max(positive, 10)),
+  /**
+   * Boss hit window (s, whole 60 Hz steps): how long one swipe, or the landing of a pounce, can
+   * hurt. A charge hurts during its whole run (`travelSeconds`). Outside it nothing hurts.
+   */
+  hitSeconds: optional(max(positive, 2)),
   /** Shown the first time this attack is wound up (a short tip, e.g. "Dash sideways!"). */
   hint: optional(textKey),
 });
@@ -1161,7 +1168,7 @@ const monsterSchema = z.strictObject({
   neutral: optional(z.boolean()),
   /**
    * Poise (stability, fase S.6): hits drain it and at 0 the monster staggers (its attack is
-   * interrupted). Without `poise` it never staggers. Bosses are not staggered yet (S.8).
+   * interrupted). Without `poise` it never staggers. A boss (Sultan) that breaks poise in its opening stays open one stagger longer.
    */
   poise: optional(max(positive, 100_000)),
   /** Poise damage its hit does to the player (see player.json `poise`); default 0. */
