@@ -35,9 +35,12 @@ export interface ScenePlayerModel {
  * chosen ÷ average; a channel of the average that is 0 keeps the texture as it is.
  */
 export function textureTint(chosen: Color, average: [number, number, number], out: Color): Color {
-  const ratio = (value: number, avg: number) =>
-    avg > 0 ? Math.min(MAX_TINT, value / avg) : 1;
-  return out.setRGB(ratio(chosen.r, average[0]), ratio(chosen.g, average[1]), ratio(chosen.b, average[2]));
+  const ratio = (value: number, avg: number) => (avg > 0 ? Math.min(MAX_TINT, value / avg) : 1);
+  return out.setRGB(
+    ratio(chosen.r, average[0]),
+    ratio(chosen.g, average[1]),
+    ratio(chosen.b, average[2]),
+  );
 }
 
 /**
