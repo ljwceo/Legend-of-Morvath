@@ -7,7 +7,9 @@ De scripts draaien zonder venster en **slaan het .blend-bestand nooit op**.
 |---|---|---|
 | `01_prep_mixamo.py` | 1 (A.1) | Lijf klaarmaken voor Mixamo → `body_for_mixamo.fbx` |
 | `02_import_mixamo.py` | 2 (A.2a) | Mixamo-rig + clips terug in Blender → `Hero_Start_Animated.blend` (Deel C) |
-| `03_attach_gear.py` | 2 (A.2b) | Hoed, haar, cape, zwaard en tijdelijke staf aan het skelet → `Hero_Start_Player.blend` (Deel D). De export naar `player.glb` komt in A.2c |
+| `03_attach_gear.py` | 2 (A.2b) | Hoed, haar, cape, zwaard en tijdelijke staf aan het skelet → `Hero_Start_Player.blend` (Deel D) |
+| `04_export_player.py` | 2 (A.2c) | `Hero_Start_Player.blend` → `public/zones/greyhaven/player.glb` + de speler-materialen in `materials.json` + `tex/` (Deel E) |
+| `check_player_glb.py` | 2 (A.2c) | Controleert `player.glb`: botten, driehoeken, clips met duur, bestandsgrootte (Deel E) |
 
 **Mixamo-licentie:** de bestanden uit Mixamo (en `body_for_mixamo.fbx`) gaan **nooit** in git.
 Ze staan in de map `Mixamo` naast `Greyhaven.blend` (buiten de repo) of in `art-source/` (in `.gitignore`). Alleen de
@@ -221,4 +223,68 @@ DONE
 `gear.json` (naast het resultaat) noemt per object het bot, of het meebuigt met de cape, de materialen
 en het aantal driehoeken. Wil je de pasvorm bijstellen: de getallen staan bovenin het script
 (`HEAD_SCALE`, `CLOAK_SCALE`, `SWORD_SCALE`, `STAFF_LENGTH`, ...).
+
+---
+
+## Deel E – `04_export_player.py` draaien (stap A.2c)
+
+Zet de speler uit `Hero_Start_Player.blend` (uit Deel D) in de game. Een eigen script, los van
+`tools/blender/export_web.py`: de bron is een ander bestand, en de wereld-export bakt eerst minutenlang
+de stad, wat voor alleen de speler niet nodig is. `export_web.py` maakt geen `player.glb` meer.
+Beide scripts **voegen samen** in `materials.json`: elk vervangt alleen zijn eigen materialen, dus de
+volgorde maakt niet uit. Het spawnpunt en de terreinkaart blijven van de wereld-export.
+
+**In Blender:** open `Hero_Start_Player.blend` (opgeslagen), tabblad **Scripting**, **New**, plak het
+script, controleer bovenin `ZONE` (pad naar `public/zones/greyhaven` in je repo) en klik **▶**. Er
+start een tweede Blender in een consolevenster; een melding zegt wanneer hij klaar is.
+
+**Zonder venster:**
+`blender -b --factory-startup --python tools/blender/character/04_export_player.py -- <Hero_Start_Player.blend> public/zones/greyhaven`
+
+Wat het schrijft in de zonemap:
+- `player.glb`: `PlayerRig` met alle 74 botten (ook de cape-botten), de skinned meshes `Body`, `Cloak`,
+  `Cloak_Trim` en de stukken die stijf aan een bot zitten (haar, hoed, kraag, zwaard, staf). Elke
+  Action wordt een clip met precies zijn naam, beginnend op 0 s. De modifiers (Solidify "Outline",
+  Subsurf, ...) zijn toegepast behalve de Armature, dus de meshes blijven aan het skelet hangen. Draco
+  staat aan (three.js leest skinned Draco goed). Botten die in een clip niet bewegen en geen keys
+  hebben (de cape-botten, alle verschuivingen behalve `Hips`) laat de exporter weg: three.js houdt
+  die op hun rustpose, net als in Blender.
+- `materials.json`: alleen de speler-materialen (`Skin`, `Tunic`, `Hair`, `Hat_Navy`, `Cloak_Navy`,
+  `Gold_Trim`, `Leather`, `Old_Steel`, `Outline`, `Staff_Crystal` als `emit`). `Skin` en `Tunic` zijn
+  voorlopig `flat` met de gemiddelde kleur van de texture onder hun vlakken; de `tex` staat er al bij
+  voor als de game ze getextureerd tekent (stap A.3).
+- `tex/Hero_BaseColor.jpg` (1024 px). Normal en ORM gebruikt de toon-shader niet.
+
+Daarna draait het vanzelf `check_player_glb.py`. Los draaien kan ook:
+`blender -b --factory-startup --python tools/blender/character/check_player_glb.py -- public/zones/greyhaven/player.glb`
+(of met `python` als je dat hebt). Wat je onderaan `log_export.txt` (naast het .blend) moet zien:
+
+```
+bones 74 (skins 1)
+...
+mesh Body             5342 triangles, skinned
+mesh Cloak            6368 triangles, skinned
+mesh Cloak_Trim        384 triangles, skinned
+triangles 17378, limit 30000
+clips 24
+  Idle            6.500 s   66 channels
+  ...
+  Idle_Sword_2   11.100 s   66 channels
+  Idle_Sword_3    2.000 s   66 channels
+extensions KHR_draco_mesh_compression
+size 1506096 bytes (1.51 MB), limit 2.00 MB
+OK
+DONE
+```
+
+**De clips bekijken zonder Blender:** `npm run dev` en open
+`http://localhost:5173/Legend-of-Morvath/tools/player-preview/index.html`. Die losse pagina
+(`tools/player-preview/`, niet in de game en niet in de build) laadt `player.glb` met de kleuren uit
+`materials.json` en speelt elke clip af: kiezen in de lijst, pauze, schuifbalk, snelheid, herhalen,
+zwaard of staf aan/uit. De cape zwaait nog niet (stap A.4).
+
+Klopt iets niet (niet 74 botten, een clipnaam ontbreekt, een duur wijkt meer dan één frame af van de
+Action, te veel driehoeken of groter dan 2 MB), dan staat er `NOT OK` met de reden en stopt het script
+met een fout. Wordt het bestand te groot: zet bovenin `FRAME_STEP = 2` (15 fps samplen, three.js
+interpoleert) voordat je clips inkort. Breekt de skin met Draco: `DRACO = False`.
 

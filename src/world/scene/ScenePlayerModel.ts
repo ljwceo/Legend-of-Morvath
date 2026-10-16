@@ -4,8 +4,11 @@ import type { SharedLightUniforms } from '../../render/toon/ToonMaterial';
 import type { SceneAssets } from './SceneAssets';
 import { buildMaterial, materialName } from './SceneZone';
 
-/** Nodes of player.glb that the game draws itself (the sword swings with the combat poses). */
-const GAME_DRAWN = /^Sword_/;
+/**
+ * Nodes of player.glb that the game draws itself (the sword swings with the combat poses); the
+ * staff stays hidden with it until step A.3 picks the weapon.
+ */
+const GAME_DRAWN = /^(Sword|Staff)_/;
 
 /** Which Blender material takes which character creator color. */
 const APPEARANCE_MATERIALS: Record<string, 'hair' | 'skin' | 'mantle' | 'embroidery'> = {
@@ -65,13 +68,11 @@ export function buildPlayerModel(
     object.material = material;
     box.expandByObject(object);
   });
-  // Feet on the ground and centered; the Blender model looks along Blender +Y (-z here), so it
-  // turns half a circle to look along +z.
+  // Feet on the ground and centered; the Blender model looks along Blender -Y, which is +z here.
   const center = box.getCenter(new Vector3());
   model.position.set(-center.x, -box.min.y, -center.z);
   const root = new Group();
   root.name = 'player-model';
-  root.rotation.y = Math.PI;
   root.add(model);
   return {
     root,
