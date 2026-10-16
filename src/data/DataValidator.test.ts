@@ -66,6 +66,24 @@ describe('validateGameData on the real data in public/data', () => {
   });
 });
 
+describe('merchants are only data', () => {
+  it('a second merchant with a shop validates', () => {
+    const raw = freshData();
+    const marco = raw.npcs.npcs.find((n: { id: string }) => n.id === 'marco');
+    const second = structuredClone(marco);
+    second.id = 'test_merchant';
+    second.shop = {
+      sellRatio: 0.4,
+      items: [{ item: 'health_potion', price: 11, stock: { max: 3, restockSeconds: 60 } }],
+    };
+    raw.npcs.npcs.push(second);
+    const found = messages(raw);
+    expect(found.filter((m) => m.includes('test_merchant'))).toEqual([]);
+    second.shop.items[0].item = 'no_such_item';
+    expect(messages(raw).some((m) => m.includes('shop.items[0].item'))).toBe(true);
+  });
+});
+
 describe('validateGameData catches broken data', () => {
   it('reports structural problems with file and path', () => {
     const raw = freshData();

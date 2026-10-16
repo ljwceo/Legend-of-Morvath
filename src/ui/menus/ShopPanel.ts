@@ -1,22 +1,28 @@
 import type { GameContext } from '../../core/GameContext';
 import type { ShopDef } from '../../data/types';
+import { sellPrice } from '../../systems/Shops';
 import { countItem, GOLD_ITEM } from '../../systems/Inventory';
 import { button, el } from '../dom';
 import type { Panel } from '../Overlays';
 import { bindT } from './ConfirmPanel';
 
-export type BuyResult = 'bought' | 'notEnough';
+export type BuyResult = 'bought' | 'notEnough' | 'soldOut';
+export type SellResult = 'sold' | 'none';
+type ShopEntry = ShopDef['items'][number];
 
 /**
- * A simple shop (Marco): every item with its price, how many you already have, and a Buy
- * button (one at a time). Your gold shows at the top. The game waits while it is open.
+ * A shop (any merchant from npcs.json): every item with its price, stock and how many you
+ * already have, a Buy button and a Sell button (one at a time, at price x sellRatio). Your gold shows at the top. The game waits while it is open.
  * Item names and "Gold" stay English (data, not text keys).
  */
 export function shopPanel(
   ctx: GameContext,
   merchant: string,
   shop: ShopDef,
-  buy: (itemId: string, price: number) => BuyResult,
+  buy: (entry: ShopEntry) => BuyResult,
+  sell: (entry: ShopEntry) => SellResult,
+  /** How many are in stock right now (null = unlimited). */
+  stockOf: (entry: ShopEntry) => number | null,
   onClose: () => void,
 ): Panel {
   // The last purchase (or why it failed), kept while the panel redraws.
@@ -31,6 +37,8 @@ export function shopPanel(
         const def = items.get(entry.item);
         const name = def?.name ?? entry.item;
         const owned = countItem(character?.inventory ?? [], entry.item);
+        const left = stockOf(entry);
+        const give = sellPrice(entry, shop);
         return el(
           'li',
           { className: 'ui-bag-row' },
@@ -45,6 +53,12 @@ export function shopPanel(
             def?.description
               ? el('span', { className: 'ui-bag-desc', text: t(def.description) })
               : null,
+            left !== null
+              ? el('span', {
+                  className: 'ui-bag-desc',
+                  text: left > 0 ? t('shop.stock', { count: left }) : t('shop.soldOut'),
+                })
+              : null,
             owned > 0
               ? el('span', { className: 'ui-bag-desc', text: t('shop.owned', { count: owned }) })
               : null,
@@ -54,14 +68,33 @@ export function shopPanel(
             text: t('shop.buy'),
             attrs: { type: 'button', 'aria-label': `${t('shop.buy')}: ${name}` },
             onClick: () => {
-              const result = buy(entry.item, entry.price);
+              const result = buy(entry);
               message =
                 result === 'bought'
                   ? t('shop.bought', { item: name })
-                  : t('shop.notEnough', { gold });
+                  : result === 'soldOut'
+                    ? t('shop.soldOut')
+                    : t('shop.notEnough', { gold });
               ctx.overlays.refreshTop();
             },
           }),
+          give > 0
+            ? el('button', {
+                className: 'ui-chip',
+                text: t('shop.sell', { price: give, gold }),
+                attrs: {
+                  type: 'button',
+                  'aria-label': `${t('shop.sell', { price: give, gold })}: ${name}`,
+                },
+                onClick: () => {
+                  message =
+                    sell(entry) === 'sold'
+                      ? t('shop.sold', { item: name, price: give, gold })
+                      : t('shop.nothingToSell', { item: name });
+                  ctx.overlays.refreshTop();
+                },
+              })
+            : null,
         );
       });
       return el(

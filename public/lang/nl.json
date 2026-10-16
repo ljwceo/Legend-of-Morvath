@@ -1156,7 +1156,12 @@
     "price": "{price} {gold}",
     "notEnough": "Niet genoeg {gold}.",
     "bought": "Gekocht: {item}",
-    "owned": "In je tas: {count}"
+    "owned": "In je tas: {count}",
+    "stock": "Op voorraad: {count}",
+    "soldOut": "Uitverkocht.",
+    "sell": "Verkopen voor {price} {gold}",
+    "sold": "Verkocht: {item} voor {price} {gold}",
+    "nothingToSell": "Je hebt geen {item} om te verkopen."
   },
   "boss": {
     "dodged": "Ontweken!",

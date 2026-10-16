@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 16;
+export const SAVE_VERSION = 17;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -129,6 +129,11 @@ export const saveDataSchema = z.object({
    * Handing an egg in at Sultan takes it out of the bag, not out of this list.
    */
   foundEggs: z.array(id),
+  /**
+   * Shop stock that is not full (step 4.2), key "npc/item": how many are left and the
+   * playTimeSeconds of the last change (restocking is worked out from that). Missing = full.
+   */
+  shopStock: z.record(z.string(), z.object({ left: z.int().check(z.nonnegative()), at: finite })),
   playTimeSeconds: z.number().check(z.nonnegative()),
 });
 
@@ -173,6 +178,7 @@ export function createNewSave(language: Language, now: Date = new Date()): SaveD
     seenCutscenes: [],
     seenHints: [],
     foundEggs: [],
+    shopStock: {},
     playTimeSeconds: 0,
   };
 }
@@ -277,6 +283,8 @@ export const migrations: Readonly<Record<number, Migration>> = {
     const character = save.character as Record<string, unknown> | null | undefined;
     return { ...save, version: 16, character: character ? { ...character, upgrades: {} } : null };
   },
+  // v17 (step 4.2): limited shop stock; every shop starts full.
+  16: (save) => ({ ...save, version: 17, shopStock: {} }),
   // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged
   // them). Everyone starts on the default size and the default places.
   10: (save) => {

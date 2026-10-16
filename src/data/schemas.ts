@@ -524,7 +524,20 @@ const npcSchema = z.strictObject({
   /** A simple shop that opens after talking (Marco): items and their price in gold. */
   shop: optional(
     z.strictObject({
-      items: atLeast(z.array(z.strictObject({ item: id, price: intRange(1, 1_000_000) }))),
+      items: atLeast(
+        z.array(
+          z.strictObject({
+            item: id,
+            price: intRange(1, 1_000_000),
+            /** Limited stock: `max` in the shop, one comes back every `restockSeconds`. */
+            stock: optional(
+              z.strictObject({ max: intRange(1, 999), restockSeconds: range(1, 86_400) }),
+            ),
+          }),
+        ),
+      ),
+      /** The merchant buys back what he sells for price x sellRatio (default 0.5, rounded down). */
+      sellRatio: optional(range(0, 1)),
     }),
   ),
 });

@@ -170,7 +170,8 @@ import { el } from '../ui/dom';
 import { BAG_TYPE_ORDER, bagPanel, itemNameEl } from '../ui/menus/BagPanel';
 import { packPanel } from '../ui/menus/PackPanel';
 import { forgePanel } from '../ui/menus/ForgePanel';
-import { type BuyResult, shopPanel } from '../ui/menus/ShopPanel';
+import { changeStock, type ShopEntry, sellPrice, stockLeft } from '../systems/Shops';
+import { type BuyResult, type SellResult, shopPanel } from '../ui/menus/ShopPanel';
 import {
   applyUpgrade,
   effectiveDamageBonus,
@@ -3049,7 +3050,7 @@ export class WorldState implements GameState, InstanceHost {
     }
   }
 
-  /** Marco's shop: the game waits, gold shows at the top right (HUD rule "at a shop"). */
+  /** A merchant's shop (any NPC with `shop`): the game waits, gold shows at the top right (HUD rule "at a shop"). */
   private openShop(merchant: string, npcId: string, shop: NonNullable<NpcDef['shop']>): void {
     this.hud?.rules.setShop(true);
     this.openMenu((resume) =>
@@ -3057,7 +3058,9 @@ export class WorldState implements GameState, InstanceHost {
         this.ctx,
         merchant,
         shop,
-        (itemId, price) => this.buy(itemId, price, npcId),
+        (entry) => this.buy(entry, npcId),
+        (entry) => this.sell(entry, shop, npcId),
+        (entry) => stockLeft(entry, this.ctx.session?.shopStock ?? {}, npcId, this.playTime()),
         () => {
           this.hud?.rules.setShop(false);
           resume();
@@ -3150,17 +3153,45 @@ export class WorldState implements GameState, InstanceHost {
     );
   }
 
-  /** Buys one item for `price` gold. */
-  private buy(itemId: string, price: number, npcId: string): BuyResult {
-    const character = this.ctx.session?.character;
-    if (!character || character.gold < price) return 'notEnough';
-    character.gold -= price;
+  private playTime(): number {
+    return this.ctx.session?.playTimeSeconds ?? 0;
+  }
+
+  /** Buys one item (price and stock from the shop entry). */
+  private buy(entry: ShopEntry, npcId: string): BuyResult {
+    const session = this.ctx.session;
+    const character = session?.character;
+    if (!session || !character) return 'notEnough';
+    const left = stockLeft(entry, session.shopStock, npcId, this.playTime());
+    if (left !== null && left < 1) return 'soldOut';
+    if (character.gold < entry.price) return 'notEnough';
+    changeStock(entry, session.shopStock, npcId, this.playTime(), 1);
+    character.gold -= entry.price;
     this.hud?.setGold(character.gold);
     this.hud?.rules.goldChanged();
-    this.gainItem(itemId, 1);
-    this.ctx.events.emit('itemBought', { itemId, count: 1, npcId });
+    this.gainItem(entry.item, 1);
+    this.ctx.events.emit('itemBought', { itemId: entry.item, count: 1, npcId });
     this.ctx.persist();
     return 'bought';
+  }
+
+  /** Sells one item from the bag back to the merchant (price x sellRatio); it returns to stock. */
+  private sell(entry: ShopEntry, shop: NonNullable<NpcDef['shop']>, npcId: string): SellResult {
+    const session = this.ctx.session;
+    const character = session?.character;
+    if (!session || !character) return 'none';
+    // Never sell the last copy of the weapon you hold (you would stand there empty-handed).
+    const copies = countItem(character.inventory, entry.item);
+    if (character.equipment.weapon === entry.item && copies <= 1) return 'none';
+    if (!removeItem(character.inventory, entry.item, 1)) return 'none';
+    character.gold += sellPrice(entry, shop);
+    changeStock(entry, session.shopStock, npcId, this.playTime(), -1);
+    // Worn gear may have been the sold copy: refresh stats and load.
+    this.applyGear(true);
+    this.hud?.setGold(character.gold);
+    this.hud?.rules.goldChanged();
+    this.ctx.persist();
+    return 'sold';
   }
 
   private itemName(itemId: string): string {

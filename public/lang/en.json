@@ -1156,7 +1156,12 @@
     "price": "{price} {gold}",
     "notEnough": "Not enough {gold}.",
     "bought": "Bought: {item}",
-    "owned": "In your bag: {count}"
+    "owned": "In your bag: {count}",
+    "stock": "In stock: {count}",
+    "soldOut": "Sold out.",
+    "sell": "Sell for {price} {gold}",
+    "sold": "Sold: {item} for {price} {gold}",
+    "nothingToSell": "You have no {item} to sell."
   },
   "boss": {
     "dodged": "Dodged!",

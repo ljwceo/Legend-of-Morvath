@@ -284,6 +284,18 @@ describe('migrate', () => {
     expect(result.save.settings.volume).toBe(0.3);
   });
 
+  it('upgrades a version 16 save: every shop starts full', () => {
+    const v16: Record<string, unknown> = { ...sampleSave(), version: 16 };
+    delete v16.shopStock;
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v16));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.shopStock).toEqual({});
+  });
+
   it('upgrades a version 12 save: no eggs found yet; the rest stays', () => {
     const current = sampleSave();
     const v12: Record<string, unknown> = { ...current, version: 12 };

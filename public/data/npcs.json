@@ -143,19 +143,23 @@
           },
           {
             "item": "straw_hat",
-            "price": 15
+            "price": 15,
+            "stock": { "max": 2, "restockSeconds": 600 }
           },
           {
             "item": "brass_ring",
-            "price": 25
+            "price": 25,
+            "stock": { "max": 2, "restockSeconds": 600 }
           },
           {
             "item": "copper_amulet",
-            "price": 30
+            "price": 30,
+            "stock": { "max": 2, "restockSeconds": 600 }
           },
           {
             "item": "padded_mantle",
-            "price": 60
+            "price": 60,
+            "stock": { "max": 2, "restockSeconds": 600 }
           }
         ]
       }
