@@ -199,6 +199,8 @@ export class StaffState {
   bufferedSpell = 0;
   /** Set for the step in which a cast failed for want of mana (the HUD says so). */
   noMana = false;
+  /** Seconds since the last shot left the staff (only read: the animator draws the release). */
+  sinceFired = Infinity;
 
   /** True while a shot is being gathered: you walk slower and cannot dash. */
   get casting(): boolean {
@@ -226,6 +228,7 @@ export class StaffState {
     this.bufferedShard = 0;
     this.bufferedSpell = 0;
     this.noMana = false;
+    this.sinceFired = Infinity;
   }
 }
 
@@ -281,6 +284,7 @@ function release(
   state.charge = 0;
   state.holding = false;
   state.chargeFraction = 0;
+  state.sinceFired = 0;
   out.fired = kind;
   if (!shot) return out;
   // Never more charge than your mana can pay for, so a long hold is never wasted.
@@ -334,6 +338,8 @@ export function stepStaff(
   state.cooldown = Math.max(0, state.cooldown - dt);
   state.spellCooldown = Math.max(0, state.spellCooldown - dt);
   combat.sinceCombat += dt;
+  combat.sinceHurt += dt;
+  state.sinceFired += dt;
   if (input.shard) state.bufferedShard = cfg.inputBufferSeconds + dt;
   if (input.spell) state.bufferedSpell = cfg.inputBufferSeconds + dt;
   state.bufferedShard = Math.max(0, state.bufferedShard - dt);

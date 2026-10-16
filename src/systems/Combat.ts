@@ -109,6 +109,14 @@ export class CombatState {
   swingTime = 0;
   /** Seconds since the player last gave or took a hit. */
   sinceCombat = Infinity;
+  /**
+   * Seconds since the last fast or heavy hit landed, and since the player last took damage.
+   * Only read (the animator draws the swing and the flinch from them), never steer anything.
+   */
+  sinceSwing = Infinity;
+  sinceHurt = Infinity;
+  /** The combo place of the last hit that landed (1, 2, 3, ...), or 0 for a heavy hit. */
+  landedCombo = 0;
   /** A fast / heavy press waiting until the sword is ready (seconds left). */
   bufferedFast = 0;
   bufferedHeavy = 0;
@@ -240,6 +248,8 @@ export function stepSword(
   c.attackCooldown = Math.max(0, c.attackCooldown - dt);
   c.sinceFastHit += dt;
   c.sinceCombat += dt;
+  c.sinceSwing += dt;
+  c.sinceHurt += dt;
   // Remember presses for a moment, so a click just before the sword is ready still counts.
   if (input.fast) c.bufferedFast = cfg.inputBufferSeconds + dt;
   if (input.heavy) c.bufferedHeavy = cfg.inputBufferSeconds + dt;
@@ -261,6 +271,8 @@ export function stepSword(
     c.swing = 'heavy';
     c.swingTime = cfg.fastSwingSeconds / speed;
     c.attackCooldown = cfg.heavyRecoverySeconds / speed;
+    c.sinceSwing = 0;
+    c.landedCombo = 0;
     out.landed = 'heavy';
     out.damage = heavyHitDamage(cfg, c.weaponBonus, c.damageFactor * c.normalFactor);
     return critHit(c, input, out);
@@ -289,6 +301,8 @@ export function stepSword(
     c.attackCooldown = (cfg.fastInterval / speed) * (enough ? 1 : cfg.noEnergySlowdown);
     c.swing = 'fast';
     c.swingTime = cfg.fastSwingSeconds / speed;
+    c.sinceSwing = 0;
+    c.landedCombo = c.comboCount;
     out.landed = 'fast';
     out.damage = fastHitDamage(cfg, c.comboCount, c.weaponBonus, c.damageFactor * c.normalFactor);
     out.combo = c.comboCount % cfg.comboEveryNthHit === 0;
