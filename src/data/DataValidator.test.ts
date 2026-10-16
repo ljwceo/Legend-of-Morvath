@@ -94,6 +94,26 @@ describe('validateGameData catches broken data', () => {
     expect(found.some((m) => m.startsWith('player.json → movement.walkSpeed'))).toBe(true);
   });
 
+  it('reports a missing clip role and weapons that pick each other’s meshes', () => {
+    const raw = freshData();
+    delete raw.animations.player.clips.dash;
+    raw.animations.player.clips.slashOne = 'Slash_1';
+    let found = messages(raw);
+    expect(found.some((m) => m.startsWith('animations.json → player.clips.dash'))).toBe(true);
+    expect(found.some((m) => m.startsWith('animations.json → player.clips'))).toBe(true);
+
+    const overlap = freshData();
+    overlap.animations.player.weapons.staff = 'S';
+    overlap.animations.player.handBone = 'Sword_Hand';
+    found = messages(overlap);
+    expect(found).toContainEqual(
+      'animations.json → player.weapons.staff: "S" also matches the sword meshes',
+    );
+    expect(found).toContainEqual(
+      'animations.json → player.weapons.sword: "Sword_" also matches the hand bone',
+    );
+  });
+
   it('reports animated NPC models whose speeds do not fit together', () => {
     const raw = freshData();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

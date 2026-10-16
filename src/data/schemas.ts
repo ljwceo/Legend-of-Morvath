@@ -25,6 +25,9 @@ export const PLAYER_PATHS = ['sword', 'light', 'dark'] as const;
 export type PlayerPath = (typeof PLAYER_PATHS)[number];
 /** A path condition: none chosen yet, any chosen, or this one. */
 export type PathCheck = 'none' | 'any' | PlayerPath;
+/** What a weapon item is; it decides how you fight and which weapon the player model holds. */
+export const WEAPON_KINDS = ['sword', 'staff'] as const;
+export type WeaponKind = (typeof WEAPON_KINDS)[number];
 // zod 4 numbers are always finite (no Infinity / NaN).
 const nonNegative = z.number().check(z.nonnegative());
 const positive = z.number().check(z.positive());
@@ -1176,7 +1179,7 @@ const itemSchema = z.strictObject({
   dryHours: optional(positive),
   weapon: optional(
     z.object({
-      kind: z.enum(['sword', 'staff']),
+      kind: z.enum(WEAPON_KINDS),
       damageBonus: nonNegative,
       spellSlots: optional(intRange(0, 3)),
       maxCrystalSize: optional(id),
@@ -2164,6 +2167,60 @@ export const controlsFileSchema = z.strictObject({
   ),
 });
 
+// ---------------------------------------------------------------- animations.json
+
+/**
+ * The parts of the animated player model the game uses, by role (the clip names of PLAN.md,
+ * phase A). The animator (step A.3c) picks a role; the clip name says which clip in player.glb
+ * plays it.
+ */
+export const PLAYER_CLIP_ROLES = [
+  'idle',
+  'walk',
+  'run',
+  'sprint',
+  'jumpStart',
+  'jumpAir',
+  'land',
+  'dash',
+  'dashRecover',
+  'slash1',
+  'slash2',
+  'slash3',
+  'heavyWindup',
+  'heavyStrike',
+  'castGather',
+  'castRelease',
+  'hit',
+  'death',
+  'interact',
+] as const;
+export type PlayerClipRole = (typeof PLAYER_CLIP_ROLES)[number];
+
+/** A node name in a .glb, or the start of one (e.g. "Sword_"). */
+const nodeName = z.string().check(z.regex(/^[A-Za-z0-9_.:-]+$/, 'not a valid node name'));
+
+export const animationsFileSchema = z.strictObject({
+  player: z.strictObject({
+    /** Clip name in player.glb per role; every role needs one. */
+    clips: z.strictObject(
+      Object.fromEntries(PLAYER_CLIP_ROLES.map((role) => [role, nodeName])) as Record<
+        PlayerClipRole,
+        typeof nodeName
+      >,
+    ),
+    /** The bone the weapons hang from (only a check: the weapons must sit under it). */
+    handBone: nodeName,
+    /** Per weapon kind, the start of the names of its meshes in player.glb (e.g. "Sword_"). */
+    weapons: z.strictObject(
+      Object.fromEntries(WEAPON_KINDS.map((kind) => [kind, nodeName])) as Record<
+        WeaponKind,
+        typeof nodeName
+      >,
+    ),
+  }),
+});
+
 export const dataSchemas = {
   zones: zonesFileSchema,
   controls: controlsFileSchema,
@@ -2182,6 +2239,7 @@ export const dataSchemas = {
   combos: combosFileSchema,
   cutscenes: cutscenesFileSchema,
   daynight: dayNightFileSchema,
+  animations: animationsFileSchema,
 } as const;
 
 export type DataFileName = keyof typeof dataSchemas;
