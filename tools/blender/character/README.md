@@ -1,6 +1,6 @@
 # Personage – Blender-scripts (Fase A)
 
-Bron: `Greyhaven.blend` (staat niet in de repo; Bo heeft hem lokaal), collectie `StartCharacter`.
+Bron: `Hero_Start_Rigged.blend` (sinds A.0, 2026-10-15; staat niet in de repo, Bo heeft hem lokaal), collectie `StartCharacter` met het lijf `Body` (materialen `Skin`, `Tunic`). Het oude `Greyhaven.blend`-poppetje van losse stukken werkt in het script nog steeds.
 De scripts draaien zonder venster en **slaan het .blend-bestand nooit op**.
 
 | Bestand | Chat | Wat |
@@ -25,8 +25,7 @@ Het huidige poppetje is van losse cilinders en bolletjes. Bo maakt eerst de look
 - Materiaalnamen houden: `Skin`, `Hair`, `Cloak_Navy`, `Hat_Navy`, `Gold_Trim` (de character creator kleurt die), en `Outline` voor de omlijning.
 - Maximaal ±30.000 driehoeken in totaal.
 
-Let op: het script zoekt nu nog naar de oude stukken (`Torso`, `Arm_L`, ...). Heeft het nieuwe lijf
-andere namen, dan passen we de lijst `BODY` in het script aan (zeg het in de chat).
+Klaar (A.0): het nieuwe lijf heet `Body` en het script herkent dat. Alleen als er geen `Body` is, zoekt hij nog de oude stukken (`Torso`, `Arm_L`, ...).
 
 ---
 
