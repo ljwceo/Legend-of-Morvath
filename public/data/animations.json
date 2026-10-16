@@ -25,6 +25,40 @@
     "weapons": {
       "sword": "Sword_",
       "staff": "Staff_"
-    }
+    },
+    "fadeSeconds": {
+      "move": 0.2,
+      "action": 0.15,
+      "strike": 0.08
+    },
+    "gait": {
+      "idleBelow": 0.3,
+      "runAbove": 2.8,
+      "walkSpeed": 1.85,
+      "runSpeed": 4.1,
+      "sprintSpeed": 5.3,
+      "minTimeScale": 0.6,
+      "maxTimeScale": 1.6,
+      "smoothingSeconds": 0.1
+    },
+    "strike": {
+      "leadSeconds": 0.06,
+      "followSeconds": 0.25,
+      "settleSeconds": 0.5,
+      "contactSeconds": {
+        "slash1": 0.63,
+        "slash2": 1.2,
+        "slash3": 0.66,
+        "heavyStrike": 0.08,
+        "castRelease": 0.7
+      }
+    },
+    "hold": {
+      "hit": 0.7,
+      "interact": 1.6,
+      "land": 0.45
+    },
+    "fallAfterSeconds": 0.15,
+    "landFromSeconds": 0.3
   }
 }

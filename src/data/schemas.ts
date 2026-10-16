@@ -2218,6 +2218,58 @@ export const animationsFileSchema = z.strictObject({
         typeof nodeName
       >,
     ),
+    /**
+     * Crossfade lengths (s): between walking clips, into any other clip, and into a strike
+     * (short, so the blow is already clear at the moment of the damage).
+     */
+    fadeSeconds: z.strictObject({
+      move: nonNegative,
+      action: nonNegative,
+      strike: nonNegative,
+    }),
+    /**
+     * Walking, running and sprinting by speed (m/s). The reference speeds are how fast the feet
+     * of each clip go (measured in player.glb): played at `speed / reference` they do not slide.
+     */
+    gait: z.strictObject({
+      idleBelow: positive,
+      runAbove: positive,
+      walkSpeed: positive,
+      runSpeed: positive,
+      sprintSpeed: positive,
+      minTimeScale: positive,
+      maxTimeScale: positive,
+      /** Speed is smoothed over about this long, so speeding up and slowing down look natural. */
+      smoothingSeconds: nonNegative,
+    }),
+    /**
+     * Strikes follow the simulation: when the damage lands (or the shot leaves) the clip stands
+     * `leadSeconds` before its contact moment, and the swing itself covers up to `followSeconds`
+     * after it. Standing still, the rest plays for at most `settleSeconds` more.
+     */
+    strike: z.strictObject({
+      leadSeconds: nonNegative,
+      followSeconds: nonNegative,
+      settleSeconds: nonNegative,
+      /** Where in each strike clip the blade (or the staff) is fastest: the contact moment. */
+      contactSeconds: z.strictObject({
+        slash1: nonNegative,
+        slash2: nonNegative,
+        slash3: nonNegative,
+        heavyStrike: nonNegative,
+        castRelease: nonNegative,
+      }),
+    }),
+    /** How long the one-off clips play (s, they fade out sooner when you walk off). */
+    hold: z.strictObject({
+      hit: nonNegative,
+      interact: nonNegative,
+      land: nonNegative,
+    }),
+    /** A fall shorter than this (s) is a step down, not a fall: no Fall, no Land. */
+    fallAfterSeconds: nonNegative,
+    /** Where Land starts (s): the moment its feet touch the ground. */
+    landFromSeconds: nonNegative,
   }),
 });
 

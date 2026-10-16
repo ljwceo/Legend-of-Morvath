@@ -114,6 +114,23 @@ describe('validateGameData catches broken data', () => {
     );
   });
 
+  it('reports player gait speeds out of order and a contact before the strike starts', () => {
+    const raw = freshData();
+    raw.animations.player.gait.runAbove = 5;
+    raw.animations.player.gait.minTimeScale = 1.2;
+    raw.animations.player.strike.contactSeconds.heavyStrike = 0.01;
+    const found = messages(raw);
+    expect(found).toContainEqual(
+      'animations.json → player.gait.runAbove: must lie between walkSpeed and runSpeed',
+    );
+    expect(found).toContainEqual(
+      'animations.json → player.gait: minTimeScale must be at most 1 and maxTimeScale at least 1',
+    );
+    expect(found).toContainEqual(
+      'animations.json → player.strike.contactSeconds.heavyStrike: is earlier than leadSeconds',
+    );
+  });
+
   it('reports animated NPC models whose speeds do not fit together', () => {
     const raw = freshData();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

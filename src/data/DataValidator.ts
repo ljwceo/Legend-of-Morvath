@@ -142,6 +142,26 @@ class CrossChecker {
         this.issue(f, `player.weapons.${kind}`, `"${prefix}" also matches the hand bone`);
       }
     }
+    // Standing, walking and running must follow each other, or a clip could never be chosen.
+    const g = p.gait;
+    if (g.idleBelow >= g.runAbove) {
+      this.issue(f, 'player.gait.runAbove', `must be above idleBelow (${g.idleBelow})`);
+    }
+    if (g.runAbove <= g.walkSpeed || g.runAbove >= g.runSpeed) {
+      this.issue(f, 'player.gait.runAbove', 'must lie between walkSpeed and runSpeed');
+    }
+    if (g.runSpeed >= g.sprintSpeed) {
+      this.issue(f, 'player.gait.sprintSpeed', `must be above runSpeed (${g.runSpeed})`);
+    }
+    if (g.minTimeScale > 1 || g.maxTimeScale < 1) {
+      this.issue(f, 'player.gait', 'minTimeScale must be at most 1 and maxTimeScale at least 1');
+    }
+    // A strike starts `leadSeconds` before its contact moment, so that moment cannot be earlier.
+    for (const [role, contact] of Object.entries(p.strike.contactSeconds)) {
+      if (contact < p.strike.leadSeconds) {
+        this.issue(f, `player.strike.contactSeconds.${role}`, 'is earlier than leadSeconds');
+      }
+    }
   }
 
   /** Day and night: a look per phase, the golden hour look, known colors and text keys. */

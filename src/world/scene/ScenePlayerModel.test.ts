@@ -12,7 +12,18 @@ const anim = (readPublicJson('data/animations.json') as AnimationsFile).player;
 /** The parts of player.glb's JSON the tests read (node tree and clip names). */
 interface GlbJson {
   nodes: { name?: string; children?: number[] }[];
-  animations?: { name?: string }[];
+  animations?: { name?: string; samplers: { input: number }[] }[];
+  accessors: { max?: number[] }[];
+}
+
+/** A clip's length in player.glb: the last key time of any of its samplers. */
+function clipDuration(glb: GlbJson, name: string): number {
+  const clip = glb.animations?.find((entry) => entry.name === name);
+  let end = 0;
+  for (const sampler of clip?.samplers ?? []) {
+    end = Math.max(end, glb.accessors[sampler.input]?.max?.[0] ?? 0);
+  }
+  return end;
 }
 
 /** The JSON part of the player.glb that the Blender zone (Greyhaven) loads, read from disk. */
@@ -34,6 +45,14 @@ describe('player clips and weapons (animations.json)', () => {
     expect(resolveClips(anim.clips, clips, out)).toEqual([]);
     expect(out.size).toBe(PLAYER_CLIP_ROLES.length);
     expect(out.get('slash2')?.name).toBe('Slash_2');
+  });
+
+  it('every contact moment and the landing lie inside their clip', () => {
+    for (const [role, contact] of Object.entries(anim.strike.contactSeconds)) {
+      const duration = clipDuration(glb, anim.clips[role as PlayerClipRole]);
+      expect(contact, role).toBeLessThan(duration);
+    }
+    expect(anim.landFromSeconds).toBeLessThan(clipDuration(glb, anim.clips.land));
   });
 
   it('reports the roles whose clip is missing and leaves them out', () => {
