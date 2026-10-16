@@ -1,5 +1,5 @@
 // Test bench for group S (Souls-like combat), branch auto/souls (tools/testbank/README.md).
-// Built steps: S.2 (gamepad). Earlier panels (Forge, shops, spellbook) stay on the bench.
+// Built steps: S.2 (gamepad), S.3 (stamina), S.4 (roll), S.4b (gold marker), S.5a/b (attack phases/cues), S.6 (poise), S.7 (guard). Earlier panels (Forge, shops, spellbook) stay on the bench.
 // The panels, rules, data and texts are the real ones; only the world around them is faked,
 // copied from WorldState (buy, sell, upgradeItem, chooseSpell, applyWeapon, learnSpells).
 import '../../docs/art-style/tokens.css';
@@ -16,6 +16,7 @@ import nl from '../../public/lang/nl.json';
 
 import { Bindings } from '../../src/core/Bindings';
 import { Input } from '../../src/core/Input';
+import { labPanel } from './lab';
 import { PadHub, padCode } from '../../src/core/gamepad';
 import { keyLabel, keyParams } from '../../src/ui/keyLabels';
 import { controlsPanel } from '../../src/ui/menus/ControlsPanel';
@@ -386,7 +387,8 @@ function padTestPanel(): Panel {
 
 // ----------------------------------------------------------------- opening the panels
 
-type PanelId = 'forge' | 'shop' | 'spellbook' | 'controls' | 'padtest';
+type PanelId = 'forge' | 'shop' | 'spellbook' | 'controls' | 'padtest' | 'lab';
+const labFields: Record<string, unknown> = {};
 let openPanel: PanelId | null = null;
 function open(which: PanelId): void {
   overlays.closeAll();
@@ -398,6 +400,21 @@ function open(which: PanelId): void {
   };
   if (which === 'controls') overlays.open(controlsPanel(ctx));
   if (which === 'padtest') overlays.open(padTestPanel());
+  if (which === 'lab')
+    overlays.open(
+      labPanel({
+        h: h as any,
+        getGold: () => session.character.gold,
+        setGold: (n) => {
+          session.character.gold = n;
+        },
+        close: () => overlays.close(),
+        onState: (f) => {
+          Object.assign(labFields, f);
+          renderBench();
+        },
+      }),
+    );
   if (which === 'forge')
     overlays.open(forgePanel(ctx, hilda?.name ?? 'Hilda', upgradeItem, closed));
   if (which === 'shop') {
@@ -481,6 +498,11 @@ function renderBench(): void {
         btn('Winkel (Marco)', () => open('shop'), openPanel === 'shop'),
         btn('Spellboek', () => open('spellbook'), openPanel === 'spellbook'),
       ),
+    ),
+    group(
+      'Stappen S.3 t/m S.7 – Souls-like gevecht',
+      row(btn('Gevechtslab', () => open('lab'), openPanel === 'lab')),
+      h('p', { className: 'b-hint' }, 'Rol, blok en parry, stamina, poise, aanvalsfases en gold bij je lijk met de echte regels en data. 60 Hz naast 120 Hz.'),
     ),
     group(
       'Stap S.2 – Gamepad',
@@ -594,7 +616,12 @@ function renderBench(): void {
       h('li', {}, 'S.2: lopen, camera draaien, lock-on, slaan en rollen met een echte controller in de 3D-wereld: start het spel (npm run dev of GitHub Pages) en pak je controller.'),
       h('li', {}, 'S.2: de knophints in teksten (A, RB, …) die verschijnen nadat je een controller gebruikt hebt: in het spel zelf, bij gesprekken en tips.'),
       h('li', {}, 'S.2: Start = pauze in de wereld; hier telt de Controllertest hem alleen.'),
-      h('li', {}, 'S.3 t/m S.9 (stamina, rol, aanvalsfases, poise, Sultan) zijn nog niet gebouwd en staan dus niet op deze pagina.'),
+      h('li', {}, 'S.4: het echte rollen (afstand, richting volgt lock-on, camera) en de onkwetsbaarheid zelf zie je pas in de wereld; het Gevechtslab toont alleen het venster.'),
+      h('li', {}, 'S.4b: de gouden markering als toon-object op de plek waar je viel, en het wakker worden na je dood: in de wereld (sterf en loop terug).'),
+      h('li', {}, 'S.5a/S.5b: de echte aankondiging-cues op de grond (schijf, lijn, gebied) bij Green Slime en Goblin in de wereld; hier alleen een schetsje met dezelfde duur.'),
+      h('li', {}, 'S.6: de wankel-animatie van vijanden en de poise-balk van de HUD (verschijnt bij minder dan vol): in de wereld.'),
+      h('li', {}, 'S.7: het blokken zelf (toets R / L3), animatie en geluid: in de wereld; er is nog geen guard-animatie of HUD-indicator.'),
+      h('li', {}, 'S.8 (Sultan) en S.9 zijn nog niet gebouwd en staan dus niet op deze pagina.'),
     ),
     h('h3', {}, 'Wat het spel zou opslaan'),
     h('dl', {}, ...lines.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
@@ -604,6 +631,7 @@ function renderBench(): void {
       JSON.stringify(
         {
           'settings.keybindings': session.settings.keybindings,
+          goldMarker: (labFields as any).goldMarker ?? null,
           'character.upgrades': c.upgrades,
           'character.spellLoadout': c.spellLoadout,
           shopStock: session.shopStock,
