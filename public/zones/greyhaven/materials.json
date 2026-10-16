@@ -1439,18 +1439,29 @@
   "Skin": {
    "kind": "flat",
    "color": [
-    0.95,
-    0.76,
-    0.62
-   ]
+    0.7976,
+    0.4093,
+    0.2406
+   ],
+   "tex": "Hero_BaseColor.jpg"
+  },
+  "Staff_Crystal": {
+   "kind": "emit",
+   "color": [
+    0.35,
+    0.75,
+    1.0
+   ],
+   "strength": 2.0
   },
   "Tunic": {
    "kind": "flat",
    "color": [
-    0.55,
-    0.45,
-    0.32
-   ]
+    0.1756,
+    0.1645,
+    0.1599
+   ],
+   "tex": "Hero_BaseColor.jpg"
   }
  },
  "player": [
