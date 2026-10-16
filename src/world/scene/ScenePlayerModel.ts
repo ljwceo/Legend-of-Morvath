@@ -38,7 +38,7 @@ export interface ScenePlayerModel {
   clips: ReadonlyMap<PlayerClipRole, AnimationClip>;
   /**
    * Shows the Blender weapon of this kind in the right hand, or none (null). Hidden at the
-   * start: until the animator (step A.3c) the game draws its own swinging sword.
+   * start; the world shows the equipped one once the PlayerAnimator swings it.
    */
   showWeapon(kind: WeaponKind | null): void;
   dispose(): void;
@@ -112,7 +112,11 @@ export function buildPlayerModel(
     if (!(object instanceof Mesh)) return;
     // A mesh with several materials is a group of primitives that carry the mesh's own name.
     const weapon = own ?? weaponOf(object.parent?.name ?? '', anim.weapons);
-    if (object instanceof SkinnedMesh) skinned.push(object);
+    if (object instanceof SkinnedMesh) {
+      skinned.push(object);
+      // Its bounds do not follow the bones (lying down in Death); it is small, so always draw it.
+      object.frustumCulled = false;
+    }
     const name = materialName(object);
     let material = materials.get(name);
     if (!material) {
