@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import type { ItemDef } from '../data/types';
+import { applyUpgrade, effectiveDamageBonus } from '../systems/Forge';
 import {
   createNewSave,
   DEFAULT_CAMERA_SENSITIVITY,
@@ -40,7 +42,9 @@ function sampleSave() {
     pack: [],
     stats: { hp: 6, power: 5 },
     spells: [],
+    spellLoadout: [],
     crystal: null,
+    upgrades: {},
   };
   save.world = {
     zone: 'greyhaven',
@@ -211,6 +215,46 @@ describe('migrate', () => {
     expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
   });
 
+  it('upgrades a version 15 save: Forge levels start empty, the rest stays', () => {
+    const current = sampleSave();
+    const character: Record<string, unknown> = { ...current.character };
+    delete character.upgrades;
+    const v15 = { ...current, version: 15, character, progress: { ...current.progress, level: 3 } };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v15));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.character?.upgrades).toEqual({});
+    expect(result.save.progress.level).toBe(3);
+    expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
+  });
+
+  it('keeps an upgraded weapon and its bonus through save and load', () => {
+    const sword = {
+      id: 'old_sword',
+      name: 'Old Sword',
+      type: 'weapon',
+      rarity: 'common',
+      tradeable: true,
+      weapon: { kind: 'sword', damageBonus: 0 },
+      upgrade: { levels: [{ gold: 1, materials: [], damageBonus: 3 }] },
+    } as ItemDef;
+    const save = sampleSave();
+    const character = save.character;
+    if (!character) throw new Error('no character');
+    character.gold = 5;
+    expect(applyUpgrade(sword, character)).toBe('upgraded');
+    const storage = new MemoryStorage();
+    expect(new SaveManager(storage).write(save)).toBe(true);
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.character?.upgrades).toEqual({ old_sword: 1 });
+    expect(effectiveDamageBonus(sword, result.save.character?.upgrades ?? {})).toBe(3);
+  });
+
   it('upgrades a version 11 save: no crystal yet; the spells you knew stay', () => {
     const current = sampleSave();
     const character: Record<string, unknown> = { ...current.character, spells: ['fireball'] };
@@ -226,6 +270,35 @@ describe('migrate', () => {
     expect(result.save.character?.spells).toEqual(['fireball']);
   });
 
+  it('upgrades a version 17 save with a character: an empty spellbook choice', () => {
+    const current = sampleSave();
+    const character: Record<string, unknown> = { ...current.character, spells: ['fireball'] };
+    delete character.spellLoadout;
+    const v17 = { ...current, version: 17, character };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v17));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.character?.spellLoadout).toEqual([]);
+    expect(result.save.character?.spells).toEqual(['fireball']);
+  });
+
+  it('keeps a chosen spell loadout after saving and loading again', () => {
+    const save = sampleSave();
+    if (!save.character) throw new Error('sample has a character');
+    save.character.spells = ['fireball', 'ember_burst'];
+    save.character.spellLoadout = ['ember_burst', 'fireball'];
+    const storage = new MemoryStorage();
+    const manager = new SaveManager(storage);
+    manager.write(save);
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.character?.spellLoadout).toEqual(['ember_burst', 'fireball']);
+  });
+
   it('upgrades a version 13 save: the bag starts as a small window', () => {
     const current = sampleSave();
     const settings: Record<string, unknown> = { ...current.settings, volume: 0.3 };
@@ -239,6 +312,18 @@ describe('migrate', () => {
     expect(result.save.version).toBe(SAVE_VERSION);
     expect(result.save.settings.bagFullscreen).toBe(false);
     expect(result.save.settings.volume).toBe(0.3);
+  });
+
+  it('upgrades a version 16 save: every shop starts full', () => {
+    const v16: Record<string, unknown> = { ...sampleSave(), version: 16 };
+    delete v16.shopStock;
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v16));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.shopStock).toEqual({});
   });
 
   it('upgrades a version 12 save: no eggs found yet; the rest stays', () => {

@@ -8,7 +8,12 @@ import { settingsPanel } from './SettingsPanel';
  * Pause menu: resume, your status, settings, or save and go back to the title screen. The
  * status window also has its own key; from here it is reachable on a phone too.
  */
-export function pausePanel(ctx: GameContext, onClose: () => void, onStatus?: () => void): Panel {
+export function pausePanel(
+  ctx: GameContext,
+  onClose: () => void,
+  onStatus?: () => void,
+  onSpellbook?: () => void,
+): Panel {
   return {
     build: () => {
       const { t } = bindT(ctx);
@@ -21,6 +26,12 @@ export function pausePanel(ctx: GameContext, onClose: () => void, onStatus?: () 
           ? button(t('status.title'), () => {
               ctx.overlays.close();
               onStatus();
+            })
+          : null,
+        onSpellbook
+          ? button(t('pause.spellbook'), () => {
+              ctx.overlays.close();
+              onSpellbook();
             })
           : null,
         button(t('pause.settings'), () => ctx.overlays.open(settingsPanel(ctx))),

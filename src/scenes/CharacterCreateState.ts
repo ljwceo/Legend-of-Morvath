@@ -199,7 +199,7 @@ export class CharacterCreateState implements GameState {
     save.character = createCharacter(name, this.appearance, ctx.data.player, this.points);
     ctx.session = save;
     ctx.persist();
-    ctx.goto('intro');
+    ctx.goto('introScene');
   }
 
   private buildScene(): void {

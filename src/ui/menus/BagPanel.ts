@@ -1,3 +1,4 @@
+import { effectiveDamageBonus } from '../../systems/Forge';
 import type { GameContext } from '../../core/GameContext';
 import type { ItemDef } from '../../data/types';
 import { EQUIPMENT_SLOTS, type EquipmentSlot, isGear, wornCount } from '../../systems/Gear';
@@ -32,7 +33,7 @@ export interface BagGear {
 }
 
 /** Item stats in the order they are listed under a gear row. */
-const STAT_KEYS = [
+export const STAT_KEYS = [
   'hp',
   'mana',
   'damagePercent',
@@ -78,9 +79,8 @@ export function bagPanel(
       const gearLine = (def: ItemDef): string => {
         const parts = [t('bag.weight', { kg: kg(def.weight ?? 0) })];
         if (def.rarity !== 'common') parts.unshift(t(`bag.rarity.${def.rarity}`));
-        if (def.weapon && def.weapon.damageBonus > 0) {
-          parts.push(t('bag.stat.weaponDamage', { n: def.weapon.damageBonus }));
-        }
+        const damage = effectiveDamageBonus(def, character?.upgrades ?? {});
+        if (def.weapon && damage > 0) parts.push(t('bag.stat.weaponDamage', { n: damage }));
         for (const key of STAT_KEYS) {
           const n = def.stats?.[key];
           if (n) parts.push(t(`bag.stat.${key}`, { n }));

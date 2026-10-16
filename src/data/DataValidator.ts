@@ -36,7 +36,7 @@ export function formatIssue(issue: ValidationIssue): string {
   return `${issue.file}.json${issue.path ? ` → ${issue.path}` : ''}: ${issue.message}`;
 }
 
-/** The cutscene that plays as the intro (IntroState and IntroSceneState pick it by this id). */
+/** The cutscene that plays as the intro (IntroSceneState picks it by this id). */
 const INTRO_ID = 'intro';
 
 /**
@@ -579,6 +579,9 @@ class CrossChecker {
         this.ref('item', f, `${p}.shop.items[${e}].item`, entry.item);
         if (entry.item === 'gold') this.issue(f, `${p}.shop.items[${e}].item`, 'gold is not sold');
       });
+      if (npc.forge && npc.interaction !== 'talk') {
+        this.issue(f, `${p}.forge`, 'a forge needs an NPC you can talk to');
+      }
       if (npc.shop && npc.interaction !== 'talk') {
         this.issue(f, `${p}.shop`, 'a shop needs an NPC you can talk to');
       }
@@ -930,10 +933,6 @@ class CrossChecker {
     if (ending) {
       for (const by of ['sword', 'staff'] as const) {
         this.ref('cutscene', f, `${p}.ending.${by}`, ending[by]);
-        const cutscene = this.data.cutscenes.cutscenes.find((c) => c.id === ending[by]);
-        if (cutscene && cutscene.type !== 'cinematic') {
-          this.issue(f, `${p}.ending.${by}`, `"${ending[by]}" is not a cinematic`);
-        }
       }
       if (!boss.lastStand) this.issue(f, `${p}.ending`, 'an ending needs a lastStand to film at');
       if (!inside(ending.player)) this.issue(f, `${p}.ending.player`, 'must lie inside the arena');
@@ -1104,6 +1103,19 @@ class CrossChecker {
       if ((item.type === 'potion') !== (item.potion !== undefined)) {
         this.issue(f, `${p}.potion`, 'potion settings belong to (and are required for) potions');
       }
+      if (item.upgrade && item.type !== 'weapon' && item.type !== 'armor') {
+        this.issue(f, `${p}.upgrade`, 'only weapons and armor can be upgraded');
+      }
+      item.upgrade?.levels.forEach((level, l) => {
+        const gives = (level.damageBonus ?? 0) > 0 || Object.keys(level.stats ?? {}).length > 0;
+        if (!gives) this.issue(f, `${p}.upgrade.levels[${l}]`, 'a level must add damage or stats');
+        if (level.damageBonus !== undefined && item.type !== 'weapon') {
+          this.issue(f, `${p}.upgrade.levels[${l}].damageBonus`, 'only weapons get damageBonus');
+        }
+        level.materials.forEach((m, k) => {
+          this.ref('item', f, `${p}.upgrade.levels[${l}].materials[${k}].item`, m.item);
+        });
+      });
       const potion = item.potion;
       if (potion && !potion.hp && !potion.mana && !potion.hpPercent && !potion.manaPercent) {
         this.issue(f, `${p}.potion`, 'a potion must restore HP or mana');
@@ -1432,6 +1444,17 @@ class CrossChecker {
     this.data.spells.spells.forEach((spell, i) =>
       this.ref('element', f, `spells[${i}].element`, spell.element),
     );
+    // A staff cannot have more slots than the spellbook allows (step 4.3).
+    this.data.items.items.forEach((item, i) => {
+      const slots = item.weapon?.spellSlots;
+      if (slots !== undefined && slots > this.data.spells.maxSpellSlots) {
+        this.issue(
+          'items',
+          `items[${i}].weapon.spellSlots`,
+          `more than maxSpellSlots in spells.json`,
+        );
+      }
+    });
     // Every element needs a spell: a mage's crystal decides his element (Crystal Ceremony).
     this.data.spells.elements.forEach((element, i) => {
       if (!this.data.spells.spells.some((spell) => spell.element === element.id)) {
@@ -1511,27 +1534,7 @@ class CrossChecker {
       this.issue(f, 'cinematic.barsMinFraction', 'is larger than barsMaxFraction');
     }
     cutscenes.forEach((cutscene, i) => {
-      if (cutscene.type === 'cinematic') {
-        this.checkCinematic(cutscene, `cutscenes[${i}]`);
-        return;
-      }
-      const panels = cutscene.panels ?? [];
-      if (panels.length === 0) this.issue(f, `cutscenes[${i}].panels`, 'a comic needs panels');
-      const only = ['shots', 'actors', 'anchor', 'cameraClip', 'fight', 'afterFight'] as const;
-      for (const field of only) {
-        if (cutscene[field] !== undefined) {
-          this.issue(f, `cutscenes[${i}].${field}`, `only a cinematic has ${field}`);
-        }
-      }
-      this.unique(`panel:${cutscene.id}`, f, `cutscenes[${i}].panels`, panels);
-      panels.forEach((panel, n) => {
-        const p = `cutscenes[${i}].panels[${n}]`;
-        this.text(f, `${p}.narration`, panel.narration);
-        this.text(f, `${p}.caption`, panel.caption);
-        if (panel.background) this.color(f, `${p}.background`, panel.background);
-        panel.lines?.forEach((line, l) => this.text(f, `${p}.lines[${l}].text`, line.text));
-        this.ref('fight', f, `${p}.fight`, panel.fight);
-      });
+      this.checkCinematic(cutscene, `cutscenes[${i}]`);
     });
     fights.forEach((fight, i) => {
       const p = `fights[${i}]`;
@@ -1606,7 +1609,7 @@ class CrossChecker {
   }
 
   /**
-   * A cinematic (`type: "cinematic"`): it has shots and no comic panels, its actors are unique
+   * A cinematic (`type: "cinematic"`): it has shots, its actors are unique
    * and known, and every shot only names actors, colors and text keys that exist.
    */
   private checkCinematic(cutscene: GameData['cutscenes']['cutscenes'][number], at: string): void {
@@ -1614,8 +1617,6 @@ class CrossChecker {
     const shots = cutscene.shots ?? [];
     const actors = cutscene.actors ?? [];
     if (shots.length === 0) this.issue(f, `${at}.shots`, 'a cinematic needs shots');
-    if (cutscene.panels !== undefined)
-      this.issue(f, `${at}.panels`, 'a cinematic has shots, not panels');
     // In the world it needs an anchor; on a fight's set the floor is the ground.
     if (!cutscene.anchor && !cutscene.fight) {
       this.issue(f, `${at}.anchor`, 'a cinematic needs an anchor or a fight');
@@ -1729,10 +1730,6 @@ class CrossChecker {
         return;
       }
       seen.add(next.id);
-      if (next.type !== 'cinematic') {
-        this.issue(f, `${at}.afterFight`, `"${next.id}" is not a cinematic`);
-        return;
-      }
       if (next.fight !== cutscene.fight) {
         this.issue(
           f,
@@ -1746,7 +1743,7 @@ class CrossChecker {
   }
 
   /**
-   * `then`: the next cutscene exists, is a cinematic, the chain never comes back to itself, and
+   * `then`: the next cutscene exists, the chain never comes back to itself, and
    * an actor id the two share is the same kind of actor (it is one actor on one timeline).
    */
   private checkCinematicChain(
@@ -1765,10 +1762,6 @@ class CrossChecker {
         return;
       }
       seen.add(next.id);
-      if (next.type !== 'cinematic') {
-        this.issue(f, `${at}.then`, `"${next.id}" is not a cinematic`);
-        return;
-      }
       for (const actor of next.actors ?? []) {
         const mine = cutscene.actors?.find((a) => a.id === actor.id);
         if (mine && mine.model !== actor.model) {

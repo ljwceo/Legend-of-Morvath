@@ -185,6 +185,116 @@
         "radiusFactor": 1.8,
         "speedFactor": 1.25
       }
+    },
+    {
+      "id": "ember_burst",
+      "name": "Ember Burst",
+      "element": "fire",
+      "manaCost": 11,
+      "cooldownSeconds": 1.72,
+      "damage": 28,
+      "range": 15,
+      "usesPerLevel": 50,
+      "windupSeconds": 0.45,
+      "speed": 16,
+      "radius": 0.45,
+      "homingDegreesPerSecond": 120,
+      "charge": {
+        "maxSeconds": 4,
+        "damageFactor": 2.5,
+        "manaFactor": 3,
+        "radiusFactor": 1.8,
+        "speedFactor": 1.25
+      },
+      "learnLevel": 5
+    },
+    {
+      "id": "tidal_lash",
+      "name": "Tidal Lash",
+      "element": "water",
+      "manaCost": 9,
+      "cooldownSeconds": 1.38,
+      "damage": 22,
+      "range": 18,
+      "usesPerLevel": 50,
+      "windupSeconds": 0.35,
+      "speed": 20,
+      "radius": 0.35,
+      "homingDegreesPerSecond": 150,
+      "charge": {
+        "maxSeconds": 4,
+        "damageFactor": 2.5,
+        "manaFactor": 3,
+        "radiusFactor": 1.8,
+        "speedFactor": 1.25
+      },
+      "learnLevel": 5
+    },
+    {
+      "id": "bramble_whip",
+      "name": "Bramble Whip",
+      "element": "nature",
+      "manaCost": 8,
+      "cooldownSeconds": 1.15,
+      "damage": 20,
+      "range": 14,
+      "usesPerLevel": 50,
+      "windupSeconds": 0.3,
+      "speed": 18,
+      "radius": 0.3,
+      "homingDegreesPerSecond": 90,
+      "charge": {
+        "maxSeconds": 4,
+        "damageFactor": 2.5,
+        "manaFactor": 3,
+        "radiusFactor": 1.8,
+        "speedFactor": 1.25
+      },
+      "learnLevel": 5
+    },
+    {
+      "id": "gale_cutter",
+      "name": "Gale Cutter",
+      "element": "wind",
+      "manaCost": 7,
+      "cooldownSeconds": 0.92,
+      "damage": 17,
+      "range": 20,
+      "usesPerLevel": 50,
+      "windupSeconds": 0.25,
+      "speed": 26,
+      "radius": 0.3,
+      "homingDegreesPerSecond": 200,
+      "charge": {
+        "maxSeconds": 4,
+        "damageFactor": 2.5,
+        "manaFactor": 3,
+        "radiusFactor": 1.8,
+        "speedFactor": 1.25
+      },
+      "learnLevel": 5
+    },
+    {
+      "id": "night_lance",
+      "name": "Night Lance",
+      "element": "dark",
+      "manaCost": 13,
+      "cooldownSeconds": 1.84,
+      "damage": 31,
+      "range": 16,
+      "usesPerLevel": 50,
+      "windupSeconds": 0.5,
+      "speed": 18,
+      "radius": 0.45,
+      "homingDegreesPerSecond": 110,
+      "charge": {
+        "maxSeconds": 4,
+        "damageFactor": 2.5,
+        "manaFactor": 3,
+        "radiusFactor": 1.8,
+        "speedFactor": 1.25
+      },
+      "learnLevel": 5
     }
   ]
 }

@@ -43,6 +43,40 @@
       "weapon": {
         "kind": "sword",
         "damageBonus": 0
+      },
+      "upgrade": {
+        "levels": [
+          {
+            "gold": 50,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 1
+              }
+            ],
+            "damageBonus": 3
+          },
+          {
+            "gold": 100,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 2
+              }
+            ],
+            "damageBonus": 3
+          },
+          {
+            "gold": 150,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 3
+              }
+            ],
+            "damageBonus": 3
+          }
+        ]
       }
     },
     {
@@ -56,6 +90,40 @@
       "weapon": {
         "kind": "sword",
         "damageBonus": 3
+      },
+      "upgrade": {
+        "levels": [
+          {
+            "gold": 50,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 1
+              }
+            ],
+            "damageBonus": 3
+          },
+          {
+            "gold": 100,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 2
+              }
+            ],
+            "damageBonus": 3
+          },
+          {
+            "gold": 150,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 3
+              }
+            ],
+            "damageBonus": 3
+          }
+        ]
       }
     },
     {
@@ -72,6 +140,40 @@
       },
       "stats": {
         "damagePercent": 5
+      },
+      "upgrade": {
+        "levels": [
+          {
+            "gold": 50,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 1
+              }
+            ],
+            "damageBonus": 3
+          },
+          {
+            "gold": 100,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 2
+              }
+            ],
+            "damageBonus": 3
+          },
+          {
+            "gold": 150,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 3
+              }
+            ],
+            "damageBonus": 3
+          }
+        ]
       }
     },
     {
@@ -83,7 +185,47 @@
       "tradeable": true,
       "weight": 1,
       "usesCharacterColor": true,
-      "description": "item.travel_mantle.desc"
+      "description": "item.travel_mantle.desc",
+      "upgrade": {
+        "levels": [
+          {
+            "gold": 40,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 1
+              }
+            ],
+            "stats": {
+              "hp": 3
+            }
+          },
+          {
+            "gold": 80,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 2
+              }
+            ],
+            "stats": {
+              "hp": 3
+            }
+          },
+          {
+            "gold": 120,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 3
+              }
+            ],
+            "stats": {
+              "hp": 3
+            }
+          }
+        ]
+      }
     },
     {
       "id": "goblin_cleaver",
@@ -99,6 +241,40 @@
       },
       "stats": {
         "damagePercent": 5
+      },
+      "upgrade": {
+        "levels": [
+          {
+            "gold": 50,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 1
+              }
+            ],
+            "damageBonus": 3
+          },
+          {
+            "gold": 100,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 2
+              }
+            ],
+            "damageBonus": 3
+          },
+          {
+            "gold": 150,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 3
+              }
+            ],
+            "damageBonus": 3
+          }
+        ]
       }
     },
     {
@@ -116,6 +292,40 @@
       "stats": {
         "damagePercent": 10,
         "hp": 10
+      },
+      "upgrade": {
+        "levels": [
+          {
+            "gold": 50,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 1
+              }
+            ],
+            "damageBonus": 3
+          },
+          {
+            "gold": 100,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 2
+              }
+            ],
+            "damageBonus": 3
+          },
+          {
+            "gold": 150,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 3
+              }
+            ],
+            "damageBonus": 3
+          }
+        ]
       }
     },
     {
@@ -143,6 +353,46 @@
       "stats": {
         "hp": 10,
         "damageReductionPercent": 2
+      },
+      "upgrade": {
+        "levels": [
+          {
+            "gold": 40,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 1
+              }
+            ],
+            "stats": {
+              "hp": 3
+            }
+          },
+          {
+            "gold": 80,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 2
+              }
+            ],
+            "stats": {
+              "hp": 3
+            }
+          },
+          {
+            "gold": 120,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 3
+              }
+            ],
+            "stats": {
+              "hp": 3
+            }
+          }
+        ]
       }
     },
     {
@@ -157,6 +407,49 @@
       "stats": {
         "hp": 25,
         "damageReductionPercent": 6
+      },
+      "upgrade": {
+        "levels": [
+          {
+            "gold": 40,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 1
+              }
+            ],
+            "stats": {
+              "hp": 5,
+              "damageReductionPercent": 1
+            }
+          },
+          {
+            "gold": 80,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 2
+              }
+            ],
+            "stats": {
+              "hp": 5,
+              "damageReductionPercent": 1
+            }
+          },
+          {
+            "gold": 120,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 3
+              }
+            ],
+            "stats": {
+              "hp": 5,
+              "damageReductionPercent": 1
+            }
+          }
+        ]
       }
     },
     {
@@ -171,6 +464,49 @@
       "stats": {
         "hp": 15,
         "damageReductionPercent": 4
+      },
+      "upgrade": {
+        "levels": [
+          {
+            "gold": 40,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 1
+              }
+            ],
+            "stats": {
+              "hp": 4,
+              "damageReductionPercent": 1
+            }
+          },
+          {
+            "gold": 80,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 2
+              }
+            ],
+            "stats": {
+              "hp": 4,
+              "damageReductionPercent": 1
+            }
+          },
+          {
+            "gold": 120,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 3
+              }
+            ],
+            "stats": {
+              "hp": 4,
+              "damageReductionPercent": 1
+            }
+          }
+        ]
       }
     },
     {
@@ -185,6 +521,49 @@
       "stats": {
         "hp": 40,
         "damageReductionPercent": 10
+      },
+      "upgrade": {
+        "levels": [
+          {
+            "gold": 40,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 1
+              }
+            ],
+            "stats": {
+              "hp": 8,
+              "damageReductionPercent": 2
+            }
+          },
+          {
+            "gold": 80,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 2
+              }
+            ],
+            "stats": {
+              "hp": 8,
+              "damageReductionPercent": 2
+            }
+          },
+          {
+            "gold": 120,
+            "materials": [
+              {
+                "item": "slime_gel",
+                "count": 3
+              }
+            ],
+            "stats": {
+              "hp": 8,
+              "damageReductionPercent": 2
+            }
+          }
+        ]
       }
     },
     {
@@ -280,6 +659,21 @@
         "kind": "staff",
         "damageBonus": 0,
         "spellSlots": 1,
+        "maxCrystalSize": "small"
+      }
+    },
+    {
+      "id": "adept_staff",
+      "name": "Adept Staff",
+      "type": "weapon",
+      "rarity": "rare",
+      "tradeable": true,
+      "weight": 3,
+      "description": "item.adept_staff.desc",
+      "weapon": {
+        "kind": "staff",
+        "damageBonus": 2,
+        "spellSlots": 2,
         "maxCrystalSize": "small"
       }
     },

@@ -33,7 +33,6 @@ import { instanceFilter, zoneFilter } from '../world/scene/SceneFilter';
 import { SceneZone } from '../world/scene/SceneZone';
 import { CinematicCutscene } from '../ui/CinematicCutscene';
 import { barrelGeometry } from '../render/cinematic/CinematicStage';
-import { ComicCutscene } from '../ui/ComicCutscene';
 import { resolveCutscene, shouldPlayCutscene } from '../render/cinematic/CinematicTimeline';
 import { pointInShape } from '../world/Shapes';
 import { Random } from '../core/Random';
@@ -170,7 +169,15 @@ import { StructureLabels } from '../ui/StructureLabels';
 import { el } from '../ui/dom';
 import { BAG_TYPE_ORDER, bagPanel, itemNameEl } from '../ui/menus/BagPanel';
 import { packPanel } from '../ui/menus/PackPanel';
-import { type BuyResult, shopPanel } from '../ui/menus/ShopPanel';
+import { forgePanel } from '../ui/menus/ForgePanel';
+import { changeStock, type ShopEntry, sellPrice, stockLeft } from '../systems/Shops';
+import { type BuyResult, type SellResult, shopPanel } from '../ui/menus/ShopPanel';
+import {
+  applyUpgrade,
+  effectiveDamageBonus,
+  transferUpgrade,
+  type UpgradeResult,
+} from '../systems/Forge';
 import { QuestTexts } from '../ui/questText';
 import type { ChecklistRow, DialogChoice, DialogLine, DialogOptions } from '../ui/Dialog';
 import { pausePanel } from '../ui/menus/PausePanel';
@@ -190,6 +197,14 @@ import {
   unspentPoints,
 } from '../systems/Stats';
 import { redistributePanel } from '../ui/menus/RedistributePanel';
+import {
+  activeSpell,
+  normalizeLoadout,
+  setSlot,
+  spellsToLearn,
+  usableSpells,
+} from '../systems/Spellbook';
+import { spellbookPanel } from '../ui/menus/SpellbookPanel';
 import { statusPanel } from '../ui/menus/StatusPanel';
 import type { Panel } from '../ui/Overlays';
 import { type TouchLabels, TouchControls } from '../ui/TouchControls';
@@ -333,7 +348,6 @@ export class WorldState implements GameState, InstanceHost {
   /** The instance being played (Master Brink's tower), null in a zone or the open world. */
   private instanceDef: InstanceDef | null = null;
   /** The first-visit cutscene of an instance, while it plays. */
-  private comic: ComicCutscene | null = null;
   /** Where every item can be found (Sultan's answers), worked out on the first question. */
   private sources: Map<string, ItemSource[]> | null = null;
   /** Props of bosses not beaten yet (Sultan's barrel), by monster id. */
@@ -411,7 +425,7 @@ export class WorldState implements GameState, InstanceHost {
   private projectileWorld: ProjectileWorld | null = null;
   /** Boss fights (Sultan at the city gate): trigger, cutscene, arena, tips, win or lose. */
   private encounter: BossEncounter | null = null;
-  /** A comic cutscene plays over the world: the simulation waits. */
+  /** A cutscene plays over the world: the simulation waits. */
   private cutscenePlaying = false;
   /** A cutscene waiting for the conversation to end (the Crystal Ceremony, fase 3.8). */
   private pendingCutscene: { id: string; params: Record<string, string> } | null = null;
@@ -470,6 +484,8 @@ export class WorldState implements GameState, InstanceHost {
   private weaponKind: 'sword' | 'staff' = 'sword';
   /** The spell the right button casts (the first one you know), or null without one. */
   private spell: ShotConfig | null = null;
+  /** Spell slots of the equipped staff (0 for a sword), for the spellbook. */
+  private staffSlots = 0;
   /** The power curve factor of your path at your level (light grows, dark shrinks). */
   private spellPower = 1;
   /** The player's shots in flight (Arcane Shard and spells). */
@@ -843,8 +859,6 @@ export class WorldState implements GameState, InstanceHost {
 
   exit(): void {
     this.ctx.quality.setMeasuring(false);
-    this.comic?.dispose();
-    this.comic = null;
     this.cinematic?.dispose();
     this.cinematic = null;
     this.ctx.ui.classList.remove(CINEMATIC_CLASS);
@@ -2127,32 +2141,34 @@ export class WorldState implements GameState, InstanceHost {
 
   /**
    * A cutscene a conversation brought with it (the Crystal Ceremony): it waits until the
-   * teacher has said his lines, so the comic never lands on top of the dialogue window.
+   * teacher has said his lines, so the film never lands on top of the dialogue window. It is
+   * forgotten only once it has started (or turns out not to need playing); a start that fails
+   * is tried again.
    */
   private playPendingCutscene(): void {
     const pending = this.pendingCutscene;
-    if (!pending || this.dialog?.isOpen || this.comic || this.cinematic) return;
-    this.pendingCutscene = null;
-    this.playCutscene(pending.id, pending.params);
+    if (!pending || this.dialog?.isOpen || this.cinematic) return;
+    if (this.playCutscene(pending.id, pending.params)) this.pendingCutscene = null;
   }
 
   /**
    * Plays a cutscene from cutscenes.json over the world, at most once when it says
    * `playOnce` (kept in the save). `params` fill the `{...}` in its lines, which is how the
-   * Crystal Ceremony says which element picked you.
+   * Crystal Ceremony says which element picked you. False when it should play but could not
+   * start (another cutscene is playing); true when it started or has nothing to play.
    */
-  private playCutscene(id: string, params?: Record<string, string>): void {
+  private playCutscene(id: string, params?: Record<string, string>): boolean {
     const session = this.ctx.session;
     const cutscene = this.ctx.data?.cutscenes.cutscenes.find((entry) => entry.id === id);
-    if (!session || !cutscene) return;
-    if (!shouldPlayCutscene(cutscene, session.seenCutscenes)) return;
-    this.startCutscene(cutscene, params, () => undefined);
+    if (!session || !cutscene) return true;
+    if (!shouldPlayCutscene(cutscene, session.seenCutscenes)) return true;
+    return this.startCutscene(cutscene, params, () => undefined);
   }
 
   /**
-   * Starts a cutscene: a cinematic in the 3D world (`type: "cinematic"`) or a comic over it.
-   * The world waits, the HUD hides for a cinematic; afterwards it counts as seen (saved) and
-   * `onDone` runs. Returns false when another cutscene is already playing.
+   * Starts a cutscene: a cinematic in the 3D world (`type: "cinematic"`). The world waits and
+   * the HUD hides; afterwards it counts as seen (saved) and `onDone` runs. Returns false when
+   * it did not start (another cutscene is playing, or the world is not ready).
    */
   private startCutscene(
     cutscene: CutsceneDef,
@@ -2161,7 +2177,8 @@ export class WorldState implements GameState, InstanceHost {
   ): boolean {
     const session = this.ctx.session;
     const data = this.ctx.data;
-    if (!session || !data || this.comic || this.cinematic) return false;
+    if (!session || !data || this.cinematic) return false;
+    if (!this.worldRoot || !this.player) return false;
     const id = cutscene.id;
     const finish = (): void => {
       if (!session.seenCutscenes.includes(id)) session.seenCutscenes.push(id);
@@ -2171,43 +2188,35 @@ export class WorldState implements GameState, InstanceHost {
     };
     const t = (key: string): string => this.ctx.i18n.t(key, params);
     this.setCutscenePlaying(true);
-    if (cutscene.type === 'cinematic' && this.worldRoot && this.player) {
-      const s = this.player.state;
-      const model = this.player.model;
-      const crystal = session.character?.crystal;
-      this.cinematic = new CinematicCutscene(
-        resolveCutscene(cutscene, data.cutscenes.cutscenes),
-        data.cutscenes.cinematic,
-        {
-          parent: this.worldRoot,
-          playerRoot: model.root,
-          player: { x: s.x, z: s.z, heading: s.heading },
-          ground: this.groundHeight,
-          t,
-          touch: (this.input?.usedTouch ?? false) || this.coarsePointer,
-          element: crystal ? this.shotColor(crystal, data) : palette.spreukviolet,
-          canvas: this.ctx.renderer.three.domElement,
-          // `cast` holds the staff up like gathering a spell; the rest are the sword's poses.
-          poseWeapon: (pose, u) => model.setSwordPose(pose === 'cast' ? 'windup' : pose, u),
-          animated: this.animatedModels,
-        },
-        () => {
-          this.cinematic = null;
-          this.hud?.hiddenBy.hide('cinematic');
-          this.ctx.ui.classList.remove(CINEMATIC_CLASS);
-          finish();
-        },
-      );
-      this.hud?.hiddenBy.show('cinematic');
-      this.ctx.ui.classList.add(CINEMATIC_CLASS);
-      this.ctx.ui.append(this.cinematic.root);
-      return true;
-    }
-    this.comic = new ComicCutscene(cutscene, t, () => {
-      this.comic = null;
-      finish();
-    });
-    this.ctx.ui.append(this.comic.root);
+    const s = this.player.state;
+    const model = this.player.model;
+    const crystal = session.character?.crystal;
+    this.cinematic = new CinematicCutscene(
+      resolveCutscene(cutscene, data.cutscenes.cutscenes),
+      data.cutscenes.cinematic,
+      {
+        parent: this.worldRoot,
+        playerRoot: model.root,
+        player: { x: s.x, z: s.z, heading: s.heading },
+        ground: this.groundHeight,
+        t,
+        touch: (this.input?.usedTouch ?? false) || this.coarsePointer,
+        element: crystal ? this.shotColor(crystal, data) : palette.spreukviolet,
+        canvas: this.ctx.renderer.three.domElement,
+        // `cast` holds the staff up like gathering a spell; the rest are the sword's poses.
+        poseWeapon: (pose, u) => model.setSwordPose(pose === 'cast' ? 'windup' : pose, u),
+        animated: this.animatedModels,
+      },
+      () => {
+        this.cinematic = null;
+        this.hud?.hiddenBy.hide('cinematic');
+        this.ctx.ui.classList.remove(CINEMATIC_CLASS);
+        finish();
+      },
+    );
+    this.hud?.hiddenBy.show('cinematic');
+    this.ctx.ui.classList.add(CINEMATIC_CLASS);
+    this.ctx.ui.append(this.cinematic.root);
     return true;
   }
 
@@ -2308,6 +2317,7 @@ export class WorldState implements GameState, InstanceHost {
     this.talkingTo = npc;
     this.targetNpc = null;
     const shop = npc.def.shop;
+    const forge = npc.def.forge === true;
     this.dialog?.open(
       npc.def.name,
       lines,
@@ -2315,6 +2325,7 @@ export class WorldState implements GameState, InstanceHost {
         this.talkingTo = null;
         // A merchant opens the shop after the last line (not after Escape or walking away).
         if (finished && shop) this.openShop(npc.def.name, npc.id, shop);
+        if (finished && forge) this.openForge(npc.def.name);
         // A cutscene that a quest brought with it (the Crystal Ceremony) waits its turn.
         this.playPendingCutscene();
       },
@@ -2765,6 +2776,8 @@ export class WorldState implements GameState, InstanceHost {
     for (const upgrade of r.upgrades ?? []) {
       if (!removeItem(character.inventory, upgrade.from, 1)) continue;
       addItem(character.inventory, upgrade.to, 1);
+      // The Forge level moves along, so the swap never costs you an upgrade.
+      transferUpgrade(character.upgrades, upgrade.from, this.items.get(upgrade.to));
       for (const [slot, itemId] of Object.entries(character.equipment)) {
         if (itemId === upgrade.from) character.equipment[slot] = upgrade.to;
       }
@@ -2831,7 +2844,7 @@ export class WorldState implements GameState, InstanceHost {
    * The Crystal Ceremony (fase 3.8): your teacher's crystal picks you. Master Brink's vault
    * draws one of its four elements, Wizard Sam has only Dark. The element is kept in the save
    * (a reload never redraws it), the crystal goes into your bag and the spell that belongs to
-   * it is the one your staff casts. A stripcutscene shows it, once.
+   * it is the one your staff casts. A film shows it, once.
    */
   private crystalCeremony(): void {
     const data = this.ctx.data;
@@ -2851,8 +2864,15 @@ export class WorldState implements GameState, InstanceHost {
         : this.lootRng.pick(elements);
     character.crystal = drawn;
     this.gainItem(crystalId, 1);
-    const spell = data.spells.spells.find((entry) => entry.element === drawn);
-    if (spell && !character.spells.includes(spell.id)) character.spells.push(spell.id);
+    const spell = data.spells.spells.find(
+      (entry) => entry.element === drawn && entry.learnLevel === undefined,
+    );
+    if (spell && !character.spells.includes(spell.id)) {
+      character.spells.push(spell.id);
+      // A new spell takes the first free slot of a loadout you already chose.
+      const free = character.spellLoadout.indexOf('');
+      if (free >= 0) character.spellLoadout[free] = spell.id;
+    }
     this.ctx.persist();
     const elementName = data.spells.elements.find((entry) => entry.id === drawn)?.name ?? drawn;
     const params = {
@@ -2863,7 +2883,7 @@ export class WorldState implements GameState, InstanceHost {
     const cutscene = bonus.ceremony;
     if (!cutscene) return;
     // Queued, never played on the spot: your teacher first says his lines (he hands you the
-    // staff while talking), and the comic would land on top of the dialogue window.
+    // staff while talking), and the film would land on top of the dialogue window.
     this.pendingCutscene = { id: cutscene, params };
   }
 
@@ -2949,10 +2969,10 @@ export class WorldState implements GameState, InstanceHost {
     const character = this.ctx.session?.character;
     if (!character) return;
     dropMissingEquipment(character.equipment, character.inventory);
-    const stats = gearStats(character.equipment, this.items, this.gearStatsOut);
+    const stats = gearStats(character.equipment, this.items, this.gearStatsOut, character.upgrades);
     const weapon = character.equipment.weapon;
     const def = weapon ? this.items.get(weapon) : undefined;
-    c.weaponBonus = def?.weapon?.damageBonus ?? 0;
+    c.weaponBonus = effectiveDamageBonus(def, character.upgrades);
     this.applyWeapon(def);
     c.gearHp = stats.hp;
     c.gearMana = stats.mana;
@@ -3012,14 +3032,47 @@ export class WorldState implements GameState, InstanceHost {
       this.clearAttackInput();
       this.touch?.setLabels(this.touchLabels());
     }
-    const slots = def?.weapon?.spellSlots ?? 0;
-    const known = session?.character?.spells ?? [];
-    const carried = kind === 'staff' && slots > 0 ? known[0] : undefined;
+    const slots = kind === 'staff' ? (def?.weapon?.spellSlots ?? 0) : 0;
+    const character = session?.character;
+    this.learnSpells();
+    const known = this.usableKnown();
+    // The staff decides how many slots count; the loadout (spellbook, step 4.3) fills them.
+    if (character && slots > 0) {
+      character.spellLoadout = normalizeLoadout(character.spellLoadout, known, slots);
+    }
+    this.staffSlots = slots;
+    const carried = character && slots > 0 ? activeSpell(character.spellLoadout) : null;
     this.spell = (carried && this.staff?.spells.get(carried)) || null;
     this.spellPower = data
       ? powerFactor(data.spells.powerCurves, session?.path ?? null, this.conditionContext.level)
       : 1;
     this.refreshAbilities();
+  }
+
+  /** The known spells that fit the element of your crystal (the spellbook offers only these). */
+  private usableKnown(): string[] {
+    const character = this.ctx.session?.character;
+    return usableSpells(
+      character?.spells ?? [],
+      this.ctx.data?.spells.spells ?? [],
+      character?.crystal ?? null,
+    );
+  }
+
+  /** Spells that come with your level (spells.json `learnLevel`) join the ones you know. */
+  private learnSpells(): void {
+    const character = this.ctx.session?.character;
+    const data = this.ctx.data;
+    if (!character || !data) return;
+    const level = this.ctx.session?.progress.level ?? 1;
+    for (const id of spellsToLearn(
+      character.spells,
+      data.spells.spells,
+      character.crystal,
+      level,
+    )) {
+      character.spells.push(id);
+    }
   }
 
   /** The color of a shot: its element's color from spells.json (the Shard has none of its own). */
@@ -3047,7 +3100,7 @@ export class WorldState implements GameState, InstanceHost {
     }
   }
 
-  /** Marco's shop: the game waits, gold shows at the top right (HUD rule "at a shop"). */
+  /** A merchant's shop (any NPC with `shop`): the game waits, gold shows at the top right (HUD rule "at a shop"). */
   private openShop(merchant: string, npcId: string, shop: NonNullable<NpcDef['shop']>): void {
     this.hud?.rules.setShop(true);
     this.openMenu((resume) =>
@@ -3055,13 +3108,45 @@ export class WorldState implements GameState, InstanceHost {
         this.ctx,
         merchant,
         shop,
-        (itemId, price) => this.buy(itemId, price, npcId),
+        (entry) => this.buy(entry, npcId),
+        (entry) => this.sell(entry, shop, npcId),
+        (entry) => stockLeft(entry, this.ctx.session?.shopStock ?? {}, npcId, this.playTime()),
         () => {
           this.hud?.rules.setShop(false);
           resume();
         },
       ),
     );
+  }
+
+  /** Hilda's Forge (step 4.1): upgrades cost gold and materials, only out of a fight. */
+  private openForge(smith: string): void {
+    this.hud?.rules.setShop(true);
+    this.openMenu((resume) =>
+      forgePanel(
+        this.ctx,
+        smith,
+        (itemId) => this.upgradeItem(itemId),
+        () => {
+          this.hud?.rules.setShop(false);
+          resume();
+        },
+      ),
+    );
+  }
+
+  private upgradeItem(itemId: string): UpgradeResult | 'inCombat' {
+    const character = this.ctx.session?.character;
+    if (!character) return 'notUpgradable';
+    if (this.player?.combat.inCombat) return 'inCombat';
+    const result = applyUpgrade(this.items.get(itemId), character);
+    if (result !== 'upgraded') return result;
+    this.hud?.setGold(character.gold);
+    this.hud?.rules.goldChanged();
+    this.applyGear(false);
+    this.updatePlayerGear();
+    this.ctx.persist();
+    return result;
   }
 
   /**
@@ -3118,17 +3203,45 @@ export class WorldState implements GameState, InstanceHost {
     );
   }
 
-  /** Buys one item for `price` gold. */
-  private buy(itemId: string, price: number, npcId: string): BuyResult {
-    const character = this.ctx.session?.character;
-    if (!character || character.gold < price) return 'notEnough';
-    character.gold -= price;
+  private playTime(): number {
+    return this.ctx.session?.playTimeSeconds ?? 0;
+  }
+
+  /** Buys one item (price and stock from the shop entry). */
+  private buy(entry: ShopEntry, npcId: string): BuyResult {
+    const session = this.ctx.session;
+    const character = session?.character;
+    if (!session || !character) return 'notEnough';
+    const left = stockLeft(entry, session.shopStock, npcId, this.playTime());
+    if (left !== null && left < 1) return 'soldOut';
+    if (character.gold < entry.price) return 'notEnough';
+    changeStock(entry, session.shopStock, npcId, this.playTime(), 1);
+    character.gold -= entry.price;
     this.hud?.setGold(character.gold);
     this.hud?.rules.goldChanged();
-    this.gainItem(itemId, 1);
-    this.ctx.events.emit('itemBought', { itemId, count: 1, npcId });
+    this.gainItem(entry.item, 1);
+    this.ctx.events.emit('itemBought', { itemId: entry.item, count: 1, npcId });
     this.ctx.persist();
     return 'bought';
+  }
+
+  /** Sells one item from the bag back to the merchant (price x sellRatio); it returns to stock. */
+  private sell(entry: ShopEntry, shop: NonNullable<NpcDef['shop']>, npcId: string): SellResult {
+    const session = this.ctx.session;
+    const character = session?.character;
+    if (!session || !character) return 'none';
+    // Never sell the last copy of the weapon you hold (you would stand there empty-handed).
+    const copies = countItem(character.inventory, entry.item);
+    if (character.equipment.weapon === entry.item && copies <= 1) return 'none';
+    if (!removeItem(character.inventory, entry.item, 1)) return 'none';
+    character.gold += sellPrice(entry, shop);
+    changeStock(entry, session.shopStock, npcId, this.playTime(), -1);
+    // Worn gear may have been the sold copy: refresh stats and load.
+    this.applyGear(true);
+    this.hud?.setGold(character.gold);
+    this.hud?.rules.goldChanged();
+    this.ctx.persist();
+    return 'sold';
   }
 
   private itemName(itemId: string): string {
@@ -3653,7 +3766,14 @@ export class WorldState implements GameState, InstanceHost {
   private pause(): void {
     // A cutscene already waits (and has its own Skip); the pause menu comes after it.
     if (this.cutscenePlaying) return;
-    this.openMenu((resume) => pausePanel(this.ctx, resume, () => this.openStatus()));
+    this.openMenu((resume) =>
+      pausePanel(
+        this.ctx,
+        resume,
+        () => this.openStatus(),
+        () => this.openSpellbook(),
+      ),
+    );
   }
 
   /** The bag (I / B or the bag button); the game waits while it is open. */
@@ -3698,6 +3818,47 @@ export class WorldState implements GameState, InstanceHost {
         resume,
       ),
     );
+  }
+
+  /** The spellbook (pause menu): which known spells sit in the staff's slots. */
+  private openSpellbook(): void {
+    if (this.dialog?.isOpen || this.deathTimer !== NOT_DYING) return;
+    this.learnSpells();
+    this.openMenu((resume) =>
+      spellbookPanel(
+        this.ctx,
+        {
+          slots: () => this.staffSlots,
+          usable: () => this.usableKnown(),
+          locked: () => this.player?.combat.inCombat ?? false,
+          choose: (slot, spellId) => this.chooseSpell(slot, spellId),
+        },
+        resume,
+      ),
+    );
+  }
+
+  /** Puts a spell in a slot (never in a fight), saves it and recomputes the cast spell. */
+  private chooseSpell(slot: number, spellId: string): void {
+    const character = this.ctx.session?.character;
+    if (!character) return;
+    const next = setSlot(
+      character.spellLoadout,
+      slot,
+      spellId,
+      this.usableKnown(),
+      this.staffSlots,
+      this.player?.combat.inCombat ?? false,
+    );
+    if (!next) {
+      this.hud?.showMessage(this.ctx.i18n.t('spellbook.inCombat'));
+      return;
+    }
+    character.spellLoadout = next;
+    this.applyGear(true);
+    this.syncSave();
+    this.ctx.persist();
+    this.ctx.overlays.refreshTop();
   }
 
   /**
@@ -4024,6 +4185,10 @@ export class WorldState implements GameState, InstanceHost {
     const character = this.ctx.session?.character;
     if (!character) return;
     character.spells = spellId ? [spellId] : [];
+    character.spellLoadout = [];
+    // The spellbook only offers spells of your crystal's element, so the crystal follows.
+    const element = this.ctx.data?.spells.spells.find((entry) => entry.id === spellId)?.element;
+    if (element) character.crystal = element;
     if (spellId) this.grantStaff();
     this.applyGear(false);
     this.ctx.persist();
