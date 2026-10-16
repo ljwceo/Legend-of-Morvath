@@ -130,8 +130,8 @@ const worldState = new LazyState(
   () => import('./scenes/WorldState').then((m) => new m.WorldState(ctx)),
   ctx.reportProblem,
 );
-const introFightState = new LazyState(
-  () => import('./scenes/IntroFightState').then((m) => new m.IntroFightState(ctx)),
+const introSceneState = new LazyState(
+  () => import('./scenes/IntroSceneState').then((m) => new m.IntroSceneState(ctx)),
   ctx.reportProblem,
 );
 events.on('stateChanged', ({ to }) => {
@@ -140,7 +140,7 @@ events.on('stateChanged', ({ to }) => {
   if (to === 'title') {
     void worldState.preload();
     void createState.preload();
-    void introFightState.preload();
+    void introSceneState.preload();
   }
 });
 
@@ -150,7 +150,7 @@ states
   .register('title', new TitleState(ctx))
   .register('create', createState)
   .register('intro', new IntroState(ctx))
-  .register('introFight', introFightState)
+  .register('introScene', introSceneState)
   .register('world', worldState);
 
 // Saved settings that take effect right away.

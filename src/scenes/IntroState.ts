@@ -11,9 +11,11 @@ type Cutscene = CutscenesFile['cutscenes'][number];
 const INTRO_ID = 'intro';
 
 /**
- * The intro: the panels from cutscenes.json as text cards (art and narration audio come
- * later). A panel with a `fight` is played in IntroFightState, which comes back here at the
- * panel after it. Tap, click, Space or Enter goes to the next panel; Skip ends the intro.
+ * The intro. A cinematic intro (`type: "cinematic"` in cutscenes.json) is one filmed scene
+ * with the playable fight in it: IntroSceneState plays it and goes on to the world itself.
+ * A comic intro shows its panels here as text cards (art and narration audio come later); a
+ * panel with a `fight` is played in IntroSceneState, which comes back here at the panel after
+ * it. Tap, click, Space or Enter goes to the next panel; Skip ends the intro.
  */
 export class IntroState implements GameState {
   private readonly screen: Screen;
@@ -29,6 +31,10 @@ export class IntroState implements GameState {
     if (!cutscene) {
       this.ctx.reportProblem(`cutscene "${INTRO_ID}" missing`);
       this.ctx.goto('world');
+      return;
+    }
+    if (cutscene.type === 'cinematic') {
+      this.ctx.goto('introScene');
       return;
     }
     this.cutscene = cutscene;
@@ -66,7 +72,7 @@ export class IntroState implements GameState {
     const index = this.sequence?.index ?? 0;
     if (!this.cutscene?.panels?.[index]?.fight) return false;
     this.ctx.introPanel = index;
-    this.ctx.goto('introFight');
+    this.ctx.goto('introScene');
     return true;
   }
 

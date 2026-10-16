@@ -36,6 +36,9 @@ export function formatIssue(issue: ValidationIssue): string {
   return `${issue.file}.json${issue.path ? ` → ${issue.path}` : ''}: ${issue.message}`;
 }
 
+/** The cutscene that plays as the intro (IntroState and IntroSceneState pick it by this id). */
+const INTRO_ID = 'intro';
+
 /**
  * Checks every data file at boot: structure (via schemas), unique ids, references between files,
  * positions inside their zones, sensible number ranges, and text keys that exist in en.json.
@@ -1514,7 +1517,8 @@ class CrossChecker {
       }
       const panels = cutscene.panels ?? [];
       if (panels.length === 0) this.issue(f, `cutscenes[${i}].panels`, 'a comic needs panels');
-      for (const field of ['shots', 'actors', 'anchor', 'cameraClip'] as const) {
+      const only = ['shots', 'actors', 'anchor', 'cameraClip', 'fight', 'afterFight'] as const;
+      for (const field of only) {
         if (cutscene[field] !== undefined) {
           this.issue(f, `cutscenes[${i}].${field}`, `only a cinematic has ${field}`);
         }
@@ -1531,12 +1535,27 @@ class CrossChecker {
     });
     fights.forEach((fight, i) => {
       const p = `fights[${i}]`;
-      this.color(f, `${p}.arena.groundColor`, fight.arena.groundColor);
-      this.color(f, `${p}.arena.fogColor`, fight.arena.fogColor);
+      this.checkFightSet(fight.set, `${p}.set`);
+      if (fight.dodge && fight.dodge.minMeters > fight.dodge.maxMeters) {
+        this.issue(f, `${p}.dodge.minMeters`, 'is larger than maxMeters');
+      }
       this.unique(`foe:${fight.id}`, f, `${p}.foes`, fight.foes);
       fight.foes.forEach((foe, n) => {
         this.color(f, `${p}.foes[${n}].color`, foe.color);
         this.color(f, `${p}.foes[${n}].accent`, foe.accent);
+      });
+      this.unique(`ability:${fight.id}`, f, `${p}.abilities`, fight.abilities ?? []);
+      const actions = new Set<string>();
+      fight.abilities?.forEach((ability, n) => {
+        const ap = `${p}.abilities[${n}]`;
+        if (actions.has(ability.action)) {
+          this.issue(f, `${ap}.action`, `"${ability.action}" already fires another ability`);
+        }
+        actions.add(ability.action);
+        if (ability.kind !== 'melee') {
+          this.text(f, `${ap}.label`, ability.label);
+          this.color(f, `${ap}.color`, ability.color);
+        }
       });
       this.unique(`beat:${fight.id}`, f, `${p}.beats`, fight.beats);
       fight.beats.forEach((beat, b) => {
@@ -1547,15 +1566,42 @@ class CrossChecker {
           if (action.type === 'hint' || action.type === 'say') {
             if (!action.text) this.issue(f, ap, `a "${action.type}" needs a text`);
           }
-          if (action.type !== 'hint' && !action.foe) {
-            this.issue(f, ap, `a "${action.type}" needs a foe`);
-          }
-          const instant = action.type === 'teleportBehind' || action.type === 'teleportHome';
+          // `end` ends the fight for everyone; `hint` is for the player.
+          const solo = action.type === 'hint' || action.type === 'end';
+          if (!solo && !action.foe) this.issue(f, ap, `a "${action.type}" needs a foe`);
+          if (action.type === 'end' && action.foe) this.issue(f, ap, 'an "end" has no foe');
+          const instant =
+            action.type === 'teleportBehind' ||
+            action.type === 'teleportHome' ||
+            action.type === 'blink' ||
+            action.type === 'end';
           if (!instant && action.seconds === undefined) {
             this.issue(f, ap, `a "${action.type}" needs seconds`);
           }
         });
       });
+    });
+  }
+
+  /** A fight's set: colors that exist, fog that starts before it ends, props with what they need. */
+  private checkFightSet(set: GameData['cutscenes']['fights'][number]['set'], at: string): void {
+    const f = 'cutscenes';
+    for (const key of ['floorColor', 'fogColor', 'skyLight', 'groundLight', 'sunColor'] as const) {
+      this.color(f, `${at}.${key}`, set[key]);
+    }
+    if (set.fogNear >= set.fogFar) this.issue(f, `${at}.fogNear`, 'must be smaller than fogFar');
+    set.props.forEach((prop, n) => {
+      const pp = `${at}.props[${n}]`;
+      if (prop.color) this.color(f, `${pp}.color`, prop.color);
+      if (
+        prop.kind === 'spikes' &&
+        (prop.count === undefined || prop.seed === undefined || prop.radius === undefined)
+      ) {
+        this.issue(f, pp, 'spikes need count, seed and radius');
+      }
+      if (prop.kind === 'floor' && (prop.radius === undefined || prop.color === undefined)) {
+        this.issue(f, pp, 'a floor needs radius and color');
+      }
     });
   }
 
@@ -1570,17 +1616,42 @@ class CrossChecker {
     if (shots.length === 0) this.issue(f, `${at}.shots`, 'a cinematic needs shots');
     if (cutscene.panels !== undefined)
       this.issue(f, `${at}.panels`, 'a cinematic has shots, not panels');
-    if (!cutscene.anchor) this.issue(f, `${at}.anchor`, 'a cinematic needs an anchor');
+    // In the world it needs an anchor; on a fight's set the floor is the ground.
+    if (!cutscene.anchor && !cutscene.fight) {
+      this.issue(f, `${at}.anchor`, 'a cinematic needs an anchor or a fight');
+    }
+    if (cutscene.anchor && cutscene.fight) {
+      this.issue(f, `${at}.fight`, "a cinematic on a fight's set has no anchor");
+    }
+    // A cinematic intro plays in its own scene, on its fight's set: without the fight the game
+    // would only find out at the start, and skip the intro.
+    if (cutscene.id === INTRO_ID && !cutscene.fight) {
+      this.issue(f, `${at}.fight`, 'the intro plays in its own scene and needs a fight');
+    }
     if (shots[0] && !shots[0].camera) {
       this.issue(f, `${at}.shots[0].camera`, 'the first shot needs a camera');
     }
     const ns = `actor:${cutscene.id}`;
     this.unique(ns, f, `${at}.actors`, actors);
     this.unique(`shot:${cutscene.id}`, f, `${at}.shots`, shots);
+    this.checkCinematicFight(cutscene, at);
+    const fight = this.data.cutscenes.fights.find((entry) => entry.id === cutscene.fight);
     actors.forEach((actor, n) => {
       // `element`: the color of the player's crystal, known only while playing.
       if (actor.color && actor.color !== 'element') {
         this.color(f, `${at}.actors[${n}].color`, actor.color);
+      }
+      // A `fight` actor is one of the fight's foes, played by the scene that owns them.
+      if (actor.model === 'fight') {
+        if (!cutscene.fight) {
+          this.issue(
+            f,
+            `${at}.actors[${n}].model`,
+            'a "fight" actor needs a cutscene with a fight',
+          );
+        } else if (fight && !fight.foes.some((foe) => foe.id === actor.id)) {
+          this.issue(f, `${at}.actors[${n}].id`, `"${actor.id}" is not a foe of "${fight.id}"`);
+        }
       }
     });
     this.checkCinematicChain(cutscene, at);
@@ -1604,25 +1675,74 @@ class CrossChecker {
         if (move.lookAt === move.actor)
           this.issue(f, `${mp}.lookAt`, 'an actor cannot look at itself');
         if (move.to && !move.from) this.issue(f, `${mp}.to`, 'a walk needs a from');
+        if (move.hops && (move.from || move.to)) {
+          this.issue(f, `${mp}.hops`, 'hops replace from and to');
+        }
+        // A hop past the set's floor would leave the room (the fight keeps everyone inside it).
+        move.hops?.forEach((hop, h) => {
+          if (fight && Math.hypot(hop.x, hop.z) > fight.set.radius) {
+            this.issue(f, `${mp}.hops[${h}]`, `lies outside the set (radius ${fight.set.radius})`);
+          }
+        });
+        if ((move.headingFrom === undefined) !== (move.headingTo === undefined)) {
+          this.issue(f, mp, 'headingFrom and headingTo go together');
+        }
         const model = modelOf.get(move.actor);
         if (move.pose !== undefined && model !== 'player') {
           this.issue(f, `${mp}.pose`, 'only the player holds a weapon');
         }
         const fades = move.opacityFrom !== undefined || move.opacityTo !== undefined;
-        if (
-          model === 'player' &&
-          (fades || move.rollFrom !== undefined || move.rollTo !== undefined)
-        ) {
-          this.issue(f, mp, 'the player cannot fade or roll over');
-        }
+        if (model === 'player' && fades) this.issue(f, mp, 'the player cannot fade');
       });
       if (shot.subtitle) this.text(f, `${p}.subtitle.text`, shot.subtitle.text);
+      this.text(f, `${p}.narration`, shot.narration);
       if (shot.tint) this.color(f, `${p}.tint.color`, shot.tint.color);
       this.text(f, `${p}.nameCard.title`, shot.nameCard?.title);
       if (shot.fade?.seconds !== undefined && shot.fade.seconds > shotWallSeconds(shot)) {
         this.issue(f, `${p}.fade.seconds`, 'is longer than the shot');
       }
     });
+  }
+
+  /**
+   * `fight` / `afterFight`: the fight exists; the cinematic after it exists, is a cinematic on
+   * the same fight, and the fights never lead back to this cutscene.
+   */
+  private checkCinematicFight(
+    cutscene: GameData['cutscenes']['cutscenes'][number],
+    at: string,
+  ): void {
+    const f = 'cutscenes';
+    this.ref('fight', f, `${at}.fight`, cutscene.fight);
+    this.ref('cutscene', f, `${at}.afterFight`, cutscene.afterFight);
+    if (!cutscene.afterFight) return;
+    if (!cutscene.fight) {
+      this.issue(f, `${at}.afterFight`, 'only a cinematic with a fight has an afterFight');
+      return;
+    }
+    const all = this.data.cutscenes.cutscenes;
+    const seen = new Set([cutscene.id]);
+    let next = all.find((c) => c.id === cutscene.afterFight);
+    while (next) {
+      if (seen.has(next.id)) {
+        this.issue(f, `${at}.afterFight`, `the fights lead back to "${next.id}"`);
+        return;
+      }
+      seen.add(next.id);
+      if (next.type !== 'cinematic') {
+        this.issue(f, `${at}.afterFight`, `"${next.id}" is not a cinematic`);
+        return;
+      }
+      if (next.fight !== cutscene.fight) {
+        this.issue(
+          f,
+          `${at}.afterFight`,
+          `"${next.id}" does not play on fight "${cutscene.fight}"`,
+        );
+      }
+      const id = next.afterFight;
+      next = id ? all.find((c) => c.id === id) : undefined;
+    }
   }
 
   /**

@@ -204,15 +204,36 @@
     "panel_5": "Weinigen stonden tegenover de Lords of Morvath en leefden nog.",
     "panel_6": "Je wordt wakker in het Monastery van Greyhaven. Hier begint je reis.",
     "tapToContinue": "Tik of druk op spatie om verder te gaan",
+    "ability": {
+      "explosion": "Explosie",
+      "thunder": "Donder",
+      "icicle": "IJspegel"
+    },
+    "cine": {
+      "greeting": "Er is iets door de mistdeur gekomen, broer.",
+      "reply": "Ooh. Een kleintje. Zou het bijten?",
+      "skitter": "Broer. Focus.",
+      "unamused": "…Was dat het?",
+      "enough": "Genoeg. Laat me het eens goed bekijken.",
+      "palm": "Oh, het heeft een piepklein zwaardje. Kijk, broer, het is woedend!",
+      "grab": "Geef hier.",
+      "bat": "Ik ben aan slag!"
+    },
     "fight": {
       "arrive": "Kijk eens, broer. Bezoek!",
-      "hint": "Val ze aan! {keyAttack} = slaan, {keyHeavy} = zware slag.",
-      "hintTouch": "Val ze aan! Tik op Slaan of Zwaar.",
-      "tickle": "Raakte er nou iets… mij aan?",
+      "hint": "Val ze aan! {keyAttack} = slaan, {keyHeavy} = explosie, {keyPotion} = donder, {keyLock} = ijspegel.",
+      "hintTouch": "Tik op Slaan, Explosie, Donder of IJspegel.",
+      "clickToLook": "Klik om rond te kijken · houd Esc ingedrukt om over te slaan",
+      "taunt": "Nou? Toe maar. Probeer eens wat.",
+      "wonder": "Wat doen we ermee?",
+      "keep": "Houden! Moet je het zien gaan.",
+      "notkeep": "We houden het niet.",
       "behind": "Psst. Hier.",
-      "freeze": "De tijd buigt voor ons. Niet voor jou.",
-      "spin": "Kijk, broer, hij draait!",
-      "skip": "Overslaan"
+      "still": "Sta stil.",
+      "name": "Het doet zo z'n best. Mogen we het tenminste een naam geven?",
+      "brother": "Broer.",
+      "fine": "Goed. Goed dan! Eén keer kijken, en dan gaat het weg.",
+      "freeze": "De tijd buigt voor ons. Niet voor jou."
     }
   },
   "cutscene": {
@@ -261,6 +282,12 @@
     }
   },
   "hud": {
+    "key": {
+      "attack": "{keyAttack}",
+      "heavy": "{keyHeavy}",
+      "potion": "{keyPotion}",
+      "lock": "{keyLock}"
+    },
     "checkpointSet": "Checkpoint ingesteld",
     "rested": "Je rust uit in je bed. Je HP en mana zijn weer vol.",
     "qualityLowered": "Graphics verlaagd naar {quality} zodat het spel vloeiend blijft.",

@@ -5,6 +5,7 @@ import {
   ConeGeometry,
   CylinderGeometry,
   DoubleSide,
+  type EulerOrder,
   Group,
   type Material,
   Mesh,
@@ -22,8 +23,8 @@ import type { ActorPose, CutsceneDef, WeaponPose } from './CinematicTimeline';
 
 type ActorDef = NonNullable<CutsceneDef['actors']>[number];
 
-/** Puffs of the smoke cloud: [x, y, z, radius] around its feet (m). */
-const SMOKE_PUFFS: readonly [number, number, number, number][] = [
+/** Puffs of the smoke cloud: [x, y, z, radius] around its feet (m); the explosion's smoke shares it. */
+export const SMOKE_PUFFS: readonly [number, number, number, number][] = [
   [0, 0.5, 0, 0.7],
   [0.55, 0.9, 0.2, 0.55],
   [-0.5, 0.8, -0.15, 0.6],
@@ -32,7 +33,7 @@ const SMOKE_PUFFS: readonly [number, number, number, number][] = [
   [0.3, 2.3, 0, 0.4],
 ];
 /** The smoke turns slowly (rad/s), so it looks alive. */
-const SMOKE_SPIN = 0.9;
+export const SMOKE_SPIN = 0.9;
 /** Splinters of the barrel: [direction x, up, direction z, length] (fixed, so it is the same every time). */
 const SPLINTERS: readonly [number, number, number, number][] = [
   [1, 1.6, 0.2, 0.32],
@@ -61,6 +62,14 @@ interface Actor {
   model: ActorDef['model'];
   /** The actor's own size (`scale` in the data); the shots scale on top of it. */
   size: number;
+  /**
+   * The scene's own object (the player's model, a foe of the fight): never built or freed
+   * here, only moved; shown again and put back at `baseScale` (its scale before) in `dispose`.
+   */
+  external: boolean;
+  baseScale: number;
+  /** The rotation order the scene's object had (the player's is set to YXZ for the roll). */
+  baseOrder: EulerOrder;
   /** Its own materials (effects and props fade with `opacity`), with their full opacity. */
   materials: { material: Material; opacity: number }[];
   /** Splinters: the pieces that fly apart. */
@@ -87,7 +96,10 @@ export class CinematicStage {
   /** Cutscene time of the last `apply` (NaN before the first): animated models move on by it. */
   private lastTime = Number.NaN;
 
-  /** `element` is the color of the player's crystal (actors with `color: "element"`). */
+  /**
+   * `element` is the color of the player's crystal (actors with `color: "element"`);
+   * `objectFor` gives the scene's object for a `fight` actor (a foe of the fight, by actor id).
+   */
   constructor(
     defs: readonly ActorDef[],
     private readonly parent: Object3D,
@@ -95,12 +107,16 @@ export class CinematicStage {
     private readonly element: number,
     private readonly poseWeapon: WeaponPoser | null = null,
     private readonly animated: AnimatedModels | null = null,
+    objectFor: ((actorId: string) => Object3D | null) | null = null,
   ) {
     for (const def of defs) {
       const actor: Actor = {
         object: null,
         model: def.model,
         size: def.scale ?? 1,
+        external: false,
+        baseScale: 1,
+        baseOrder: 'XYZ',
         materials: [],
         pieces: [],
         rig: null,
@@ -110,6 +126,23 @@ export class CinematicStage {
       this.actors.push(actor);
       if (def.model === 'player') {
         actor.object = playerRoot;
+        actor.external = true;
+        if (playerRoot) {
+          actor.baseScale = playerRoot.scale.x;
+          actor.baseOrder = playerRoot.rotation.order;
+          // Heading first, then the roll (lying down); the game only ever sets the heading.
+          playerRoot.rotation.order = 'YXZ';
+        }
+        continue;
+      }
+      // A foe of the fight is the scene's own model, like the player's; without one an empty
+      // stand-in takes its place, so the shots still play.
+      const owned = def.model === 'fight' ? (objectFor?.(def.id) ?? null) : null;
+      if (owned) {
+        actor.object = owned;
+        actor.external = true;
+        actor.baseScale = owned.scale.x;
+        actor.baseOrder = owned.rotation.order;
         continue;
       }
       const object = this.build(def, actor);
@@ -145,8 +178,20 @@ export class CinematicStage {
         actor.rig.update(dt > 0 ? moved / dt : 0, dt);
       }
       if (object === this.playerRoot) {
+        // Heading, then the roll (lying in the badlands) and the size (shrunk by a spell).
         object.rotation.y = pose.heading;
+        object.rotation.x = pose.roll;
+        object.scale.setScalar(pose.scale * actor.baseScale);
         this.poseWeapon?.(pose.pose, pose.poseT);
+        continue;
+      }
+      if (actor.external) {
+        // A foe of the fight: moved, turned and sized, and upright (the fight's shimmer may
+        // have left it tilted); its materials are its own, so it never fades.
+        object.rotation.x = 0;
+        object.rotation.y = pose.heading;
+        object.rotation.z = 0;
+        object.scale.setScalar(pose.scale * actor.size * actor.baseScale);
         continue;
       }
       object.rotation.set(
@@ -169,9 +214,20 @@ export class CinematicStage {
   }
 
   dispose(): void {
-    // The player's model is the game's: it is shown again, nothing else is touched.
-    if (this.playerRoot) this.playerRoot.visible = true;
-    for (const actor of this.actors) actor.rig?.dispose();
+    // The player's model and the fight's foes are the scene's: shown again, upright, at their
+    // own size and with their own rotation order; where they stand is for the scene to set.
+    if (this.playerRoot) {
+      this.playerRoot.visible = true;
+      this.playerRoot.rotation.x = 0;
+    }
+    for (const actor of this.actors) {
+      actor.rig?.dispose();
+      if (actor.external && actor.object) {
+        actor.object.visible = true;
+        actor.object.scale.setScalar(actor.baseScale);
+        actor.object.rotation.order = actor.baseOrder;
+      }
+    }
     this.poseWeapon?.('rest', 0);
     this.parent.remove(this.group);
     for (const geometry of this.geometries) geometry.dispose();
@@ -200,6 +256,11 @@ export class CinematicStage {
         return this.buildBarrel(actor);
       case 'prop:plank':
         return this.buildPlank(actor);
+      case 'prop:bat':
+        return this.buildBat(actor);
+      case 'fight':
+        // The scene had no object for this foe: an empty stand-in.
+        return new Group();
       default: {
         // The real animated model when the game has one for this placeholder (and it has
         // loaded); its materials belong to `animated`, not to this stage.
@@ -370,6 +431,28 @@ export class CinematicStage {
   private buildPlank(actor: Actor): Object3D {
     const geometry = this.geometry(
       colored([[new BoxGeometry(0.62, 0.04, 0.13), terrainColors.zandsteen, 0, 0.065, 0]]),
+    );
+    return new Mesh(geometry, this.own(actor, new MeshLambertMaterial({ vertexColors: true })));
+  }
+
+  /**
+   * A wooden baseball bat, 0.9 m long: the knob at its origin, pointing along +z (so `heading`
+   * swings it), thin at the handle and thicker towards the end, with a dark grip ring.
+   */
+  private buildBat(actor: Actor): Object3D {
+    const wood = terrainColors.zandsteen;
+    const grip = terrainColors.lavasteen;
+    // A cylinder stands along y; turned to lie along +z, its top end (`far`) forward.
+    const along = (far: number, near: number, length: number): BufferGeometry =>
+      new CylinderGeometry(far, near, length, 12).rotateX(Math.PI / 2);
+    const geometry = this.geometry(
+      colored([
+        [along(0.026, 0.03, 0.03), wood, 0, 0, 0.015],
+        [along(0.023, 0.023, 0.06), grip, 0, 0, 0.06],
+        [along(0.03, 0.02, 0.31), wood, 0, 0, 0.245],
+        [along(0.042, 0.03, 0.44), wood, 0, 0, 0.62],
+        [along(0.03, 0.042, 0.06), wood, 0, 0, 0.87],
+      ]),
     );
     return new Mesh(geometry, this.own(actor, new MeshLambertMaterial({ vertexColors: true })));
   }

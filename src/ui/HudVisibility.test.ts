@@ -12,6 +12,7 @@ function bars(): HudBars {
     energy: new HudVisibility(),
     xp: new HudVisibility(),
     gold: new HudVisibility(),
+    abilities: new HudVisibility(),
   };
 }
 
@@ -95,5 +96,46 @@ describe('HudRules (concept)', () => {
     expect(b.energy.visible).toBe(true);
     run(cfg.barLingerSeconds + 0.5, b);
     expect(b.energy.visible).toBe(false);
+  });
+
+  it('shows the ability chips in a fight or while one cools, then lets them linger', () => {
+    const b = bars();
+    const rules = new HudRules(b, cfg, player.lowHpThreshold);
+    rules.setAbilities(false, false);
+    expect(b.abilities.visible).toBe(false);
+    rules.setAbilities(true, false);
+    expect(b.abilities.visible).toBe(true);
+    rules.setAbilities(false, true);
+    expect(b.abilities.visible).toBe(true);
+    rules.setAbilities(false, false);
+    expect(b.abilities.visible).toBe(true);
+    // Called every frame (as the HUD does) the linger still runs out.
+    for (let t = 0; t < cfg.barLingerSeconds + 0.5; t += 0.1) {
+      rules.setAbilities(false, false);
+      b.abilities.update(0.1);
+    }
+    expect(b.abilities.visible).toBe(false);
+  });
+
+  it('hides the ability chips under a dialogue window and brings them back only with a reason', () => {
+    const b = bars();
+    const rules = new HudRules(b, cfg, player.lowHpThreshold);
+    rules.setAbilities(true, false);
+    rules.setAbilities(true, false, true);
+    expect(b.abilities.visible).toBe(false);
+    // Still fighting when the window closes: back at once.
+    rules.setAbilities(true, false, false);
+    expect(b.abilities.visible).toBe(true);
+    // The fight ended while talking: nothing left to linger.
+    rules.setAbilities(false, false, true);
+    rules.setAbilities(false, false, false);
+    expect(b.abilities.visible).toBe(false);
+    // A linger that was running is cut short by the window, not resumed after it.
+    rules.setAbilities(true, false);
+    rules.setAbilities(false, false);
+    expect(b.abilities.visible).toBe(true);
+    rules.setAbilities(false, false, true);
+    rules.setAbilities(false, false, false);
+    expect(b.abilities.visible).toBe(false);
   });
 });

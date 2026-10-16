@@ -1,3 +1,4 @@
+import { AbilityBar, type AbilityChip } from './AbilityBar';
 import { el } from './dom';
 import { type HudBars, type HudConfig, HudRules, HudVisibility } from './HudVisibility';
 
@@ -26,9 +27,11 @@ class HudPart {
  * - zone name banner when entering a zone (top center),
  * - messages: first-visit texts, checkpoint, blocked gate, ... (one at a time, queued),
  * - HP / mana / energy / XP bars (top left) and gold (top right), following the HUD rules,
- * - the interaction icon above the nearest object you can use (tap it on a phone).
- * Everything sits at the top of the screen, so it never covers the joystick or the buttons
- * (their safe zones are the lower corners). Times come from player.json `hud`.
+ * - the interaction icon above the nearest object you can use (tap it on a phone),
+ * - the ability chips (which abilities are ready again), bottom centre, only on a computer.
+ * Everything else sits at the top of the screen, so it never covers the joystick or the
+ * buttons (their safe zones are the lower corners); the chips are left off a touch screen,
+ * where the buttons draw the readiness themselves. Times come from player.json `hud`.
  */
 /** Seconds the red edge glow stays on after a hit (then it fades out). */
 const HURT_SECONDS = 0.12;
@@ -99,6 +102,15 @@ export class HUD {
   private itemLeft = 0;
   /** An item card waiting for the victory words to fade first. */
   private pendingItem: { card: HTMLElement; name: string; seconds: number } | null = null;
+  /**
+   * Which abilities are ready again (a staff's Shard and spell): shown while fighting or
+   * while one is still cooling, then it lingers like the bars and fades; hidden under a
+   * dialogue window, which opens on the same spot (HudRules.setAbilities).
+   */
+  private readonly abilityBar = new AbilityBar();
+  private readonly abilities: HudPart;
+  private abilitiesInCombat = false;
+  private abilitiesCovered = false;
 
   constructor(
     private readonly cfg: HudConfig,
@@ -173,6 +185,9 @@ export class HUD {
     this.itemName = el('p', { className: 'ui-hud-item-name' });
     this.item = el('div', { className: 'ui-hud-item' }, this.itemCard, this.itemName);
 
+    this.abilityBar.root.classList.add('ui-hud-part');
+    this.abilities = new HudPart(this.abilityBar.root);
+
     this.hurtGlow = el('div', { className: 'ui-hud-hurt' });
     this.blackoutTitle = el('p', { className: 'ui-hud-blackout-title' });
     this.blackoutText = el('p', { className: 'ui-hud-blackout-text' });
@@ -196,6 +211,7 @@ export class HUD {
       this.subtitle,
       this.victory,
       this.item,
+      this.abilities.element,
       this.blackout,
     );
     this.root.style.setProperty('--hud-fade', `${cfg.fadeSeconds}s`);
@@ -206,6 +222,7 @@ export class HUD {
       energy: bars.energy.visibility,
       xp: bars.xp.visibility,
       gold: this.gold.visibility,
+      abilities: this.abilities.visibility,
     };
     this.rules = new HudRules(visibility, cfg, lowHpFraction);
   }
@@ -369,6 +386,30 @@ export class HUD {
     this.hurtTime = HURT_SECONDS;
   }
 
+  /**
+   * The abilities whose readiness the HUD shows (a staff: the Shard and its spell), rebuilt
+   * when the weapon, the language or the keys change; an empty list shows nothing (a sword).
+   * The caller leaves it empty on a touch screen, where the buttons show it themselves.
+   */
+  setAbilities(chips: readonly AbilityChip[]): void {
+    this.abilityBar.setChips(chips);
+  }
+
+  /** How ready ability `id` is (0–1) each rendered frame (see AbilityBar.setReadiness). */
+  setAbilityReadiness(id: string, ready: number, blocked = false): void {
+    this.abilityBar.setReadiness(id, ready, blocked);
+  }
+
+  /** In a fight the ability chips stay; out of it they linger while one still cools. */
+  setAbilitiesInCombat(fighting: boolean): void {
+    this.abilitiesInCombat = fighting;
+  }
+
+  /** A dialogue window is open on the chips' spot: they hide until it is closed. */
+  setAbilitiesCovered(covered: boolean): void {
+    this.abilitiesCovered = covered;
+  }
+
   /** Call every rendered frame with real seconds (fades and timers are fps-independent). */
   update(seconds: number): void {
     this.hiddenBy.update(seconds);
@@ -399,11 +440,23 @@ export class HUD {
     this.interact.update(seconds);
     this.gold.update(seconds);
     for (let i = 0; i < BAR_IDS.length; i++) this.bars[BAR_IDS[i] as BarId].update(seconds);
+    this.updateAbilities(seconds);
   }
 
   dispose(): void {
     this.root.remove();
     this.queue.length = 0;
+    this.abilityBar.dispose();
+  }
+
+  /** The chips' reasons come from the HUD rules: fighting or cooling, a linger, a dialogue. */
+  private updateAbilities(seconds: number): void {
+    this.rules.setAbilities(
+      this.abilitiesInCombat,
+      this.abilityBar.anyCooling,
+      this.abilitiesCovered,
+    );
+    this.abilities.update(seconds);
   }
 
   /** Victory words, then the item card: one after the other, never under a cinematic. */
