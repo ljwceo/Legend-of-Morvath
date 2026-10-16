@@ -1,6 +1,10 @@
-# Greyhaven web export: Greyhaven.blend -> greyhaven.glb + player.glb + materials.json + tex/
+# Greyhaven web export: Greyhaven.blend -> greyhaven.glb + materials.json + tex/
 # Run headless (the .blend is never saved):
 #   blender -b Greyhaven.blend --python export_web.py -- <OUT folder>
+#
+# The player (player.glb and its materials) comes from character/04_export_player.py. Both
+# scripts merge into materials.json: each replaces only its own materials, so the order of
+# running them does not matter. The spawn point ("Player" empty) still comes from here.
 #
 # - Everything visible in the "Greyhaven" collection (meshes, curves) is joined and split per
 #   material (objects "M_<material>"); the city trees (GH_Tree*) share one mesh, exported as
@@ -73,13 +77,11 @@ def in_gh(o):
 
 keep = [o for o in vl.objects if o.visible_get() and in_gh(o) and o.type in ('MESH', 'CURVE')
         and o.name not in SKIP]
-player_objs = [o for o in bpy.data.collections['StartCharacter'].all_objects
-               if o.visible_get() and o.type in ('MESH', 'CURVE')]
 player_loc = tuple(bpy.data.objects['Player'].matrix_world.translation)
-P('keep', len(keep), 'player', len(player_objs), 'no collision', len(nocoll))
+P('keep', len(keep), 'no collision', len(nocoll))
 dg = bpy.context.evaluated_depsgraph_get()
 used = set()
-for o in keep + player_objs:
+for o in keep:
     for s in o.material_slots:
         if s.material:
             used.add(s.material.name)
@@ -290,8 +292,12 @@ P('terrain baked', minx, maxx, miny, maxy)
 for l in list(me.uv_layers):
     if l.name != 'TopUV':
         me.uv_layers.remove(l)
-json.dump({'materials': info, 'player': player_loc, 'terrainBounds': [minx, maxx, miny, maxy]},
-          open(os.path.join(OUT, 'materials.json'), 'w'), indent=1)
+# Keep the materials this export does not make (the player's, from 04_export_player.py).
+mpath = os.path.join(OUT, 'materials.json')
+merged = json.load(open(mpath))['materials'] if os.path.isfile(mpath) else {}
+merged.update(info)
+json.dump({'materials': dict(sorted(merged.items())), 'player': player_loc,
+           'terrainBounds': [minx, maxx, miny, maxy]}, open(mpath, 'w'), indent=1)
 bpy.data.objects.remove(plane)
 bpy.data.scenes.remove(BS)
 
@@ -384,16 +390,6 @@ bpy.ops.export_scene.gltf(
     export_texcoords=True, export_normals=True, export_lights=False, export_cameras=False,
     export_animations=False, export_extras=False)
 P('world exported')
-# ---------- player ----------
-for o in vl.objects:
-    o.select_set(False)
-for o in player_objs:
-    o.select_set(True)
-bpy.ops.export_scene.gltf(
-    filepath=os.path.join(OUT, 'player.glb'), export_format='GLB', use_selection=True,
-    export_apply=True, export_materials='VIEWPORT', export_draco_mesh_compression_enable=True,
-    export_lights=False, export_cameras=False, export_animations=False)
-P('player exported')
 for f in os.listdir(OUT):
     p = os.path.join(OUT, f)
     P(f, os.path.getsize(p) if os.path.isfile(p) else 'dir')
