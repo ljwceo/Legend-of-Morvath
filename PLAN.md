@@ -259,11 +259,53 @@ _Chat 5 (A.5a–c) heeft geen Blender nodig en mag vóór of tegelijk met A.2–
 
 ---
 
+## Fase G – Geluid (muziek, effecten, stemmen) · **open** (voorstel 2026-10-16, wacht op G.0)
+
+Doel: het spel klinkt: muziek en ambience per zone, effecten in de wereld, in de menu's en in het gevecht, en een volume dat echt werkt. Vervangt stap 6.3, die voor één sessie te groot was. Bedoeld als eigen groep naast de andere (voorstel: branch `auto/audio`, pas in `main` na akkoord van Bo/Lucas), met nieuwe bestanden in `src/audio/` en `public/data/audio.json`.
+
+**Zo pak je het snel op:** beantwoord eerst G.0 (drie vragen, kost geen bouwtijd). Daarna mogen G.1 t/m G.3 meteen, ook tegelijk met Fase S (souls-like gevecht, branch `auto/souls`, nog niet in `main`). G.4 pas als Fase S in `main` staat. Begin een chat met: _"Lees CLAUDE.md en stap G.1 uit PLAN.md. Doe alleen die stap."_
+
+**Wat er al klaarstaat:** het volume-schuifje in Settings (`settings.volume`, 0–1, wordt opgeslagen en geeft `settingsChanged`) doet nog niets. Cutscene-shots hebben al `silence` en `CinematicCutscene` heeft een `silence()`-haak. `WorldState` pauzeert al bij pauze en bij een verborgen tabblad, en `zoneEntered` en `instanceEntered` bestaan al. Er zijn nog geen gevechtsevents op de EventBus.
+
+**Vaste regels voor deze fase**
+
+1. **Geluid is alleen render-kant.** Het leest events en meters en stuurt de simulatie nooit; geen hitbox, timing of schade hangt van geluid af. Met en zonder geluid is de uitkomst op 60 en 120 Hz exact gelijk, en op Low, Mid en High ook.
+2. **Alles in data.** `public/data/audio.json`: per cue de bron, bus, volume, toonhoogte-spreiding, cooldown en maximaal aantal tegelijk, met zod-schema en DataValidator. Geen bestandsnamen of getallen in code; ondertitels in `en.json` en `nl.json`.
+3. **Geen allocaties in de gameloop.** Korte geluiden uit een pool, buffers één keer decoderen en hergebruiken.
+4. **Geheugen gaat terug.** Buffers van een zone of instance gaan weg bij verlaten; `scripts/mem-check.mjs` telt ze mee (G.2).
+5. **Browserregels.** De `AudioContext` start pas na de eerste klik of toets (het titelscherm vraagt die al). Stil bij pauze, bij een verborgen tabblad en tijdens een `silence`-shot.
+6. **Alleen gratis bronnen** (`CLAUDE.md` sectie 2, punt 7). De herkomst en licentie van elk bestand staat in `audio.json` (`credit`).
+7. **Bestandsbudget.** `scripts/check-bundle.mjs` meet alleen scripts, dus geluidsbestanden vallen er niet onder; G.1 voegt een eigen grens toe.
+8. **Pc en controller** (besluit S-5 uit Fase S): geen iPhone-eisen voor geluid.
+
+**Besluiten (G.0, Bo/Lucas)**
+
+| Nr  | Vraag                                 | Voorstel                                                                                                                                                                                                                                           |
+| --- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| G-1 | Waar komt het geluid vandaan?         | Effecten zelf gesynthetiseerd met WebAudio (geen bestanden) of van vrije CC0-bronnen; tijdelijke CC0-muziek, echte muziek later. AI-muziek alleen na controle van de voorwaarden                                                                    |
+| G-2 | Komen er stemmen?                     | Nu niet: eerst alleen tekst. Stemmen (altijd Engels, ondertitels in de gekozen taal, zoals het concept zegt) komen er alleen als dit "ja" wordt, in G.6                                                                                             |
+| G-3 | Eén volume of meer schuifjes?         | G.1 gebruikt `settings.volume` als hoofdvolume. Losse schuifjes (muziek, effecten) pas na het samenvoegen van Fase S: dat vraagt een nieuwe save-versie en Fase S heeft de save al naar versie 19 gebracht                                          |
+
+**Stappen**
+
+- [ ] **G.0 Besluiten (Bo/Lucas)** — G-1 t/m G-3 beantwoorden en vastleggen in `docs/PROGRESS.md` → Besluiten. _Klaar als:_ alle drie een antwoord hebben.
+- [ ] **G.1 Audio-motor** — `src/audio/AudioManager.ts` met één `AudioContext` en bussen (hoofd, muziek, effecten); `settings.volume` als hoofdvolume via `settingsChanged`; start na de eerste klik of toets; stil bij pauze en verborgen tabblad; de `silence`-haak van de cutscenes aangesloten; `audio.json` met schema en DataValidator-regels; een pool voor korte geluiden; een testgeluid in het cheatmenu (F6). De pure logica (bussen, ducking, cooldowns, varianten kiezen) staat los van de browser en is getest. _Klaar als:_ het schuifje in Settings echt werkt, geluid stopt bij pauze en bij een verborgen tabblad, de bestaande tests en de simulatie op 60 en 120 Hz ongewijzigd zijn, en het bestandsbudget een grens heeft.
+- [ ] **G.2 Muziek en ambience per zone** — luistert naar `zoneEntered` en `instanceEntered` (en naar een event voor het verlaten van een instance, als dat er nog niet is); per zone en instance muziek of ambience in data; lus en vloeiende overgang; Greyhaven, de Greenwood, Mournfen, de toren van Brink, de kelder van Sam en de intro. _Klaar als:_ van zone naar zone lopen wisselt de muziek vloeiend zonder hapering, en `mem-check` laat de buffers bij verlaten terugkomen op de beginwaarde.
+- [ ] **G.3 Wereld- en interfacegeluid** — stappen, deuren (de hoek uit `HingedBodies`; stap D liet geluid bewust weg), menu's, dialoog, tas, drankjes, level up, quest klaar, gold, checkpoint en doodgaan, via bestaande events (`levelUp`, `questCompleted`, `itemsGained`, `potionDrunk`, `checkpointSet`, `playerDied`, …). _Klaar als:_ al deze momenten een geluid uit data geven en een nieuw geluid toevoegen alleen data is.
+- [ ] **G.4 Gevechtsgeluid (ná het samenvoegen van Fase S)** — slag, treffer en missen, rol, blok en parry, poise breken, uitgeput, spells per element, en de aankondiging van vijandaanvallen (de cue uit S.5b ook hoorbaar). Daarvoor komen er alleen-lezen gevechtsevents bij in `events.ts`. Het combo-geluid uit het concept hoort bij stap 5.5. _Klaar als:_ elke vijandaanval van tevoren te horen is, een geslaagde parry een eigen geluid heeft, en een test bewijst dat de simulatie met en zonder geluid exact dezelfde uitkomst geeft op 60 en 120 Hz.
+- [ ] **G.5 Cutscene-audio en baasmuziek** — `silence` krijgt echt stilte, de donder uit de intro, een stinger bij de eindscène (BOND FORGED), muziek bij Sultan en andere baasgevechten, en muziek die zachter wordt tijdens dialoog. _Klaar als:_ elke cutscene zijn geluid heeft en overslaan het geluid netjes stopt.
+- [ ] **G.6 Stemmen (alleen als G-2 "ja" is)** — gesproken regels altijd in het Engels, ondertitels in de gekozen taal uit `en.json` en `nl.json`, per NPC en cutscene in data. _Klaar als:_ één gesprek en één cutscene met stem spelen en de ondertitels meegaan met de taalkeuze.
+- [ ] **G.7 Afronden** — de mix (onderlinge volumes, ducking), meten (cpu en geheugen, fps en draw calls gelijk aan vóór de fase op Low, Mid en High), `docs/ARCHITECTURE.md` en `CLAUDE.md` (map `src/audio`) bijwerken, en Bo en Lucas spelen en luisteren. _Klaar als:_ fps en draw calls niet slechter zijn dan vóór de fase en Bo en Lucas zeggen dat de mix goed klinkt.
+
+**Risico:** G.1 t/m G.3 raken `schemas.ts`, `DataValidator.ts`, `WorldState.ts` en `SettingsPanel.ts`, net als Fase S. Houd de aanpassingen daar klein en op eigen regels, zodat het samenvoegen schoon blijft.
+
+---
+
 ## Fase 6 – Polish, art-pass, audio, cutscenes · **open** (stappen zijn een voorstel)
 
 - [ ] **6.1 Art-pass** — anime/toon-shading afmaken, echte modellen in plaats van placeholders. _Klaar als:_ alleen de placeholder-factory en de materialen veranderen, geen gameplay-code.
 - [ ] **6.2 Echte kapsels en lichaamstypes** — per keuze een eigen model, kleuren blijven kleuren op hetzelfde model. _Klaar als:_ een nieuw kapsel toevoegen is alleen data.
-- [ ] **6.3 Audio** — muziek per zone, sfx voor slaan/raken/lopen, volume-slider die echt werkt, stemmen altijd Engels met ondertitels in de gekozen taal. _Klaar als:_ geluid stopt netjes bij pauze en achtergrond.
+- [ ] **6.3 Audio** — verplaatst naar **Fase G – Geluid** (voorstel 2026-10-16: muziek, effecten én stemmen is te veel voor één sessie). _Klaar als:_ Fase G is afgerond.
 - [ ] **6.4 Cutscenes afmaken** — wat na stap C.4 nog strip is omzetten naar filmisch, met echte modellen en camera's uit Blender (zie **Extra – Filmische cutscenes**). _Klaar als:_ geen enkele cutscene is nog een tekstpaneel en alles blijft overslaanbaar.
 - [ ] **6.5 Afronden fase 6** — meten op pc en iPhone, geheugen, documentatie. _Klaar als:_ 60 fps op de iPhone en 120 fps op High op de pc.
 
