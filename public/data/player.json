@@ -10,7 +10,9 @@
     "hpPerSecondOutOfCombat": 1,
     "manaPerSecond": 0.4,
     "energyPerSecond": 20,
-    "energyDelaySeconds": 1
+    "energyDelaySeconds": 1,
+    "exhaustedDelaySeconds": 1,
+    "exhaustedRecoverEnergy": 20
   },
   "movement": {
     "walkSpeed": 4,

@@ -1,4 +1,5 @@
 import type { PlayerConfig } from '../data/types';
+import { canSpendEnergy, type EnergyPool, spendEnergy } from './Stamina';
 
 const DEG = Math.PI / 180;
 
@@ -210,15 +211,12 @@ export interface SwordInput {
   critRoll: number;
 }
 
-/** Energy is shared with the dash; Movement owns it. */
-export interface EnergyPool {
-  energy: number;
-  sinceEnergySpent: number;
-}
+/** Energy is shared with the dash; Movement owns it (rules in Stamina.ts). */
+export type { EnergyPool };
 
 /**
  * One fixed step of the sword. A fast hit lands at once (10 energy, up to 3 per second; every
- * 3rd hit in a row does +50 %). Without enough energy fast hits still work, but slower. A heavy
+ * 3rd hit in a row does +50 %). While exhausted fast hits still work, but slower. A heavy
  * hit costs its energy up front, winds up for ~1 s and then lands; you cannot attack again
  * until its recovery is over. Returns which attack landed; the caller applies the damage to
  * every target in the arc (see `inSwingArc`).
@@ -267,11 +265,10 @@ export function stepSword(
   }
   if (c.attackCooldown > 0) return out;
 
-  if (wantHeavy && energy.energy >= cfg.heavyEnergyCost) {
+  if (wantHeavy && canSpendEnergy(energy)) {
     c.bufferedHeavy = 0;
     c.bufferedFast = 0;
-    energy.energy -= cfg.heavyEnergyCost;
-    energy.sinceEnergySpent = 0;
+    spendEnergy(energy, cfg.heavyEnergyCost);
     c.heavyWindup = cfg.heavyWindupSeconds / speed;
     c.swing = 'heavy';
     c.swingTime = 0;
@@ -281,9 +278,9 @@ export function stepSword(
   if (wantHeavy) c.bufferedHeavy = 0;
   if (wantFast) {
     c.bufferedFast = 0;
-    const enough = energy.energy >= cfg.fastEnergyCost;
-    if (enough) energy.energy -= cfg.fastEnergyCost;
-    energy.sinceEnergySpent = 0;
+    const enough = canSpendEnergy(energy);
+    if (enough) spendEnergy(energy, cfg.fastEnergyCost);
+    else energy.sinceEnergySpent = 0;
     c.comboCount++;
     c.sinceFastHit = 0;
     c.attackCooldown = (cfg.fastInterval / speed) * (enough ? 1 : cfg.noEnergySlowdown);

@@ -650,6 +650,10 @@ export const playerFileSchema = z.strictObject({
     manaPerSecond: max(nonNegative, 100),
     energyPerSecond: positive,
     energyDelaySeconds: max(nonNegative, 10),
+    /** Pause before energy refills after it ran out (exhausted). */
+    exhaustedDelaySeconds: max(nonNegative, 10),
+    /** Exhausted until energy is back at this level; no dash or heavy hit until then. */
+    exhaustedRecoverEnergy: nonNegative,
   }),
   movement: z.strictObject({
     walkSpeed: max(positive, 20),

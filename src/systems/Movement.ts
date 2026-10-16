@@ -1,5 +1,6 @@
 import type { PlayerConfig } from '../data/types';
 import type { PointXZ } from '../world/Colliders';
+import { canSpendEnergy, spendEnergy, stepEnergyRegen } from './Stamina';
 
 const DEG = Math.PI / 180;
 const EPSILON = 1e-4;
@@ -13,6 +14,8 @@ export interface MovementConfig {
   maxEnergy: number;
   energyPerSecond: number;
   energyDelaySeconds: number;
+  exhaustedDelaySeconds: number;
+  exhaustedRecoverEnergy: number;
   dashEnergyCost: number;
   dashCooldownSeconds: number;
   dashDistance: number;
@@ -31,6 +34,8 @@ export function movementConfig(player: PlayerConfig): MovementConfig {
     maxEnergy: player.base.energy,
     energyPerSecond: player.regen.energyPerSecond,
     energyDelaySeconds: player.regen.energyDelaySeconds,
+    exhaustedDelaySeconds: player.regen.exhaustedDelaySeconds,
+    exhaustedRecoverEnergy: player.regen.exhaustedRecoverEnergy,
     dashEnergyCost: player.dash.energyCost,
     dashCooldownSeconds: player.dash.cooldownSeconds,
     dashDistance: player.dash.distance,
@@ -101,6 +106,8 @@ export class MoverState implements PointXZ {
   energy = 0;
   /** Seconds since energy was last spent; energy refills after `energyDelaySeconds`. */
   sinceEnergySpent = 0;
+  /** Energy ran out: no dash or heavy hit until it is back at `exhaustedRecoverEnergy`. */
+  exhausted = false;
   dashCooldown = 0;
   /** Seconds of dash left (0 = not dashing). */
   dashTime = 0;
@@ -136,10 +143,7 @@ export function stepMovement(
   world: Mover,
 ): void {
   s.dashCooldown = Math.max(0, s.dashCooldown - dt);
-  s.sinceEnergySpent += dt;
-  if (s.sinceEnergySpent >= cfg.energyDelaySeconds) {
-    s.energy = Math.min(cfg.maxEnergy, s.energy + cfg.energyPerSecond * dt);
-  }
+  stepEnergyRegen(s, cfg, dt);
 
   const length = Math.sqrt(cmd.x * cmd.x + cmd.z * cmd.z);
 
@@ -149,15 +153,8 @@ export function stepMovement(
     return;
   }
 
-  if (
-    cmd.dash &&
-    cfg.canDash &&
-    s.dashTime <= 0 &&
-    s.dashCooldown <= 0 &&
-    s.energy >= cfg.dashEnergyCost
-  ) {
-    s.energy -= cfg.dashEnergyCost;
-    s.sinceEnergySpent = 0;
+  if (cmd.dash && cfg.canDash && s.dashTime <= 0 && s.dashCooldown <= 0 && canSpendEnergy(s)) {
+    spendEnergy(s, cfg.dashEnergyCost);
     s.dashCooldown = cfg.dashCooldownSeconds;
     s.dashTime = cfg.dashDurationSeconds;
     // Dash where you walk; standing still, dash where you face.

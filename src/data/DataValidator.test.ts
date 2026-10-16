@@ -109,6 +109,12 @@ describe('validateGameData catches broken data', () => {
     expect(messages(raw2).some((m) => m.includes('runAbove'))).toBe(true);
   });
 
+  it('rejects an exhausted recovery level above the maximum energy', () => {
+    const raw = freshData();
+    raw.player.regen.exhaustedRecoverEnergy = raw.player.base.energy + 1;
+    expect(messages(raw).join('\n')).toContain('exhaustedRecoverEnergy');
+  });
+
   it('rejects unknown (misspelled) fields', () => {
     const raw = freshData();
     raw.npcs.npcs[0].dialouge = [];

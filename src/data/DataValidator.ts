@@ -686,6 +686,13 @@ class CrossChecker {
     if (player.dash.energyCost > player.base.energy) {
       this.issue(f, 'dash.energyCost', 'dash costs more energy than the maximum');
     }
+    if (player.regen.exhaustedRecoverEnergy > player.base.energy) {
+      this.issue(
+        f,
+        'regen.exhaustedRecoverEnergy',
+        'exhausted recovery level is higher than the maximum energy',
+      );
+    }
     const cam = player.camera;
     const between = (path: string, value: number, min: number, max: number): void => {
       if (min > max) this.issue(f, path, `min ${min} is larger than max ${max}`);

@@ -1136,6 +1136,7 @@ export class IntroSceneState implements GameState {
     player.place(start.x, 0, start.z, heading);
     player.syncModel(1);
     player.state.energy = data.player.base.energy;
+    player.state.exhausted = false;
     this.sword = swordConfig(data.player);
     player.combat.lingerSeconds = this.sword.combatLingerSeconds;
     applyStats(player.combat, data.player, 1);

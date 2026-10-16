@@ -1772,6 +1772,7 @@ export class WorldState implements GameState, InstanceHost {
     c.heavyWindup = 0;
     c.swing = 'none';
     player.state.energy = data.player.base.energy;
+    player.state.exhausted = false;
     const lost = this.deathGoldLost;
     if (session.character && lost > 0) {
       this.hud?.setGold(session.character.gold);
@@ -4363,6 +4364,7 @@ export class WorldState implements GameState, InstanceHost {
       );
     }
     player.state.energy = data.player.base.energy;
+    player.state.exhausted = false;
     player.state.sinceEnergySpent = data.player.regen.energyDelaySeconds;
     this.sword = swordConfig(data.player);
     this.staff = staffConfig(data.player, data.spells);
