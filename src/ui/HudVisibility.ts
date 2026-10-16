@@ -61,13 +61,15 @@ export class HudVisibility {
 
 export type HudConfig = PlayerConfig['hud'];
 
-/** The bars and counters the concept's HUD rules talk about. */
+/** The bars, counters and the ability chips the HUD rules talk about. */
 export interface HudBars {
   hp: HudVisibility;
   mana: HudVisibility;
   energy: HudVisibility;
   xp: HudVisibility;
   gold: HudVisibility;
+  /** The row of ability chips (which abilities are ready again). */
+  abilities: HudVisibility;
 }
 
 /**
@@ -77,6 +79,8 @@ export interface HudBars {
  * - The XP bar only after defeating an enemy; when it is done, all bars fade out.
  * - Under 30 % HP the HP bar stays until it is higher again.
  * - Energy (phase 1 test): shows while it refills after a dash, then fades out.
+ * - The ability chips (Bo, 2026-10-15) while fighting or while one cools, then they linger
+ *   like the bars; a dialogue window on top of them hides them at once.
  */
 export class HudRules {
   constructor(
@@ -129,6 +133,28 @@ export class HudRules {
   setShop(open: boolean): void {
     if (open) this.bars.gold.show('shop');
     else this.bars.gold.hide('shop');
+  }
+
+  /**
+   * The ability chips: on while `fighting` or while one is still `cooling`; once both are over
+   * they linger as long as the bars do and fade. `covered` (a dialogue window opens on the same
+   * spot) hides them at once; closed again, they come back only while there is still a reason.
+   * Safe to call every frame: a running linger is not restarted.
+   */
+  setAbilities(fighting: boolean, cooling: boolean, covered = false): void {
+    const chips = this.bars.abilities;
+    if (covered) {
+      chips.hide('active');
+      chips.hide('linger');
+      return;
+    }
+    if (fighting || cooling) {
+      chips.hide('linger');
+      chips.show('active');
+    } else if (chips.has('active')) {
+      chips.hide('active');
+      chips.show('linger', this.cfg.barLingerSeconds);
+    }
   }
 
   /** Energy below full shows the bar; once full again it lingers briefly and fades. */

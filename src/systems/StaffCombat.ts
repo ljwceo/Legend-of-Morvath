@@ -1,5 +1,6 @@
 import type { PlayerConfig, SpellsFile } from '../data/types';
 import type { CombatState } from './Combat';
+import { readiness } from './Readiness';
 
 const DEG = Math.PI / 180;
 
@@ -175,6 +176,8 @@ export type StaffAction = 'none' | 'shard' | 'spell';
 export class StaffState {
   /** Seconds until any shot may start. */
   cooldown = 0;
+  /** What `cooldown` started from after the last shot (for drawing how ready the staff is). */
+  cooldownTotal = 0;
   /** Seconds of gathering left (0 = nothing on its way out). */
   windup = 0;
   /** How long the current gathering takes in total (for drawing the staff rising). */
@@ -183,6 +186,8 @@ export class StaffState {
   pending: StaffAction = 'none';
   /** Seconds until the spell may be cast again (the Shard is not affected). */
   spellCooldown = 0;
+  /** What `spellCooldown` started from after the last spell. */
+  spellCooldownTotal = 0;
   /** Seconds the cast button has been held for this spell (charging). */
   charge = 0;
   /** The cast button is still down, so the charge is still growing. */
@@ -209,6 +214,7 @@ export class StaffState {
 
   reset(): void {
     this.cooldown = 0;
+    this.cooldownTotal = 0;
     this.windup = 0;
     this.windupTotal = 0;
     this.charge = 0;
@@ -216,10 +222,22 @@ export class StaffState {
     this.chargeFraction = 0;
     this.pending = 'none';
     this.spellCooldown = 0;
+    this.spellCooldownTotal = 0;
     this.bufferedShard = 0;
     this.bufferedSpell = 0;
     this.noMana = false;
   }
+}
+
+/**
+ * How ready the staff is to fire `kind` again (0–1, see `readiness`): the Shard waits only for
+ * the staff's own cooldown, a spell for that and for its own cooldown, so it is the lower of
+ * the two. For the HUD chips and the touch buttons; what the staff does is unchanged.
+ */
+export function staffReadiness(state: StaffState, kind: 'shard' | 'spell'): number {
+  const staff = readiness(state.cooldown, state.cooldownTotal);
+  if (kind === 'shard') return staff;
+  return Math.min(staff, readiness(state.spellCooldown, state.spellCooldownTotal));
 }
 
 /** What the player pressed this step (left = Shard, right = spell). */
@@ -284,7 +302,8 @@ function release(
   // Dexterity shortens the staff's own rhythm; a spell's cooldown is the spell's, not yours.
   const speed = combat.attackSpeedFactor > 0 ? combat.attackSpeedFactor : 1;
   state.cooldown = (kind === 'spell' ? cfg.recoverySeconds : shot.cooldownSeconds) / speed;
-  if (kind === 'spell') state.spellCooldown = shot.cooldownSeconds;
+  state.cooldownTotal = state.cooldown;
+  if (kind === 'spell') state.spellCooldown = state.spellCooldownTotal = shot.cooldownSeconds;
   return out;
 }
 

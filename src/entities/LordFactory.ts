@@ -66,9 +66,10 @@ export function buildLord(height: number, color: number, accent: number): LordMo
     );
     spike.rotation.set(Math.cos(angle) * 0.25, 0, -Math.sin(angle) * 0.25);
   }
-  // Right arm raised a little, ready to cast (heading 0 faces +z; right is -x).
+  // Right arm raised a little forward, ready to cast (heading 0 faces +z; right is -x): its
+  // upper end lands at the hand group below, where spells, the shrunken player and the bat sit.
   const arm = add(new Mesh(new CylinderGeometry(0.06, 0.07, 0.6, 6), robe), -0.32, 1.25, 0.12);
-  arm.rotation.set(-0.9, 0, 0.35);
+  arm.rotation.set(0.9, 0, 0.35);
   const hand = new Group();
   hand.position.set(-0.4, 1.38, 0.38);
   root.add(hand);

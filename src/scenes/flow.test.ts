@@ -8,8 +8,18 @@ import {
   frameCapFor,
   PanelSequence,
   placeAtStart,
+  type StateId,
   startNewGame,
 } from './flow';
+
+describe('StateId', () => {
+  it('knows every scene, the filmed intro (introScene) among them', () => {
+    // A compile-time check as much as a runtime one: a renamed state breaks this list.
+    const ids: StateId[] = ['boot', 'language', 'title', 'create', 'intro', 'introScene', 'world'];
+    expect(ids).toContain('introScene');
+    expect(ids).not.toContain('introFight');
+  });
+});
 
 describe('bootRoute', () => {
   it('asks for the language without a usable save and shows the title with one', () => {

@@ -15,6 +15,7 @@
    stap erom vraagt (en dan alleen het stukje dat nodig is).
 3. Klaar? Zet de stap op `[x]`, zet één regel in `docs/PROGRESS.md`, commit, push, pull request. Stop.
 4. Nieuwe wens of besluit van Bo/Lucas? Zet hem als nieuwe stap of in **Notities**, niet in `CLAUDE.md`.
+5. **Klein bouwen, Bo laten testen** (Bo, 2026-10-15): één bouwronde per vraag, geen extra review- en fixrondes; zet het op de branch (of de proefpagina) en wacht op feedback in plaats van zelf door te polijsten.
 
 ---
 
@@ -108,14 +109,15 @@ _De oude stappen 3.6 en 3.7 zijn fase 3.8 en 3.10 geworden (besluit Bo, 2026-10-
 
 ---
 
-## Extra – Filmische cutscenes (Elden Ring-stijl) · stap 1 en 2 **gebouwd** (2026-10-13)
+## Extra – Filmische cutscenes (Elden Ring-stijl) · stap 1, 2 en C.4a **gebouwd** (2026-10-15)
 
 Besluit uit het concept: cutscenes worden filmisch in de 3D-wereld zelf (`"type": "cinematic"` met `anchor`, `actors` en `shots` in `cutscenes.json`), met je eigen personage en gear in beeld. De strips blijven werken tot ze vervangen zijn. Overslaan = ±1 s ingedrukt houden. Alles op de vaste tijdstap, dus 60 en 120 fps zijn precies gelijk.
 
 - [x] **C.1 Systeem + proef Pringle → Sultan** — `CinematicTimeline` (pure logica), `CinematicStage` (actors in 3D), `CinematicCutscene` (balken, ondertitels, naamkaart, fade/flits/tint, skip-ring), HUD en knoppen weg tijdens de film, overwinningstekst na een baas (`boss.victory`). _Klaar als:_ de zes shots van Pringle → Sultan lopen door in het baasgevecht en 60 en 120 fps geven precies hetzelfde (test).
 - [x] **C.2 Eindscène na Sultan** — twee varianten (zwaard en mage) gekozen door de laatste treffer, slow motion, bevroren beeld, de ton, Pringle uit de rook, het ei als kaart, BOND FORGED in de balk van de zonenaam, Sultan vertelt als NPC waar je items vindt. _Klaar als:_ beide varianten spelen en zijn overslaanbaar.
 - [ ] **C.3 Kijken en meten (Bo/Lucas)** — beide eindscènes bekijken via cheatmenu → Baasgevecht, en "Meet 20 s" tijdens een cutscene op Low en High. _Klaar als:_ Bo zegt of de scènes goed voelen en de fps staat in `docs/PROGRESS.md`.
-- [ ] **C.4 De overige strips omzetten** — de intro (6 panelen + het intro-gevecht), de uitleg in de toren van Brink en de kelder van Sam, en de Crystal Ceremony. _Klaar als:_ elke omgezette cutscene is overslaanbaar en de oude strip-code is alleen nog voor wat nog niet om is.
+- [x] **C.4a Intro filmisch (nieuw verhaal van Bo, 2026-10-15)** — de intro is één filmische scène met het speelbare gevecht erin (`IntroSceneState`, vervangt `IntroFightState`): een eigen `THREE.Scene` met de set uit data (`CinematicSet`: de mistdeur, zwevende boekenkasten, stoelen aan het plafond, de badlands), film → gevecht → film. Door de mistdeur van het kasteel van Morvath een kamer in waar tijd en werkelijkheid niet gelden; Lucael teleporteert om je heen en bekijkt je, Baelor loopt door bevroren tijd; jouw explosie; het gevecht (±1 min, vier aanvallen: slaan, explosie, donder over de hele kamer, een grote ijspegel — bijna alles mist ("Dodged!"), wat raakt doet 0) terwijl de broers ruziën wat ze met je moeten; Lucael krimpt je, Baelor tilt je op, Lucael slaat je weg met een honkbalknuppel; je landt in de badlands, de kat (Sultan, zonder naam) likt je gezicht; zwart; wakker in het klooster. Alles in `cutscenes.json`: `fight`/`afterFight` op een cinematic, actors `model: "fight"` en `prop:bat`, nieuwe shot-velden `hops`, `headingFrom`/`headingTo`, `ownTime` en `narration`, en per gevecht `set`, `abilities`, `dodge` en `seed`. Ontwerp en afwijkingen in `docs/intro-cinematic-design.md`; headless check `node scripts/intro-check.mjs` (`--skip`, `--quality low|mid|high`). _Klaar als:_ de hele intro speelt en is in elk deel overslaanbaar, en de check loopt zonder fouten. (Gebouwd 2026-10-15. Gemeten in headless Chromium op alle drie de standen, zonder fouten: draw calls film 1 **25–51 / 27–53 / 26–52** (Low / Mid / High), gevecht **29–52 / 31–54 / 30–53**, film 2 **13–51 / 15–53 / 14–52**, tegen 157–159 in Greyhaven; Mid en High alleen +2 voor FXAA; fps is daar niet te meten. Na Bo's proefronde (2026-10-15): een indicator die laat zien wanneer je vaardigheden weer klaar zijn — chips op de pc (`AbilityBar`), een wig op de telefoonknop — in de intro én in de wereld (de Shard en de spell van de staf). Bo: spelen op pc en iPhone, fps meten, en open vraag 20, 21 en 22.)
+- [ ] **C.4 De overige strips omzetten** — de uitleg in de toren van Brink en de kelder van Sam, en de Crystal Ceremony. _Klaar als:_ elke omgezette cutscene is overslaanbaar en de oude strip-code is alleen nog voor wat nog niet om is.
 - [ ] **C.5 Blender-camera's en echte modellen** — `cameraClip` (camera-animatie uit glTF) echt laten werken en de placeholders in `CinematicStage` vervangen. _Klaar als:_ een camera uit Blender speelt een shot en de draw calls blijven gelijk.
 
 ---
@@ -283,11 +285,15 @@ Seizoenseffecten · crafting en drogen · de Garden en farming (ook de bedden `M
 | 10  | Moet de snel-drink-knop ook mana potions pakken?                     | Voorstel: zo laten, of een tweede knop                                                                                                          |
 | A.5 | Vier vragen over rennen en springen (zie stap A.5a)                  | Nog niet gesteld                                                                                                                                |
 | 19  | Hoe komt de speler het klooster uit? De kerk (met het portaal) heeft geen deur naar de kloostergang en de tuinmuur is dicht | Game: `openings` in `zones.json` maakt deuren beloopbaar (hal → kloostergang, hal → tuin, portaal). Nodig in Blender: een deur(opening) kloostergang → zuidbeuk van de kerk, of een hek in de tuinmuur; daarna één regel data |
+| 20  | Brother Ansel zegt nog dat hij je **bewusteloos langs de weg** vond (`quest.a_quiet_awakening.offer.1`, `quest.tales_by_the_fire.offer.1`), terwijl in de nieuwe intro de kat je eerst vindt in de badlands | Zo gelaten: de reis van Morvath naar Greyhaven is een sprong naar zwart. Wil Bo de zin anders, dan is het alleen tekst in `en.json` en `nl.json` |
+| 21  | Is het kasteel van de intro **The Black Citadel**? | De intro noemt het kasteel niet bij naam (verhaaltekst `intro.panel_1..3`, ongewijzigd); een naam is één tekstregel |
+| 22  | In de intro zit **donder op de drankknop** (Q) en de **ijspegel op de lock-on-knop** (Tab of de middelste muisknop): zo houden, of eigen toetsen? | Alleen in de intro (`abilities[].action` in `cutscenes.json`), de echte bindingen blijven; de tip toont de ingestelde toets via `{keyPotion}` en `{keyLock}`, op de telefoon staan de namen op de knoppen. Eigen toetsen = een nieuwe `action` in `controls.json` + Settings → Besturing |
 
 ### Nog te doen door Bo en Lucas
 
 - Fase 2, 3.7, 3.8, 3.9 en het Blender-Greyhaven **spelen** en "Meet 20 s" draaien op de pc (stappen 2.8, 3.8.8, 3.9.4).
 - De twee filmische cutscenes bekijken en meten (stap C.3).
+- De **nieuwe intro** spelen op pc en iPhone (nieuw spel; proefpagina of PR #95) en de fps meten op Low en High (stap C.4a).
 - fps op een echte **iPhone** is nog nooit gemeten (sinds fase 1).
 - Fase A: eerst de **looks van het personage** in Blender (stap A.0), daarna A.1 opnieuw + Mixamo (A.1b).
 
