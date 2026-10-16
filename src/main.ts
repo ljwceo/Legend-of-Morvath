@@ -14,7 +14,6 @@ import { AutoSave } from './save/AutoSave';
 import { browserStorage, SaveManager } from './save/SaveManager';
 import { BootState } from './scenes/BootState';
 import { frameCapFor, type StateId } from './scenes/flow';
-import { IntroState } from './scenes/IntroState';
 import { LanguageSelectState } from './scenes/LanguageSelectState';
 import { TitleState } from './scenes/TitleState';
 import { el } from './ui/dom';
@@ -111,7 +110,6 @@ const ctx: GameContext = {
   seasons: null,
   dayNight: null,
   session: null,
-  introPanel: 0,
   goto: (state) => states.change(state),
   persist: () => (ctx.session ? saves.write(ctx.session) : false),
   reportProblem: (message) => {
@@ -149,7 +147,6 @@ states
   .register('language', new LanguageSelectState(ctx))
   .register('title', new TitleState(ctx))
   .register('create', createState)
-  .register('intro', new IntroState(ctx))
   .register('introScene', introSceneState)
   .register('world', worldState);
 

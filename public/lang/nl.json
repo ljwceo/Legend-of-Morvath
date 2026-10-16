@@ -195,7 +195,6 @@
     }
   },
   "intro": {
-    "skip": "Overslaan",
     "panel_1": "Vijfduizend jaar geleden versloegen twee tovenaars een god.",
     "panel_2": "Lucael en Baelor namen zijn kracht over. Maar ze geloofden niet meer in de mensheid, en dus kozen ze voor het duister.",
     "panel_3": "Sindsdien verspreiden ze als de Lords of Morvath hun corruptie over het land.",
@@ -203,7 +202,6 @@
     "baelor": "Je bent het niet eens waard om te doden, klein insect. Kom terug als je sterker bent.",
     "panel_5": "Weinigen stonden tegenover de Lords of Morvath en leefden nog.",
     "panel_6": "Je wordt wakker in het Monastery van Greyhaven. Hier begint je reis.",
-    "tapToContinue": "Tik of druk op spatie om verder te gaan",
     "ability": {
       "explosion": "Explosie",
       "thunder": "Donder",
@@ -237,39 +235,27 @@
     }
   },
   "cutscene": {
-    "skip": "Overslaan",
     "pringle": {
       "1": "Miauw.",
       "2": "Dacht je echt dat je zomaar kon vertrekken?",
       "4": "Ik ben Sultan. Laat zien dat je klaar bent voor de wereld daarbuiten.",
       "5": "Probeer me maar bij te houden!"
     },
-    "tapToContinue": "Tik of druk op spatie",
     "brink_tower": {
-      "caption1": "De toren van Master Brink. Planken vol boeken, overal kaarsen, en in het midden een cirkel op de vloer.",
       "1": "Ah, bezoek in mijn toren. Kom binnen, kom binnen. Pas op voor de kaarsen.",
-      "caption2": "Brink steekt zijn hand op. Vier kristallen lichten één voor één op: water, vuur, natuur en wind.",
       "2": "Normale magie haalt haar kracht uit de elementen: water, vuur, natuur en wind. Elke mage krijgt er één, via een kristal op zijn staf.",
-      "caption3": "De kristallen doven. Brink glimlacht.",
       "3": "Het begint langzaam, dat geef ik toe. Maar magie beloont wie geduld heeft. Uiteindelijk is dit de sterkste weg."
     },
     "sam_cellar": {
-      "caption1": "Een donkere kelder onder de Academy. Paars licht gloeit op uit een cirkel op de vloer.",
       "1": "Hm. Niet veel bezoekers vinden de weg naar beneden.",
-      "caption2": "Sam stapt in de cirkel. Zwart-paarse rook kringelt om zijn handen.",
       "2": "Mijn magie komt van Lucael en Baelor zelf. Ik dien ze niet. Ik gebruik hun eigen kracht tegen ze.",
-      "caption3": "De rook is weg. Sam kijkt je aan.",
       "3": "Duistere magie is sterk, en snel. Maar onthoud: het is een duistere weg."
     },
     "crystal_ceremony": {
       "1": "Niet pakken. Een kristal wordt niet genomen; het wordt gegeven.",
       "2": "Daar — {element}. Die heeft zijn besluit over jou genomen.",
       "3": "Blijf stil staan. Dit stuk prikt altijd een beetje.",
-      "4": "Je {crystal} zit vast. Hij draagt {spell}; de rest moet je zelf verdienen.",
-      "caption1": "Een kluis vol kristallen, die zacht zoemen in het donker.",
-      "caption2": "Eén kristal komt los, draait, en kiest.",
-      "caption3": "Het licht zakt weg in de kop van de staf.",
-      "caption4": "De staf is nu warm, en kent één spreuk."
+      "4": "Je {crystal} zit vast. Hij draagt {spell}; de rest moet je zelf verdienen."
     },
     "holdToSkip": "Houd Esc ingedrukt om over te slaan",
     "holdToSkipTouch": "Ingedrukt houden om over te slaan",

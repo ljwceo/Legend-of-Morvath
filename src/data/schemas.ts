@@ -1922,8 +1922,8 @@ export const cutscenesFileSchema = z.strictObject({
   cutscenes: z.array(
     z.strictObject({
       id,
-      /** "cinematic": filmed in the 3D world (`shots`); without a type it is a comic (`panels`). */
-      type: optional(z.enum(['comic', 'cinematic'])),
+      /** Every cutscene is a cinematic: filmed (`shots`), in the 3D world or on a fight's set. */
+      type: z.literal('cinematic'),
       skippable: z.boolean(),
       playOnce: optional(z.boolean()),
       /** Cinematic: the camera's heights (`y`) are measured from the ground here. */
@@ -1963,26 +1963,6 @@ export const cutscenesFileSchema = z.strictObject({
        * it is played, it replaces the `camera` of the shots. Not used yet.
        */
       cameraClip: optional(z.string().check(z.regex(/^[a-zA-Z0-9_/.-]+\.(glb|gltf)$/))),
-      panels: optional(
-        z.array(
-          z.strictObject({
-            id,
-            narration: optional(textKey),
-            lines: optional(z.array(z.strictObject({ speaker: name, text: textKey }))),
-            shake: optional(z.boolean()),
-            /** Comic panels (no art yet): what you would see, as a short caption. */
-            caption: optional(textKey),
-            /** Background color of a comic panel. */
-            background: optional(colorToken),
-            /** The panel slowly zooms in. */
-            zoom: optional(z.boolean()),
-            /** A bright flash when the panel appears. */
-            flash: optional(z.boolean()),
-            /** This panel is played as a fight (an id in `fights`) instead of shown as a card. */
-            fight: optional(id),
-          }),
-        ),
-      ),
     }),
   ),
   /**

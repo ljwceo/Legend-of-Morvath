@@ -37,7 +37,7 @@ export interface EncounterHost {
   /** Puts the player at (x, z) facing `heading`, the camera behind them. */
   placePlayer(x: number, z: number, heading: number): void;
   /**
-   * Plays a cutscene (cinematic or comic; the world waits, the mouse is released), marks it
+   * Plays a cutscene (a cinematic; the world waits, the mouse is released), marks it
    * seen and then calls `onDone`. False when it could not start.
    */
   playCutscene(cutscene: CutsceneDef, onDone: () => void): boolean;

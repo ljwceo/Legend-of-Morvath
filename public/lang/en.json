@@ -195,7 +195,6 @@
     }
   },
   "intro": {
-    "skip": "Skip",
     "panel_1": "Five thousand years ago, two wizards slew a god.",
     "panel_2": "Lucael and Baelor took his power. But they had lost all faith in humanity, and so they turned to darkness.",
     "panel_3": "Ever since, as the Lords of Morvath, they have spread their corruption across the land.",
@@ -203,7 +202,6 @@
     "baelor": "You're not even worth killing, little insect. Come back when you're stronger.",
     "panel_5": "Few have faced the Lords of Morvath and lived.",
     "panel_6": "You wake in the Monastery of Greyhaven. Your journey begins here.",
-    "tapToContinue": "Tap or press Space to continue",
     "ability": {
       "explosion": "Explosion",
       "thunder": "Thunder",
@@ -237,39 +235,27 @@
     }
   },
   "cutscene": {
-    "skip": "Skip",
     "pringle": {
       "1": "Meow.",
       "2": "Did you really think you could just leave?",
       "4": "I am Sultan. Show me you're ready for the world out there.",
       "5": "Try to keep up!"
     },
-    "tapToContinue": "Tap or press Space",
     "brink_tower": {
-      "caption1": "Master Brink's tower. Shelves full of books, candles everywhere, and in the middle a circle on the floor.",
       "1": "Ah, a visitor in my tower. Come in, come in. Mind the candles.",
-      "caption2": "Brink raises his hand. Four crystals light up one by one: water, fire, nature and wind.",
       "2": "Normal magic draws on the elements: water, fire, nature and wind. Every mage gets one of them, through a crystal on the staff.",
-      "caption3": "The crystals dim. Brink smiles.",
       "3": "It starts slowly, I won't lie. But magic rewards those who are patient. In the end, this is the strongest path."
     },
     "sam_cellar": {
-      "caption1": "A dark cellar under the Academy. Purple light glows from a circle on the floor.",
       "1": "Hm. Not many visitors find their way down here.",
-      "caption2": "Sam steps into the circle. Black and purple smoke curls around his hands.",
       "2": "My magic comes from Lucael and Baelor themselves. I don't serve them. I use their own power against them.",
-      "caption3": "The smoke is gone. Sam looks at you.",
       "3": "Dark magic is strong, and quickly. But remember: it is a dark road."
     },
     "crystal_ceremony": {
       "1": "Do not reach. A crystal is not taken; it is given.",
       "2": "There — {element}. That one has made up its mind about you.",
       "3": "Hold still. This part always tingles.",
-      "4": "Your {crystal} is set. It carries {spell}; everything else you will have to earn.",
-      "caption1": "A vault of crystals, humming softly in the dark.",
-      "caption2": "One crystal lifts, turns, and chooses.",
-      "caption3": "The light sinks into the head of the staff.",
-      "caption4": "The staff is warm now, and it knows one spell."
+      "4": "Your {crystal} is set. It carries {spell}; everything else you will have to earn."
     },
     "holdToSkip": "Hold Esc to skip",
     "holdToSkipTouch": "Hold to skip",

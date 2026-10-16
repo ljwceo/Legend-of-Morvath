@@ -33,7 +33,6 @@ import { instanceFilter, zoneFilter } from '../world/scene/SceneFilter';
 import { SceneZone } from '../world/scene/SceneZone';
 import { CinematicCutscene } from '../ui/CinematicCutscene';
 import { barrelGeometry } from '../render/cinematic/CinematicStage';
-import { ComicCutscene } from '../ui/ComicCutscene';
 import { resolveCutscene, shouldPlayCutscene } from '../render/cinematic/CinematicTimeline';
 import { pointInShape } from '../world/Shapes';
 import { Random } from '../core/Random';
@@ -333,7 +332,6 @@ export class WorldState implements GameState, InstanceHost {
   /** The instance being played (Master Brink's tower), null in a zone or the open world. */
   private instanceDef: InstanceDef | null = null;
   /** The first-visit cutscene of an instance, while it plays. */
-  private comic: ComicCutscene | null = null;
   /** Where every item can be found (Sultan's answers), worked out on the first question. */
   private sources: Map<string, ItemSource[]> | null = null;
   /** Props of bosses not beaten yet (Sultan's barrel), by monster id. */
@@ -411,7 +409,7 @@ export class WorldState implements GameState, InstanceHost {
   private projectileWorld: ProjectileWorld | null = null;
   /** Boss fights (Sultan at the city gate): trigger, cutscene, arena, tips, win or lose. */
   private encounter: BossEncounter | null = null;
-  /** A comic cutscene plays over the world: the simulation waits. */
+  /** A cutscene plays over the world: the simulation waits. */
   private cutscenePlaying = false;
   /** A cutscene waiting for the conversation to end (the Crystal Ceremony, fase 3.8). */
   private pendingCutscene: { id: string; params: Record<string, string> } | null = null;
@@ -843,8 +841,6 @@ export class WorldState implements GameState, InstanceHost {
 
   exit(): void {
     this.ctx.quality.setMeasuring(false);
-    this.comic?.dispose();
-    this.comic = null;
     this.cinematic?.dispose();
     this.cinematic = null;
     this.ctx.ui.classList.remove(CINEMATIC_CLASS);
@@ -2127,32 +2123,34 @@ export class WorldState implements GameState, InstanceHost {
 
   /**
    * A cutscene a conversation brought with it (the Crystal Ceremony): it waits until the
-   * teacher has said his lines, so the comic never lands on top of the dialogue window.
+   * teacher has said his lines, so the film never lands on top of the dialogue window. It is
+   * forgotten only once it has started (or turns out not to need playing); a start that fails
+   * is tried again.
    */
   private playPendingCutscene(): void {
     const pending = this.pendingCutscene;
-    if (!pending || this.dialog?.isOpen || this.comic || this.cinematic) return;
-    this.pendingCutscene = null;
-    this.playCutscene(pending.id, pending.params);
+    if (!pending || this.dialog?.isOpen || this.cinematic) return;
+    if (this.playCutscene(pending.id, pending.params)) this.pendingCutscene = null;
   }
 
   /**
    * Plays a cutscene from cutscenes.json over the world, at most once when it says
    * `playOnce` (kept in the save). `params` fill the `{...}` in its lines, which is how the
-   * Crystal Ceremony says which element picked you.
+   * Crystal Ceremony says which element picked you. False when it should play but could not
+   * start (another cutscene is playing); true when it started or has nothing to play.
    */
-  private playCutscene(id: string, params?: Record<string, string>): void {
+  private playCutscene(id: string, params?: Record<string, string>): boolean {
     const session = this.ctx.session;
     const cutscene = this.ctx.data?.cutscenes.cutscenes.find((entry) => entry.id === id);
-    if (!session || !cutscene) return;
-    if (!shouldPlayCutscene(cutscene, session.seenCutscenes)) return;
-    this.startCutscene(cutscene, params, () => undefined);
+    if (!session || !cutscene) return true;
+    if (!shouldPlayCutscene(cutscene, session.seenCutscenes)) return true;
+    return this.startCutscene(cutscene, params, () => undefined);
   }
 
   /**
-   * Starts a cutscene: a cinematic in the 3D world (`type: "cinematic"`) or a comic over it.
-   * The world waits, the HUD hides for a cinematic; afterwards it counts as seen (saved) and
-   * `onDone` runs. Returns false when another cutscene is already playing.
+   * Starts a cutscene: a cinematic in the 3D world (`type: "cinematic"`). The world waits and
+   * the HUD hides; afterwards it counts as seen (saved) and `onDone` runs. Returns false when
+   * it did not start (another cutscene is playing, or the world is not ready).
    */
   private startCutscene(
     cutscene: CutsceneDef,
@@ -2161,7 +2159,8 @@ export class WorldState implements GameState, InstanceHost {
   ): boolean {
     const session = this.ctx.session;
     const data = this.ctx.data;
-    if (!session || !data || this.comic || this.cinematic) return false;
+    if (!session || !data || this.cinematic) return false;
+    if (!this.worldRoot || !this.player) return false;
     const id = cutscene.id;
     const finish = (): void => {
       if (!session.seenCutscenes.includes(id)) session.seenCutscenes.push(id);
@@ -2171,43 +2170,35 @@ export class WorldState implements GameState, InstanceHost {
     };
     const t = (key: string): string => this.ctx.i18n.t(key, params);
     this.setCutscenePlaying(true);
-    if (cutscene.type === 'cinematic' && this.worldRoot && this.player) {
-      const s = this.player.state;
-      const model = this.player.model;
-      const crystal = session.character?.crystal;
-      this.cinematic = new CinematicCutscene(
-        resolveCutscene(cutscene, data.cutscenes.cutscenes),
-        data.cutscenes.cinematic,
-        {
-          parent: this.worldRoot,
-          playerRoot: model.root,
-          player: { x: s.x, z: s.z, heading: s.heading },
-          ground: this.groundHeight,
-          t,
-          touch: (this.input?.usedTouch ?? false) || this.coarsePointer,
-          element: crystal ? this.shotColor(crystal, data) : palette.spreukviolet,
-          canvas: this.ctx.renderer.three.domElement,
-          // `cast` holds the staff up like gathering a spell; the rest are the sword's poses.
-          poseWeapon: (pose, u) => model.setSwordPose(pose === 'cast' ? 'windup' : pose, u),
-          animated: this.animatedModels,
-        },
-        () => {
-          this.cinematic = null;
-          this.hud?.hiddenBy.hide('cinematic');
-          this.ctx.ui.classList.remove(CINEMATIC_CLASS);
-          finish();
-        },
-      );
-      this.hud?.hiddenBy.show('cinematic');
-      this.ctx.ui.classList.add(CINEMATIC_CLASS);
-      this.ctx.ui.append(this.cinematic.root);
-      return true;
-    }
-    this.comic = new ComicCutscene(cutscene, t, () => {
-      this.comic = null;
-      finish();
-    });
-    this.ctx.ui.append(this.comic.root);
+    const s = this.player.state;
+    const model = this.player.model;
+    const crystal = session.character?.crystal;
+    this.cinematic = new CinematicCutscene(
+      resolveCutscene(cutscene, data.cutscenes.cutscenes),
+      data.cutscenes.cinematic,
+      {
+        parent: this.worldRoot,
+        playerRoot: model.root,
+        player: { x: s.x, z: s.z, heading: s.heading },
+        ground: this.groundHeight,
+        t,
+        touch: (this.input?.usedTouch ?? false) || this.coarsePointer,
+        element: crystal ? this.shotColor(crystal, data) : palette.spreukviolet,
+        canvas: this.ctx.renderer.three.domElement,
+        // `cast` holds the staff up like gathering a spell; the rest are the sword's poses.
+        poseWeapon: (pose, u) => model.setSwordPose(pose === 'cast' ? 'windup' : pose, u),
+        animated: this.animatedModels,
+      },
+      () => {
+        this.cinematic = null;
+        this.hud?.hiddenBy.hide('cinematic');
+        this.ctx.ui.classList.remove(CINEMATIC_CLASS);
+        finish();
+      },
+    );
+    this.hud?.hiddenBy.show('cinematic');
+    this.ctx.ui.classList.add(CINEMATIC_CLASS);
+    this.ctx.ui.append(this.cinematic.root);
     return true;
   }
 
@@ -2831,7 +2822,7 @@ export class WorldState implements GameState, InstanceHost {
    * The Crystal Ceremony (fase 3.8): your teacher's crystal picks you. Master Brink's vault
    * draws one of its four elements, Wizard Sam has only Dark. The element is kept in the save
    * (a reload never redraws it), the crystal goes into your bag and the spell that belongs to
-   * it is the one your staff casts. A stripcutscene shows it, once.
+   * it is the one your staff casts. A film shows it, once.
    */
   private crystalCeremony(): void {
     const data = this.ctx.data;
@@ -2863,7 +2854,7 @@ export class WorldState implements GameState, InstanceHost {
     const cutscene = bonus.ceremony;
     if (!cutscene) return;
     // Queued, never played on the spot: your teacher first says his lines (he hands you the
-    // staff while talking), and the comic would land on top of the dialogue window.
+    // staff while talking), and the film would land on top of the dialogue window.
     this.pendingCutscene = { id: cutscene, params };
   }
 

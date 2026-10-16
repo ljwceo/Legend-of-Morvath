@@ -4,7 +4,7 @@ import { createNewSave, type SaveData, type SaveSettings } from '../save/SaveDat
 import type { LoadResult } from '../save/SaveManager';
 
 /** Ids of all game states (scenes). */
-export type StateId = 'boot' | 'language' | 'title' | 'create' | 'intro' | 'introScene' | 'world';
+export type StateId = 'boot' | 'language' | 'title' | 'create' | 'introScene' | 'world';
 
 /**
  * Where the game goes after loading: the language choice when there is no save, the title
@@ -67,44 +67,4 @@ export function placeAtStart(save: SaveData, data: GameData): void {
   save.world.position = { x: spawn.x, y: spawn.y ?? (zone.scene ? 10_000 : 0), z: spawn.z };
   save.world.heading = ((spawn.headingDegrees ?? 0) * Math.PI) / 180;
   save.world.checkpoint = zone.checkpoint?.id ?? null;
-}
-
-/** Steps through cutscene panels: next on tap/key, skip jumps to the end. */
-export class PanelSequence {
-  private current = 0;
-  private done = false;
-
-  constructor(
-    readonly count: number,
-    start = 0,
-  ) {
-    if (count < 1) throw new Error('A sequence needs at least one panel');
-    this.current = Math.min(Math.max(0, start), count - 1);
-  }
-
-  get index(): number {
-    return this.current;
-  }
-
-  get finished(): boolean {
-    return this.done;
-  }
-
-  /** Moves to the next panel; returns true when the sequence just finished. */
-  next(): boolean {
-    if (this.done) return false;
-    if (this.current < this.count - 1) {
-      this.current++;
-      return false;
-    }
-    this.done = true;
-    return true;
-  }
-
-  /** Ends the sequence; returns true when it was not finished yet. */
-  skip(): boolean {
-    if (this.done) return false;
-    this.done = true;
-    return true;
-  }
 }

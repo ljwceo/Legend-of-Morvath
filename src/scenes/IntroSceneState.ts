@@ -142,8 +142,7 @@ class ArenaMover implements Mover {
  * cutscenes.json (`fights`) plays their jokes (speech, teleports, frozen time, levitation, a
  * blink to a random spot) and ends the fight with `end`. Holding Escape or the ring (about a
  * second) in any segment skips the whole intro. Everything runs on the fixed step; effects are
- * only drawn. A comic intro with a `fight` panel plays just the fight here and goes back to
- * the panel after it.
+ * only drawn.
  */
 export class IntroSceneState implements GameState {
   private scene: Scene | null = null;
@@ -197,9 +196,6 @@ export class IntroSceneState implements GameState {
 
   private segment: Segment = 'done';
   private finished = false;
-  /** A comic intro hands back to its panel after the fight; the cinematic intro to the world. */
-  private returnTo: 'world' | 'intro' = 'world';
-  private panelIndex = 0;
   private coarsePointer = false;
 
   private subtitleLeft = 0;
@@ -253,19 +249,14 @@ export class IntroSceneState implements GameState {
     const intro = cutscenes.find((entry) => entry.id === INTRO_ID);
     this.finished = false;
     this.segment = 'done';
-    let fightId: string | undefined;
-    if (intro?.type === 'cinematic') {
-      this.intro = intro;
-      this.afterFight = cutscenes.find((entry) => entry.id === intro.afterFight) ?? null;
-      this.returnTo = 'world';
-      fightId = intro.fight;
-    } else {
-      // A comic intro: only its fight panel plays here, then the panel after it.
-      this.intro = this.afterFight = null;
-      this.returnTo = 'intro';
-      this.panelIndex = ctx.introPanel;
-      fightId = intro?.panels?.[this.panelIndex]?.fight;
+    if (!intro) {
+      ctx.reportProblem(`cutscene "${INTRO_ID}" missing`);
+      this.finish();
+      return;
     }
+    this.intro = intro;
+    this.afterFight = cutscenes.find((entry) => entry.id === intro.afterFight) ?? null;
+    const fightId = intro.fight;
     const fight = data?.cutscenes.fights.find((entry) => entry.id === fightId);
     if (!data || !fight) {
       ctx.reportProblem(`intro fight "${fightId ?? '?'}" missing`);
@@ -285,8 +276,7 @@ export class IntroSceneState implements GameState {
     // The scene first: the touch buttons are named after the fight's abilities.
     this.buildScene(data, fight);
     this.buildUi(data);
-    if (this.intro) this.startCinematic(this.intro, 'intro');
-    else this.startFight();
+    this.startCinematic(intro, 'intro');
   }
 
   exit(): void {
@@ -474,7 +464,7 @@ export class IntroSceneState implements GameState {
     this.script = new FightScript(fight.beats, (action) => this.onAction(action));
     const t = this.ctx.i18n.t.bind(this.ctx.i18n);
     this.dodgedText = t('boss.dodged');
-    // The fight skips like the films around it; a comic intro's fight always can.
+    // The fight skips like the films around it.
     this.skip = new SkipRing(
       data.cutscenes.cinematic,
       t(this.usesTouch() ? 'cutscene.holdToSkipTouch' : 'cutscene.holdToSkip'),
@@ -539,13 +529,7 @@ export class IntroSceneState implements GameState {
     if (this.finished) return;
     this.finished = true;
     this.segment = 'done';
-    if (this.returnTo === 'intro') {
-      this.ctx.introPanel = this.panelIndex + 1;
-      this.ctx.goto('intro');
-    } else {
-      this.ctx.introPanel = 0;
-      this.ctx.goto('world');
-    }
+    this.ctx.goto('world');
   }
 
   // ------------------------------------------------------------ the fight, stepped
