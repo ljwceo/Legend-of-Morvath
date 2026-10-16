@@ -1437,7 +1437,7 @@
    ]
   },
   "Skin": {
-   "kind": "flat",
+   "kind": "textured",
    "color": [
     0.7976,
     0.4093,
@@ -1455,7 +1455,7 @@
    "strength": 2.0
   },
   "Tunic": {
-   "kind": "flat",
+   "kind": "textured",
    "color": [
     0.1756,
     0.1645,

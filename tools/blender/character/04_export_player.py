@@ -17,8 +17,11 @@
 # - materials.json: only the character's materials are replaced or added; the world materials,
 #   the spawn point and the terrain bounds stay as export_web.py wrote them.
 # - tex/<image>.jpg: the base colour of image-textured materials (Skin, Tunic), at most 1024 px.
-#   For now they are "flat" with the average colour of the texture under their faces; the "tex"
-#   is already there for when the game draws them textured (step A.3).
+#   They are "textured" (the game draws the texture) with "color" = the average colour of the
+#   texture under their faces, the reference the skin tint of the character creator divides by.
+# - Body gets an "Outline" like the hat and hair (step A.3a): a Solidify modifier added here,
+#   after the Armature, applied by the export (so the hull carries the skin weights and bends
+#   along). The .blend is never changed.
 # Then it runs check_player_glb.py (bones, triangles, clips, size) and writes log_export.txt
 # next to the .blend.
 import bpy, os, sys, json, traceback, importlib.util
@@ -26,6 +29,8 @@ import bpy, os, sys, json, traceback, importlib.util
 # ---------------------------------------------------------------------------------- settings
 ZONE = r'C:\Users\Bo\Documents\GitHub\journey-gaym\public\zones\greyhaven'   # Scripting tab only
 COLLECTION, RIG_NAME = 'StartCharacter', 'PlayerRig'
+# The body's outline copies the Solidify "Outline" of the first of these that has one.
+OUTLINE_LIKE = ('Hair', 'Cloak', 'Hat')
 TEX_MAX = 1024
 JPEG_QUALITY = 82
 # Draco shrinks the meshes; three.js decodes skinned Draco meshes too. Set False if the skin breaks.
@@ -119,7 +124,7 @@ def average_under_faces(img, mat_name, meshes):
 
 
 def material_info(m, meshes, texdir):
-    """Same kinds as export_web.py: outline, emit, flat (character toon or Principled)."""
+    """Same kinds as export_web.py (outline, emit, flat) plus textured (Principled with an image)."""
     nodes = m.node_tree.nodes
     out = next(n for n in nodes if n.type == 'OUTPUT_MATERIAL')
     surf = out.inputs['Surface'].links[0].from_node if out.inputs['Surface'].is_linked else None
@@ -140,7 +145,7 @@ def material_info(m, meshes, texdir):
         base = surf.inputs['Base Color']
         if base.is_linked and base.links[0].from_node.type == 'TEX_IMAGE' and base.links[0].from_node.image:
             img = base.links[0].from_node.image
-            return {'kind': 'flat', 'color': average_under_faces(img, m.name, meshes),
+            return {'kind': 'textured', 'color': average_under_faces(img, m.name, meshes),
                     'tex': save_tex(img, texdir)}
         return {'kind': 'flat', 'color': lin(base.default_value)}
     return {'kind': 'flat', 'color': lin(m.diffuse_color)}
@@ -155,6 +160,33 @@ def update_materials_json(path, player_info):
         info['materials'][name] = d
     info['materials'] = dict(sorted(info['materials'].items()))
     json.dump(info, open(path, 'w', encoding='utf-8'), indent=1)
+
+
+def add_body_outline(body, meshes):
+    """Solidify "Outline" on the body (after the Armature, so the export applies it skinned)."""
+    if any(m.name == 'Outline' for m in body.modifiers):
+        P('outline', body.name, 'already has one')
+        return
+    ref = None
+    for name in OUTLINE_LIKE:
+        o = next((o for o in meshes if o.name == name), None)
+        src = next((m for m in (o.modifiers if o else []) if m.name == 'Outline'), None)
+        if src is not None:
+            ref = src
+            break
+    if ref is None:
+        raise RuntimeError('no mesh with a Solidify "Outline" to copy for the body')
+    outline = bpy.data.materials['Outline']
+    if outline.name not in [m.name for m in body.data.materials if m]:
+        body.data.materials.append(outline)
+    mod = body.modifiers.new('Outline', 'SOLIDIFY')
+    for attr in ('thickness', 'offset', 'use_flip_normals', 'use_rim', 'use_even_offset'):
+        setattr(mod, attr, getattr(ref, attr))
+    # Every face of the hull takes the last slot (the offset is clamped to it).
+    mod.material_offset = len(body.data.materials)
+    P('outline', body.name, 'like', ref.id_data.name, 'thickness', round(mod.thickness, 4),
+      'offset', mod.offset, 'flip', mod.use_flip_normals, 'rim', mod.use_rim,
+      'modifiers', [m.name for m in body.modifiers])
 
 
 # ---------------------------------------------------------------------------------------- main
@@ -193,6 +225,11 @@ def main(src, zone):
         start, end = a.frame_range
         durations[a.name] = round((end - start) / fps, 4)
     P('actions', len(durations), sorted(durations))
+
+    body = next((o for o in meshes if o.name == 'Body'), None)
+    if body is None:
+        raise RuntimeError('no mesh "Body" in collection ' + COLLECTION)
+    add_body_outline(body, meshes)
 
     texdir = os.path.join(zone, 'tex')
     os.makedirs(texdir, exist_ok=True)
