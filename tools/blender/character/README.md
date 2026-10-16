@@ -277,6 +277,12 @@ OK
 DONE
 ```
 
+**De clips bekijken zonder Blender:** `npm run dev` en open
+`http://localhost:5173/Legend-of-Morvath/tools/player-preview/index.html`. Die losse pagina
+(`tools/player-preview/`, niet in de game en niet in de build) laadt `player.glb` met de kleuren uit
+`materials.json` en speelt elke clip af: kiezen in de lijst, pauze, schuifbalk, snelheid, herhalen,
+zwaard of staf aan/uit. De cape zwaait nog niet (stap A.4).
+
 Klopt iets niet (niet 74 botten, een clipnaam ontbreekt, een duur wijkt meer dan één frame af van de
 Action, te veel driehoeken of groter dan 2 MB), dan staat er `NOT OK` met de reden en stopt het script
 met een fout. Wordt het bestand te groot: zet bovenin `FRAME_STEP = 2` (15 fps samplen, three.js
