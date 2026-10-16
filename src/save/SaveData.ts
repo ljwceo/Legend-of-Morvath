@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -85,6 +85,11 @@ export const saveDataSchema = z.object({
        * sword fighter and before the ceremony. Stored, so a reload never redraws it.
        */
       crystal: z.nullable(id),
+      /**
+       * Forge level per item id (step 4.1): how often Hilda upgraded that weapon. Missing means
+       * level 0. Per item id, so all copies of one weapon share the level.
+       */
+      upgrades: z.record(z.string(), z.int().check(z.positive())),
     }),
   ),
   /** Level, XP and how much HP / mana is left (null = full, e.g. a fresh game). */
@@ -266,6 +271,11 @@ export const migrations: Readonly<Record<number, Migration>> = {
         completed: nextCompleted,
       },
     };
+  },
+  // v16 (step 4.1): Forge levels per weapon; nothing was upgraded yet.
+  15: (save) => {
+    const character = save.character as Record<string, unknown> | null | undefined;
+    return { ...save, version: 16, character: character ? { ...character, upgrades: {} } : null };
   },
   // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged
   // them). Everyone starts on the default size and the default places.

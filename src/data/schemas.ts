@@ -519,6 +519,8 @@ const npcSchema = z.strictObject({
   ),
   /** A pack animal (Biscuit): carries up to `maxKg` of your gear (interaction "pack"). */
   pack: optional(z.strictObject({ maxKg: range(1, 10_000) })),
+  /** The smith (Hilda): the Forge opens after talking (upgrades come from items.json). */
+  forge: optional(z.boolean()),
   /** A simple shop that opens after talking (Marco): items and their price in gold. */
   shop: optional(
     z.strictObject({
@@ -1126,6 +1128,15 @@ export const monstersFileSchema = z.strictObject({
 
 // ---------------------------------------------------------------- items.json
 
+/** What wearing an item adds (also what a Forge level adds to a piece of gear). */
+const itemStatsSchema = z.strictObject({
+  hp: optional(max(nonNegative, 10_000)),
+  mana: optional(max(nonNegative, 10_000)),
+  damagePercent: optional(max(nonNegative, 500)),
+  damageReductionPercent: optional(max(nonNegative, 90)),
+  moveSpeedPercent: optional(max(nonNegative, 100)),
+});
+
 const itemSchema = z.strictObject({
   id,
   name,
@@ -1159,16 +1170,28 @@ const itemSchema = z.strictObject({
     }),
   ),
   crystal: optional(z.strictObject({ elements: atLeast(z.array(id)), size: id })),
-  /** What wearing it adds (weapons and armor, while equipped). */
-  stats: optional(
+  /**
+   * Hilda's Forge (step 4.1): the levels this weapon can be upgraded to, in order. Each level
+   * costs gold and materials and adds `damageBonus` (weapons) and/or `stats` (gear).
+   */
+  upgrade: optional(
     z.strictObject({
-      hp: optional(max(nonNegative, 10_000)),
-      mana: optional(max(nonNegative, 10_000)),
-      damagePercent: optional(max(nonNegative, 500)),
-      damageReductionPercent: optional(max(nonNegative, 90)),
-      moveSpeedPercent: optional(max(nonNegative, 100)),
+      levels: atLeast(
+        z.array(
+          z.strictObject({
+            gold: intRange(1, 1_000_000),
+            materials: z.array(z.strictObject({ item: id, count: intRange(1, 999) })),
+            /** Weapons: extra damage per hit. */
+            damageBonus: optional(max(nonNegative, 1000)),
+            /** Gear: extra stats added on top of the item's own `stats` (same fields). */
+            stats: optional(itemStatsSchema),
+          }),
+        ),
+      ),
     }),
   ),
+  /** What wearing it adds (weapons and armor, while equipped). */
+  stats: optional(itemStatsSchema),
   /**
    * What drinking it restores (potions only). The percentages are of your maximum, so a potion
    * keeps up as your HP and mana bars grow with your level; `hp` and `mana` are flat amounts.

@@ -233,7 +233,7 @@ _Chat 5 (A.5a–c) heeft geen Blender nodig en mag vóór of tegelijk met A.2–
 
 ## Fase 4 – Forge, markt, spellboek, kristallen, skill tree · **open** (stappen zijn een voorstel)
 
-- [ ] **4.1 De echte Forge** — Hilda upgradet wapens en gear met gold + materialen, niveaus en kosten in data, alleen buiten gevecht. _Klaar als:_ een upgrade verandert de stats van het item en staat in de save.
+- [x] **4.1 De echte Forge** — Hilda upgradet wapens en gear met gold + materialen, niveaus en kosten in data, alleen buiten gevecht. _Klaar als:_ een upgrade verandert de stats van het item en staat in de save. **Klaar (2026-10-16, auto-run):** na het gesprek met Hilda opent de Forge; wapens (+schade) en armour (+hp/damage reduction) upgraden met gold + Slime Gel, alleen buiten gevecht, opgeslagen in `character.upgrades` (save v16). Niveau geldt per item-id (alle exemplaren delen het) en gaat mee bij de ruil Old Sword → Honed Old Sword. Getallen zijn tijdelijk (zie Notities).
 - [ ] **4.2 Markt en winkels** — meerdere handelaren uit data, koop- en verkoopprijzen, voorraad die terugkomt. _Klaar als:_ een nieuwe handelaar toevoegen is alleen data.
 - [ ] **4.3 Spellboek** — spellboek-UI, meer spells uit `spells.json`, spellslots per staf. _Klaar als:_ je spells wisselt buiten gevecht en de keuze staat in de save.
 - [ ] **4.4 Kristallen** — kristallen vinden, mergen/upgraden en hun effect op je staf en spells. _Klaar als:_ een gemerged kristal verandert je schade en je spell zichtbaar.
@@ -289,6 +289,7 @@ Seizoenseffecten · crafting en drogen · de Garden en farming (ook de bedden `M
 | 20  | Brother Ansel zegt nog dat hij je **bewusteloos langs de weg** vond (`quest.a_quiet_awakening.offer.1`, `quest.tales_by_the_fire.offer.1`), terwijl in de nieuwe intro de kat je eerst vindt in de badlands | Zo gelaten: de reis van Morvath naar Greyhaven is een sprong naar zwart. Wil Bo de zin anders, dan is het alleen tekst in `en.json` en `nl.json` |
 | 21  | Is het kasteel van de intro **The Black Citadel**? | De intro noemt het kasteel niet bij naam (verhaaltekst `intro.panel_1..3`, ongewijzigd); een naam is één tekstregel |
 | 22  | In de intro zit **donder op de drankknop** (Q) en de **ijspegel op de lock-on-knop** (Tab of de middelste muisknop): zo houden, of eigen toetsen? | Alleen in de intro (`abilities[].action` in `cutscenes.json`), de echte bindingen blijven; de tip toont de ingestelde toets via `{keyPotion}` en `{keyLock}`, op de telefoon staan de namen op de knoppen. Eigen toetsen = een nieuwe `action` in `controls.json` + Settings → Besturing |
+| 23  | Zijn de **Forge-getallen** goed, en moet een upgrade per exemplaar gelden in plaats van per item? | Tijdelijk (stap 4.1): 3 niveaus; wapens +3 schade per niveau voor 50/100/150 gold, armour +3–8 hp (+1–2% reductie) voor 40/80/120 gold; elk niveau 1/2/3 Slime Gel; niveau per item-id. Alles in `items.json` → `upgrade.levels` |
 
 ### Nog te doen door Bo en Lucas
 

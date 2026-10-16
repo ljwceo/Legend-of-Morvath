@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import type { ItemDef } from '../data/types';
+import { applyUpgrade, effectiveDamageBonus } from '../systems/Forge';
 import {
   createNewSave,
   DEFAULT_CAMERA_SENSITIVITY,
@@ -41,6 +43,7 @@ function sampleSave() {
     stats: { hp: 6, power: 5 },
     spells: [],
     crystal: null,
+    upgrades: {},
   };
   save.world = {
     zone: 'greyhaven',
@@ -209,6 +212,46 @@ describe('migrate', () => {
     // Level, path, gear and quests are untouched; the points come back as unspent.
     expect(result.save.progress.level).toBe(4);
     expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
+  });
+
+  it('upgrades a version 15 save: Forge levels start empty, the rest stays', () => {
+    const current = sampleSave();
+    const character: Record<string, unknown> = { ...current.character };
+    delete character.upgrades;
+    const v15 = { ...current, version: 15, character, progress: { ...current.progress, level: 3 } };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v15));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.character?.upgrades).toEqual({});
+    expect(result.save.progress.level).toBe(3);
+    expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
+  });
+
+  it('keeps an upgraded weapon and its bonus through save and load', () => {
+    const sword = {
+      id: 'old_sword',
+      name: 'Old Sword',
+      type: 'weapon',
+      rarity: 'common',
+      tradeable: true,
+      weapon: { kind: 'sword', damageBonus: 0 },
+      upgrade: { levels: [{ gold: 1, materials: [], damageBonus: 3 }] },
+    } as ItemDef;
+    const save = sampleSave();
+    const character = save.character;
+    if (!character) throw new Error('no character');
+    character.gold = 5;
+    expect(applyUpgrade(sword, character)).toBe('upgraded');
+    const storage = new MemoryStorage();
+    expect(new SaveManager(storage).write(save)).toBe(true);
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.character?.upgrades).toEqual({ old_sword: 1 });
+    expect(effectiveDamageBonus(sword, result.save.character?.upgrades ?? {})).toBe(3);
   });
 
   it('upgrades a version 11 save: no crystal yet; the spells you knew stay', () => {

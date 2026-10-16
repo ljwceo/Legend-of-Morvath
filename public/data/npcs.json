@@ -172,6 +172,7 @@
       "interaction": "talk",
       "behavior": "static",
       "dialogue": ["npc.hilda.1", "npc.hilda.2"],
+      "forge": true,
       "heading": 180
     },
     {

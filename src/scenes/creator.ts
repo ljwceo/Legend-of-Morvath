@@ -125,5 +125,6 @@ export function createCharacter(
     stats: { ...stats },
     spells: [],
     crystal: null,
+    upgrades: {},
   };
 }

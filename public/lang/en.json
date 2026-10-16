@@ -1135,6 +1135,21 @@
     "goldLost": "You lost {amount} {gold}. You wake up at your checkpoint.",
     "wakeUp": "You wake up at your checkpoint."
   },
+  "forge": {
+    "title": "Forge",
+    "upgrade": "Upgrade",
+    "level": "Level {level}/{max}",
+    "maxed": "Fully upgraded",
+    "next": "Next: {effect} for {cost}",
+    "costItem": "{count} {name}",
+    "costSeparator": ", ",
+    "effectSeparator": " · ",
+    "upgraded": "{item} is now level {level}.",
+    "notEnoughGold": "Not enough {gold}.",
+    "notEnoughMaterials": "You are missing materials.",
+    "inCombat": "Not now, you are in a fight.",
+    "empty": "You have no weapon Hilda can upgrade."
+  },
   "shop": {
     "title": "Shop",
     "buy": "Buy",

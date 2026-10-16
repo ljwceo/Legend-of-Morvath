@@ -579,6 +579,9 @@ class CrossChecker {
         this.ref('item', f, `${p}.shop.items[${e}].item`, entry.item);
         if (entry.item === 'gold') this.issue(f, `${p}.shop.items[${e}].item`, 'gold is not sold');
       });
+      if (npc.forge && npc.interaction !== 'talk') {
+        this.issue(f, `${p}.forge`, 'a forge needs an NPC you can talk to');
+      }
       if (npc.shop && npc.interaction !== 'talk') {
         this.issue(f, `${p}.shop`, 'a shop needs an NPC you can talk to');
       }
@@ -1100,6 +1103,19 @@ class CrossChecker {
       if ((item.type === 'potion') !== (item.potion !== undefined)) {
         this.issue(f, `${p}.potion`, 'potion settings belong to (and are required for) potions');
       }
+      if (item.upgrade && item.type !== 'weapon' && item.type !== 'armor') {
+        this.issue(f, `${p}.upgrade`, 'only weapons and armor can be upgraded');
+      }
+      item.upgrade?.levels.forEach((level, l) => {
+        const gives = (level.damageBonus ?? 0) > 0 || Object.keys(level.stats ?? {}).length > 0;
+        if (!gives) this.issue(f, `${p}.upgrade.levels[${l}]`, 'a level must add damage or stats');
+        if (level.damageBonus !== undefined && item.type !== 'weapon') {
+          this.issue(f, `${p}.upgrade.levels[${l}].damageBonus`, 'only weapons get damageBonus');
+        }
+        level.materials.forEach((m, k) => {
+          this.ref('item', f, `${p}.upgrade.levels[${l}].materials[${k}].item`, m.item);
+        });
+      });
       const potion = item.potion;
       if (potion && !potion.hp && !potion.mana && !potion.hpPercent && !potion.manaPercent) {
         this.issue(f, `${p}.potion`, 'a potion must restore HP or mana');

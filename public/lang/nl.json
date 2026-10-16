@@ -1135,6 +1135,21 @@
     "goldLost": "Je bent {amount} {gold} kwijt. Je wordt wakker bij je checkpoint.",
     "wakeUp": "Je wordt wakker bij je checkpoint."
   },
+  "forge": {
+    "title": "Smidse",
+    "upgrade": "Upgraden",
+    "level": "Niveau {level}/{max}",
+    "maxed": "Volledig geüpgraded",
+    "next": "Volgende: {effect} voor {cost}",
+    "costItem": "{count} {name}",
+    "costSeparator": ", ",
+    "effectSeparator": " · ",
+    "upgraded": "{item} is nu niveau {level}.",
+    "notEnoughGold": "Niet genoeg {gold}.",
+    "notEnoughMaterials": "Je mist materialen.",
+    "inCombat": "Nu niet, je bent in een gevecht.",
+    "empty": "Je hebt geen wapen dat Hilda kan upgraden."
+  },
   "shop": {
     "title": "Winkel",
     "buy": "Kopen",

@@ -1,3 +1,4 @@
+import { addUpgradeStats } from './Forge';
 import type { ItemDef, PlayerConfig } from '../data/types';
 import type { ItemStack } from './Inventory';
 import { countItem } from './Inventory';
@@ -61,6 +62,8 @@ export function loadTier(cfg: PlayerConfig['load'], weight: number, max: number)
   return tiers[tiers.length - 1] as LoadTier;
 }
 
+const NO_UPGRADES: Readonly<Record<string, number>> = {};
+
 /** What worn gear adds up to (all zero without gear). */
 export interface GearStats {
   hp: number;
@@ -79,6 +82,7 @@ export function gearStats(
   equipment: Equipment,
   items: ReadonlyMap<string, ItemDef>,
   out: GearStats,
+  upgrades: Readonly<Record<string, number>> = NO_UPGRADES,
 ): GearStats {
   out.hp = 0;
   out.mana = 0;
@@ -87,13 +91,18 @@ export function gearStats(
   out.moveSpeedPercent = 0;
   for (const slot of EQUIPMENT_SLOTS) {
     const id = equipment[slot];
-    const stats = id ? items.get(id)?.stats : undefined;
-    if (!stats) continue;
-    out.hp += stats.hp ?? 0;
-    out.mana += stats.mana ?? 0;
-    out.damagePercent += stats.damagePercent ?? 0;
-    out.damageReductionPercent += stats.damageReductionPercent ?? 0;
-    out.moveSpeedPercent += stats.moveSpeedPercent ?? 0;
+    const def = id ? items.get(id) : undefined;
+    if (!id || !def) continue;
+    const stats = def.stats;
+    if (stats) {
+      out.hp += stats.hp ?? 0;
+      out.mana += stats.mana ?? 0;
+      out.damagePercent += stats.damagePercent ?? 0;
+      out.damageReductionPercent += stats.damageReductionPercent ?? 0;
+      out.moveSpeedPercent += stats.moveSpeedPercent ?? 0;
+    }
+    // Forge levels (step 4.1) add on top of the item's own stats.
+    if (def.upgrade) addUpgradeStats(def, upgrades[id] ?? 0, out);
   }
   // Never fully immune, whatever the data says.
   out.damageReductionPercent = Math.min(out.damageReductionPercent, 80);

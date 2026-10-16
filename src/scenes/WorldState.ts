@@ -169,7 +169,14 @@ import { StructureLabels } from '../ui/StructureLabels';
 import { el } from '../ui/dom';
 import { BAG_TYPE_ORDER, bagPanel, itemNameEl } from '../ui/menus/BagPanel';
 import { packPanel } from '../ui/menus/PackPanel';
+import { forgePanel } from '../ui/menus/ForgePanel';
 import { type BuyResult, shopPanel } from '../ui/menus/ShopPanel';
+import {
+  applyUpgrade,
+  effectiveDamageBonus,
+  transferUpgrade,
+  type UpgradeResult,
+} from '../systems/Forge';
 import { QuestTexts } from '../ui/questText';
 import type { ChecklistRow, DialogChoice, DialogLine, DialogOptions } from '../ui/Dialog';
 import { pausePanel } from '../ui/menus/PausePanel';
@@ -2299,6 +2306,7 @@ export class WorldState implements GameState, InstanceHost {
     this.talkingTo = npc;
     this.targetNpc = null;
     const shop = npc.def.shop;
+    const forge = npc.def.forge === true;
     this.dialog?.open(
       npc.def.name,
       lines,
@@ -2306,6 +2314,7 @@ export class WorldState implements GameState, InstanceHost {
         this.talkingTo = null;
         // A merchant opens the shop after the last line (not after Escape or walking away).
         if (finished && shop) this.openShop(npc.def.name, npc.id, shop);
+        if (finished && forge) this.openForge(npc.def.name);
         // A cutscene that a quest brought with it (the Crystal Ceremony) waits its turn.
         this.playPendingCutscene();
       },
@@ -2756,6 +2765,8 @@ export class WorldState implements GameState, InstanceHost {
     for (const upgrade of r.upgrades ?? []) {
       if (!removeItem(character.inventory, upgrade.from, 1)) continue;
       addItem(character.inventory, upgrade.to, 1);
+      // The Forge level moves along, so the swap never costs you an upgrade.
+      transferUpgrade(character.upgrades, upgrade.from, this.items.get(upgrade.to));
       for (const [slot, itemId] of Object.entries(character.equipment)) {
         if (itemId === upgrade.from) character.equipment[slot] = upgrade.to;
       }
@@ -2940,10 +2951,10 @@ export class WorldState implements GameState, InstanceHost {
     const character = this.ctx.session?.character;
     if (!character) return;
     dropMissingEquipment(character.equipment, character.inventory);
-    const stats = gearStats(character.equipment, this.items, this.gearStatsOut);
+    const stats = gearStats(character.equipment, this.items, this.gearStatsOut, character.upgrades);
     const weapon = character.equipment.weapon;
     const def = weapon ? this.items.get(weapon) : undefined;
-    c.weaponBonus = def?.weapon?.damageBonus ?? 0;
+    c.weaponBonus = effectiveDamageBonus(def, character.upgrades);
     this.applyWeapon(def);
     c.gearHp = stats.hp;
     c.gearMana = stats.mana;
@@ -3053,6 +3064,36 @@ export class WorldState implements GameState, InstanceHost {
         },
       ),
     );
+  }
+
+  /** Hilda's Forge (step 4.1): upgrades cost gold and materials, only out of a fight. */
+  private openForge(smith: string): void {
+    this.hud?.rules.setShop(true);
+    this.openMenu((resume) =>
+      forgePanel(
+        this.ctx,
+        smith,
+        (itemId) => this.upgradeItem(itemId),
+        () => {
+          this.hud?.rules.setShop(false);
+          resume();
+        },
+      ),
+    );
+  }
+
+  private upgradeItem(itemId: string): UpgradeResult | 'inCombat' {
+    const character = this.ctx.session?.character;
+    if (!character) return 'notUpgradable';
+    if (this.player?.combat.inCombat) return 'inCombat';
+    const result = applyUpgrade(this.items.get(itemId), character);
+    if (result !== 'upgraded') return result;
+    this.hud?.setGold(character.gold);
+    this.hud?.rules.goldChanged();
+    this.applyGear(false);
+    this.updatePlayerGear();
+    this.ctx.persist();
+    return result;
   }
 
   /**
