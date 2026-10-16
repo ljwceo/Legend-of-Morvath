@@ -205,7 +205,7 @@
     "quickOrder": ["health_potion", "greater_health_potion"]
   },
   "death": {
-    "goldLossFraction": 0.1,
+    "goldLossFraction": 1,
     "markerPickupRadius": 1.6,
     "fadeSeconds": 0.8,
     "blackSeconds": 1.6
