@@ -511,6 +511,16 @@ export class Enemies {
     return true;
   }
 
+  /**
+   * The player parried this monster's attack (fase S.7): its attack is cut short and it staggers
+   * for the usual stagger time. A monster without poise (a boss) only loses the attack.
+   */
+  parried(e: Enemy): void {
+    if (!e.alive) return;
+    if (e.poise.max > 0) e.poise.staggerTime = this.ai.poise.staggerSeconds;
+    this.stagger(e);
+  }
+
   /** Poise broke: whatever the monster was doing is cut short (it is back to chasing after). */
   private stagger(e: Enemy): void {
     if (e.attacking) {

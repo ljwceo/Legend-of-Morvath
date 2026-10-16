@@ -85,6 +85,16 @@
     "staggerSeconds": 0.6,
     "critFactor": 2
   },
+  "guard": {
+    "parrySeconds": 0.2,
+    "raiseEnergyCost": 5,
+    "blockDamageFactor": 0.3,
+    "blockEnergyPerDamage": 1.5,
+    "blockPoiseFactor": 0.5,
+    "brokenDamageFactor": 1,
+    "brokenPoiseFactor": 2,
+    "moveFactor": 0.5
+  },
   "camera": {
     "fovDegrees": 55,
     "targetHeight": 1.45,

@@ -729,6 +729,25 @@ export const playerFileSchema = z.strictObject({
     critFactor: range(1, 10),
   }),
   /**
+   * Blocking and parrying (fase S.7, sword only): hold the block button to raise the guard (costs
+   * `raiseEnergyCost`). A hit in the first `parrySeconds` (counted on the 60 Hz step) is caught
+   * completely and staggers the attacker; later hits are blocked: `blockDamageFactor` of the
+   * damage gets through and the block costs `blockEnergyPerDamage` energy per point of damage.
+   * Without enough energy the block breaks: `brokenDamageFactor` of the damage and
+   * `brokenPoiseFactor` times the poise damage hit you, and the guard drops.
+   */
+  guard: z.strictObject({
+    parrySeconds: max(positive, 2),
+    raiseEnergyCost: max(nonNegative, 100),
+    blockDamageFactor: range(0, 1),
+    blockEnergyPerDamage: max(nonNegative, 100),
+    blockPoiseFactor: range(0, 1),
+    brokenDamageFactor: range(0, 1),
+    brokenPoiseFactor: range(0, 10),
+    /** Walking speed while the guard is up, as a factor. */
+    moveFactor: range(0, 1),
+  }),
+  /**
    * Third-person camera over the shoulder (like Genshin Impact). Sharpness values are per
    * second (higher = snappier). Pitch is the angle below the horizon; negative looks up.
    */
@@ -1760,6 +1779,7 @@ export const CONTROL_ACTIONS = [
   'attack',
   'heavy',
   'dash',
+  'block',
   'interact',
   'potion',
   'bag',

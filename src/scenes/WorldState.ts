@@ -111,6 +111,7 @@ import {
   StaffState,
   stepStaff,
 } from '../systems/StaffCombat';
+import { guardHit, makeGuardResult, stepGuard } from '../systems/Guard';
 import { damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
   carriedWeight,
@@ -585,6 +586,7 @@ export class WorldState implements GameState, InstanceHost {
   private readonly moveWorld = { x: 0, z: 0 };
   private readonly command: MoveCommand = { x: 0, z: 0, dash: false };
   private readonly swordInput: SwordInput = { fast: false, heavy: false, critRoll: 1 };
+  private readonly guardResult = makeGuardResult();
   private readonly swordResult: SwordResult = {
     landed: 'none',
     damage: 0,
@@ -1160,12 +1162,40 @@ export class WorldState implements GameState, InstanceHost {
         this.clearAttackInput();
       }
     }
+    this.stepPlayerGuard(dt);
     // One fresh roll per step decides whether a hit that lands is critical (Luck).
     const roll = this.critRng.next();
     this.swordInput.critRoll = roll;
     this.staffInput.critRoll = roll;
     if (this.weaponKind === 'staff') this.stepStaffAndMove(dt);
     else this.stepSwordAndMove(dt);
+  }
+
+  /**
+   * The guard for one step (fase S.7, sword only): it goes up while the block button is held and
+   * you are free (not swinging, rolling or staggered). While it is up you cannot attack.
+   */
+  private stepPlayerGuard(dt: number): void {
+    const player = this.player;
+    const cfg = this.ctx.data?.player.guard;
+    if (!player || !cfg) return;
+    const c = player.combat;
+    const s = player.state;
+    const free =
+      this.weaponKind !== 'staff' &&
+      !this.cheats.fly &&
+      !this.knockedOut &&
+      this.deathTimer === NOT_DYING &&
+      !c.poise.staggered &&
+      !this.command.dash &&
+      s.dashTime <= 0 &&
+      c.swingTime <= 0 &&
+      c.heavyWindup <= 0;
+    const up = stepGuard(c.guard, s, cfg, this.input?.isPressed('block') ?? false, free, dt);
+    if (!up) return;
+    this.clearAttackInput();
+    c.bufferedFast = 0;
+    c.bufferedHeavy = 0;
   }
 
   /**
@@ -1196,6 +1226,7 @@ export class WorldState implements GameState, InstanceHost {
       this.baseWalkSpeed *
       this.cheats.speed *
       (windingUp ? sword.heavyMoveFactor : 1) *
+      (c.guard.up ? (data.player.guard?.moveFactor ?? 1) : 1) *
       slowFactor(this.statusTotals.slowPercent);
     stepMovement(s, this.command, movement, dt, mover);
     this.stepRegen(c, dt);
@@ -1584,7 +1615,7 @@ export class WorldState implements GameState, InstanceHost {
    * status effects on you, and a leeching monster (the Nature slime) heals from the damage it
    * really dealt.
    */
-  private readonly hurtPlayer = (damage: number, from?: Enemy): void => {
+  private readonly hurtPlayer = (damage: number, from?: Enemy, guardable = true): void => {
     const player = this.player;
     if (!player || damage <= 0) return;
     const c = player.combat;
@@ -1592,13 +1623,35 @@ export class WorldState implements GameState, InstanceHost {
     if (this.knockedOut || this.deathTimer !== NOT_DYING) return;
     // Rolling through it: the hit (or arrow, or burn tick) misses.
     if (s.invulnerable) return;
-    const taken = damageTaken(c, damage);
+    // The guard (fase S.7) looks at it first: a parry catches it, a block softens it.
+    const guardCfg = this.ctx.data?.player.guard;
+    const verdict =
+      guardable && guardCfg ? guardHit(c.guard, s, guardCfg, damage, this.guardResult) : null;
+    if (verdict && verdict.outcome === 'parry') {
+      this.damageNumbers?.spawnText(
+        s.x,
+        s.y + 2,
+        s.z,
+        this.ctx.i18n.t('controls.parried'),
+        'dodged',
+      );
+      if (from) this.enemies?.parried(from);
+      return;
+    }
+    const factor = verdict ? verdict.damageFactor : 1;
+    const taken = damageTaken(c, damage * factor);
+    if (verdict && verdict.outcome !== 'none') {
+      const key = verdict.outcome === 'block' ? 'controls.blocked' : 'controls.guardBroken';
+      this.damageNumbers?.spawnText(s.x, s.y + 2.4, s.z, this.ctx.i18n.t(key), 'dodged');
+    }
     c.hp = Math.max(0, c.hp - taken);
     c.sinceCombat = 0;
     c.sinceHurt = 0;
     this.damageNumbers?.spawn(s.x, s.y + 2, s.z, taken, 'player');
     this.hud?.hurt();
-    if (from && from.def.poiseDamage) this.breakPlayerPoise(from.def.poiseDamage);
+    if (from && from.def.poiseDamage) {
+      this.breakPlayerPoise(from.def.poiseDamage * (verdict ? verdict.poiseFactor : 1));
+    }
     if (from) this.applyOnHit(from, taken);
     if (c.hp <= 0) this.knockedOut = true;
   };
@@ -1656,7 +1709,7 @@ export class WorldState implements GameState, InstanceHost {
     const totals = status.step(dt);
     this.statusTotals = totals;
     this.statusDamageFactor = weakenFactor(totals.weakenPercent);
-    if (totals.damage > 0) this.hurtPlayer(totals.damage);
+    if (totals.damage > 0) this.hurtPlayer(totals.damage, undefined, false);
   }
 
   /**

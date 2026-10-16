@@ -909,6 +909,9 @@
   },
   "controls": {
     "dash": "Dash",
+    "parried": "Pareren!",
+    "blocked": "Geblokt",
+    "guardBroken": "Blok gebroken!",
     "clickToLook": "Klik om rond te kijken · Esc voor het menu",
     "attack": "Slaan",
     "heavy": "Zwaar",
@@ -931,6 +934,7 @@
       "attack": "Slaan (fast hit / Shard)",
       "heavy": "Zware slag / spreuk",
       "dash": "Dash",
+      "block": "Blokkeren / parry",
       "interact": "Praten en gebruiken",
       "potion": "Drankje drinken",
       "bag": "Tas",

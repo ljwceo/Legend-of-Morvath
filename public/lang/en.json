@@ -909,6 +909,9 @@
   },
   "controls": {
     "dash": "Dash",
+    "parried": "Parried!",
+    "blocked": "Blocked",
+    "guardBroken": "Guard broken!",
     "clickToLook": "Click to look around · Esc for the menu",
     "attack": "Attack",
     "heavy": "Heavy",
@@ -931,6 +934,7 @@
       "attack": "Attack (fast hit / Shard)",
       "heavy": "Heavy hit / spell",
       "dash": "Dash",
+      "block": "Block / parry",
       "interact": "Talk and use",
       "potion": "Drink potion",
       "bag": "Bag",

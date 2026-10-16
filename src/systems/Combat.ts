@@ -1,5 +1,6 @@
 import type { PlayerConfig } from '../data/types';
 import { PoiseState } from './Poise';
+import { GuardState } from './Guard';
 import { canSpendEnergy, type EnergyPool, spendEnergy } from './Stamina';
 
 const DEG = Math.PI / 180;
@@ -107,6 +108,8 @@ export class CombatState {
   maxMana = 0;
   /** Stability (fase S.6): max from the weight you carry (see `playerMaxPoise`). */
   readonly poise = new PoiseState();
+  /** Block and parry (fase S.7). */
+  readonly guard = new GuardState();
   /** Seconds until the next attack may start. */
   attackCooldown = 0;
   /** Fast hits in a row (resets when the combo window runs out or after a heavy hit). */

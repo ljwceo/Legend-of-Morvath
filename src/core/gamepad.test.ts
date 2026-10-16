@@ -261,13 +261,13 @@ describe('buttons to actions', () => {
     expect(events).toEqual(['press dash', 'press attack']);
   });
 
-  it('has the standard layout: A dashes, RB attacks, RT heavy, R3 locks on, Back opens the bag', () => {
+  it('has the standard layout: A dashes, RB attacks, RT heavy, R3 locks on, L3 blocks, Back opens the bag', () => {
     const b = fresh();
     expect(b.actionForPad(0)).toBe('dash');
     expect(b.actionForPad(5)).toBe('attack');
     expect(b.actionForPad(7)).toBe('heavy');
     expect(b.actionForPad(11)).toBe('lock');
-    expect(b.actionForPad(10)).toBe(undefined);
+    expect(b.actionForPad(10)).toBe('block');
     expect(b.actionForPad(8)).toBe('bag');
     expect(b.actionForPad(PAD_START)).toBe(undefined);
   });
