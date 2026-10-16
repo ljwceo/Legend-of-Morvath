@@ -29,7 +29,7 @@
     "fadeSeconds": {
       "move": 0.2,
       "action": 0.15,
-      "strike": 0.08
+      "strike": 0.06
     },
     "gait": {
       "idleBelow": 0.3,
@@ -42,7 +42,7 @@
       "smoothingSeconds": 0.1
     },
     "strike": {
-      "leadSeconds": 0.06,
+      "leadSeconds": 0.04,
       "followSeconds": 0.25,
       "settleSeconds": 0.5,
       "contactSeconds": {
