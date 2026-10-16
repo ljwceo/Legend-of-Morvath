@@ -1,4 +1,5 @@
 import type { PlayerConfig } from '../data/types';
+import { PoiseState } from './Poise';
 import { canSpendEnergy, type EnergyPool, spendEnergy } from './Stamina';
 
 const DEG = Math.PI / 180;
@@ -7,6 +8,10 @@ const DEG = Math.PI / 180;
 export interface SwordConfig {
   fastDamage: number;
   fastEnergyCost: number;
+  /** Poise damage of a fast / heavy hit to a monster, and the factor of a critical hit. */
+  fastPoiseDamage: number;
+  heavyPoiseDamage: number;
+  critPoiseFactor: number;
   /** Seconds between two fast hits (1 / maxPerSecond). */
   fastInterval: number;
   heavyDamage: number;
@@ -34,6 +39,9 @@ export function swordConfig(player: PlayerConfig): SwordConfig {
   return {
     fastDamage: s.fastHit.damage,
     fastEnergyCost: s.fastHit.energyCost,
+    fastPoiseDamage: s.fastHit.poiseDamage,
+    heavyPoiseDamage: s.heavyHit.poiseDamage,
+    critPoiseFactor: player.poise.critFactor,
     fastInterval: 1 / s.fastHit.maxPerSecond,
     heavyDamage: s.heavyHit.damage,
     heavyEnergyCost: s.heavyHit.energyCost,
@@ -97,6 +105,8 @@ export class CombatState {
   maxHp = 0;
   mana = 0;
   maxMana = 0;
+  /** Stability (fase S.6): max from the weight you carry (see `playerMaxPoise`). */
+  readonly poise = new PoiseState();
   /** Seconds until the next attack may start. */
   attackCooldown = 0;
   /** Fast hits in a row (resets when the combo window runs out or after a heavy hit). */
@@ -202,6 +212,8 @@ export interface SwordTarget {
 export interface SwordResult {
   landed: SwingKind;
   damage: number;
+  /** Poise damage this hit does to a monster (more for heavy and critical hits). */
+  poiseDamage: number;
   /** True for the bonus hit at the end of a combo. */
   combo: boolean;
   /** True when Luck turned this hit into a critical one (1.5x by default). */
@@ -239,6 +251,7 @@ export function stepSword(
 ): SwordResult {
   out.landed = 'none';
   out.damage = 0;
+  out.poiseDamage = 0;
   out.combo = false;
   out.crit = false;
   // Dexterity and (later) perks make every sword timing shorter.
@@ -273,7 +286,8 @@ export function stepSword(
     c.landedCombo = 0;
     out.landed = 'heavy';
     out.damage = heavyHitDamage(cfg, c.weaponBonus, c.damageFactor * c.normalFactor);
-    return critHit(c, input, out);
+    out.poiseDamage = cfg.heavyPoiseDamage;
+    return critHit(c, input, out, cfg);
   }
   if (c.attackCooldown > 0) return out;
 
@@ -303,15 +317,22 @@ export function stepSword(
     out.landed = 'fast';
     out.damage = fastHitDamage(cfg, c.comboCount, c.weaponBonus, c.damageFactor * c.normalFactor);
     out.combo = c.comboCount % cfg.comboEveryNthHit === 0;
-    critHit(c, input, out);
+    out.poiseDamage = cfg.fastPoiseDamage;
+    critHit(c, input, out, cfg);
   }
   return out;
 }
 
 /** Turns the hit that just landed into a critical one when the roll says so (Luck). */
-function critHit(c: CombatState, input: SwordInput, out: SwordResult): SwordResult {
+function critHit(
+  c: CombatState,
+  input: SwordInput,
+  out: SwordResult,
+  cfg: SwordConfig,
+): SwordResult {
   if (out.damage > 0 && input.critRoll < c.critChance) {
     out.crit = true;
+    out.poiseDamage *= cfg.critPoiseFactor;
     out.damage = Math.max(1, Math.round(out.damage * c.critFactor));
   }
   return out;

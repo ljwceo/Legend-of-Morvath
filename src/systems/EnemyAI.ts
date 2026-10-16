@@ -1,6 +1,7 @@
 import type { Enemy } from '../entities/Enemy';
 import type { MonstersFile } from '../data/types';
 import { angleDelta, type Mover } from './Movement';
+import type { PoiseConfig } from './Poise';
 import { turnTowards, walkTowards } from './NpcBehavior';
 
 const DEG = Math.PI / 180;
@@ -31,6 +32,8 @@ export interface EnemyAiConfig {
   /** Half of the strike arc, in radians. */
   hitHalfArc: number;
   calmDownSeconds: number;
+  /** Monster poise (fase S.6): regeneration and the length of a stagger. */
+  poise: PoiseConfig;
 }
 
 export function enemyAiConfig(file: MonstersFile): EnemyAiConfig {
@@ -44,6 +47,7 @@ export function enemyAiConfig(file: MonstersFile): EnemyAiConfig {
     hitGrace: s.hitGraceMeters,
     hitHalfArc: (s.hitArcDegrees / 2) * DEG,
     calmDownSeconds: s.calmDownSeconds,
+    poise: s.poise,
   };
 }
 
@@ -127,6 +131,8 @@ export function stepEnemyAi(
     return;
   }
   e.cooldown = Math.max(0, e.cooldown - dt);
+  // Staggered (poise broke): it cannot walk or attack until the stagger is over.
+  if (e.poise.staggered) return;
   const dx = target.x - e.x;
   const dz = target.z - e.z;
   const distance = Math.sqrt(dx * dx + dz * dz);

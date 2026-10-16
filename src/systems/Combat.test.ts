@@ -30,7 +30,13 @@ function fresh(): { c: CombatState; energy: EnergyPool } {
   return { c, energy: { energy: player.base.energy, sinceEnergySpent: 0, exhausted: false } };
 }
 
-const out = (): SwordResult => ({ landed: 'none', damage: 0, combo: false, crit: false });
+const out = (): SwordResult => ({
+  landed: 'none',
+  damage: 0,
+  poiseDamage: 0,
+  combo: false,
+  crit: false,
+});
 /** `critRoll` 1 never crits, so the damage in these tests is the plain damage. */
 const press = (fast: boolean, heavy = false, critRoll = 1): SwordInput => ({
   fast,

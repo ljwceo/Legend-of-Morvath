@@ -37,7 +37,13 @@ describe('stamina rules', () => {
   it('fast and heavy hits cost sword.*.energyCost', () => {
     const c = new CombatState();
     const e = { energy: player.base.energy, sinceEnergySpent: 5, exhausted: false };
-    const out: SwordResult = { landed: 'none', damage: 0, combo: false, crit: false };
+    const out: SwordResult = {
+      landed: 'none',
+      damage: 0,
+      poiseDamage: 0,
+      combo: false,
+      crit: false,
+    };
     stepSword(c, e, { fast: true, heavy: false, critRoll: 1 }, sword, 1 / 60, out);
     expect(e.energy).toBe(player.base.energy - player.sword.fastHit.energyCost);
     const c2 = new CombatState();
@@ -75,7 +81,13 @@ describe('stamina rules', () => {
       const time = new FixedStep();
       const s = pool();
       const c = new CombatState();
-      const out: SwordResult = { landed: 'none', damage: 0, combo: false, crit: false };
+      const out: SwordResult = {
+        landed: 'none',
+        damage: 0,
+        poiseDamage: 0,
+        combo: false,
+        crit: false,
+      };
       const res: Outcome = {
         energy: 0,
         exhausted: false,
@@ -121,7 +133,13 @@ describe('stamina rules', () => {
       const s = pool();
       s.energy = player.dash.energyCost * 0.6; // 15: less than one dash costs
       const c = new CombatState();
-      const out: SwordResult = { landed: 'none', damage: 0, combo: false, crit: false };
+      const out: SwordResult = {
+        landed: 'none',
+        damage: 0,
+        poiseDamage: 0,
+        combo: false,
+        crit: false,
+      };
       const res = { energy: 0, exhaustedAt: [] as number[], recoveredAt: [] as number[] };
       let step = 0;
       for (let frame = 0; frame < fps * 6; frame++) {

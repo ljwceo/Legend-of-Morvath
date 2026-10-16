@@ -234,6 +234,7 @@ export class IntroSceneState implements GameState {
   private readonly swordResult: SwordResult = {
     landed: 'none',
     damage: 0,
+    poiseDamage: 0,
     combo: false,
     crit: false,
   };

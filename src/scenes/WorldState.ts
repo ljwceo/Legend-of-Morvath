@@ -99,6 +99,7 @@ import {
 } from '../systems/LockOn';
 import { type Shot, type ShotWorld, Shots } from '../systems/Shots';
 import {
+  chargeScale,
   powerFactor,
   SHARD_ID,
   type ShotConfig,
@@ -110,6 +111,7 @@ import {
   StaffState,
   stepStaff,
 } from '../systems/StaffCombat';
+import { damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
   carriedWeight,
   dropMissingEquipment,
@@ -586,6 +588,7 @@ export class WorldState implements GameState, InstanceHost {
   private readonly swordResult: SwordResult = {
     landed: 'none',
     damage: 0,
+    poiseDamage: 0,
     combo: false,
     crit: false,
   };
@@ -712,6 +715,7 @@ export class WorldState implements GameState, InstanceHost {
     if (this.labels) ctx.ui.append(this.labels.root);
     this.hud = new HUD(data.player.hud, data.player.lowHpThreshold, () => this.interact());
     this.hud.setInteractKey(this.interactKeyLabel());
+    this.hud.setPoiseTexts(ctx.i18n.t('hud.poise'), ctx.i18n.t('hud.staggered'));
     // The scene set the maxima before the HUD existed: a sword fighter has no mana bar.
     this.hud.setBarUsed('mana', this.player?.combat.hasMana ?? true);
     ctx.ui.append(this.hud.root);
@@ -836,6 +840,7 @@ export class WorldState implements GameState, InstanceHost {
         this.cheatPanel?.updateTexts();
         this.dialog?.updateTexts();
         this.hud?.setInteractKey(this.interactKeyLabel());
+        this.hud?.setPoiseTexts(ctx.i18n.t('hud.poise'), ctx.i18n.t('hud.staggered'));
         this.refreshAbilities();
         this.iconLabelFor = null;
       }),
@@ -1114,6 +1119,8 @@ export class WorldState implements GameState, InstanceHost {
     this.updateCombatHud();
     this.hud?.rules.setEnergyFraction(s.energy / movement.maxEnergy);
     this.hud?.setBar('energy', s.energy / movement.maxEnergy);
+    const poise = this.player?.combat.poise;
+    if (poise) this.hud?.setPoise(poise.max > 0 ? poise.poise / poise.max : 1, poise.staggered);
   }
 
   /** Debug: every swinging door's angle in degrees (and the cheat, when it holds them). */
@@ -1141,6 +1148,18 @@ export class WorldState implements GameState, InstanceHost {
 
   /** Fighting and walking for one step: with a sword you swing, with a staff you shoot. */
   private stepAttackAndMove(dt: number): void {
+    const poiseCfg = this.ctx.data?.player.poise;
+    const poise = this.player?.combat.poise;
+    if (poiseCfg && poise) {
+      stepPoise(poise, poiseCfg, dt);
+      if (poise.staggered) {
+        // Staggered: no walking, dashing or attacking until it wears off.
+        this.command.x = 0;
+        this.command.z = 0;
+        this.command.dash = false;
+        this.clearAttackInput();
+      }
+    }
     // One fresh roll per step decides whether a hit that lands is critical (Luck).
     const roll = this.critRng.next();
     this.swordInput.critRoll = roll;
@@ -1276,11 +1295,19 @@ export class WorldState implements GameState, InstanceHost {
       locked?.hittable ? locked : null,
       charge,
       crit,
+      this.shotPoiseDamage(shot, charge, crit),
     );
     // Debug: the cheat menu can make shots curve harder or not at all.
     fired.homingRadians = shot.homingRadians * this.cheats.homing;
     // Shooting counts as fighting, so the bars show (HUD rules from the concept).
     player.combat.sinceCombat = 0;
+  }
+
+  /** Poise damage of a shot: charged spells do more, critical hits multiply it (fase S.6). */
+  private shotPoiseDamage(shot: ShotConfig, charge: number, crit: boolean): number {
+    const factor = shot.charge ? chargeScale(shot.charge.damageFactor, charge) : 1;
+    const critFactor = crit ? (this.ctx.data?.player.poise.critFactor ?? 1) : 1;
+    return shot.poiseDamage * factor * critFactor;
   }
 
   /** "Not enough mana." (not more often than every few seconds). */
@@ -1451,7 +1478,7 @@ export class WorldState implements GameState, InstanceHost {
     const { enemies, enemyRenderer, player } = this;
     const e = target as Enemy;
     if (!enemies || !player || !e.hittable) return;
-    const defeated = enemies.hit(e, shot.damage);
+    const defeated = enemies.hit(e, shot.damage, shot.poiseDamage);
     // A mage practises with a charged spell, so how far it was charged counts.
     this.recordTraining(e, shot.id === SHARD_ID ? 0 : shot.charge);
     const top = e.y + (enemyRenderer?.heightOf(e) ?? 1.5);
@@ -1501,7 +1528,7 @@ export class WorldState implements GameState, InstanceHost {
         else this.showProtected(e);
         continue;
       }
-      const defeated = enemies.hit(e, damage);
+      const defeated = enemies.hit(e, damage, result.poiseDamage);
       hitAny = true;
       // Practising at the training field (the Entrance Exams, fase 3.8).
       this.recordTraining(e);
@@ -1571,9 +1598,29 @@ export class WorldState implements GameState, InstanceHost {
     c.sinceHurt = 0;
     this.damageNumbers?.spawn(s.x, s.y + 2, s.z, taken, 'player');
     this.hud?.hurt();
+    if (from && from.def.poiseDamage) this.breakPlayerPoise(from.def.poiseDamage);
     if (from) this.applyOnHit(from, taken);
     if (c.hp <= 0) this.knockedOut = true;
   };
+
+  /**
+   * A monster's hit drains your poise (fase S.6). When it breaks you stagger: a swing or cast
+   * in progress is cut short and you can do nothing until the stagger is over (see
+   * `stepAttackAndMove`).
+   */
+  private breakPlayerPoise(amount: number): void {
+    const player = this.player;
+    const poise = this.ctx.data?.player.poise;
+    if (!player || !poise) return;
+    const c = player.combat;
+    if (!damagePoise(c.poise, amount, poise)) return;
+    c.heavyWindup = 0;
+    c.swingTime = 0;
+    c.swing = 'none';
+    c.bufferedFast = 0;
+    c.bufferedHeavy = 0;
+    this.staffState.reset();
+  }
 
   /** What a monster's hit leaves behind: its status effects, and leech for itself. */
   private applyOnHit(e: Enemy, taken: number): void {
@@ -1881,6 +1928,7 @@ export class WorldState implements GameState, InstanceHost {
     const c = player.combat;
     c.hp = c.maxHp;
     c.mana = c.maxMana;
+    c.poise.reset(c.poise.max);
     c.sinceCombat = Infinity;
     c.sinceHurt = Infinity;
     c.sinceSwing = Infinity;
@@ -3167,6 +3215,9 @@ export class WorldState implements GameState, InstanceHost {
     this.applyStatEffects(c);
     applyStats(c, data.player, c.level);
     this.carriedKg = carriedWeight(character.inventory, this.items);
+    // Heavier equipment stands firmer (fase S.6).
+    const pc = data.player.poise;
+    c.poise.setMax(playerMaxPoise(pc.baseMax, pc.perKg, this.carriedKg));
     this.maxLoadKg = maxLoad(data.player.load, c.level, this.statEffects.carryKg);
     const tier = loadTier(data.player.load, this.carriedKg, this.maxLoadKg);
     loadedMovement(
@@ -5087,7 +5138,7 @@ export class WorldState implements GameState, InstanceHost {
       'load',
       `${this.carriedKg.toFixed(1)}/${this.maxLoadKg} kg ${this.loadTierId} · walk ` +
         `${m?.walkSpeed.toFixed(2) ?? '-'} m/s · dash ${m?.canDash ? `${m.dashDistance.toFixed(1)} m, ${m.dashEnergyCost} en` : 'no'}` +
-        `${s.recoverTime > 0 ? ' · getting up' : ''} · dmg ×${c.damageFactor.toFixed(2)} taken ×${c.damageTakenFactor.toFixed(2)}`,
+        `${s.recoverTime > 0 ? ' · getting up' : ''}${c.poise.staggered ? ' · staggered' : ''} · poise ${Math.round(c.poise.poise)}/${Math.round(c.poise.max)} · dmg ×${c.damageFactor.toFixed(2)} taken ×${c.damageTakenFactor.toFixed(2)}`,
     );
     debug.lines.set('enemies', this.enemyDebugLine(s.x, s.z));
     debug.lines.set('effects', this.effectsDebugLine());

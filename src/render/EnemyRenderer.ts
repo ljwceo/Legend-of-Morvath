@@ -26,6 +26,10 @@ const RETREAT_HEIGHT = 0.8;
 const SWIPE_TWIST = 0.6;
 /** How far a hit target leans (radians) and how far a defeated one falls over. */
 const WOBBLE_ANGLE = 0.25;
+/** Staggered monsters (poise broke): how far they lean back and how they shake (visual only). */
+const STAGGER_LEAN = 0.3;
+const STAGGER_WOBBLE = 0.12;
+const STAGGER_SHAKE = 45;
 const FALLEN_ANGLE = 1.35;
 /** Defeated targets sink a little into the ground while lying down. */
 const FALLEN_SINK = 0.15;
@@ -179,7 +183,11 @@ export class EnemyRenderer {
       }
     } else {
       lean = Math.sin(e.wobble * 30) * WOBBLE_ANGLE * (e.wobble / WOBBLE_SECONDS);
-      if (e.mode === 'windup') {
+      if (e.poise.staggered) {
+        // Poise broken: reels back and shakes for as long as the stagger lasts (own cue).
+        lean -= STAGGER_LEAN;
+        lean += Math.sin(time * STAGGER_SHAKE) * STAGGER_WOBBLE;
+      } else if (e.mode === 'windup') {
         const total = Math.max(1e-3, windupSeconds(e));
         const progress = 1 - Math.max(0, e.timer) / total;
         // The glow pulses faster and stronger towards the hit.

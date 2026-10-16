@@ -4,6 +4,7 @@ import { angleDelta } from '../systems/Movement';
 import type { SwordTarget } from '../systems/Combat';
 import type { ShotTarget } from '../systems/Shots';
 import type { BossState } from '../systems/BossAI';
+import { PoiseState } from '../systems/Poise';
 
 /** Default body radius (m) when monsters.json gives none. */
 export const DEFAULT_ENEMY_RADIUS = 0.5;
@@ -57,6 +58,8 @@ export class Enemy implements SwordTarget, ShotTarget {
   flash = 0;
   /** Seconds of the "knocked back" wobble left (drawn only). */
   wobble = 0;
+  /** Stability (fase S.6): a broken poise staggers it. Max 0 (no `poise` in data) = never. */
+  readonly poise = new PoiseState();
 
   mode: EnemyMode = 'idle';
   /** Seconds left in the current mode (pause, windup, strike, recover, lying down). */
@@ -104,6 +107,7 @@ export class Enemy implements SwordTarget, ShotTarget {
     this.hp = this.maxHp = def.hp;
     this.radius = def.radius ?? DEFAULT_ENEMY_RADIUS;
     this.rng = new Random(seed);
+    this.poise.reset(def.poise ?? 0);
   }
 
   get alive(): boolean {
@@ -155,6 +159,7 @@ export class Enemy implements SwordTarget, ShotTarget {
     this.sinceHit = Infinity;
     this.flash = 0;
     this.wobble = 0;
+    this.poise.reset(this.def.poise ?? 0);
     this.downTime = 0;
     this.stuckTime = 0;
     this.hopTime = 0;

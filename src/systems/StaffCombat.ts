@@ -16,6 +16,8 @@ export interface ShotConfig {
   /** Element id from spells.json (empty for the Arcane Shard, which has no element). */
   element: string;
   damage: number;
+  /** Poise damage to a monster (before charge and critical hits). */
+  poiseDamage: number;
   manaCost: number;
   /** The staff gathers the shot this long before it leaves. */
   windupSeconds: number;
@@ -89,6 +91,7 @@ function shotFromSpell(spell: SpellsFile['spells'][number]): ShotConfig {
     id: spell.id,
     element: spell.element,
     damage: spell.damage,
+    poiseDamage: spell.poiseDamage,
     manaCost: spell.manaCost,
     windupSeconds: spell.windupSeconds,
     cooldownSeconds: spell.cooldownSeconds,
@@ -110,6 +113,7 @@ export function staffConfig(player: PlayerConfig, spells: SpellsFile): StaffConf
       id: SHARD_ID,
       element: '',
       damage: shard.damage,
+      poiseDamage: shard.poiseDamage,
       manaCost: shard.manaCost,
       windupSeconds: shard.windupSeconds,
       // maxPerSecond counts the whole cycle, so the wind-up is part of it.

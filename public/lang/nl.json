@@ -295,6 +295,8 @@
     "packTooHeavy": "{name} kan niet zoveel dragen.",
     "packWorn": "Doe het eerst uit.",
     "noMana": "Niet genoeg mana.",
+    "poise": "Balans",
+    "staggered": "Wankelen!",
     "statPoint": "Je hebt een statpunt. Open je statusvenster met {keyStatus}.",
     "statPoints": "Je hebt {n} statpunten. Open je statusvenster met {keyStatus}.",
     "statsReturned": "Levels groeien niet meer vanzelf: je {n} punten mag je zelf verdelen ({keyStatus}).",

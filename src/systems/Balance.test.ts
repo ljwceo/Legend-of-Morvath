@@ -161,7 +161,13 @@ function fightSultan(bot: Bot, seed: number, maxSeconds = 400): FightResult {
   enemies.startBoss(boss, s.heading + Math.PI);
   const cmd: MoveCommand = { x: 0, z: 0, dash: false };
   const input = { fast: false, heavy: false, critRoll: 1 };
-  const result: SwordResult = { landed: 'none', damage: 0, combo: false, crit: false };
+  const result: SwordResult = {
+    landed: 'none',
+    damage: 0,
+    poiseDamage: 0,
+    combo: false,
+    crit: false,
+  };
   let warned = 0;
   let opened = 0;
   let side = 1;
@@ -686,7 +692,13 @@ function runFight(bot: SimBot, scene: Scene, maxSeconds = 240): FightOutcome {
   const cmd: MoveCommand = { x: 0, z: 0, dash: false };
   const swordInput = { fast: false, heavy: false, critRoll: 1 };
   const staffInput: StaffInput = { shard: false, spell: false, critRoll: 1 };
-  const swordOut: SwordResult = { landed: 'none', damage: 0, combo: false, crit: false };
+  const swordOut: SwordResult = {
+    landed: 'none',
+    damage: 0,
+    poiseDamage: 0,
+    combo: false,
+    crit: false,
+  };
   const staffOut: StaffResult = { fired: 'none', shot: null, damage: 0, charge: 0, crit: false };
   const staffState = new StaffState();
   let warned = 0;

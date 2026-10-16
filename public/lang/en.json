@@ -295,6 +295,8 @@
     "packTooHeavy": "{name} can't carry that much.",
     "packWorn": "Take it off first.",
     "noMana": "Not enough mana.",
+    "poise": "Poise",
+    "staggered": "Staggered!",
     "statPoint": "You have a stat point. Open your status window with {keyStatus}.",
     "statPoints": "You have {n} stat points. Open your status window with {keyStatus}.",
     "statsReturned": "Levels no longer grow by themselves: your {n} points are yours to spend ({keyStatus}).",

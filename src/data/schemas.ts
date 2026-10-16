@@ -715,6 +715,20 @@ export const playerFileSchema = z.strictObject({
     ),
   }),
   /**
+   * Poise (stability, fase S.6): your maximum is `baseMax` plus `perKg` for every kg of weapons
+   * and gear you carry (the same weight as the equip load), so heavier equipment stands firmer.
+   * A monster hit drains it; at 0 you stagger for `staggerSeconds` and cannot act.
+   * `critFactor` multiplies the poise damage of your own critical hits.
+   */
+  poise: z.strictObject({
+    baseMax: max(nonNegative, 1000),
+    perKg: max(nonNegative, 100),
+    regenDelaySeconds: max(nonNegative, 30),
+    regenPerSecond: max(nonNegative, 1000),
+    staggerSeconds: max(positive, 5),
+    critFactor: range(1, 10),
+  }),
+  /**
    * Third-person camera over the shoulder (like Genshin Impact). Sharpness values are per
    * second (higher = snappier). Pitch is the angle below the horizon; negative looks up.
    */
@@ -781,11 +795,15 @@ export const playerFileSchema = z.strictObject({
       damage: positive,
       energyCost: nonNegative,
       maxPerSecond: max(positive, 10),
+      /** Poise damage this hit does to a monster (fase S.6). */
+      poiseDamage: max(nonNegative, 1000),
     }),
     heavyHit: z.strictObject({
       damage: positive,
       energyCost: nonNegative,
       windupSeconds: max(nonNegative, 5),
+      /** Poise damage this hit does to a monster (fase S.6): a heavy hit breaks poise. */
+      poiseDamage: max(nonNegative, 1000),
     }),
     comboEveryNthHit: z.int().check(z.minimum(2)),
     comboBonus: max(nonNegative, 5),
@@ -819,6 +837,8 @@ export const playerFileSchema = z.strictObject({
       /** The staff lights up this long before the shard leaves it. */
       windupSeconds: max(nonNegative, 5),
       speed: max(positive, 100),
+      /** Poise damage to a monster (fase S.6). */
+      poiseDamage: max(nonNegative, 1000),
       /** How far a shard flies before it fizzles out (m). */
       range: max(positive, 100),
       /** Half the thickness of the shot for hit tests (m). */
@@ -1120,6 +1140,13 @@ const monsterSchema = z.strictObject({
    */
   egg: optional(id),
   neutral: optional(z.boolean()),
+  /**
+   * Poise (stability, fase S.6): hits drain it and at 0 the monster staggers (its attack is
+   * interrupted). Without `poise` it never staggers. Bosses are not staggered yet (S.8).
+   */
+  poise: optional(max(positive, 100_000)),
+  /** Poise damage its hit does to the player (see player.json `poise`); default 0. */
+  poiseDamage: optional(max(nonNegative, 100_000)),
   groupSize: optional(z.strictObject({ min: posInt, max: posInt })),
   splitsInto: optional(z.strictObject({ monster: id, count: posInt })),
   transformsFrom: optional(id),
@@ -1163,6 +1190,12 @@ export const monstersFileSchema = z.strictObject({
     calmDownSeconds: max(positive, 600),
     /** When one monster of a pack notices you, its pack mates within this distance (m) join. */
     packAggroRadius: max(nonNegative, 100),
+    /** Poise of monsters that have `poise` (fase S.6): regeneration and how long a break lasts. */
+    poise: z.strictObject({
+      regenDelaySeconds: max(nonNegative, 60),
+      regenPerSecond: max(nonNegative, 1000),
+      staggerSeconds: max(positive, 10),
+    }),
   }),
   monsters: z.array(monsterSchema),
 });
@@ -1546,6 +1579,8 @@ export const spellsFileSchema = z.strictObject({
       manaCost: nonNegative,
       cooldownSeconds: max(nonNegative, 120),
       damage: nonNegative,
+      /** Poise damage to a monster (fase S.6); a charged shot does more, like its damage. */
+      poiseDamage: max(nonNegative, 1000),
       range: max(positive, 100),
       usesPerLevel: posInt,
       /** Pulling the spell together takes this long (s) before it leaves the staff. */

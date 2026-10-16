@@ -81,7 +81,13 @@ describe('what your path gives you (fase 3.8)', () => {
     const swingSeconds = (path: 'sword' | null): number => {
       const c = combatFor(path);
       const energy = { energy: player.base.energy, sinceEnergySpent: 0, exhausted: false };
-      const out: SwordResult = { landed: 'none', damage: 0, combo: false, crit: false };
+      const out: SwordResult = {
+        landed: 'none',
+        damage: 0,
+        poiseDamage: 0,
+        combo: false,
+        crit: false,
+      };
       const input = { fast: true, heavy: false, critRoll: 1 };
       const dt = 1 / 60;
       let seconds = 0;

@@ -77,6 +77,14 @@
       }
     ]
   },
+  "poise": {
+    "baseMax": 15,
+    "perKg": 1.5,
+    "regenDelaySeconds": 3,
+    "regenPerSecond": 15,
+    "staggerSeconds": 0.6,
+    "critFactor": 2
+  },
   "camera": {
     "fovDegrees": 55,
     "targetHeight": 1.45,
@@ -139,12 +147,14 @@
     "fastHit": {
       "damage": 9,
       "energyCost": 10,
-      "maxPerSecond": 3
+      "maxPerSecond": 3,
+      "poiseDamage": 6
     },
     "heavyHit": {
       "damage": 22,
       "energyCost": 25,
-      "windupSeconds": 0.9
+      "windupSeconds": 0.9,
+      "poiseDamage": 30
     },
     "comboEveryNthHit": 3,
     "comboBonus": 0.5,
@@ -164,6 +174,7 @@
   "staff": {
     "shard": {
       "damage": 8,
+      "poiseDamage": 5,
       "manaCost": 0,
       "maxPerSecond": 2,
       "windupSeconds": 0.2,

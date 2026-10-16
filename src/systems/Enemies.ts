@@ -12,6 +12,7 @@ import type {
 import type { PointXZ } from '../world/Colliders';
 import { emptyBox, pointInShape, shapeBounds } from '../world/Shapes';
 import { type BossWorld, BossState, startBoss, stepBoss } from './BossAI';
+import { damagePoise, stepPoise } from './Poise';
 import {
   defeat,
   type EnemyAiConfig,
@@ -404,6 +405,7 @@ export class Enemies {
       if (e.flash > 0) e.flash = Math.max(0, e.flash - dt);
       if (e.wobble > 0) e.wobble = Math.max(0, e.wobble - dt);
       e.safe = this.inSafeArea(e);
+      stepPoise(e.poise, this.ai.poise, dt);
       if (e.def.behavior === 'static') {
         this.stepDummy(e, dt);
       } else if (e.boss) {
@@ -477,9 +479,10 @@ export class Enemies {
 
   /**
    * Deals damage to an enemy. Returns true when this hit defeated it. A hit monster fights
-   * back (with its pack); a defeated Big Slime splits.
+   * back (with its pack); a defeated Big Slime splits. `poiseDamage` drains its poise (fase
+   * S.6): when that breaks, the monster staggers and an attack in progress is interrupted.
    */
-  hit(e: Enemy, damage: number): boolean {
+  hit(e: Enemy, damage: number, poiseDamage = 0): boolean {
     if (!e.alive) return false;
     e.hp = Math.max(0, e.hp - damage);
     e.sinceHit = 0;
@@ -500,11 +503,21 @@ export class Enemies {
       if (e.mode === 'return') e.mode = 'chase';
       engage(e);
       this.alert(e);
+      if (damagePoise(e.poise, poiseDamage, this.ai.poise)) this.stagger(e);
       return false;
     }
     defeat(e, this.ai);
     this.split(e);
     return true;
+  }
+
+  /** Poise broke: whatever the monster was doing is cut short (it is back to chasing after). */
+  private stagger(e: Enemy): void {
+    if (e.attacking) {
+      e.mode = 'chase';
+      e.struck = true;
+    }
+    e.wobble = WOBBLE_SECONDS;
   }
 
   /** `e` noticed the player: its pack mates nearby join in. */
