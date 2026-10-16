@@ -1,0 +1,30 @@
+{
+  "player": {
+    "clips": {
+      "idle": "Idle",
+      "walk": "Walk",
+      "run": "Run",
+      "sprint": "Sprint",
+      "jumpStart": "Jump_Start",
+      "jumpAir": "Jump_Air",
+      "land": "Land",
+      "dash": "Dash",
+      "dashRecover": "Dash_Recover",
+      "slash1": "Slash_1",
+      "slash2": "Slash_2",
+      "slash3": "Slash_3",
+      "heavyWindup": "Heavy_Windup",
+      "heavyStrike": "Heavy_Strike",
+      "castGather": "Cast_Gather",
+      "castRelease": "Cast_Release",
+      "hit": "Hit",
+      "death": "Death",
+      "interact": "Interact"
+    },
+    "handBone": "RightHand",
+    "weapons": {
+      "sword": "Sword_",
+      "staff": "Staff_"
+    }
+  }
+}

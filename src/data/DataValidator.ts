@@ -120,6 +120,28 @@ class CrossChecker {
     this.checkDayNight();
     this.checkNightSpawns();
     this.checkEggs();
+    this.checkAnimations();
+  }
+
+  /**
+   * The player model: every weapon's name start must pick only its own meshes (one may not
+   * start with another, or a mesh would belong to two weapons), and not the hand bone itself.
+   * That every clip exists in player.glb is checked by a test, the .glb is not data.
+   */
+  private checkAnimations(): void {
+    const p = this.data.animations.player;
+    const f = 'animations';
+    const weapons = Object.entries(p.weapons);
+    for (const [kind, prefix] of weapons) {
+      for (const [other, otherPrefix] of weapons) {
+        if (other !== kind && otherPrefix.startsWith(prefix)) {
+          this.issue(f, `player.weapons.${kind}`, `"${prefix}" also matches the ${other} meshes`);
+        }
+      }
+      if (p.handBone.startsWith(prefix)) {
+        this.issue(f, `player.weapons.${kind}`, `"${prefix}" also matches the hand bone`);
+      }
+    }
   }
 
   /** Day and night: a look per phase, the golden hour look, known colors and text keys. */
