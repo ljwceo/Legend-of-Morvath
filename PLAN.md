@@ -264,6 +264,47 @@ _Chat 5 (A.5a–c) heeft geen Blender nodig en mag vóór of tegelijk met A.2–
 
 ---
 
+## Fase S – Souls-like gevecht · **open** (concept 2026-10-16, Bo/Lucas)
+
+Doel: het gevecht souls-like maken (stamina, rol met onkwetsbare frames, aankondiging en raakvensters per aanval, poise) binnen de bestaande 3D-opzet, zonder enginewissel. Alle stappen van deze fase gaan via branch `auto/souls` en worden pas na akkoord van Bo/Lucas in `main` gezet. Concept: Claude Doc "Concept: Fase S – Souls-like gevecht".
+
+**Uitgangspunten (voorstel; gelden tot Bo/Lucas in S.0 anders besluiten)**
+
+| Nr | Vraag | Uitgangspunt |
+| --- | --- | --- |
+| S-1 | Hoe zwaar? | Uitdagend maar eerlijk: één moeilijkheid, duidelijke aankondiging per aanval, geen difficulty-instelling |
+| S-2 | Rol en dash | Eén knop: de dash wordt de rol (met onkwetsbare frames); in lock-on rol je in de stickrichting |
+| S-3 | Blokkeren en parry | Nog niet; later als pad-perk voor de zwaardvechter |
+| S-4 | Doodgaan | Zoals nu (−10% gold, checkpoint), geen verloren zielen |
+| S-5 | iPhone | Volwaardig, dezelfde timing als pc, grote rol-knop, gamepad via Bluetooth |
+| S-6 | Mage | Mana blijft; casten kost tijd waarin je kwetsbaar bent, je kunt eruit rollen. Aanvulling van Bo/Lucas (2026-10-16): de mage is de hoofdrol met veel spells, enchants en boosts en blijft veelzijdig; de zwaardvechter is voor wie geen poespas wil en is bewust wat makkelijker (de zin in het doc is afgebroken na "makkelijker dan") |
+| S-7 | Raids | De eigen client beslist over zijn eigen rol, de host controleert ruim |
+| S-8 | Springen | Blijft, geen dash of rol in de lucht; sluit aan op A.5a |
+
+**Eisen (gelden voor alle S-stappen)**
+
+- Vaste tijdstap: alle vensters (onkwetsbare frames, raakvensters, stagger) in seconden uit data, geteld op 60 Hz. Op 60 en 120 fps geeft dezelfde invoer exact dezelfde uitkomst, met een test per stap.
+- Gelijk op elke grafische stand: Low, Mid en High verschillen alleen in uiterlijk, nooit in timing of hitboxes.
+- Data buiten de code: alle tijden, kosten en vensters in `public/data/`, alle teksten in `en.json` en `nl.json`, met `{keyDodge}`-achtige tokens voor toetsen.
+- Geen allocaties in de gameloop en alle nieuwe effecten uit een pool.
+- Eén stap per sessie en klein bouwen: niet vooruit werken; Bo en Lucas testen na elke stap.
+
+**Stappen**
+
+- [ ] **S.0 Besluiten (Bo/Lucas)** — vragen S-1 t/m S-8 beantwoorden en vastleggen in `docs/PROGRESS.md` → Besluiten, in `CLAUDE.md` sectie 1 en in het spelconcept. _Klaar als:_ alle acht vragen een antwoord hebben en sectie 1 souls-like noemt.
+- [ ] **S.1 Meten vóór bouwen (Bo/Lucas)** — stap 3.10.2 uitvoeren en uitbreiden met de iPhone (Safari) op Low, Mid en High. _Klaar als:_ de fps per stand, ook op de iPhone, in `docs/PROGRESS.md` staan.
+- [ ] **S.2 Gamepad** — `Input` krijgt de Gamepad API als bron, standaardbindingen in `controls.json`, bindbaar in Settings → Besturing. _Klaar als:_ lopen, camera, lock-on, slaan en dash met een controller werken in Chrome en Safari en de mapping getest is.
+- [ ] **S.3 Stamina-regels** — de energiebalk blijft; erbij komen: regen pas na een pauze (`energyDelaySeconds` bestaat al), uitgeput zijn bij 0 en kosten per actie uit `player.json`. _Klaar als:_ elke actie kost wat de data zegt en 60 en 120 Hz exact dezelfde uitkomst geven (test).
+- [ ] **S.4 Rol met onkwetsbare frames** — de dash krijgt `iFrames` (start en einde), `recoverySeconds` en afstand in `player.json`; de schadecheck slaat je over tijdens de onkwetsbare frames; richting volgt de lock-on; touch krijgt een eigen rol-knop. _Klaar als:_ een aanval die binnen het venster raakt mist, erbuiten wel raakt, en dat op 60 en 120 Hz gelijk is (test).
+- [ ] **S.5a Aanvalsfases van vijanden** — elke vijandaanval in data in fases: aankondiging, raakvenster, herstel (`monsters.json`, `EnemyAI.ts`). _Klaar als:_ Green Slime en Goblin hun aanvallen uit data halen en een test bewijst dat schade alleen in het raakvenster valt.
+- [ ] **S.5b Aankondiging zichtbaar** — per aanval een duidelijke visuele cue in toon-stijl, de aankondigingstijd uit data. _Klaar als:_ elke aanval van tevoren te zien is en de cue op Low, Mid en High even lang duurt.
+- [ ] **S.6 Stagger en poise** — een poise-balk voor vijanden en speler; een zware slag of kritieke treffer breekt poise; het gewicht van je uitrusting (draaglast) bepaalt hoe stabiel je staat. _Klaar als:_ een vijand wankelt als zijn poise breekt en zwaardere uitrusting jou stabieler maakt (test).
+- [ ] **S.7 Blokkeren of parry (alleen als S-3 ja is)** — timingvenster uit data, kost stamina. _Klaar als:_ een goed getimede parry de aanval afvangt en het venster op 60 en 120 Hz gelijk is (test).
+- [ ] **S.8 Sultan opnieuw afstellen** — Sultan (Claw Combo, Pounce, Dash Strike, Flurry) herbouwen met de aanvalsfases uit S.5a; hij is de proefbaas. _Klaar als:_ Sultan alleen schade doet in zijn raakvensters en een nagebootste speler hem met rollen kan ontwijken (test).
+- [ ] **S.9 Spelen en meten (Bo/Lucas)** — Sultan en een goblinkamp spelen op pc, met controller en op de iPhone; "Meet 20 s" tijdens een gevecht op Low en High. _Klaar als:_ Bo en Lucas zeggen of het souls-like genoeg voelt en de fps in `docs/PROGRESS.md` staat.
+
+---
+
 ## Later (backlog, nog geen stappen)
 
 Seizoenseffecten · crafting en drogen · de Garden en farming (ook de bedden `MON_FarmPlot_1…6` in de kloostertuin) · Grimoire · lichtwezen-quest in Old Tjikko (alleen lente) · Nature Crystal in de Greenwood · eenmalig overstappen van zwaardvechter naar mage · de overige zones (Eredhollow, Ruins of Dunmar, Mountains of Karad Vorn, Plains of Tharond, Morvath, Black Citadel, Frozen Lake) · Warrior/Berserker (level 15) · Old Rivals (pas daar komt de naam Ruben voor) · Nine Lives (rematch met Sultan) · Second Wind · de Greenwood-side quests van de leraren (na de poort, gear als beloning) · een echte landpoort in het Blender-model.
