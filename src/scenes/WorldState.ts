@@ -4375,6 +4375,7 @@ export class WorldState implements GameState, InstanceHost {
       this.scenePlayer = buildPlayerModel(
         this.sceneAssets,
         def,
+        data.animations.player,
         this.lighting.uniforms,
         resolveColorToken,
         player.model.colors,

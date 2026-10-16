@@ -1,14 +1,19 @@
-import { Box3, Color, Group, type Material, Mesh, Vector3 } from 'three';
-import type { SceneDef } from '../../data/types';
+import {
+  type AnimationClip,
+  Box3,
+  Color,
+  Group,
+  type Material,
+  Mesh,
+  type Object3D,
+  SkinnedMesh,
+  Vector3,
+} from 'three';
+import { PLAYER_CLIP_ROLES, WEAPON_KINDS } from '../../data/schemas';
+import type { PlayerAnimationsDef, PlayerClipRole, SceneDef, WeaponKind } from '../../data/types';
 import type { SharedLightUniforms } from '../../render/toon/ToonMaterial';
 import type { BlenderMaterial, SceneAssets } from './SceneAssets';
 import { buildMaterial, materialName } from './SceneZone';
-
-/**
- * Nodes of player.glb that the game draws itself (the sword swings with the combat poses); the
- * staff stays hidden with it until step A.3 picks the weapon.
- */
-const GAME_DRAWN = /^(Sword|Staff)_/;
 
 /** Which Blender material takes which character creator color. */
 const APPEARANCE_MATERIALS: Record<string, 'hair' | 'skin' | 'mantle' | 'embroidery'> = {
@@ -25,6 +30,17 @@ const MAX_TINT = 4;
 export interface ScenePlayerModel {
   /** Feet at y = 0, facing +z (the game's heading 0). */
   root: Group;
+  /** The model from player.glb (the armature `PlayerRig` is in it): what a mixer animates. */
+  rig: Object3D;
+  /** The skinned meshes (body, cloak, their outlines), all on the one skeleton. */
+  skinned: readonly SkinnedMesh[];
+  /** The clip of each role from animations.json; a clip missing in player.glb is left out. */
+  clips: ReadonlyMap<PlayerClipRole, AnimationClip>;
+  /**
+   * Shows the Blender weapon of this kind in the right hand, or none (null). Hidden at the
+   * start: until the animator (step A.3c) the game draws its own swinging sword.
+   */
+  showWeapon(kind: WeaponKind | null): void;
   dispose(): void;
 }
 
@@ -43,15 +59,41 @@ export function textureTint(chosen: Color, average: [number, number, number], ou
   );
 }
 
+/** Which weapon a node belongs to (its name starts with that weapon's prefix), or null. */
+export function weaponOf(name: string, weapons: Record<WeaponKind, string>): WeaponKind | null {
+  for (const kind of WEAPON_KINDS) if (name.startsWith(weapons[kind])) return kind;
+  return null;
+}
+
+/**
+ * Looks up the clip of every role by its name in animations.json. Fills `out` and returns the
+ * roles whose clip is not in the model (they stay out of `out`).
+ */
+export function resolveClips(
+  names: Record<PlayerClipRole, string>,
+  available: readonly AnimationClip[],
+  out: Map<PlayerClipRole, AnimationClip>,
+): PlayerClipRole[] {
+  const missing: PlayerClipRole[] = [];
+  for (const role of PLAYER_CLIP_ROLES) {
+    const clip = available.find((entry) => entry.name === names[role]);
+    if (clip) out.set(role, clip);
+    else missing.push(role);
+  }
+  return missing;
+}
+
 /**
  * The starting character from player.glb with the toon material, in the colors chosen in the
  * character creator (mantle, embroidery, hair, skin). The "Outline" material is an inverted
  * hull, drawn front-side only. A textured material (the skin) takes its creator color as a
- * tint over the texture; a flat one takes it as its color.
+ * tint over the texture; a flat one takes it as its color. Its clips and weapons are named in
+ * animations.json.
  */
 export function buildPlayerModel(
   assets: SceneAssets,
   def: SceneDef,
+  anim: PlayerAnimationsDef,
   shared: SharedLightUniforms,
   color: (token: string) => number,
   colors: Record<'hair' | 'skin' | 'mantle' | 'embroidery', Color>,
@@ -59,13 +101,18 @@ export function buildPlayerModel(
   const model = assets.player.scene;
   model.updateMatrixWorld(true);
   const materials = new Map<string, Material>();
+  const skinned: SkinnedMesh[] = [];
+  const weapons: Record<WeaponKind, Object3D[]> = { sword: [], staff: [] };
   const box = new Box3();
+  let hand: Object3D | undefined;
   model.traverse((object) => {
+    if (object.name === anim.handBone) hand = object;
+    const own = weaponOf(object.name, anim.weapons);
+    if (own) weapons[own].push(object);
     if (!(object instanceof Mesh)) return;
-    if (GAME_DRAWN.test(object.name) || GAME_DRAWN.test(object.parent?.name ?? '')) {
-      object.visible = false;
-      return;
-    }
+    // A mesh with several materials is a group of primitives that carry the mesh's own name.
+    const weapon = own ?? weaponOf(object.parent?.name ?? '', anim.weapons);
+    if (object instanceof SkinnedMesh) skinned.push(object);
     const name = materialName(object);
     let material = materials.get(name);
     if (!material) {
@@ -76,8 +123,27 @@ export function buildPlayerModel(
       materials.set(name, material);
     }
     object.material = material;
-    box.expandByObject(object);
+    // The weapons stay out of the box: the feet and the body decide where the model stands.
+    if (!weapon) box.expandByObject(object);
   });
+  for (const kind of WEAPON_KINDS) {
+    for (const part of weapons[kind]) {
+      if (!isUnder(part, hand)) {
+        console.warn(`player.glb: "${part.name}" does not hang from "${anim.handBone}"`);
+      }
+    }
+  }
+  const showWeapon = (kind: WeaponKind | null) => {
+    for (const other of WEAPON_KINDS) {
+      for (const part of weapons[other]) part.visible = other === kind;
+    }
+  };
+  showWeapon(null);
+  const clips = new Map<PlayerClipRole, AnimationClip>();
+  const missing = resolveClips(anim.clips, assets.player.animations, clips);
+  if (missing.length > 0) {
+    console.warn(`player.glb has no clip for: ${missing.map((r) => anim.clips[r]).join(', ')}`);
+  }
   // Feet on the ground and centered; the Blender model looks along Blender -Y, which is +z here.
   const center = box.getCenter(new Vector3());
   model.position.set(-center.x, -box.min.y, -center.z);
@@ -86,14 +152,24 @@ export function buildPlayerModel(
   root.add(model);
   return {
     root,
+    rig: model,
+    skinned,
+    clips,
+    showWeapon,
     dispose: () => {
       root.removeFromParent();
       model.traverse((object) => {
         if (object instanceof Mesh) object.geometry.dispose();
       });
+      for (const mesh of skinned) mesh.skeleton.dispose();
       for (const material of materials.values()) material.dispose();
     },
   };
+}
+
+function isUnder(object: Object3D, ancestor: Object3D | undefined): boolean {
+  for (let node = object.parent; node; node = node.parent) if (node === ancestor) return true;
+  return false;
 }
 
 function applyCreatorColor(
