@@ -1070,10 +1070,13 @@ const monsterAiSchema = z.strictObject({
   attack: z.strictObject({
     style: z.enum(['strike', 'lunge', 'shoot']),
     range: max(positive, 50),
+    /** Phase 1, the announcement: the monster shows it will strike; no damage yet (s). */
     windupSeconds: max(nonNegative, 5),
+    /** Phase 2, the hit window: only now can the attack hurt (a lunge moves this long) (s). */
+    hitSeconds: max(positive, 5),
+    /** Phase 3, the recovery: the monster is open and cannot hurt (s). */
     recoverySeconds: max(nonNegative, 10),
     cooldownSeconds: max(nonNegative, 30),
-    strikeSeconds: optional(max(positive, 5)),
     lungeDistance: optional(max(positive, 20)),
     projectileSpeed: optional(max(positive, 100)),
   }),

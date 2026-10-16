@@ -188,8 +188,10 @@ export class EnemyRenderer {
         else if (!currentSpecial(e)) lean += WINDUP_LEAN * progress;
         else lift = 0.25 * progress;
       } else if (e.mode === 'strike') {
-        lift = HOP_HEIGHT * 0.8;
-        squash = -0.15;
+        if (e.def.ai?.attack.style === 'lunge') {
+          lift = HOP_HEIGHT * 0.8;
+          squash = -0.15;
+        } else if (!blob) lean += STRIKE_LEAN;
       } else if (e.mode === 'recover' && !blob) {
         const since = (e.def.ai?.attack.recoverySeconds ?? 0) - e.timer;
         if (since < STRIKE_SHOW_SECONDS) lean += STRIKE_LEAN * (1 - since / STRIKE_SHOW_SECONDS);

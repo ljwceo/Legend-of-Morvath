@@ -840,8 +840,8 @@ class CrossChecker {
       const ai = monster.ai;
       if (ai) {
         const attack = ai.attack;
-        if (attack.style === 'lunge' && (!attack.lungeDistance || !attack.strikeSeconds)) {
-          this.issue(f, `${p}.ai.attack`, 'a lunge needs lungeDistance and strikeSeconds');
+        if (attack.style === 'lunge' && (!attack.lungeDistance || !attack.hitSeconds)) {
+          this.issue(f, `${p}.ai.attack`, 'a lunge needs lungeDistance and hitSeconds');
         }
         if (attack.style === 'shoot' && !attack.projectileSpeed) {
           this.issue(f, `${p}.ai.attack.projectileSpeed`, 'a shooting attack needs a speed');
