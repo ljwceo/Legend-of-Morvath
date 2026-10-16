@@ -8,8 +8,10 @@
       Dev-only preview of public/zones/greyhaven/player.glb: plays every clip on the skinned model.
       Not part of the game and not in the build. Run `npm run dev`, then open
       http://localhost:5173/Legend-of-Morvath/tools/player-preview/index.html
-      Colours come from materials.json (flat colours, no game shader, no outline shader yet:
-      the Outline hulls are drawn as plain dark front faces, like the game does for statics).
+      Colours come from materials.json. Plain: flat Lambert colours, the Outline hulls as dark
+      front faces. "Game-shader": the game's ToonMaterial (src/render/toon, served by Vite),
+      textured skin and tunic, the skin tone from appearance.json as a tint over the texture,
+      exactly as ScenePlayerModel does it (step A.3a).
     -->
     <style>
       * {
@@ -151,6 +153,11 @@
       <label><input id="loop" type="checkbox" checked /> Herhalen</label>
       <label><input id="sword" type="checkbox" checked /> Zwaard</label>
       <label><input id="staff" type="checkbox" /> Staf</label>
+      <label><input id="game" type="checkbox" /> Game-shader</label>
+      <label
+        >Huid
+        <select id="skin"></select
+      ></label>
     </div>
     <div id="info"></div>
     <div id="msg">Laden…</div>
@@ -178,10 +185,18 @@
         WebGLRenderer,
         FrontSide,
         SRGBColorSpace,
+        ClampToEdgeWrapping,
+        TextureLoader,
       } from 'three';
       import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
       import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
       import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+      // The game's own toon shader (TypeScript, compiled by the Vite dev server).
+      import {
+        createSharedLightUniforms,
+        createToonMaterial,
+      } from '../../src/render/toon/ToonMaterial.ts';
+      import { textureTint } from '../../src/world/scene/ScenePlayerModel.ts';
 
       const $ = (id) => document.getElementById(id);
       const say = (text) => {
@@ -225,8 +240,9 @@
       const loader = new GLTFLoader();
       loader.setDRACOLoader(draco);
 
-      function gameMaterial(info) {
-        const rgb = (c) => new Color().setRGB(c[0], c[1], c[2], LinearSRGBColorSpace);
+      const rgb = (c) => new Color().setRGB(c[0], c[1], c[2], LinearSRGBColorSpace);
+
+      function plainMaterial(info) {
         if (!info) return new MeshLambertMaterial({ color: 0xb0b0b0 });
         if (info.kind === 'outline')
           return new MeshBasicMaterial({ color: rgb(info.color), side: FrontSide });
@@ -238,6 +254,83 @@
           color: rgb(info.color ?? [0.7, 0.7, 0.7]),
           side: FrontSide,
         });
+      }
+
+      // A fixed afternoon light for the game shader (the game's day-night cycle writes these).
+      const shared = createSharedLightUniforms();
+      shared.lightDir.value.set(2, 4, 3).normalize();
+      shared.sunCol.value.setRGB(1.0, 0.95, 0.85, LinearSRGBColorSpace);
+      shared.shadowCol.value.setRGB(0.42, 0.46, 0.62, LinearSRGBColorSpace);
+      shared.fogCol.value.setRGB(0.6, 0.65, 0.75, LinearSRGBColorSpace);
+      shared.fogNear.value = 200;
+      shared.fogFar.value = 400;
+      const textures = new Map();
+      const textured = new Map(); // material name -> ShaderMaterial (its tint is updated live)
+      let skinTone = null; // hex of the chosen tone, null = the texture as painted
+
+      function gameMaterial(name, info) {
+        if (!info) return plainMaterial(info);
+        if (info.kind === 'outline')
+          return new MeshBasicMaterial({ color: rgb(info.color), side: FrontSide });
+        if (info.kind === 'emit') {
+          return createToonMaterial(shared, {
+            mode: 'glow',
+            color: rgb(info.color),
+            strength: info.strength,
+          });
+        }
+        if (info.kind === 'textured') {
+          let map = textures.get(info.tex);
+          if (!map) {
+            // Same as SceneAssets: sRGB, glTF orientation (flipY off), not repeated.
+            map = new TextureLoader().load(here('../../zones/greyhaven/tex/' + info.tex));
+            map.colorSpace = SRGBColorSpace;
+            map.flipY = false;
+            map.wrapS = map.wrapT = ClampToEdgeWrapping;
+            map.anisotropy = 4;
+            textures.set(info.tex, map);
+          }
+          const material = createToonMaterial(shared, { mode: 'textured', map });
+          textured.set(name, material);
+          applySkinTone();
+          return material;
+        }
+        return createToonMaterial(shared, {
+          mode: 'lit',
+          color: rgb(info.color ?? [0.7, 0.7, 0.7]),
+        });
+      }
+
+      function applySkinTone() {
+        const material = textured.get('Skin');
+        const info = materialsInfo.materials.Skin;
+        if (!material || !info) return;
+        if (skinTone)
+          textureTint(new Color(skinTone), info.color ?? [1, 1, 1], material.uniforms.tint.value);
+        else material.uniforms.tint.value.setRGB(1, 1, 1);
+      }
+
+      let materialsInfo = { materials: {} };
+      const plain = new Map();
+      const game = new Map();
+      const meshes = [];
+
+      function applyMaterials() {
+        const useGame = $('game').checked;
+        const cache = useGame ? game : plain;
+        for (const o of meshes) {
+          const swap = (m) => {
+            let material = cache.get(m.name);
+            if (!material) {
+              const info = materialsInfo.materials[m.name];
+              material = useGame ? gameMaterial(m.name, info) : plainMaterial(info);
+              cache.set(m.name, material);
+            }
+            return material;
+          };
+          o.material = Array.isArray(o.source) ? o.source.map(swap) : swap(o.source);
+        }
+        $('skin').disabled = !useGame;
       }
 
       let mixer = null;
@@ -272,13 +365,31 @@
       }
 
       async function start() {
-        let info = { materials: {} };
         try {
-          info = await (
+          materialsInfo = await (
             await fetch(here('../../zones/greyhaven/materials.json'), { cache: 'no-cache' })
           ).json();
         } catch (e) {
           console.warn('materials.json not read, grey materials', e);
+        }
+        try {
+          const appearance = await (
+            await fetch(here('../../data/appearance.json'), { cache: 'no-cache' })
+          ).json();
+          const none = document.createElement('option');
+          none.value = '';
+          none.textContent = 'texture';
+          $('skin').append(none);
+          for (const tone of appearance.skinTones) {
+            const option = document.createElement('option');
+            option.value = tone.hex;
+            option.textContent = `${tone.id} ${tone.hex}`;
+            option.selected = tone.id === appearance.defaults.skinTone;
+            $('skin').append(option);
+          }
+          skinTone = $('skin').value || null;
+        } catch (e) {
+          console.warn('appearance.json not read, no skin tones', e);
         }
         const gltf = await loader.loadAsync(here('../../zones/greyhaven/player.glb'));
         const model = gltf.scene;
@@ -293,8 +404,14 @@
           o.frustumCulled = false;
           const index = o.geometry.index;
           tris += (index ? index.count : o.geometry.attributes.position.count) / 3;
-          const swap = (m) => gameMaterial(info.materials[m.name]);
-          o.material = Array.isArray(o.material) ? o.material.map(swap) : swap(o.material);
+          o.source = o.material; // the glTF materials: only their names matter
+          meshes.push(o);
+        });
+        applyMaterials();
+        $('game').addEventListener('change', applyMaterials);
+        $('skin').addEventListener('change', () => {
+          skinTone = $('skin').value || null;
+          applySkinTone();
         });
         model.updateMatrixWorld(true);
         // Same as the game: feet on the floor, centred.

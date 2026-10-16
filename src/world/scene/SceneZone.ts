@@ -661,6 +661,15 @@ export function buildMaterial(
     });
   }
   if (d.kind === 'water') return createToonMaterial(shared, { mode: 'water', side: DoubleSide });
+  if (d.kind === 'textured') {
+    // A character's painted texture (the skin and tunic of the player), × `tint`.
+    return createToonMaterial(shared, {
+      mode: 'textured',
+      map: assets.textures.get(d.tex ?? '') ?? null,
+      tint: rgb(d.tint),
+      side,
+    });
+  }
   if (d.kind === 'foliage') {
     // Cards are seen from both sides; their normals point outwards (round tree crowns).
     return createToonMaterial(shared, {
