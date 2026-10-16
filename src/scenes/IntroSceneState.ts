@@ -635,7 +635,7 @@ export class IntroSceneState implements GameState {
     this.effects?.draw(alpha);
 
     // The mouse must be captured to strike and turn: say so until it is (not for touch).
-    const showLook = !input.pointerLocked && !this.usesTouch();
+    const showLook = !input.pointerLocked && !input.usingPad && !this.usesTouch();
     if (showLook !== this.lookHintShown) {
       this.lookHintShown = showLook;
       this.lookHint?.classList.toggle('ui-look-hint-visible', showLook);
@@ -1031,7 +1031,9 @@ export class IntroSceneState implements GameState {
         zoomStepPerWheelNotch: camera.zoomStepPerWheelNotch,
       },
       this.ctx.bindings,
+      this.ctx.pads,
     );
+    // Start does nothing in this fight on purpose: it has no pause menu (Escape skips it, held).
     this.input.attach();
     // The touch buttons carry the fight's abilities: the explosion on the heavy-hit button, the
     // thunder on the drink button (named, no flask) and the icicle on the lock-on button.

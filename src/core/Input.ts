@@ -1,4 +1,5 @@
 import { type Action, Bindings, mouseCode } from './Bindings';
+import { PadBridge, type PadFrame, type PadHub } from './gamepad';
 
 export type { Action };
 
@@ -56,9 +57,12 @@ const WHEEL_LINE_PX = 40;
 const WHEEL_NOTCH_PX = 100;
 
 /**
- * One input layer for keyboard, mouse and touch. The game asks for actions and a move vector
- * (`getMoveVector`, `isPressed`, `consumePressed`), never for keys, so a gamepad can be added
- * here later without touching game code.
+ * One input layer for keyboard, mouse, touch and gamepad. The game asks for actions and a move
+ * vector (`getMoveVector`, `isPressed`, `consumePressed`), never for keys or buttons.
+ *
+ * - Gamepad: the `PadHub` reads the controllers once per frame; this class listens to it. Buttons
+ *   go through `Bindings` like keys do (Pad0 = A, ...), the left stick walks, the right stick
+ *   turns the camera, Start pauses (always, it cannot be bound).
  *
  * - Keyboard and mouse buttons go through `Bindings`, so every action can be set in
  *   Settings -> Controls (defaults from controls.json: WASD / arrows, Space, E, Q, I, Tab, X).
@@ -77,6 +81,10 @@ export class Input {
   private mirrored = false;
   /** Called when the mouse lock ends without the game asking (the player pressed Escape). */
   onPointerLockLost: (() => void) | null = null;
+  /** Called when Start on a controller is pressed: the same as Escape. */
+  onPausePressed: (() => void) | null = null;
+  /** True after the last real input came from a controller (hides "click to look around"). */
+  usingPad = false;
 
   private readonly held = new Set<Action>();
   private readonly pressed = new Set<Action>();
@@ -92,6 +100,8 @@ export class Input {
   private pinchY = 0;
   private pinchDistance = 0;
   private attached = false;
+  private readonly bridge: PadBridge;
+  private unsubscribePad: (() => void) | null = null;
   /** True while the game itself releases the lock, so it is not reported as lost. */
   private releasingLock = false;
   /** True once this surface has held the mouse: a lock that ends before that was never ours. */
@@ -102,7 +112,16 @@ export class Input {
     private readonly cfg: InputConfig,
     /** Which key or mouse button does what; shared with Settings -> Controls. */
     private readonly bindings: Bindings = new Bindings(),
-  ) {}
+    /** Gamepad source (one per game); without it only keyboard, mouse and touch work. */
+    private readonly pads: PadHub | null = null,
+  ) {
+    this.usingPad = bindings.padHints;
+    this.bridge = new PadBridge(bindings, {
+      press: (action) => this.press(action),
+      release: (action) => this.release(action),
+      pause: () => this.onPausePressed?.(),
+    });
+  }
 
   attach(): void {
     if (this.attached) return;
@@ -119,6 +138,11 @@ export class Input {
     s.addEventListener('wheel', this.onWheel, { passive: false });
     s.addEventListener('contextmenu', this.onContextMenu);
     document.addEventListener('pointerlockchange', this.onPointerLockChange);
+    if (this.pads) {
+      this.unsubscribePad = this.pads.subscribe(this.onPadFrame);
+      // A controller that was connected before this scene loaded sent its event long ago.
+      this.pads.probe();
+    }
   }
 
   detach(): void {
@@ -136,6 +160,8 @@ export class Input {
     s.removeEventListener('wheel', this.onWheel);
     s.removeEventListener('contextmenu', this.onContextMenu);
     document.removeEventListener('pointerlockchange', this.onPointerLockChange);
+    this.unsubscribePad?.();
+    this.unsubscribePad = null;
     this.releasePointerLock();
     this.releaseAll();
   }
@@ -180,6 +206,12 @@ export class Input {
       const length = Math.sqrt(x * x + y * y);
       out.x = x / length;
       out.y = y / length;
+      return out;
+    }
+    const pads = this.pads;
+    if (pads && (pads.moveX !== 0 || pads.moveY !== 0)) {
+      out.x = pads.moveX;
+      out.y = pads.moveY;
       return out;
     }
     const j = this.joystick;
@@ -251,6 +283,9 @@ export class Input {
 
   /** Forgets every held key, finger and press (pause, app in background, window blur). */
   readonly releaseAll = (): void => {
+    // Controller buttons that are down right now do nothing until they are let go; otherwise
+    // the button that just closed a panel would open it again in the same press.
+    this.bridge.ignoreHeld(this.pads?.down ?? 0);
     this.held.clear();
     this.pressed.clear();
     this.joystickPointer = null;
@@ -264,10 +299,29 @@ export class Input {
     this.look.zoom = 1;
   };
 
+  // ---------------------------------------------------------------- gamepad
+
+  private readonly onPadFrame = (frame: PadFrame): void => {
+    if (frame.realInput) this.setUsingPad(true);
+    this.bridge.onFrame(frame);
+    const rate = this.pads?.config?.lookRadiansPerSecond ?? 0;
+    if (frame.lookX !== 0 || frame.lookY !== 0) {
+      // Per second, so the camera turns the same at 60 and 120 fps.
+      this.look.yaw += frame.lookX * rate * frame.seconds;
+      this.look.pitch += frame.lookY * rate * frame.seconds;
+    }
+  };
+
+  private setUsingPad(on: boolean): void {
+    this.usingPad = on;
+    this.bindings.setPadHints(on);
+  }
+
   // ---------------------------------------------------------------- keyboard
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     if (isTextField(event.target)) return;
+    if (this.usingPad) this.setUsingPad(false);
     if (BLOCK_DEFAULT.has(event.code)) event.preventDefault();
     const action = this.bindings.actionFor(event.code);
     if (action && !event.repeat) this.press(action);
@@ -282,6 +336,7 @@ export class Input {
 
   private readonly onPointerDown = (event: PointerEvent): void => {
     const id = event.pointerId;
+    if (this.usingPad) this.setUsingPad(false);
     if (event.pointerType === 'mouse') {
       const action = this.bindings.actionFor(mouseCode(event.button));
       if (this.pointerLocked) {

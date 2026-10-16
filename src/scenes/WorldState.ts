@@ -651,8 +651,16 @@ export class WorldState implements GameState, InstanceHost {
         zoomStepPerWheelNotch: camera.zoomStepPerWheelNotch,
       },
       this.ctx.bindings,
+      this.ctx.pads,
     );
     this.input.attach();
+    // Start on a controller is the same as Escape (a pause menu you can always reach).
+    this.input.onPausePressed = () => {
+      if (this.cutscenePlaying) return;
+      if (this.dialog?.isOpen) this.dialog.close();
+      else if (this.cheatPanel?.isOpen) this.cheatPanel.toggle();
+      else this.pause();
+    };
     // Escape releases the mouse (the browser does that itself); treat it like pausing.
     // While talking, Escape just ends the conversation.
     this.input.onPointerLockLost = () => {
@@ -3300,6 +3308,11 @@ export class WorldState implements GameState, InstanceHost {
     this.updateChargeOrb(a);
     input.consumeLook(this.look);
     const look = this.look;
+    // The right stick keeps turning while a menu is open; the camera must not move behind it.
+    if (this.paused) {
+      look.yaw = 0;
+      look.pitch = 0;
+    }
     const turning = input.turningCamera || look.yaw !== 0 || look.pitch !== 0;
     const root = player.model.root;
     rig.orbit.update(
@@ -3732,6 +3745,7 @@ export class WorldState implements GameState, InstanceHost {
     const show =
       !this.paused &&
       !input.usedTouch &&
+      !input.usingPad &&
       !input.pointerLocked &&
       !this.coarsePointer &&
       !this.dialog?.isOpen;

@@ -1815,6 +1815,17 @@
   flex: 1;
 }
 
+.ui-control-row {
+  flex-wrap: wrap;
+}
+
+/* The small "Controller" caption in front of the two controller slots of an action. */
+.ui-pad-label {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  opacity: 0.7;
+}
+
 .ui-key-row {
   display: flex;
   gap: 6px;

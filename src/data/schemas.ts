@@ -2151,13 +2151,27 @@ const bindingCode = z
   .string()
   .check(z.regex(/^(Mouse[0-4]|[A-Za-z][A-Za-z0-9]{0,23})$/, 'not a key code or Mouse0-Mouse4'));
 
+/** A controller button, `Pad0` - `Pad16` (standard mapping: Pad0 = A, Pad9 = Start). */
+const padBindingCode = z.string().check(z.regex(/^Pad([0-9]|1[0-6])$/, 'not Pad0-Pad16'));
+
 export const controlsFileSchema = z.strictObject({
+  /** Controller numbers (S.2): dead zone, trigger threshold, camera speed, tolerance. */
+  gamepad: z.strictObject({
+    deadZone: range(0.05, 0.6),
+    triggerThreshold: range(0.1, 0.95),
+    lookRadiansPerSecond: positive,
+    lostSeconds: range(0, 10),
+    idleScanSeconds: range(0.1, 10),
+    maxLookFrameSeconds: range(0.01, 1),
+  }),
   /** Every action once, in the order Settings shows them in, with 1 or 2 default bindings. */
   actions: atLeast(
     z.array(
       z.strictObject({
         id: z.enum(CONTROL_ACTIONS),
         keys: z.array(bindingCode).check(z.minLength(1), z.maxLength(2)),
+        /** Default controller buttons (at most 2); movement uses the left stick. */
+        pad: optional(z.array(padBindingCode).check(z.maxLength(2))),
         debugOnly: optional(z.boolean()),
       }),
     ),

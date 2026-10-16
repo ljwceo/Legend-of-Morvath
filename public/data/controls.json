@@ -1,56 +1,77 @@
 {
+  "gamepad": {
+    "deadZone": 0.2,
+    "triggerThreshold": 0.5,
+    "lookRadiansPerSecond": 2.8,
+    "lostSeconds": 0.5,
+    "idleScanSeconds": 1,
+    "maxLookFrameSeconds": 0.1
+  },
   "actions": [
     {
       "id": "moveForward",
-      "keys": ["KeyW", "ArrowUp"]
+      "keys": ["KeyW", "ArrowUp"],
+      "pad": ["Pad12"]
     },
     {
       "id": "moveBack",
-      "keys": ["KeyS", "ArrowDown"]
+      "keys": ["KeyS", "ArrowDown"],
+      "pad": ["Pad13"]
     },
     {
       "id": "moveLeft",
-      "keys": ["KeyA", "ArrowLeft"]
+      "keys": ["KeyA", "ArrowLeft"],
+      "pad": ["Pad14"]
     },
     {
       "id": "moveRight",
-      "keys": ["KeyD", "ArrowRight"]
+      "keys": ["KeyD", "ArrowRight"],
+      "pad": ["Pad15"]
     },
     {
       "id": "attack",
-      "keys": ["Mouse0"]
+      "keys": ["Mouse0"],
+      "pad": ["Pad5"]
     },
     {
       "id": "heavy",
-      "keys": ["Mouse2"]
+      "keys": ["Mouse2"],
+      "pad": ["Pad7"]
     },
     {
       "id": "dash",
-      "keys": ["Space"]
+      "keys": ["Space"],
+      "pad": ["Pad0"]
     },
     {
       "id": "interact",
-      "keys": ["KeyE"]
+      "keys": ["KeyE"],
+      "pad": ["Pad2"]
     },
     {
       "id": "potion",
-      "keys": ["KeyQ"]
+      "keys": ["KeyQ"],
+      "pad": ["Pad3"]
     },
     {
       "id": "bag",
-      "keys": ["KeyI", "KeyB"]
+      "keys": ["KeyI", "KeyB"],
+      "pad": ["Pad8"]
     },
     {
       "id": "status",
-      "keys": ["KeyP"]
+      "keys": ["KeyP"],
+      "pad": ["Pad4"]
     },
     {
       "id": "lock",
-      "keys": ["Tab", "Mouse1"]
+      "keys": ["Tab", "Mouse1"],
+      "pad": ["Pad11"]
     },
     {
       "id": "lockSwitch",
-      "keys": ["KeyX"]
+      "keys": ["KeyX"],
+      "pad": ["Pad6"]
     },
     {
       "id": "confirm",
@@ -58,7 +79,8 @@
     },
     {
       "id": "close",
-      "keys": ["KeyF"]
+      "keys": ["KeyF"],
+      "pad": ["Pad1"]
     },
     {
       "id": "down",

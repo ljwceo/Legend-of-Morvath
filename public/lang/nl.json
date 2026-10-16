@@ -938,7 +938,10 @@
       "down": "Omlaag vliegen (debug)",
       "status": "Statusvenster",
       "close": "Venster sluiten"
-    }
+    },
+    "controller": "Controller",
+    "pressAButton": "druk een knop…",
+    "padHelp": "Controller: de linkerstick loopt, de rechterstick draait de camera en Start opent het menu. Klik op een controllervak en druk een knop om hem te koppelen."
   },
   "touch": {
     "title": "Knoppen op het scherm",
@@ -1255,5 +1258,24 @@
     "noSlots": "Deze staf heeft geen spellplekken.",
     "hint": "De eerste gevulde plek is de spell die je cast-knop afvuurt. Spells wissel je alleen buiten een gevecht.",
     "inCombat": "Niet terwijl je vecht."
+  },
+  "pad": {
+    "0": "A",
+    "1": "B",
+    "2": "X",
+    "3": "Y",
+    "4": "LB",
+    "5": "RB",
+    "6": "LT",
+    "7": "RT",
+    "8": "Back",
+    "9": "Start",
+    "10": "L3",
+    "11": "R3",
+    "12": "D-pad ↑",
+    "13": "D-pad ↓",
+    "14": "D-pad ←",
+    "15": "D-pad →",
+    "16": "Home"
   }
 }

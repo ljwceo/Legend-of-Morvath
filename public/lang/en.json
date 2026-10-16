@@ -938,7 +938,10 @@
       "down": "Fly down (debug)",
       "status": "Status window",
       "close": "Close a window"
-    }
+    },
+    "controller": "Controller",
+    "pressAButton": "press a button…",
+    "padHelp": "Controller: the left stick walks, the right stick turns the camera and Start opens the menu. Click a controller slot and press a button to bind it."
   },
   "touch": {
     "title": "Buttons on the screen",
@@ -1255,5 +1258,24 @@
     "noSlots": "This staff has no spell slots.",
     "hint": "The first filled slot is the spell your cast button fires. Spells can only be changed outside a fight.",
     "inCombat": "Not while you are fighting."
+  },
+  "pad": {
+    "0": "A",
+    "1": "B",
+    "2": "X",
+    "3": "Y",
+    "4": "LB",
+    "5": "RB",
+    "6": "LT",
+    "7": "RT",
+    "8": "Back",
+    "9": "Start",
+    "10": "L3",
+    "11": "R3",
+    "12": "D-pad ↑",
+    "13": "D-pad ↓",
+    "14": "D-pad ←",
+    "15": "D-pad →",
+    "16": "Home"
   }
 }
