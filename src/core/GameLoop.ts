@@ -1,6 +1,8 @@
 import { FixedStep } from './Time';
 
 export interface LoopCallbacks {
+  /** Runs once per displayed frame, before the update steps (reads the gamepads). */
+  frame?(frameSeconds: number): void;
   /** Runs at a fixed rate (SIM_HZ). `dt` is always the same value, in seconds. */
   update(dt: number): void;
   /** Runs once per displayed frame. `alpha` interpolates between the last two updates. */
@@ -61,6 +63,7 @@ export class GameLoop {
     this.lastMs = nowMs;
     this.lastRenderedMs = nowMs;
 
+    this.callbacks.frame?.(frameSeconds);
     const steps = this.time.advance(frameSeconds);
     const updateStart = performance.now();
     for (let i = 0; i < steps; i++) {

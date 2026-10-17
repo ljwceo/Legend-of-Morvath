@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { playerFileSchema } from '../data/schemas';
 import type { PlayerConfig } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
+import type { EnergyPool } from './Stamina';
 import {
   applyStats,
   assistedHeading,
@@ -21,15 +22,21 @@ const DT = 1 / 60;
 const player = playerFileSchema.parse(readPublicJson('data/player.json')) as PlayerConfig;
 const cfg = swordConfig(player);
 
-function fresh(): { c: CombatState; energy: { energy: number; sinceEnergySpent: number } } {
+function fresh(): { c: CombatState; energy: EnergyPool } {
   const c = new CombatState();
   c.lingerSeconds = cfg.combatLingerSeconds;
   applyStats(c, player, 1);
   c.hp = c.maxHp;
-  return { c, energy: { energy: player.base.energy, sinceEnergySpent: 0 } };
+  return { c, energy: { energy: player.base.energy, sinceEnergySpent: 0, exhausted: false } };
 }
 
-const out = (): SwordResult => ({ landed: 'none', damage: 0, combo: false, crit: false });
+const out = (): SwordResult => ({
+  landed: 'none',
+  damage: 0,
+  poiseDamage: 0,
+  combo: false,
+  crit: false,
+});
 /** `critRoll` 1 never crits, so the damage in these tests is the plain damage. */
 const press = (fast: boolean, heavy = false, critRoll = 1): SwordInput => ({
   fast,
@@ -179,11 +186,17 @@ describe('stepSword', () => {
     expect(run(state, cfg.heavyRecoverySeconds - 2 * DT, press(true))).toHaveLength(0);
   });
 
-  it('no heavy hit without enough energy', () => {
+  it('no heavy hit when exhausted or at 0 energy; too little energy still starts it and exhausts', () => {
     const state = fresh();
-    state.energy.energy = cfg.heavyEnergyCost - 1;
+    state.energy.energy = 0;
     run(state, DT, press(false, true));
     expect(state.c.heavyWindup).toBe(0);
+    const tired = fresh();
+    tired.energy.energy = cfg.heavyEnergyCost - 1;
+    run(tired, DT, press(false, true));
+    expect(tired.c.heavyWindup).toBeGreaterThan(0);
+    expect(tired.energy.energy).toBe(0);
+    expect(tired.energy.exhausted).toBe(true);
   });
 
   it('plays the same at 60 and 120 Hz', () => {

@@ -56,6 +56,17 @@ export class HUD {
   private messageGap = 0;
   private interactX = Number.NaN;
   private interactY = Number.NaN;
+  /** Poise (stability) bar under the other bars: only there once damaged or staggered. */
+  private readonly poise: HTMLElement;
+  private readonly poiseFill: HTMLElement;
+  private readonly poiseLabel: HTMLElement;
+  private poiseValue = 1;
+  private poiseShown = false;
+  private poiseBroken = false;
+  private poiseText = '';
+  private staggerText = '';
+  /** White glow at the screen edges while the player is staggered. */
+  private readonly staggerGlow: HTMLElement;
   /** Red glow at the screen edges when the player is hit. */
   private readonly hurtGlow: HTMLElement;
   private hurtTime = 0;
@@ -189,6 +200,15 @@ export class HUD {
     this.abilities = new HudPart(this.abilityBar.root);
 
     this.hurtGlow = el('div', { className: 'ui-hud-hurt' });
+    this.staggerGlow = el('div', { className: 'ui-hud-stagger' });
+    this.poiseFill = el('div', { className: 'ui-hud-poise-fill' });
+    this.poiseLabel = el('span', { className: 'ui-hud-poise-label' });
+    this.poise = el(
+      'div',
+      { className: 'ui-hud-poise' },
+      this.poiseLabel,
+      el('div', { className: 'ui-hud-poise-bar' }, this.poiseFill),
+    );
     this.blackoutTitle = el('p', { className: 'ui-hud-blackout-title' });
     this.blackoutText = el('p', { className: 'ui-hud-blackout-text' });
     this.blackout = el(
@@ -201,6 +221,8 @@ export class HUD {
       'div',
       { className: 'ui-hud', attrs: { 'aria-live': 'polite' } },
       this.hurtGlow,
+      this.staggerGlow,
+      this.poise,
       this.banner.element,
       this.message.element,
       barStack,
@@ -379,6 +401,37 @@ export class HUD {
   /** True while victory words or an item card are on screen (or an item card waits). */
   get presenting(): boolean {
     return this.victoryLeft > 0 || this.itemLeft > 0 || this.pendingItem !== null;
+  }
+
+  /** The poise texts (from the language files), set once and after a language change. */
+  setPoiseTexts(poise: string, staggered: string): void {
+    this.poiseText = poise;
+    this.staggerText = staggered;
+    this.poiseLabel.textContent = this.poiseBroken ? staggered : poise;
+  }
+
+  /**
+   * Poise 0–1 and whether the player is staggered. Only touches the DOM when something
+   * changed: the bar shows while poise is below full or you stagger, and a white glow at the
+   * screen edges marks the stagger.
+   */
+  setPoise(fraction: number, staggered: boolean, used = true): void {
+    const value = Math.min(1, Math.max(0, fraction));
+    if (Math.abs(value - this.poiseValue) >= 0.005) {
+      this.poiseValue = value;
+      this.poiseFill.style.transform = `scaleX(${value})`;
+    }
+    const show = used && (value < 0.999 || staggered);
+    if (show !== this.poiseShown) {
+      this.poiseShown = show;
+      this.poise.classList.toggle('ui-hud-poise-on', show);
+    }
+    if (staggered !== this.poiseBroken) {
+      this.poiseBroken = staggered;
+      this.poiseLabel.textContent = staggered ? this.staggerText : this.poiseText;
+      this.poise.classList.toggle('ui-hud-poise-broken', staggered);
+      this.staggerGlow.classList.toggle('ui-hud-stagger-on', staggered);
+    }
   }
 
   /** A short red glow at the screen edges: the player was hit. */

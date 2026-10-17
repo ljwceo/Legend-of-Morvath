@@ -295,6 +295,8 @@
     "packTooHeavy": "{name} kan niet zoveel dragen.",
     "packWorn": "Doe het eerst uit.",
     "noMana": "Niet genoeg mana.",
+    "poise": "Balans",
+    "staggered": "Wankelen!",
     "statPoint": "Je hebt een statpunt. Open je statusvenster met {keyStatus}.",
     "statPoints": "Je hebt {n} statpunten. Open je statusvenster met {keyStatus}.",
     "statsReturned": "Levels groeien niet meer vanzelf: je {n} punten mag je zelf verdelen ({keyStatus}).",
@@ -907,6 +909,9 @@
   },
   "controls": {
     "dash": "Dash",
+    "parried": "Pareren!",
+    "blocked": "Geblokt",
+    "guardBroken": "Blok gebroken!",
     "clickToLook": "Klik om rond te kijken · Esc voor het menu",
     "attack": "Slaan",
     "heavy": "Zwaar",
@@ -929,6 +934,7 @@
       "attack": "Slaan (fast hit / Shard)",
       "heavy": "Zware slag / spreuk",
       "dash": "Dash",
+      "block": "Blokkeren / parry",
       "interact": "Praten en gebruiken",
       "potion": "Drankje drinken",
       "bag": "Tas",
@@ -938,7 +944,10 @@
       "down": "Omlaag vliegen (debug)",
       "status": "Statusvenster",
       "close": "Venster sluiten"
-    }
+    },
+    "controller": "Controller",
+    "pressAButton": "druk een knop…",
+    "padHelp": "Controller: de linkerstick loopt, de rechterstick draait de camera en Start opent het menu. Klik op een controllervak en druk een knop om hem te koppelen."
   },
   "touch": {
     "title": "Knoppen op het scherm",
@@ -1139,8 +1148,9 @@
   },
   "death": {
     "title": "Je bent verslagen",
-    "goldLost": "Je bent {amount} {gold} kwijt. Je wordt wakker bij je checkpoint.",
-    "wakeUp": "Je wordt wakker bij je checkpoint."
+    "goldLost": "Je bent {amount} {gold} kwijt. Je wordt wakker bij je checkpoint. Het ligt waar je viel.",
+    "wakeUp": "Je wordt wakker bij je checkpoint.",
+    "goldRecovered": "Je hebt je {gold} teruggevonden: {amount}."
   },
   "forge": {
     "title": "Smidse",
@@ -1258,5 +1268,24 @@
     "noSlots": "Deze staf heeft geen spellplekken.",
     "hint": "De eerste gevulde plek is de spell die je cast-knop afvuurt. Spells wissel je alleen buiten een gevecht.",
     "inCombat": "Niet terwijl je vecht."
+  },
+  "pad": {
+    "0": "A",
+    "1": "B",
+    "2": "X",
+    "3": "Y",
+    "4": "LB",
+    "5": "RB",
+    "6": "LT",
+    "7": "RT",
+    "8": "Back",
+    "9": "Start",
+    "10": "L3",
+    "11": "R3",
+    "12": "D-pad ↑",
+    "13": "D-pad ↓",
+    "14": "D-pad ←",
+    "15": "D-pad →",
+    "16": "Home"
   }
 }

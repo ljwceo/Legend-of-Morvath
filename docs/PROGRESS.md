@@ -41,6 +41,23 @@ Na het spelen op de telefoon: de game speel je **alleen liggend**. Het beeld hou
 | 20 | Brother Ansel zegt nog dat hij je **bewusteloos langs de weg** vond (`quest.a_quiet_awakening.offer.1`, `quest.tales_by_the_fire.offer.1`), terwijl in de nieuwe intro de kat je eerst vindt in de badlands | Zo gelaten (2026-10-15): de reis van Morvath naar Greyhaven is een sprong naar zwart. Anders is het alleen tekst in `en.json` en `nl.json` |
 | 21 | Is het kasteel van de intro **The Black Citadel**? | De intro noemt het kasteel niet bij naam; een naam is één tekstregel |
 
+### Besluiten Fase S – Souls-like gevecht (Bo/Lucas, 2026-10-16)
+
+Stap S.0: de acht vragen uit `PLAN.md` → Fase S zijn beantwoord.
+
+| Nr | Besluit |
+|---|---|
+| S-1 | Uitdagend maar eerlijk: één moeilijkheid, duidelijke aankondiging per aanval, geen difficulty-instelling |
+| S-2 | Eén knop: de dash wordt de rol met onkwetsbare frames; in lock-on rol je in de stickrichting |
+| S-3 | Blokkeren en parry: **ja, nu meebouwen** (stap S.7) |
+| S-4 | Doodgaan: gold verliezen en terughalen bij je lijk (nieuwe stap S.4b); opnieuw dood voor je het ophaalt = weg |
+| S-5 | **Pc en console (controller). De iPhone en de telefoon vallen af.** De game blijft voorlopig een browsergame; een echte console-release is nog niet besloten |
+| S-6 | Magie staat centraal en een goede mage is lastiger te beheersen dan brute force (omgekeerd aan Elden Ring); de zwaardvechter is de toegankelijke keuze |
+| S-7 | Raids: de eigen client beslist over zijn eigen rol, de host controleert ruim |
+| S-8 | Springen blijft, geen dash of rol in de lucht |
+
+Gevolgen: harde eis 1 in `CLAUDE.md` noemt de iPhone niet meer; in Fase S vervallen de iPhone-delen van S.1 en S.9 en de touch-rolknop in S.4. De bestaande touch-code en de stappen buiten Fase S die de iPhone of touch noemen (o.a. 6.5 en de Notities in `PLAN.md`) zijn nog niet herzien. Het spelconcept in Google Docs is nog niet bijgewerkt.
+
 ---
 
 ## Fase 3 opgesplitst (2026-10-12) – fase 3.6 t/m 3.10
@@ -1382,3 +1399,17 @@ De ene texture die na een hele intro blijft staan (constant over rondes, dus gee
 - Stap 4.2 Markt en winkels (auto-run 2026-10-16): handelaren volledig uit data (`npcs.json` → `shop`), verkopen via `sellRatio`, voorraad met `stock.max`/`restockSeconds` op speeltijd, save v17 met `shopStock`. Tijdelijke getallen, Tobi en wisselend assortiment open (vraag 24).
 - Stap 4.3 Spellboek (auto-run 2026-10-16): spellboek in het pauzemenu, spells per stafslot kiezen buiten gevecht, save v18 met `character.spellLoadout`, tweede spell per element (level 5) en Adept Staff (2 slots). Tijdelijke namen en getallen (vraag 25).
 - Morgentestbank (Bo, 2026-10-16): na een nacht van de nachtbouwer staat er 's ochtends een losse testpagina klaar met de echte panelen, data en teksten van de nieuwe stappen, zodat Bo ze kan checken zonder het spel (`tools/testbank/`, `npm run testbank`, gebouwd door de geplande taak "Morvath ochtendtestbank" om 06:40). Eerste versie: Forge, winkel en spellboek (stap 4.1–4.3); daarna `auto-dev` in `main` gezet.
+- Stap S.2 Gamepad (auto-run 2026-10-16): Gamepad API als bron in `Input` (`src/core/gamepad.ts`), standaardbindingen en drempels in `controls.json`, controllervakken in Settings → Besturing, Start = pauze, save met `pad:<actie>`. Alleen met nagebootste controllers getest; echte controller (Chrome/Safari) en iPhone via HTTPS nog door Bo/Lucas.
+- Stap S.3 Stamina-regels (auto-run 2026-10-16): gedeelde regels in `src/systems/Stamina.ts` (kosten per actie uit `player.json`, regen na pauze, uitgeput bij 0 met langere pauze en herstelgrens), 60/120 Hz exact gelijk getest. Tijdelijke getallen; geen HUD-cue voor uitgeput zijn.
+- Stap S.4 Rol met onkwetsbare frames (auto-run 2026-10-16): dash is de rol met `dash.iFrames` (0,03–0,15 s) en `recoverySeconds` in `player.json`, `hurtPlayer` slaat de speler over tijdens het venster, geen rol in de lucht (`airborne`-haak), 60/120 Hz gelijk getest. Vervangt het besluit van 2026-10-10 (dash maakt niet onkwetsbaar). Tijdelijke getallen; nog geen HUD-cue.
+- Stap S.4b Gold terughalen bij je lijk (auto-run 2026-10-16): bij doodgaan blijft het verloren gold (10%) als gouden markering liggen (`src/systems/GoldMarker.ts`), terughalen door erheen te lopen (`death.markerPickupRadius`), een tweede dood vervangt de markering, save v19 met `goldMarker` en migratie 18→19, teksten in en/nl.
+- Besluit (Bo/Lucas, 2026-10-16): bij doodgaan verlies je 100% van je gold (`death.goldLossFraction` = 1 in `player.json`), terug te halen bij je lijk; sterf je eerst opnieuw, dan is het weg.
+- Stap S.5a Aanvalsfases van vijanden (auto-run 2026-10-16): aankondiging, raakvenster en herstel per aanval uit `monsters.json` (`hitSeconds`), geteld in hele vaste stappen in `EnemyAI.ts`; test `EnemyAttackPhases.test.ts` bewijst op 60 en 120 fps dat schade alleen in het raakvenster valt.
+- Stap S.5b Aankondiging zichtbaar (auto-run 2026-10-16): `src/systems/AttackCue.ts` geeft per aanval een cue (schijf, lijn of gebied) met duur uit `windupSeconds`/`warningSeconds`, getekend door `WarningRenderer` uit een pool; test bewijst gelijke voortgang op 60 en 120 fps, onafhankelijk van grafische stand.
+- Stap S.6 Stagger en poise (auto-run 2026-10-16): poise-balk voor speler (HUD) en vijanden (wankel-cue), zware slag, kritieke treffer en staf-schoten breken poise, speler-max uit gedragen gewicht (`src/systems/Poise.ts`), alle waarden in `player.json`, `monsters.json` en `spells.json`; tests bewijzen 60/120 Hz-gelijkheid en dat zwaardere uitrusting stabieler maakt.
+- Stap S.7 Blokkeren en parry (auto-run 2026-10-16): `src/systems/Guard.ts` met parry-venster (0,2 s, hele vaste stappen) en blok met staminakosten en breken, toets R / gamepad L3, waarden in `player.json` → `guard`; tests bewijzen 60/120 Hz-gelijkheid.
+- Stap S.8 Sultan opnieuw afstellen (auto-run 2026-10-16): Sultans aanvallen lopen in fases (aankondiging, raakvenster `hitSeconds` 0,1 s, herstel via `recoverySeconds`) in `BossAI.ts`, cue in `AttackCue.ts`, poise 60 in `monsters.json` (startwaarden); `BossPhases.test.ts` bewijst schade alleen in raakvensters en dat een nagebootste speler met rollen hem ontwijkt op 60 en 120 Hz.
+- Stap S.10 Lock-on repareren (auto-run 2026-10-16): oorzaak was dat een bewaakte baas (`guarded`, Sultan bijna altijd) niet `hittable` is en lock-on op `hittable` filterde; nu filtert lock-on op `Enemy.lockable` (levend, niet veilig, niet static); tests in `LockOn.test.ts` en headless-run `scripts/lock-check.mjs`, debugregel `lock` toont hoek en aantal in beeld.
+- 2026-10-16: Stap S.11 (auto/souls): vijand-poisebalk, extra poise-schade van achteren, Sultan wankelt zichtbaar (poise 45).
+- 2026-10-16 Stap S.12: Sultan draait per fase met eigen snelheid uit data (stalk 720, telegraph 150, attack 60, recovery 90 °/s); je kunt hem omlopen en zijn rug raken.
+- 2026-10-16 Stap S.13: elke Sultan-aanval heeft in de aankondiging een eigen houding uit data (`attacks[].pose`, `BossPose.ts`); duur = `warningSeconds`, gelijk op 60/120 Hz en alle grafische standen.

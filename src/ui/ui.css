@@ -1279,6 +1279,60 @@
   transition: opacity 0.05s linear;
 }
 
+/* Poise (S.6): a thin bar under the other bars, only while damaged or staggered. */
+.ui-hud-poise {
+  position: absolute;
+  top: max(74px, calc(env(safe-area-inset-top) + 58px));
+  left: max(16px, env(safe-area-inset-left));
+  width: min(160px, 30vw);
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+  pointer-events: none;
+}
+
+.ui-hud-poise.ui-hud-poise-on {
+  opacity: 1;
+}
+
+.ui-hud-poise-label {
+  display: block;
+  font: 600 11px var(--gh-font-stats);
+  color: var(--gh-zonlicht);
+  margin-bottom: 2px;
+}
+
+.ui-hud-poise-bar {
+  height: 5px;
+  overflow: hidden;
+  background: rgb(0 0 0 / 45%);
+  border-radius: 3px;
+}
+
+.ui-hud-poise-fill {
+  height: 100%;
+  background: var(--gh-zonlicht);
+  transform-origin: left center;
+  transition: transform 0.1s linear;
+}
+
+.ui-hud-poise-broken .ui-hud-poise-fill {
+  background: var(--gh-zonsondergang);
+}
+
+.ui-hud-stagger {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 120px 24px rgb(255 255 255 / 40%);
+  opacity: 0;
+  transition: opacity 0.2s ease-out;
+}
+
+.ui-hud-stagger.ui-hud-stagger-on {
+  opacity: 1;
+  transition: opacity 0.05s linear;
+}
+
 .ui-damage-player {
   color: var(--gh-zonsondergang);
 }
@@ -1813,6 +1867,17 @@
 
 .ui-control-row .ui-label {
   flex: 1;
+}
+
+.ui-control-row {
+  flex-wrap: wrap;
+}
+
+/* The small "Controller" caption in front of the two controller slots of an action. */
+.ui-pad-label {
+  flex: 0 0 auto;
+  font-size: 0.85em;
+  opacity: 0.7;
 }
 
 .ui-key-row {
@@ -2586,4 +2651,28 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+}
+
+/* Poise bar over a monster (S.11): thin, rounded, orange while it is staggered. */
+.ui-enemy-poise {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 6px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--gh-nachtinkt) 70%, transparent);
+  border: 1px solid var(--gh-ornamentgoud);
+  border-radius: 4px;
+  box-sizing: content-box;
+  pointer-events: none;
+}
+
+.ui-enemy-poise-fill {
+  height: 100%;
+  background: var(--gh-zonlicht);
+  transform-origin: left center;
+}
+
+.ui-enemy-poise-broken .ui-enemy-poise-fill {
+  background: var(--gh-zonsondergang);
 }

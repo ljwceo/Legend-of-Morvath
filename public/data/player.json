@@ -10,7 +10,9 @@
     "hpPerSecondOutOfCombat": 1,
     "manaPerSecond": 0.4,
     "energyPerSecond": 20,
-    "energyDelaySeconds": 1
+    "energyDelaySeconds": 1,
+    "exhaustedDelaySeconds": 1,
+    "exhaustedRecoverEnergy": 20
   },
   "movement": {
     "walkSpeed": 4,
@@ -22,7 +24,9 @@
     "energyCost": 25,
     "cooldownSeconds": 1,
     "distance": 4,
-    "durationSeconds": 0.18
+    "durationSeconds": 0.18,
+    "recoverySeconds": 0.05,
+    "iFrames": { "startSeconds": 0.03, "endSeconds": 0.15 }
   },
   "load": {
     "baseKg": 30,
@@ -72,6 +76,24 @@
         "canDash": false
       }
     ]
+  },
+  "poise": {
+    "baseMax": 15,
+    "perKg": 1.5,
+    "regenDelaySeconds": 3,
+    "regenPerSecond": 15,
+    "staggerSeconds": 0.6,
+    "critFactor": 2
+  },
+  "guard": {
+    "parrySeconds": 0.2,
+    "raiseEnergyCost": 5,
+    "blockDamageFactor": 0.3,
+    "blockEnergyPerDamage": 1.5,
+    "blockPoiseFactor": 0.5,
+    "brokenDamageFactor": 1,
+    "brokenPoiseFactor": 2,
+    "moveFactor": 0.5
   },
   "camera": {
     "fovDegrees": 55,
@@ -135,12 +157,14 @@
     "fastHit": {
       "damage": 9,
       "energyCost": 10,
-      "maxPerSecond": 3
+      "maxPerSecond": 3,
+      "poiseDamage": 6
     },
     "heavyHit": {
       "damage": 22,
       "energyCost": 25,
-      "windupSeconds": 0.9
+      "windupSeconds": 0.9,
+      "poiseDamage": 30
     },
     "comboEveryNthHit": 3,
     "comboBonus": 0.5,
@@ -160,6 +184,7 @@
   "staff": {
     "shard": {
       "damage": 8,
+      "poiseDamage": 5,
       "manaCost": 0,
       "maxPerSecond": 2,
       "windupSeconds": 0.2,
@@ -201,7 +226,8 @@
     "quickOrder": ["health_potion", "greater_health_potion"]
   },
   "death": {
-    "goldLossFraction": 0.1,
+    "goldLossFraction": 1,
+    "markerPickupRadius": 1.6,
     "fadeSeconds": 0.8,
     "blackSeconds": 1.6
   },

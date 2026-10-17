@@ -136,7 +136,9 @@ describe('saved bindings', () => {
     const b = fresh();
     b.bind('dash', 0, 'KeyG');
     const saved = b.toSave();
-    expect(Object.keys(saved).sort()).toEqual([...b.actions].sort());
+    // Every action twice: its keys, and its controller buttons under `pad:<action>`.
+    const expected = [...b.actions, ...b.actions.map((action) => `pad:${action}`)];
+    expect(Object.keys(saved).sort()).toEqual(expected.sort());
     expect(saved.dash).toEqual(['KeyG']);
     const again = fresh(saved as Record<string, string[]>);
     expect([...again.codesFor('dash')]).toEqual(['KeyG']);

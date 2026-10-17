@@ -16,13 +16,18 @@ Baelor, verspreiden corruptie en hoe verder je naar het oosten trekt, hoe sterke
 speel je solo, samen vechten alleen in raids (later, via PeerJS en een kamercode). De wereld is volledig
 3D (Three.js) met de camera over de schouder, zoals Genshin Impact.
 
+Het gevecht wordt **souls-like** (stamina, rol met onkwetsbare frames, aankondiging per aanval, parry en
+poise; de besluiten staan in `PLAN.md` → Fase S). Het spel is gemaakt voor **pc en console (controller)**:
+de telefoon wordt niet meer ondersteund. Magie staat centraal en een goede mage is lastiger te beheersen
+dan brute force; de zwaardvechter is de toegankelijke keuze.
+
 Het volledige spelconcept staat in Google Docs: "Legend of Morvath – spelconcept"
 (id `10Yi8_lYVsLEa_WpR76Exs0ecsY9mXxTk5a6SC4sSKUk`). Lees het via de Google Drive-connector, en alleen
 de delen die je voor je taak nodig hebt. Lukt dat niet, vraag Bo of Lucas om de tekst.
 
 ## 2. Harde eisen (gelden altijd, in elke fase)
 
-1. **Altijd vloeiend:** minimaal 60 fps, 120 fps op schermen die dat kunnen (pc Chrome, iPhone Safari).
+1. **Altijd vloeiend:** minimaal 60 fps, 120 fps op schermen die dat kunnen (pc Chrome; de telefoon wordt niet meer ondersteund, besluit S-5).
 2. **Fps-onafhankelijke logica:** spellogica op een **vaste tijdstap** (60 Hz) met accumulator, rendering
    interpoleert. Nooit snelheden per frame, altijd per seconde.
 3. **Gameplay is op elke grafische stand gelijk:** Low, Mid en High verschillen alleen in uiterlijk,
@@ -100,7 +105,7 @@ Bo en Lucas werken samen in deze repo, dus niets komt direct in `main`.
 
 - Per stap een eigen branch, daar werken en committen.
 - Klaar? Branch pushen en een pull request openen, in gewoon Nederlands: wat er veranderd is, waarom, en
-  hoe je het test op pc en iPhone.
+  hoe je het test op pc (toetsenbord en controller).
 - Claude mag de pull request zelf samenvoegen in `main` als de stap af is en de game zonder fouten start
   (afgesproken 2026-10-09). Bo of Lucas kan een pull request altijd bekijken of tegenhouden.
 - Verandert er iets aan het concept, de stijlgids of een eerdere beslissing? Zet dat bovenaan in de

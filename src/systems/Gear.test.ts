@@ -164,8 +164,11 @@ describe('moving with a load', () => {
   it('heavy: a short "fat roll" and you are stuck for a moment', () => {
     const light = dashDistance('light');
     const heavy = dashDistance('heavy');
-    expect(light.stuck).toBe(0);
-    expect(heavy.stuck).toBeCloseTo(tier('heavy').dashRecoverySeconds, 1);
+    expect(light.stuck).toBeCloseTo(player.dash.recoverySeconds, 1);
+    expect(heavy.stuck).toBeCloseTo(
+      player.dash.recoverySeconds + tier('heavy').dashRecoverySeconds,
+      1,
+    );
     expect(heavy.distance).toBeLessThan(light.distance);
   });
 

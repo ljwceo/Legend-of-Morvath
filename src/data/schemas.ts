@@ -653,6 +653,10 @@ export const playerFileSchema = z.strictObject({
     manaPerSecond: max(nonNegative, 100),
     energyPerSecond: positive,
     energyDelaySeconds: max(nonNegative, 10),
+    /** Pause before energy refills after it ran out (exhausted). */
+    exhaustedDelaySeconds: max(nonNegative, 10),
+    /** Exhausted until energy is back at this level; no dash or heavy hit until then. */
+    exhaustedRecoverEnergy: nonNegative,
   }),
   movement: z.strictObject({
     walkSpeed: max(positive, 20),
@@ -661,12 +665,28 @@ export const playerFileSchema = z.strictObject({
     /** How fast the character turns towards where it walks. */
     turnSpeedDegrees: max(positive, 10_000),
   }),
-  dash: z.strictObject({
-    energyCost: nonNegative,
-    cooldownSeconds: max(nonNegative, 30),
-    distance: max(positive, 30),
-    durationSeconds: max(positive, 2),
-  }),
+  dash: z
+    .strictObject({
+      energyCost: nonNegative,
+      cooldownSeconds: max(nonNegative, 30),
+      distance: max(positive, 30),
+      durationSeconds: max(positive, 2),
+      /** Standing still after the roll (s), on top of the load's own recovery. */
+      recoverySeconds: max(nonNegative, 5),
+      /** Invulnerable window (s since the dash started, counted on the 60 Hz step): [start, end). */
+      iFrames: z
+        .strictObject({
+          startSeconds: max(nonNegative, 2),
+          endSeconds: max(positive, 2),
+        })
+        .check(z.refine((w) => w.endSeconds > w.startSeconds, 'iFrames end must be after start')),
+    })
+    .check(
+      z.refine((d) => d.iFrames.endSeconds <= d.durationSeconds, {
+        message: 'iFrames must end within the dash',
+        path: ['iFrames', 'endSeconds'],
+      }),
+    ),
   /**
    * Equip load (like Elden Ring): the weight of the weapons and gear you carry (worn or spare in
    * the bag; resources, potions and quest items weigh nothing) as a share of what you can carry.
@@ -693,6 +713,39 @@ export const playerFileSchema = z.strictObject({
         }),
       ),
     ),
+  }),
+  /**
+   * Poise (stability, fase S.6): your maximum is `baseMax` plus `perKg` for every kg of weapons
+   * and gear you carry (the same weight as the equip load), so heavier equipment stands firmer.
+   * A monster hit drains it; at 0 you stagger for `staggerSeconds` and cannot act.
+   * `critFactor` multiplies the poise damage of your own critical hits.
+   */
+  poise: z.strictObject({
+    baseMax: max(nonNegative, 1000),
+    perKg: max(nonNegative, 100),
+    regenDelaySeconds: max(nonNegative, 30),
+    regenPerSecond: max(nonNegative, 1000),
+    staggerSeconds: max(positive, 5),
+    critFactor: range(1, 10),
+  }),
+  /**
+   * Blocking and parrying (fase S.7, sword only): hold the block button to raise the guard (costs
+   * `raiseEnergyCost`). A hit in the first `parrySeconds` (counted on the 60 Hz step) is caught
+   * completely and staggers the attacker; later hits are blocked: `blockDamageFactor` of the
+   * damage gets through and the block costs `blockEnergyPerDamage` energy per point of damage.
+   * Without enough energy the block breaks: `brokenDamageFactor` of the damage and
+   * `brokenPoiseFactor` times the poise damage hit you, and the guard drops.
+   */
+  guard: z.strictObject({
+    parrySeconds: max(positive, 2),
+    raiseEnergyCost: max(nonNegative, 100),
+    blockDamageFactor: range(0, 1),
+    blockEnergyPerDamage: max(nonNegative, 100),
+    blockPoiseFactor: range(0, 1),
+    brokenDamageFactor: range(0, 1),
+    brokenPoiseFactor: range(0, 10),
+    /** Walking speed while the guard is up, as a factor. */
+    moveFactor: range(0, 1),
   }),
   /**
    * Third-person camera over the shoulder (like Genshin Impact). Sharpness values are per
@@ -761,11 +814,15 @@ export const playerFileSchema = z.strictObject({
       damage: positive,
       energyCost: nonNegative,
       maxPerSecond: max(positive, 10),
+      /** Poise damage this hit does to a monster (fase S.6). */
+      poiseDamage: max(nonNegative, 1000),
     }),
     heavyHit: z.strictObject({
       damage: positive,
       energyCost: nonNegative,
       windupSeconds: max(nonNegative, 5),
+      /** Poise damage this hit does to a monster (fase S.6): a heavy hit breaks poise. */
+      poiseDamage: max(nonNegative, 1000),
     }),
     comboEveryNthHit: z.int().check(z.minimum(2)),
     comboBonus: max(nonNegative, 5),
@@ -799,6 +856,8 @@ export const playerFileSchema = z.strictObject({
       /** The staff lights up this long before the shard leaves it. */
       windupSeconds: max(nonNegative, 5),
       speed: max(positive, 100),
+      /** Poise damage to a monster (fase S.6). */
+      poiseDamage: max(nonNegative, 1000),
       /** How far a shard flies before it fizzles out (m). */
       range: max(positive, 100),
       /** Half the thickness of the shot for hit tests (m). */
@@ -865,6 +924,8 @@ export const playerFileSchema = z.strictObject({
   }),
   death: z.strictObject({
     goldLossFraction: fraction,
+    /** Walk within this distance (metres) of the gold you left behind to pick it up. */
+    markerPickupRadius: max(positive, 20),
     /** The screen fades to black in this time, stays black, then fades back in. */
     fadeSeconds: max(nonNegative, 10),
     blackSeconds: max(nonNegative, 10),
@@ -937,6 +998,30 @@ const onHitSchema = z.strictObject({
   leechFraction: optional(fraction),
 });
 
+/**
+ * A boss attack's body pose while it is announced (visual only, the Sultan placeholder has no
+ * skeleton). Everything is reached at the end of the announcement (`warningSeconds`) and
+ * shaped by `progress`; angles in radians, frequencies in Hz (cycles per announced second).
+ * It never changes timing, reach or hitboxes.
+ */
+const attackPoseSchema = z.strictObject({
+  /** Lean forward (+) or back (-) at the end. */
+  lean: range(-1.5, 1.5),
+  /** Roll sideways at the end: a raised paw. */
+  roll: range(-1.5, 1.5),
+  /** Squash down (0..0.6) at the end. */
+  crouch: range(0, 0.6),
+  /** Shaking: yaw wobble of `shakeAmplitude` rad at `shakeHz`, growing with progress. */
+  shakeAmplitude: range(0, 0.6),
+  shakeHz: range(0, 30),
+  /** Total turn about the up axis over the announcement (rad). */
+  spin: range(-12.6, 12.6),
+  /** Colour flicker (on/off) at `flickerHz`, 0 = none. */
+  flickerHz: range(0, 30),
+  /** Colour tint the pose uses instead of the usual orange glow. */
+  gold: z.boolean(),
+});
+
 const attackSchema = z.strictObject({
   id,
   name,
@@ -944,6 +1029,10 @@ const attackSchema = z.strictObject({
   hits: posInt,
   minHits: optional(posInt),
   warningSeconds: max(nonNegative, 5),
+  /**
+   * Seconds after the attack: for monsters the recovery before the next one; for a boss the
+   * opening, when it stands still and can be hit (default `vulnerableSeconds`).
+   */
   recoverySeconds: optional(max(nonNegative, 10)),
   onlyWhenEnraged: optional(z.boolean()),
   /** Used instead of the normal attack every n-th attack (1 = always). */
@@ -967,10 +1056,15 @@ const attackSchema = z.strictObject({
   travelSeconds: optional(max(positive, 5)),
   length: optional(max(positive, 60)),
   width: optional(max(positive, 10)),
-  /** Seconds the boss stands still after this attack (your chance); default `vulnerableSeconds`. */
-  openingSeconds: optional(max(positive, 10)),
+  /**
+   * Boss hit window (s, whole 60 Hz steps): how long one swipe, or the landing of a pounce, can
+   * hurt. A charge hurts during its whole run (`travelSeconds`). Outside it nothing hurts.
+   */
+  hitSeconds: optional(max(positive, 2)),
   /** Shown the first time this attack is wound up (a short tip, e.g. "Dash sideways!"). */
   hint: optional(textKey),
+  /** Boss only: the body pose while the attack is announced. */
+  pose: optional(attackPoseSchema),
 });
 
 /**
@@ -989,6 +1083,17 @@ const bossSchema = z.strictObject({
   playerStart: z.strictObject({ x: coord, z: coord }),
   /** Seconds between two attacks [min, max] (shorter when enraged); longer while out of range. */
   pauseSeconds: z.tuple([nonNegative, nonNegative]),
+  /**
+   * How fast the boss turns (degrees per second) in each phase, so you can walk or roll round
+   * him: `stalk` (circling), `telegraph` (the warning), `attack` (the hit window) and
+   * `recovery` (the opening). While it leaps away it does not turn.
+   */
+  turnDegreesPerSecond: z.strictObject({
+    stalk: range(0, 3600),
+    telegraph: range(0, 3600),
+    attack: range(0, 3600),
+    recovery: range(0, 3600),
+  }),
   retreatGap: max(nonNegative, 20),
   retreatSeconds: max(positive, 5),
   vulnerableSeconds: max(positive, 10),
@@ -1051,10 +1156,13 @@ const monsterAiSchema = z.strictObject({
   attack: z.strictObject({
     style: z.enum(['strike', 'lunge', 'shoot']),
     range: max(positive, 50),
+    /** Phase 1, the announcement: the monster shows it will strike; no damage yet (s). */
     windupSeconds: max(nonNegative, 5),
+    /** Phase 2, the hit window: only now can the attack hurt (a lunge moves this long) (s). */
+    hitSeconds: max(positive, 5),
+    /** Phase 3, the recovery: the monster is open and cannot hurt (s). */
     recoverySeconds: max(nonNegative, 10),
     cooldownSeconds: max(nonNegative, 30),
-    strikeSeconds: optional(max(positive, 5)),
     lungeDistance: optional(max(positive, 20)),
     projectileSpeed: optional(max(positive, 100)),
   }),
@@ -1095,6 +1203,13 @@ const monsterSchema = z.strictObject({
    */
   egg: optional(id),
   neutral: optional(z.boolean()),
+  /**
+   * Poise (stability, fase S.6): hits drain it and at 0 the monster staggers (its attack is
+   * interrupted). Without `poise` it never staggers. A boss (Sultan) that breaks poise in its opening stays open one stagger longer.
+   */
+  poise: optional(max(positive, 100_000)),
+  /** Poise damage its hit does to the player (see player.json `poise`); default 0. */
+  poiseDamage: optional(max(nonNegative, 100_000)),
   groupSize: optional(z.strictObject({ min: posInt, max: posInt })),
   splitsInto: optional(z.strictObject({ monster: id, count: posInt })),
   transformsFrom: optional(id),
@@ -1138,6 +1253,21 @@ export const monstersFileSchema = z.strictObject({
     calmDownSeconds: max(positive, 600),
     /** When one monster of a pack notices you, its pack mates within this distance (m) join. */
     packAggroRadius: max(nonNegative, 100),
+    /** Poise of monsters that have `poise` (fase S.6): regeneration and how long a break lasts. */
+    poise: z.strictObject({
+      regenDelaySeconds: max(nonNegative, 60),
+      regenPerSecond: max(nonNegative, 1000),
+      staggerSeconds: max(positive, 10),
+      /** A hit from inside this cone (full width, degrees) behind a monster is a backstab. */
+      backstabAngleDegrees: range(0, 360),
+      /** Poise damage of a backstab is multiplied by this. */
+      backstabFactor: range(1, 20),
+      /** The poise bar over a monster stays this long (s) after its last poise damage. */
+      barLingerSeconds: max(nonNegative, 60),
+      /** Width (px) of that bar, and how far (m) it floats above the monster's top. */
+      barWidthPixels: range(8, 400),
+      barHeightMeters: max(nonNegative, 5),
+    }),
   }),
   monsters: z.array(monsterSchema),
 });
@@ -1521,6 +1651,8 @@ export const spellsFileSchema = z.strictObject({
       manaCost: nonNegative,
       cooldownSeconds: max(nonNegative, 120),
       damage: nonNegative,
+      /** Poise damage to a monster (fase S.6); a charged shot does more, like its damage. */
+      poiseDamage: max(nonNegative, 1000),
       range: max(positive, 100),
       usesPerLevel: posInt,
       /** Pulling the spell together takes this long (s) before it leaves the staff. */
@@ -1700,6 +1832,7 @@ export const CONTROL_ACTIONS = [
   'attack',
   'heavy',
   'dash',
+  'block',
   'interact',
   'potion',
   'bag',
@@ -2154,13 +2287,27 @@ const bindingCode = z
   .string()
   .check(z.regex(/^(Mouse[0-4]|[A-Za-z][A-Za-z0-9]{0,23})$/, 'not a key code or Mouse0-Mouse4'));
 
+/** A controller button, `Pad0` - `Pad16` (standard mapping: Pad0 = A, Pad9 = Start). */
+const padBindingCode = z.string().check(z.regex(/^Pad([0-9]|1[0-6])$/, 'not Pad0-Pad16'));
+
 export const controlsFileSchema = z.strictObject({
+  /** Controller numbers (S.2): dead zone, trigger threshold, camera speed, tolerance. */
+  gamepad: z.strictObject({
+    deadZone: range(0.05, 0.6),
+    triggerThreshold: range(0.1, 0.95),
+    lookRadiansPerSecond: positive,
+    lostSeconds: range(0, 10),
+    idleScanSeconds: range(0.1, 10),
+    maxLookFrameSeconds: range(0.01, 1),
+  }),
   /** Every action once, in the order Settings shows them in, with 1 or 2 default bindings. */
   actions: atLeast(
     z.array(
       z.strictObject({
         id: z.enum(CONTROL_ACTIONS),
         keys: z.array(bindingCode).check(z.minLength(1), z.maxLength(2)),
+        /** Default controller buttons (at most 2); movement uses the left stick. */
+        pad: optional(z.array(padBindingCode).check(z.maxLength(2))),
         debugOnly: optional(z.boolean()),
       }),
     ),

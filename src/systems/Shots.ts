@@ -35,6 +35,8 @@ export class Shot {
   dirZ = 1;
   speed = 0;
   damage = 0;
+  /** Poise damage on hit (charge and crit already worked in). */
+  poiseDamage = 0;
   radius = 0;
   /** How fast it may still curve towards its target (radians per second). */
   homingRadians = 0;
@@ -134,6 +136,7 @@ export class Shots {
     target: ShotTarget | null,
     charge = 0,
     crit = false,
+    poiseDamage = 0,
   ): Shot {
     let slot = this.list[0] as Shot;
     for (let i = 0; i < this.list.length; i++) {
@@ -152,6 +155,7 @@ export class Shots {
     slot.place(x, y, z);
     slot.speed = speed;
     slot.damage = damage;
+    slot.poiseDamage = poiseDamage;
     slot.radius = cfg.radius * grow;
     slot.homingRadians = cfg.homingRadians;
     slot.target = target;

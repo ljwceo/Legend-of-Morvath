@@ -4,6 +4,7 @@ import { angleDelta } from '../systems/Movement';
 import type { SwordTarget } from '../systems/Combat';
 import type { ShotTarget } from '../systems/Shots';
 import type { BossState } from '../systems/BossAI';
+import { PoiseState } from '../systems/Poise';
 
 /** Default body radius (m) when monsters.json gives none. */
 export const DEFAULT_ENEMY_RADIUS = 0.5;
@@ -57,6 +58,8 @@ export class Enemy implements SwordTarget, ShotTarget {
   flash = 0;
   /** Seconds of the "knocked back" wobble left (drawn only). */
   wobble = 0;
+  /** Stability (fase S.6): a broken poise staggers it. Max 0 (no `poise` in data) = never. */
+  readonly poise = new PoiseState();
 
   mode: EnemyMode = 'idle';
   /** Seconds left in the current mode (pause, windup, strike, recover, lying down). */
@@ -104,6 +107,7 @@ export class Enemy implements SwordTarget, ShotTarget {
     this.hp = this.maxHp = def.hp;
     this.radius = def.radius ?? DEFAULT_ENEMY_RADIUS;
     this.rng = new Random(seed);
+    this.poise.reset(def.poise ?? 0);
   }
 
   get alive(): boolean {
@@ -115,12 +119,14 @@ export class Enemy implements SwordTarget, ShotTarget {
   }
 
   /**
-   * Can you lock on to it? Everything you can hit except something that does not move or
-   * fight: a training dummy stands in the middle of the Academy field, and locking on to it
-   * while a wave of slimes comes at you only gets in the way.
+   * Can you lock on to it? Everything alive and in the open except something that does not
+   * move or fight: a training dummy stands in the middle of the Academy field, and locking on
+   * to it while a wave of slimes comes at you only gets in the way. A guarded boss (Sultan
+   * between his openings) is a target too: the lock is there to follow him while you dodge, and
+   * must not let go every time he guards.
    */
   get lockable(): boolean {
-    return this.hittable && this.def.behavior !== 'static';
+    return this.alive && !this.safe && this.def.behavior !== 'static';
   }
 
   /**
@@ -155,6 +161,7 @@ export class Enemy implements SwordTarget, ShotTarget {
     this.sinceHit = Infinity;
     this.flash = 0;
     this.wobble = 0;
+    this.poise.reset(this.def.poise ?? 0);
     this.downTime = 0;
     this.stuckTime = 0;
     this.hopTime = 0;

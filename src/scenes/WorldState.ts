@@ -3,6 +3,8 @@ import {
   type Camera,
   CircleGeometry,
   Color,
+  ConeGeometry,
+  CylinderGeometry,
   Vector3,
   DirectionalLight,
   Fog,
@@ -97,6 +99,7 @@ import {
 } from '../systems/LockOn';
 import { type Shot, type ShotWorld, Shots } from '../systems/Shots';
 import {
+  chargeScale,
   powerFactor,
   SHARD_ID,
   type ShotConfig,
@@ -108,6 +111,8 @@ import {
   StaffState,
   stepStaff,
 } from '../systems/StaffCombat';
+import { guardHit, makeGuardResult, stepGuard } from '../systems/Guard';
+import { backstabPoiseDamage, damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
   carriedWeight,
   dropMissingEquipment,
@@ -144,6 +149,7 @@ import {
 } from '../systems/StatusEffects';
 import { WaveFight, type WaveResetReason } from '../systems/WaveFight';
 import { addXp, deathGoldLoss, xpFraction, xpToNext } from '../systems/Progression';
+import { canPickUpMarker, markerAfterDeath } from '../systems/GoldMarker';
 import type { EnemyTarget } from '../systems/EnemyAI';
 import { keepInArena } from '../systems/BossAI';
 import { BossEncounter, type KillingBlow } from './BossEncounter';
@@ -157,8 +163,10 @@ import {
   WarningRenderer,
 } from '../render/CombatEffects';
 import { DamageNumbers } from '../ui/DamageNumbers';
+import { EnemyPoiseBars } from '../ui/EnemyPoiseBars';
 import { type Bounds, CollisionWorld } from '../systems/Collision';
 import {
+  angleDelta,
   type MoveCommand,
   loadedMovement,
   type MovementConfig,
@@ -450,6 +458,8 @@ export class WorldState implements GameState, InstanceHost {
   private deathTimer = NOT_DYING;
   /** Gold lost by this death (taken from the save at once, shown when you wake up). */
   private deathGoldLost = 0;
+  /** The glowing heap that marks the gold you left where you fell (one mesh, reused). */
+  private goldMarkerMesh: Group | null = null;
   /** Where you wake up after dying. */
   private readonly respawn = { x: 0, z: 0 };
   private deathTitle = '';
@@ -489,6 +499,7 @@ export class WorldState implements GameState, InstanceHost {
   /** Seconds since the world was entered (drawing only: pulsing warnings). */
   private time = 0;
   private damageNumbers: DamageNumbers | null = null;
+  private poiseBars: EnemyPoiseBars | null = null;
   private sword: SwordConfig | null = null;
   /** Staff numbers (Arcane Shard and the spells), null until the world is built. */
   private staff: StaffConfig | null = null;
@@ -578,9 +589,11 @@ export class WorldState implements GameState, InstanceHost {
   private readonly moveWorld = { x: 0, z: 0 };
   private readonly command: MoveCommand = { x: 0, z: 0, dash: false };
   private readonly swordInput: SwordInput = { fast: false, heavy: false, critRoll: 1 };
+  private readonly guardResult = makeGuardResult();
   private readonly swordResult: SwordResult = {
     landed: 'none',
     damage: 0,
+    poiseDamage: 0,
     combo: false,
     crit: false,
   };
@@ -664,8 +677,16 @@ export class WorldState implements GameState, InstanceHost {
         zoomStepPerWheelNotch: camera.zoomStepPerWheelNotch,
       },
       this.ctx.bindings,
+      this.ctx.pads,
     );
     this.input.attach();
+    // Start on a controller is the same as Escape (a pause menu you can always reach).
+    this.input.onPausePressed = () => {
+      if (this.cutscenePlaying) return;
+      if (this.dialog?.isOpen) this.dialog.close();
+      else if (this.cheatPanel?.isOpen) this.cheatPanel.toggle();
+      else this.pause();
+    };
     // Escape releases the mouse (the browser does that itself); treat it like pausing.
     // While talking, Escape just ends the conversation.
     this.input.onPointerLockLost = () => {
@@ -699,6 +720,7 @@ export class WorldState implements GameState, InstanceHost {
     if (this.labels) ctx.ui.append(this.labels.root);
     this.hud = new HUD(data.player.hud, data.player.lowHpThreshold, () => this.interact());
     this.hud.setInteractKey(this.interactKeyLabel());
+    this.hud.setPoiseTexts(ctx.i18n.t('hud.poise'), ctx.i18n.t('hud.staggered'));
     // The scene set the maxima before the HUD existed: a sword fighter has no mana bar.
     this.hud.setBarUsed('mana', this.player?.combat.hasMana ?? true);
     ctx.ui.append(this.hud.root);
@@ -706,6 +728,8 @@ export class WorldState implements GameState, InstanceHost {
     ctx.ui.append(this.dialog.root);
     this.damageNumbers = new DamageNumbers();
     ctx.ui.append(this.damageNumbers.root);
+    this.poiseBars = new EnemyPoiseBars();
+    ctx.ui.append(this.poiseBars.root);
     this.hudInCombat = false;
     this.abilitiesTouch = false;
     this.knockedOut = false;
@@ -823,6 +847,7 @@ export class WorldState implements GameState, InstanceHost {
         this.cheatPanel?.updateTexts();
         this.dialog?.updateTexts();
         this.hud?.setInteractKey(this.interactKeyLabel());
+        this.hud?.setPoiseTexts(ctx.i18n.t('hud.poise'), ctx.i18n.t('hud.staggered'));
         this.refreshAbilities();
         this.iconLabelFor = null;
       }),
@@ -918,10 +943,13 @@ export class WorldState implements GameState, InstanceHost {
     this.lookHint = null;
     this.hud?.dispose();
     this.hud = null;
+    this.goldMarkerMesh = null;
     this.dialog?.dispose();
     this.dialog = null;
     this.damageNumbers?.dispose();
     this.damageNumbers = null;
+    this.poiseBars?.dispose();
+    this.poiseBars = null;
     this.talkingTo = null;
     this.targetNpc = null;
     this.encounter?.dispose();
@@ -1070,6 +1098,7 @@ export class WorldState implements GameState, InstanceHost {
         s.y = streamer.heightAt(s.x, s.z);
       }
     }
+    this.stepGoldMarker();
     if (doors) {
       // Where the player stands now counts too: standing in a doorway keeps the door open.
       doors.add(s.x, s.z);
@@ -1099,6 +1128,8 @@ export class WorldState implements GameState, InstanceHost {
     this.updateCombatHud();
     this.hud?.rules.setEnergyFraction(s.energy / movement.maxEnergy);
     this.hud?.setBar('energy', s.energy / movement.maxEnergy);
+    const poise = this.player?.combat.poise;
+    if (poise) this.hud?.setPoise(poise.max > 0 ? poise.poise / poise.max : 1, poise.staggered);
   }
 
   /** Debug: every swinging door's angle in degrees (and the cheat, when it holds them). */
@@ -1126,12 +1157,52 @@ export class WorldState implements GameState, InstanceHost {
 
   /** Fighting and walking for one step: with a sword you swing, with a staff you shoot. */
   private stepAttackAndMove(dt: number): void {
+    const poiseCfg = this.ctx.data?.player.poise;
+    const poise = this.player?.combat.poise;
+    if (poiseCfg && poise) {
+      stepPoise(poise, poiseCfg, dt);
+      if (poise.staggered) {
+        // Staggered: no walking, dashing or attacking until it wears off.
+        this.command.x = 0;
+        this.command.z = 0;
+        this.command.dash = false;
+        this.clearAttackInput();
+      }
+    }
+    this.stepPlayerGuard(dt);
     // One fresh roll per step decides whether a hit that lands is critical (Luck).
     const roll = this.critRng.next();
     this.swordInput.critRoll = roll;
     this.staffInput.critRoll = roll;
     if (this.weaponKind === 'staff') this.stepStaffAndMove(dt);
     else this.stepSwordAndMove(dt);
+  }
+
+  /**
+   * The guard for one step (fase S.7, sword only): it goes up while the block button is held and
+   * you are free (not swinging, rolling or staggered). While it is up you cannot attack.
+   */
+  private stepPlayerGuard(dt: number): void {
+    const player = this.player;
+    const cfg = this.ctx.data?.player.guard;
+    if (!player || !cfg) return;
+    const c = player.combat;
+    const s = player.state;
+    const free =
+      this.weaponKind !== 'staff' &&
+      !this.cheats.fly &&
+      !this.knockedOut &&
+      this.deathTimer === NOT_DYING &&
+      !c.poise.staggered &&
+      !this.command.dash &&
+      s.dashTime <= 0 &&
+      c.swingTime <= 0 &&
+      c.heavyWindup <= 0;
+    const up = stepGuard(c.guard, s, cfg, this.input?.isPressed('block') ?? false, free, dt);
+    if (!up) return;
+    this.clearAttackInput();
+    c.bufferedFast = 0;
+    c.bufferedHeavy = 0;
   }
 
   /**
@@ -1162,6 +1233,7 @@ export class WorldState implements GameState, InstanceHost {
       this.baseWalkSpeed *
       this.cheats.speed *
       (windingUp ? sword.heavyMoveFactor : 1) *
+      (c.guard.up ? (data.player.guard?.moveFactor ?? 1) : 1) *
       slowFactor(this.statusTotals.slowPercent);
     stepMovement(s, this.command, movement, dt, mover);
     this.stepRegen(c, dt);
@@ -1235,7 +1307,7 @@ export class WorldState implements GameState, InstanceHost {
     const s = this.player?.state;
     if (!s) return;
     const locked = this.locked;
-    if (locked?.hittable) {
+    if (locked?.lockable) {
       s.heading = headingTo(s.x, s.z, locked.x, locked.z, s.heading);
       return;
     }
@@ -1258,14 +1330,22 @@ export class WorldState implements GameState, InstanceHost {
       s.z,
       s.heading,
       damage,
-      locked?.hittable ? locked : null,
+      locked?.lockable ? locked : null,
       charge,
       crit,
+      this.shotPoiseDamage(shot, charge, crit),
     );
     // Debug: the cheat menu can make shots curve harder or not at all.
     fired.homingRadians = shot.homingRadians * this.cheats.homing;
     // Shooting counts as fighting, so the bars show (HUD rules from the concept).
     player.combat.sinceCombat = 0;
+  }
+
+  /** Poise damage of a shot: charged spells do more, critical hits multiply it (fase S.6). */
+  private shotPoiseDamage(shot: ShotConfig, charge: number, crit: boolean): number {
+    const factor = shot.charge ? chargeScale(shot.charge.damageFactor, charge) : 1;
+    const critFactor = crit ? (this.ctx.data?.player.poise.critFactor ?? 1) : 1;
+    return shot.poiseDamage * factor * critFactor;
   }
 
   /** "Not enough mana." (not more often than every few seconds). */
@@ -1436,7 +1516,7 @@ export class WorldState implements GameState, InstanceHost {
     const { enemies, enemyRenderer, player } = this;
     const e = target as Enemy;
     if (!enemies || !player || !e.hittable) return;
-    const defeated = enemies.hit(e, shot.damage);
+    const defeated = enemies.hit(e, shot.damage, shot.poiseDamage);
     // A mage practises with a charged spell, so how far it was charged counts.
     this.recordTraining(e, shot.id === SHARD_ID ? 0 : shot.charge);
     const top = e.y + (enemyRenderer?.heightOf(e) ?? 1.5);
@@ -1486,7 +1566,18 @@ export class WorldState implements GameState, InstanceHost {
         else this.showProtected(e);
         continue;
       }
-      const defeated = enemies.hit(e, damage);
+      const bs = enemies.poiseSettings;
+      const poiseDamage = backstabPoiseDamage(
+        result.poiseDamage,
+        e.x,
+        e.z,
+        e.heading,
+        s.x,
+        s.z,
+        bs.backstabAngleDegrees,
+        bs.backstabFactor,
+      );
+      const defeated = enemies.hit(e, damage, poiseDamage);
       hitAny = true;
       // Practising at the training field (the Entrance Exams, fase 3.8).
       this.recordTraining(e);
@@ -1542,21 +1633,65 @@ export class WorldState implements GameState, InstanceHost {
    * status effects on you, and a leeching monster (the Nature slime) heals from the damage it
    * really dealt.
    */
-  private readonly hurtPlayer = (damage: number, from?: Enemy): void => {
+  private readonly hurtPlayer = (damage: number, from?: Enemy, guardable = true): void => {
     const player = this.player;
     if (!player || damage <= 0) return;
     const c = player.combat;
     const s = player.state;
     if (this.knockedOut || this.deathTimer !== NOT_DYING) return;
-    const taken = damageTaken(c, damage);
+    // Rolling through it: the hit (or arrow, or burn tick) misses.
+    if (s.invulnerable) return;
+    // The guard (fase S.7) looks at it first: a parry catches it, a block softens it.
+    const guardCfg = this.ctx.data?.player.guard;
+    const verdict =
+      guardable && guardCfg ? guardHit(c.guard, s, guardCfg, damage, this.guardResult) : null;
+    if (verdict && verdict.outcome === 'parry') {
+      this.damageNumbers?.spawnText(
+        s.x,
+        s.y + 2,
+        s.z,
+        this.ctx.i18n.t('controls.parried'),
+        'dodged',
+      );
+      if (from) this.enemies?.parried(from);
+      return;
+    }
+    const factor = verdict ? verdict.damageFactor : 1;
+    const taken = damageTaken(c, damage * factor);
+    if (verdict && verdict.outcome !== 'none') {
+      const key = verdict.outcome === 'block' ? 'controls.blocked' : 'controls.guardBroken';
+      this.damageNumbers?.spawnText(s.x, s.y + 2.4, s.z, this.ctx.i18n.t(key), 'dodged');
+    }
     c.hp = Math.max(0, c.hp - taken);
     c.sinceCombat = 0;
     c.sinceHurt = 0;
     this.damageNumbers?.spawn(s.x, s.y + 2, s.z, taken, 'player');
     this.hud?.hurt();
+    if (from && from.def.poiseDamage) {
+      this.breakPlayerPoise(from.def.poiseDamage * (verdict ? verdict.poiseFactor : 1));
+    }
     if (from) this.applyOnHit(from, taken);
     if (c.hp <= 0) this.knockedOut = true;
   };
+
+  /**
+   * A monster's hit drains your poise (fase S.6). When it breaks you stagger: a swing or cast
+   * in progress is cut short and you can do nothing until the stagger is over (see
+   * `stepAttackAndMove`).
+   */
+  private breakPlayerPoise(amount: number): void {
+    const player = this.player;
+    const poise = this.ctx.data?.player.poise;
+    if (!player || !poise) return;
+    const c = player.combat;
+    if (!damagePoise(c.poise, amount, poise)) return;
+    c.heavyWindup = 0;
+    c.swingTime = 0;
+    c.swing = 'none';
+    c.bufferedFast = 0;
+    c.bufferedHeavy = 0;
+    this.staffState.reset();
+  }
 
   /** What a monster's hit leaves behind: its status effects, and leech for itself. */
   private applyOnHit(e: Enemy, taken: number): void {
@@ -1592,7 +1727,7 @@ export class WorldState implements GameState, InstanceHost {
     const totals = status.step(dt);
     this.statusTotals = totals;
     this.statusDamageFactor = weakenFactor(totals.weakenPercent);
-    if (totals.damage > 0) this.hurtPlayer(totals.damage);
+    if (totals.damage > 0) this.hurtPlayer(totals.damage, undefined, false);
   }
 
   /**
@@ -1738,6 +1873,14 @@ export class WorldState implements GameState, InstanceHost {
       data.player.death.goldLossFraction,
     );
     if (session.character) session.character.gold -= this.deathGoldLost;
+    // The lost gold stays where you fell; an older marker (its gold) is gone for good.
+    session.goldMarker = markerAfterDeath(
+      player.state.x,
+      player.state.y,
+      player.state.z,
+      session.world.instance,
+      this.deathGoldLost,
+    );
     // From now on the save holds where you will wake up (syncSave waits until then).
     const checkpoint = this.checkpoints?.byId(session.world.checkpoint);
     const zone = data.zones.zones.find((entry) => entry.id === data.player.start.zone);
@@ -1758,6 +1901,76 @@ export class WorldState implements GameState, InstanceHost {
         ? t.t('death.goldLost', { amount: this.deathGoldLost, gold: this.goldName() })
         : t.t('death.wakeUp');
     this.dialog?.close();
+  }
+
+  /** The glowing heap of gold: a flat disc, a small cone and a ring, in the palette's gold. */
+  private buildGoldMarker(): Group {
+    const group = new Group();
+    group.name = 'goldMarker';
+    const gold = new MeshBasicMaterial({ color: palette.zonlicht });
+    const ring = new MeshBasicMaterial({
+      color: palette.ornamentgoud,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false,
+    });
+    const heap = new Mesh(new ConeGeometry(0.45, 0.5, 7), gold);
+    heap.position.y = 0.25;
+    const disc = new Mesh(new CylinderGeometry(0.6, 0.65, 0.12, 12), gold);
+    disc.position.y = 0.06;
+    const halo = new Mesh(new CircleGeometry(1.1, 24), ring);
+    halo.rotation.x = -Math.PI / 2;
+    halo.position.y = 0.04;
+    group.add(heap, disc, halo);
+    group.visible = false;
+    return group;
+  }
+
+  /** Shows the marker where the save says it lies (bobbing a little); hides it when none. */
+  private updateGoldMarker(): void {
+    const mesh = this.goldMarkerMesh;
+    if (!mesh) return;
+    const session = this.ctx.session;
+    const marker = session?.goldMarker ?? null;
+    const show = marker !== null && marker.instance === (session?.world.instance ?? null);
+    mesh.visible = show;
+    if (!show || !marker) return;
+    mesh.position.set(marker.x, marker.y + Math.sin(this.time * 2) * 0.05, marker.z);
+    mesh.rotation.y = this.time * 0.8;
+  }
+
+  /** Walking onto the gold you left behind gives it back (fixed step, no allocations). */
+  private stepGoldMarker(): void {
+    const session = this.ctx.session;
+    const data = this.ctx.data;
+    const player = this.player;
+    const marker = session?.goldMarker;
+    if (!session || !data || !player || !marker || this.deathTimer !== NOT_DYING) return;
+    const s = player.state;
+    if (
+      !canPickUpMarker(
+        marker,
+        s.x,
+        s.z,
+        session.world.instance,
+        data.player.death.markerPickupRadius,
+      )
+    ) {
+      return;
+    }
+    const amount = marker.amount;
+    session.goldMarker = null;
+    if (session.character) {
+      session.character.gold += amount;
+      this.hud?.setGold(session.character.gold);
+      this.hud?.rules.goldChanged();
+    }
+    this.hud?.showMessage(
+      this.ctx.i18n.t('death.goldRecovered', { amount, gold: this.goldName() }),
+    );
+    this.ctx.events.emit('itemsGained', { itemId: GOLD_ITEM, count: amount });
+    this.syncSave();
+    this.ctx.persist();
   }
 
   /** One step of dying: fade out, (black) wake up at the checkpoint, fade back in. */
@@ -1786,12 +1999,14 @@ export class WorldState implements GameState, InstanceHost {
     const c = player.combat;
     c.hp = c.maxHp;
     c.mana = c.maxMana;
+    c.poise.reset(c.poise.max);
     c.sinceCombat = Infinity;
     c.sinceHurt = Infinity;
     c.sinceSwing = Infinity;
     c.heavyWindup = 0;
     c.swing = 'none';
     player.state.energy = data.player.base.energy;
+    player.state.exhausted = false;
     const lost = this.deathGoldLost;
     if (session.character && lost > 0) {
       this.hud?.setGold(session.character.gold);
@@ -2142,6 +2357,7 @@ export class WorldState implements GameState, InstanceHost {
     s.x = fromX;
     s.z = fromZ;
     s.dashTime = 0;
+    s.invulnerable = false;
     if (!this.gateBlocked && gate.blockedText) {
       this.hud?.showMessage(this.ctx.i18n.t(gate.blockedText));
     }
@@ -3070,6 +3286,9 @@ export class WorldState implements GameState, InstanceHost {
     this.applyStatEffects(c);
     applyStats(c, data.player, c.level);
     this.carriedKg = carriedWeight(character.inventory, this.items);
+    // Heavier equipment stands firmer (fase S.6).
+    const pc = data.player.poise;
+    c.poise.setMax(playerMaxPoise(pc.baseMax, pc.perKg, this.carriedKg));
     this.maxLoadKg = maxLoad(data.player.load, c.level, this.statEffects.carryKg);
     const tier = loadTier(data.player.load, this.carriedKg, this.maxLoadKg);
     loadedMovement(
@@ -3367,6 +3586,7 @@ export class WorldState implements GameState, InstanceHost {
     this.npcRenderer?.update(a, hopSeconds);
     this.animatedNpcs?.update(a, waiting ? 0 : frameSeconds, hopSeconds);
     this.npcRenderer?.updateMarkers(a, this.time);
+    this.updateGoldMarker();
     if (!waiting) this.time += frameSeconds;
     this.enemyRenderer?.update(a, this.time);
     if (this.enemies) this.warningRenderer?.update(this.enemies.shown, a);
@@ -3376,6 +3596,11 @@ export class WorldState implements GameState, InstanceHost {
     this.updateChargeOrb(a);
     input.consumeLook(this.look);
     const look = this.look;
+    // The right stick keeps turning while a menu is open; the camera must not move behind it.
+    if (this.paused) {
+      look.yaw = 0;
+      look.pitch = 0;
+    }
     const turning = input.turningCamera || look.yaw !== 0 || look.pitch !== 0;
     const root = player.model.root;
     rig.orbit.update(
@@ -3418,6 +3643,19 @@ export class WorldState implements GameState, InstanceHost {
     );
     this.updateBlackout();
     this.hud?.update(frameSeconds);
+    if (this.enemies && this.poiseBars) {
+      this.poiseBars.update(
+        this.enemies.shown,
+        this.enemies.poiseSettings,
+        this.enemyRenderer,
+        a,
+        rig.camera,
+        origin.x,
+        origin.z,
+        window.innerWidth,
+        window.innerHeight,
+      );
+    }
     this.damageNumbers?.update(
       waiting ? 0 : frameSeconds,
       rig.camera,
@@ -3808,6 +4046,7 @@ export class WorldState implements GameState, InstanceHost {
     const show =
       !this.paused &&
       !input.usedTouch &&
+      !input.usingPad &&
       !input.pointerLocked &&
       !this.coarsePointer &&
       !this.dialog?.isOpen;
@@ -4118,6 +4357,7 @@ export class WorldState implements GameState, InstanceHost {
     rig.orbit.snap(player.state.x, player.state.y, player.state.z, heading ?? rig.orbit.yaw);
     this.dialog?.close();
     this.damageNumbers?.clear();
+    this.poiseBars?.clear();
     // Shots in flight and your locked target belong to where you came from.
     this.shots?.clear();
     this.staffState.reset();
@@ -4425,6 +4665,7 @@ export class WorldState implements GameState, InstanceHost {
       );
     }
     player.state.energy = data.player.base.energy;
+    player.state.exhausted = false;
     player.state.sinceEnergySpent = data.player.regen.energyDelaySeconds;
     this.sword = swordConfig(data.player);
     this.staff = staffConfig(data.player, data.spells);
@@ -4484,6 +4725,8 @@ export class WorldState implements GameState, InstanceHost {
       });
     }
     worldRoot.add(player.model.root);
+    this.goldMarkerMesh = this.buildGoldMarker();
+    worldRoot.add(this.goldMarkerMesh);
     this.player = player;
 
     this.npcWorld = {
@@ -4703,8 +4946,10 @@ export class WorldState implements GameState, InstanceHost {
     const s = player.state;
     player.place(s.x, s.y, s.z, s.heading);
     s.dashTime = 0;
+    s.invulnerable = false;
     rig.orbit.snap(s.x, s.y, s.z, s.heading);
     this.damageNumbers?.clear();
+    this.poiseBars?.clear();
     if (npcWorld) this.npcs?.snapCompanions(s.x, s.z, s.heading, npcWorld);
   }
 
@@ -4979,7 +5224,7 @@ export class WorldState implements GameState, InstanceHost {
       'load',
       `${this.carriedKg.toFixed(1)}/${this.maxLoadKg} kg ${this.loadTierId} · walk ` +
         `${m?.walkSpeed.toFixed(2) ?? '-'} m/s · dash ${m?.canDash ? `${m.dashDistance.toFixed(1)} m, ${m.dashEnergyCost} en` : 'no'}` +
-        `${s.recoverTime > 0 ? ' · getting up' : ''} · dmg ×${c.damageFactor.toFixed(2)} taken ×${c.damageTakenFactor.toFixed(2)}`,
+        `${s.recoverTime > 0 ? ' · getting up' : ''}${c.poise.staggered ? ' · staggered' : ''} · poise ${Math.round(c.poise.poise)}/${Math.round(c.poise.max)} · dmg ×${c.damageFactor.toFixed(2)} taken ×${c.damageTakenFactor.toFixed(2)}`,
     );
     debug.lines.set('enemies', this.enemyDebugLine(s.x, s.z));
     debug.lines.set('effects', this.effectsDebugLine());
@@ -5089,21 +5334,28 @@ export class WorldState implements GameState, InstanceHost {
       // Nothing locked: say what is within range, and how much of it is out of sight.
       let inRange = 0;
       let hidden = 0;
+      let inView = 0;
+      const yaw = this.rig?.orbit.yaw ?? 0;
       const enemies = this.enemies?.shown ?? [];
       for (const enemy of enemies) {
-        if (!enemy.hittable) continue;
+        if (!enemy.lockable) continue;
         if (Math.hypot(enemy.x - px, enemy.z - pz) > (cfg?.range ?? 0)) continue;
         inRange++;
         if (!this.canSeeFromCamera(enemy)) hidden++;
+        const off = Math.abs(angleDelta(yaw, Math.atan2(enemy.x - px, enemy.z - pz)));
+        if (cfg && off <= cfg.pickHalfArc) inView++;
       }
-      return `none · in range ${inRange} (${hidden} hidden) · range ${cfg ? cfg.range.toFixed(0) : '-'} m`;
+      return `none · in range ${inRange} (${hidden} hidden, ${inView} in view) · range ${cfg ? cfg.range.toFixed(0) : '-'} m`;
     }
     const distance = Math.hypot(locked.x - px, locked.z - pz);
+    const off = Math.abs(
+      angleDelta(this.rig?.orbit.yaw ?? 0, Math.atan2(locked.x - px, locked.z - pz)),
+    );
     const seen = this.canSeeFromCamera(locked);
     const marker = this.ctx.data?.player.lockOn.marker;
     const size = marker ? marker.dotPixels : 0;
     return (
-      `${locked.def.id} ${distance.toFixed(1)} m · ${seen ? 'in sight' : 'hidden'} ` +
+      `${locked.def.id} ${distance.toFixed(1)} m · off ${Math.round((off * 180) / Math.PI)}° · ${seen ? 'in sight' : 'hidden'} ` +
       `(${this.lockBlindSeconds.toFixed(2)}/${cfg.loseSightSeconds.toFixed(2)} s) · dot ${size} px`
     );
   }

@@ -229,6 +229,7 @@ export class IntroArsenal {
         id: 'intro_icicle',
         element: '',
         damage: 0,
+        poiseDamage: 0,
         manaCost: 0,
         windupSeconds: 0,
         cooldownSeconds: p.cooldownSeconds,
