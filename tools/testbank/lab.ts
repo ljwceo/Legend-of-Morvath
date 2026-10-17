@@ -66,7 +66,8 @@ function rollLands(fps: number, hitAt: number): boolean {
       stepMovement(s, { x: 1, z: 0, dash: pressed } as any, cfg, time.dt, world);
       pressed = false;
       elapsed += time.dt;
-      if (!landed && elapsed >= hitAt - EPS && elapsed < hitAt + time.dt - EPS) landed = !s.invulnerable;
+      if (!landed && elapsed >= hitAt - EPS && elapsed < hitAt + time.dt - EPS)
+        landed = !s.invulnerable;
     }
   }
   return landed;
@@ -241,7 +242,11 @@ export function labPanel(hooks: LabHooks): Panel {
       const renderTop = () => {
         const a = atk();
         const style =
-          a.style === 'strike' ? 'schijf rond de vijand' : a.style === 'lunge' ? 'lijn (uitval)' : 'lijn (schot)';
+          a.style === 'strike'
+            ? 'schijf rond de vijand'
+            : a.style === 'lunge'
+              ? 'lijn (uitval)'
+              : 'lijn (schot)';
         top.replaceChildren(
           h(
             'p',
@@ -254,10 +259,17 @@ export function labPanel(hooks: LabHooks): Panel {
       const sel = h(
         'select',
         { 'aria-label': 'Vijand', onchange: (e: any) => pickMonster(e.target.value) },
-        ...attackers.map((m) => h('option', { value: m.id, ...(m.id === monster.id ? { selected: true } : {}) }, m.name)),
+        ...attackers.map((m) =>
+          h('option', { value: m.id, ...(m.id === monster.id ? { selected: true } : {}) }, m.name),
+        ),
       ) as HTMLSelectElement;
-      const mk = (label: string, fn: () => void) => h('button', { type: 'button', className: 'ui-button lab-b', onclick: fn }, label);
-      const hold = h('button', { type: 'button', className: 'ui-button lab-b', 'aria-pressed': 'false' }, 'Houd blok vast (R)') as HTMLButtonElement;
+      const mk = (label: string, fn: () => void) =>
+        h('button', { type: 'button', className: 'ui-button lab-b', onclick: fn }, label);
+      const hold = h(
+        'button',
+        { type: 'button', className: 'ui-button lab-b', 'aria-pressed': 'false' },
+        'Houd blok vast (R)',
+      ) as HTMLButtonElement;
       const setHold = (v: boolean) => {
         holdGuard = v;
         hold.setAttribute('aria-pressed', String(v));
@@ -266,32 +278,114 @@ export function labPanel(hooks: LabHooks): Panel {
       hold.addEventListener('pointerdown', () => setHold(true));
       hold.addEventListener('pointerup', () => setHold(false));
       hold.addEventListener('pointerleave', () => setHold(false));
-      hold.addEventListener('keydown', (e: any) => (e.key === ' ' || e.key === 'Enter') && (e.preventDefault(), setHold(true)));
-      hold.addEventListener('keyup', (e: any) => (e.key === ' ' || e.key === 'Enter') && setHold(false));
-      const repeatBtn = h('button', { type: 'button', className: 'ui-button lab-b', 'aria-pressed': 'false', onclick: () => { repeat = !repeat; repeatBtn.classList.toggle('pt-on', repeat); repeatBtn.setAttribute('aria-pressed', String(repeat)); } }, 'Aanvallen herhalen');
-      const critBtn = h('button', { type: 'button', className: 'ui-button lab-b', 'aria-pressed': 'false', onclick: () => { crit = !crit; critBtn.classList.toggle('pt-on', crit); critBtn.setAttribute('aria-pressed', String(crit)); } }, `Kritieke treffer (×${P.poise.critFactor})`);
-      const kg = h('input', { type: 'range', min: '0', max: '60', value: String(carriedKg), 'aria-label': 'Gedragen gewicht in kg', oninput: (e: any) => { setCarried(+e.target.value); kgLabel.textContent = `${carriedKg} kg gedragen -> max poise ${pPoise.max.toFixed(1)}`; } });
-      const kgLabel = h('span', { className: 'pt-num' }, `${carriedKg} kg gedragen -> max poise ${pPoise.max.toFixed(1)}`);
+      hold.addEventListener(
+        'keydown',
+        (e: any) => (e.key === ' ' || e.key === 'Enter') && (e.preventDefault(), setHold(true)),
+      );
+      hold.addEventListener(
+        'keyup',
+        (e: any) => (e.key === ' ' || e.key === 'Enter') && setHold(false),
+      );
+      const repeatBtn = h(
+        'button',
+        {
+          type: 'button',
+          className: 'ui-button lab-b',
+          'aria-pressed': 'false',
+          onclick: () => {
+            repeat = !repeat;
+            repeatBtn.classList.toggle('pt-on', repeat);
+            repeatBtn.setAttribute('aria-pressed', String(repeat));
+          },
+        },
+        'Aanvallen herhalen',
+      );
+      const critBtn = h(
+        'button',
+        {
+          type: 'button',
+          className: 'ui-button lab-b',
+          'aria-pressed': 'false',
+          onclick: () => {
+            crit = !crit;
+            critBtn.classList.toggle('pt-on', crit);
+            critBtn.setAttribute('aria-pressed', String(crit));
+          },
+        },
+        `Kritieke treffer (×${P.poise.critFactor})`,
+      );
+      const kg = h('input', {
+        type: 'range',
+        min: '0',
+        max: '60',
+        value: String(carriedKg),
+        'aria-label': 'Gedragen gewicht in kg',
+        oninput: (e: any) => {
+          setCarried(+e.target.value);
+          kgLabel.textContent = `${carriedKg} kg gedragen -> max poise ${pPoise.max.toFixed(1)}`;
+        },
+      });
+      const kgLabel = h(
+        'span',
+        { className: 'pt-num' },
+        `${carriedKg} kg gedragen -> max poise ${pPoise.max.toFixed(1)}`,
+      );
 
       // ---------- headless scans (60 vs 120 Hz)
       const scanOffsets: number[] = [];
       for (let t = 0; t <= 0.3001; t += 0.025) scanOffsets.push(Math.round(t * 1000) / 1000);
       const rollRows = scanOffsets.map((t) => {
-        const a = rollLands(60, t), b = rollLands(120, t);
-        return h('tr', {}, h('td', {}, `${t.toFixed(3)} s`), h('td', {}, a ? 'raakt' : 'mist'), h('td', {}, b ? 'raakt' : 'mist'), h('td', {}, a === b ? 'gelijk' : 'VERSCHIL'));
+        const a = rollLands(60, t),
+          b = rollLands(120, t);
+        return h(
+          'tr',
+          {},
+          h('td', {}, `${t.toFixed(3)} s`),
+          h('td', {}, a ? 'raakt' : 'mist'),
+          h('td', {}, b ? 'raakt' : 'mist'),
+          h('td', {}, a === b ? 'gelijk' : 'VERSCHIL'),
+        );
       });
       const guardRows = scanOffsets.map((t) => {
-        const a = guardOutcome(60, t), b = guardOutcome(120, t);
-        return h('tr', {}, h('td', {}, `${t.toFixed(3)} s`), h('td', {}, a), h('td', {}, b), h('td', {}, a === b ? 'gelijk' : 'VERSCHIL'));
+        const a = guardOutcome(60, t),
+          b = guardOutcome(120, t);
+        return h(
+          'tr',
+          {},
+          h('td', {}, `${t.toFixed(3)} s`),
+          h('td', {}, a),
+          h('td', {}, b),
+          h('td', {}, a === b ? 'gelijk' : 'VERSCHIL'),
+        );
       });
       const scanTable = (head: string, rows: HTMLElement[]) =>
-        h('table', { className: 'pt-table' }, h('thead', {}, h('tr', {}, h('th', {}, head), h('th', {}, '60 Hz'), h('th', {}, '120 Hz'), h('th', {}, ''))), h('tbody', {}, ...rows));
+        h(
+          'table',
+          { className: 'pt-table' },
+          h(
+            'thead',
+            {},
+            h(
+              'tr',
+              {},
+              h('th', {}, head),
+              h('th', {}, '60 Hz'),
+              h('th', {}, '120 Hz'),
+              h('th', {}, ''),
+            ),
+          ),
+          h('tbody', {}, ...rows),
+        );
 
       // ---------- gold marker
       let pos = { x: 5, z: 5 };
       let marker: GoldMarker | null = null;
       const radius: number = P.death.markerPickupRadius;
-      const map = h('div', { className: 'lab-map', tabindex: '0', 'aria-label': 'Kaart: klik om te lopen' });
+      const map = h('div', {
+        className: 'lab-map',
+        tabindex: '0',
+        'aria-label': 'Kaart: klik om te lopen',
+      });
       const dotP = h('div', { className: 'lab-dot lab-me' });
       const dotM = h('div', { className: 'lab-dot lab-gold' });
       map.append(dotM, dotP);
@@ -313,12 +407,18 @@ export function labPanel(hooks: LabHooks): Panel {
           hooks.setGold(hooks.getGold() + marker.amount);
           mapMsg.textContent = `Gold opgehaald: +${marker.amount}.`;
           marker = null;
-        } else mapMsg.textContent = marker ? `Nog ${Math.max(0, Math.hypot(x - marker.x, z - marker.z) - radius).toFixed(1)} m tot het bereik (${radius} m).` : '';
+        } else
+          mapMsg.textContent = marker
+            ? `Nog ${Math.max(0, Math.hypot(x - marker.x, z - marker.z) - radius).toFixed(1)} m tot het bereik (${radius} m).`
+            : '';
         place();
       };
       map.addEventListener('click', (e: any) => {
         const r = map.getBoundingClientRect();
-        walkTo(Math.max(0, Math.min(30, (e.clientX - r.left) / 10)), Math.max(0, Math.min(20, (e.clientY - r.top) / 10)));
+        walkTo(
+          Math.max(0, Math.min(30, (e.clientX - r.left) / 10)),
+          Math.max(0, Math.min(20, (e.clientY - r.top) / 10)),
+        );
       });
       const die = () => {
         const lost = Math.floor(hooks.getGold() * P.death.goldLossFraction);
@@ -354,12 +454,25 @@ export function labPanel(hooks: LabHooks): Panel {
         status.textContent = `Energie ${mover.energy.toFixed(0)}/${cfg.maxEnergy}   Fase vijand: ${phase}   ${flags.join(' | ')}`;
         const a = atk();
         const total = steps(a.windupSeconds) + steps(a.hitSeconds) + steps(a.recoverySeconds);
-        const done = phase === 'idle' ? 0 : phase === 'windup' ? steps(a.windupSeconds) - phaseSteps : phase === 'hit' ? steps(a.windupSeconds) + steps(a.hitSeconds) - phaseSteps : steps(a.windupSeconds) + steps(a.hitSeconds) + steps(a.recoverySeconds) - phaseSteps;
+        const done =
+          phase === 'idle'
+            ? 0
+            : phase === 'windup'
+              ? steps(a.windupSeconds) - phaseSteps
+              : phase === 'hit'
+                ? steps(a.windupSeconds) + steps(a.hitSeconds) - phaseSteps
+                : steps(a.windupSeconds) +
+                  steps(a.hitSeconds) +
+                  steps(a.recoverySeconds) -
+                  phaseSteps;
         timeline.style.setProperty('--w', `${(steps(a.windupSeconds) / total) * 100}%`);
         timeline.style.setProperty('--h', `${(steps(a.hitSeconds) / total) * 100}%`);
         timeline.style.setProperty('--p', `${phase === 'idle' ? 0 : (done / total) * 100}%`);
         cue.className = `lab-cue ${phase === 'windup' ? 'on' : ''} ${a.style}`;
-        cue.style.setProperty('--prog', String(phase === 'windup' ? 1 - phaseSteps / steps(a.windupSeconds) : 0));
+        cue.style.setProperty(
+          '--prog',
+          String(phase === 'windup' ? 1 - phaseSteps / steps(a.windupSeconds) : 0),
+        );
         cueBox.dataset.phase = phase;
         logEl.textContent = log;
         requestAnimationFrame(frame);
@@ -368,7 +481,10 @@ export function labPanel(hooks: LabHooks): Panel {
 
       const onKey = (e: KeyboardEvent) => {
         if (e.repeat) return;
-        if (e.code === 'Space') { e.preventDefault(); roll(); }
+        if (e.code === 'Space') {
+          e.preventDefault();
+          roll();
+        }
         if (e.code === 'KeyR') setHold(e.type === 'keydown');
       };
       document.addEventListener('keydown', onKey);
@@ -376,43 +492,139 @@ export function labPanel(hooks: LabHooks): Panel {
 
       renderTop();
       place();
-      const costs = h('table', { className: 'pt-table' }, h('thead', {}, h('tr', {}, h('th', {}, 'Actie'), h('th', {}, 'Energie'), h('th', {}, 'Poise-schade (op vijand)'))),
-        h('tbody', {},
-          h('tr', {}, h('td', {}, 'Snelle slag'), h('td', {}, String(P.sword.fastHit.energyCost)), h('td', {}, String(P.sword.fastHit.poiseDamage))),
-          h('tr', {}, h('td', {}, 'Zware slag'), h('td', {}, String(P.sword.heavyHit.energyCost)), h('td', {}, String(P.sword.heavyHit.poiseDamage))),
+      const costs = h(
+        'table',
+        { className: 'pt-table' },
+        h(
+          'thead',
+          {},
+          h(
+            'tr',
+            {},
+            h('th', {}, 'Actie'),
+            h('th', {}, 'Energie'),
+            h('th', {}, 'Poise-schade (op vijand)'),
+          ),
+        ),
+        h(
+          'tbody',
+          {},
+          h(
+            'tr',
+            {},
+            h('td', {}, 'Snelle slag'),
+            h('td', {}, String(P.sword.fastHit.energyCost)),
+            h('td', {}, String(P.sword.fastHit.poiseDamage)),
+          ),
+          h(
+            'tr',
+            {},
+            h('td', {}, 'Zware slag'),
+            h('td', {}, String(P.sword.heavyHit.energyCost)),
+            h('td', {}, String(P.sword.heavyHit.poiseDamage)),
+          ),
           h('tr', {}, h('td', {}, 'Rol'), h('td', {}, String(P.dash.energyCost)), h('td', {}, '—')),
-          h('tr', {}, h('td', {}, 'Guard omhoog'), h('td', {}, String(guardCfg.raiseEnergyCost)), h('td', {}, '—')),
-          h('tr', {}, h('td', {}, 'Blok per schadepunt'), h('td', {}, String(guardCfg.blockEnergyPerDamage)), h('td', {}, '—'))));
+          h(
+            'tr',
+            {},
+            h('td', {}, 'Guard omhoog'),
+            h('td', {}, String(guardCfg.raiseEnergyCost)),
+            h('td', {}, '—'),
+          ),
+          h(
+            'tr',
+            {},
+            h('td', {}, 'Blok per schadepunt'),
+            h('td', {}, String(guardCfg.blockEnergyPerDamage)),
+            h('td', {}, '—'),
+          ),
+        ),
+      );
 
       const root = h(
         'div',
         { className: 'ui-panel pt-panel lab-panel', role: 'dialog' },
         h('h2', { className: 'ui-heading' }, 'Gevechtslab'),
-        h('p', { className: 'ui-note' }, 'De echte regels van het spel (Stamina, Movement, Guard, Poise, GoldMarker) en de echte data. Alleen één vijand op een vlakke grond is nagebootst. Toetsenbord: spatie = rol, R vasthouden = blok/parry.'),
+        h(
+          'p',
+          { className: 'ui-note' },
+          'De echte regels van het spel (Stamina, Movement, Guard, Poise, GoldMarker) en de echte data. Alleen één vijand op een vlakke grond is nagebootst. Toetsenbord: spatie = rol, R vasthouden = blok/parry.',
+        ),
         h('h3', {}, 'S.3-S.7 · Eén gevecht'),
-        h('div', { className: 'lab-row' }, h('label', {}, 'Vijand: ', sel), mk('Start aanval', startAttack), repeatBtn),
-        h('div', { className: 'lab-row' }, mk('Rol (spatie)', roll), hold, mk('Snelle slag', () => sword('fastHit')), mk('Zware slag', () => sword('heavyHit')), critBtn),
+        h(
+          'div',
+          { className: 'lab-row' },
+          h('label', {}, 'Vijand: ', sel),
+          mk('Start aanval', startAttack),
+          repeatBtn,
+        ),
+        h(
+          'div',
+          { className: 'lab-row' },
+          mk('Rol (spatie)', roll),
+          hold,
+          mk('Snelle slag', () => sword('fastHit')),
+          mk('Zware slag', () => sword('heavyHit')),
+          critBtn,
+        ),
         top,
-        h('div', { className: 'lab-bars' }, h('span', {}, 'Jouw HP'), hBar.root, h('span', {}, 'Energie'), eBar.root, h('span', {}, 'Jouw poise'), pBar.root, h('span', {}, 'Poise vijand'), eP.root),
+        h(
+          'div',
+          { className: 'lab-bars' },
+          h('span', {}, 'Jouw HP'),
+          hBar.root,
+          h('span', {}, 'Energie'),
+          eBar.root,
+          h('span', {}, 'Jouw poise'),
+          pBar.root,
+          h('span', {}, 'Poise vijand'),
+          eP.root,
+        ),
         h('div', { className: 'lab-row' }, kgLabel, kg),
         status,
         timeline,
-        h('p', { className: 'lab-hint' }, 'Tijdlijn: aankondiging (grijs), raakvenster (rood), herstel. Rol zo dat je onkwetsbaar bent in het rode stuk, of parry binnen de eerste 0,2 s van je blok.'),
+        h(
+          'p',
+          { className: 'lab-hint' },
+          'Tijdlijn: aankondiging (grijs), raakvenster (rood), herstel. Rol zo dat je onkwetsbaar bent in het rode stuk, of parry binnen de eerste 0,2 s van je blok.',
+        ),
         cueBox,
         logEl,
         costs,
         h('h3', {}, 'S.4 · Rol-venster: 60 Hz naast 120 Hz'),
-        h('p', { className: 'ui-note' }, `Aanval die zoveel seconden na je rol raakt. Venster uit player.json: ${P.dash.iFrames.startSeconds}-${P.dash.iFrames.endSeconds} s. Beide kolommen moeten gelijk zijn.`),
+        h(
+          'p',
+          { className: 'ui-note' },
+          `Aanval die zoveel seconden na je rol raakt. Venster uit player.json: ${P.dash.iFrames.startSeconds}-${P.dash.iFrames.endSeconds} s. Beide kolommen moeten gelijk zijn.`,
+        ),
         scanTable('Raakt na', rollRows),
         h('h3', {}, 'S.7 · Parry-venster: 60 Hz naast 120 Hz'),
-        h('p', { className: 'ui-note' }, `Je zet je blok omhoog op tijd 0; de aanval raakt zoveel seconden later. Parry-venster: ${guardCfg.parrySeconds} s, daarna blok (${Math.round(guardCfg.blockDamageFactor * 100)}% schade).`),
+        h(
+          'p',
+          { className: 'ui-note' },
+          `Je zet je blok omhoog op tijd 0; de aanval raakt zoveel seconden later. Parry-venster: ${guardCfg.parrySeconds} s, daarna blok (${Math.round(guardCfg.blockDamageFactor * 100)}% schade).`,
+        ),
         scanTable('Raakt na', guardRows),
         h('h3', {}, 'S.4b · Gold bij je lijk'),
-        h('div', { className: 'lab-row' }, mk('Sterf hier', die), mk('+100 gold', () => (hooks.setGold(hooks.getGold() + 100), place())), mk('Ga naar start', () => walkTo(5, 5))),
-        h('p', { className: 'lab-hint' }, `Klik op de kaart om te lopen. Pak je gold op door binnen ${radius} m van de gouden cirkel te komen. Sterf je eerst opnieuw, dan is het oude gold weg.`),
+        h(
+          'div',
+          { className: 'lab-row' },
+          mk('Sterf hier', die),
+          mk('+100 gold', () => (hooks.setGold(hooks.getGold() + 100), place())),
+          mk('Ga naar start', () => walkTo(5, 5)),
+        ),
+        h(
+          'p',
+          { className: 'lab-hint' },
+          `Klik op de kaart om te lopen. Pak je gold op door binnen ${radius} m van de gouden cirkel te komen. Sterf je eerst opnieuw, dan is het oude gold weg.`,
+        ),
         map,
         mapMsg,
-        h('button', { type: 'button', className: 'ui-button', onclick: () => hooks.close() }, 'Sluiten'),
+        h(
+          'button',
+          { type: 'button', className: 'ui-button', onclick: () => hooks.close() },
+          'Sluiten',
+        ),
       );
       cleanup = () => {
         stop.run = false;

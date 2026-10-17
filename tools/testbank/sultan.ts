@@ -43,10 +43,18 @@ function duel(hz: number, policy: Policy, enraged: boolean, seconds: number, see
   let step = 0;
   let run = 0;
   const world: any = {
-    mover: { moveCircle: (p: any, _r: number, dx: number, dz: number) => ((p.x += dx), (p.z += dz)) },
+    mover: {
+      moveCircle: (p: any, _r: number, dx: number, dz: number) => ((p.x += dx), (p.z += dz)),
+    },
     hitPlayer: (_e: unknown, damage: number) => {
       const blocked = me.invulnerable;
-      r.hits.push({ t: step * dt, attack: state.attack?.id ?? '', damage, blocked, hitting: state.hitting });
+      r.hits.push({
+        t: step * dt,
+        attack: state.attack?.id ?? '',
+        damage,
+        blocked,
+        hitting: state.hitting,
+      });
       if (!blocked) r.taken += damage;
     },
     bossEvent: (_e: unknown, kind: string, attack: any) => {
@@ -60,13 +68,31 @@ function duel(hz: number, policy: Policy, enraged: boolean, seconds: number, see
     const a = state.attack;
     if (policy === 'roll' && a && state.phase === 'telegraph') {
       const remaining = state.duration - state.elapsed;
-      const ok = a.pattern === 'pounce' ? state.aimed : remaining <= (a.pattern === 'charge' ? 0.35 : 0.15);
+      const ok =
+        a.pattern === 'pounce' ? state.aimed : remaining <= (a.pattern === 'charge' ? 0.35 : 0.15);
       if (ok) {
-        const bx = me.x - boss.x, bz = me.z - boss.z;
+        const bx = me.x - boss.x,
+          bz = me.z - boss.z;
         const len = Math.max(1e-6, Math.hypot(bx, bz));
-        const sx = -bz / len, sz = bx / len;
-        const cands: [number, number][] = a.pattern === 'combo' ? [[bx / len, bz / len], [sx, sz], [-sx, -sz]] : [[sx, sz], [-sx, -sz]];
-        const inside = (c: [number, number]) => Math.hypot(me.x + c[0] * P.dash.distance - ARENA.x, me.z + c[1] * P.dash.distance - ARENA.z) < ARENA.radius - 0.5;
+        const sx = -bz / len,
+          sz = bx / len;
+        const cands: [number, number][] =
+          a.pattern === 'combo'
+            ? [
+                [bx / len, bz / len],
+                [sx, sz],
+                [-sx, -sz],
+              ]
+            : [
+                [sx, sz],
+                [-sx, -sz],
+              ];
+        const inside = (c: [number, number]) =>
+          Math.hypot(
+            me.x + c[0] * P.dash.distance - ARENA.x,
+            me.z + c[1] * P.dash.distance - ARENA.z,
+          ) <
+          ARENA.radius - 0.5;
         const pick = cands.find(inside) ?? cands[0];
         cmd.x = pick[0];
         cmd.z = pick[1];
@@ -86,7 +112,10 @@ function duel(hz: number, policy: Policy, enraged: boolean, seconds: number, see
   return r;
 }
 
-export function sultanPanel(h: (tag: string, props?: Record<string, any>, ...c: (Node | string | null)[]) => HTMLElement, onState: (f: Record<string, unknown>) => void): Panel {
+export function sultanPanel(
+  h: (tag: string, props?: Record<string, any>, ...c: (Node | string | null)[]) => HTMLElement,
+  onState: (f: Record<string, unknown>) => void,
+): Panel {
   return {
     closeActions: [],
     build() {
@@ -95,34 +124,95 @@ export function sultanPanel(h: (tag: string, props?: Record<string, any>, ...c: 
       const out = h('div', {});
       const attackRows = sultan.attacks.map((a: any) => {
         const hit = a.hitSeconds ?? a.travelSeconds ?? 0;
-        return h('tr', {}, h('td', {}, a.name), h('td', {}, `${a.warningSeconds} s (${steps(a.warningSeconds)})`), h('td', {}, a.hitSeconds ? `${a.hitSeconds} s (${steps(a.hitSeconds)})` : `hele run, ${hit} s`), h('td', {}, `${a.recoverySeconds} s`), h('td', {}, `${a.damage} × ${a.hits}`), h('td', {}, a.onlyWhenEnraged ? 'alleen kwaad' : ''));
+        return h(
+          'tr',
+          {},
+          h('td', {}, a.name),
+          h('td', {}, `${a.warningSeconds} s (${steps(a.warningSeconds)})`),
+          h(
+            'td',
+            {},
+            a.hitSeconds ? `${a.hitSeconds} s (${steps(a.hitSeconds)})` : `hele run, ${hit} s`,
+          ),
+          h('td', {}, `${a.recoverySeconds} s`),
+          h('td', {}, `${a.damage} × ${a.hits}`),
+          h('td', {}, a.onlyWhenEnraged ? 'alleen kwaad' : ''),
+        );
       });
-      const table = h('table', { className: 'pt-table' }, h('thead', {}, h('tr', {}, ...['Aanval', 'Aankondiging', 'Raakvenster', 'Herstel', 'Schade', ''].map((t) => h('th', {}, t)))), h('tbody', {}, ...attackRows));
+      const table = h(
+        'table',
+        { className: 'pt-table' },
+        h(
+          'thead',
+          {},
+          h(
+            'tr',
+            {},
+            ...['Aanval', 'Aankondiging', 'Raakvenster', 'Herstel', 'Schade', ''].map((t) =>
+              h('th', {}, t),
+            ),
+          ),
+        ),
+        h('tbody', {}, ...attackRows),
+      );
       const run = () => {
         const secs = 90;
         const cols = [60, 120].map((hz) => ({ hz, r: duel(hz, policy, enraged, secs) }));
-        const same = JSON.stringify(cols[0].r.attacks.slice(0, 8)) === JSON.stringify(cols[1].r.attacks.slice(0, 8));
+        const same =
+          JSON.stringify(cols[0].r.attacks.slice(0, 8)) ===
+          JSON.stringify(cols[1].r.attacks.slice(0, 8));
         const outside = cols.flatMap((c) => c.r.hits).filter((x) => !x.hitting).length;
         const box = (c: { hz: number; r: Result }) => {
           const hitCount: Record<string, number> = {};
-          for (const x of c.r.hits) if (!x.blocked) hitCount[x.attack] = (hitCount[x.attack] ?? 0) + 1;
+          for (const x of c.r.hits)
+            if (!x.blocked) hitCount[x.attack] = (hitCount[x.attack] ?? 0) + 1;
           const win = [...new Set(c.r.windows.map((w) => w.toFixed(3)))].join(', ');
-          return h('div', { className: 'lab-col' }, h('h4', {}, `${c.hz} Hz, ${secs} s`), h('p', { className: 'lab-log' }, `Aanvallen van Sultan: ${c.r.attacks.length}. Schade aan jou: ${c.r.taken}. Treffers: ${Object.entries(hitCount).map(([k, v]) => `${k} ${v}×`).join(', ') || 'geen'}. Raakvensters (s): ${win || '—'}. Eerste aanvallen: ${c.r.attacks.slice(0, 8).join(', ')}.`));
+          return h(
+            'div',
+            { className: 'lab-col' },
+            h('h4', {}, `${c.hz} Hz, ${secs} s`),
+            h(
+              'p',
+              { className: 'lab-log' },
+              `Aanvallen van Sultan: ${c.r.attacks.length}. Schade aan jou: ${c.r.taken}. Treffers: ${
+                Object.entries(hitCount)
+                  .map(([k, v]) => `${k} ${v}×`)
+                  .join(', ') || 'geen'
+              }. Raakvensters (s): ${win || '—'}. Eerste aanvallen: ${c.r.attacks.slice(0, 8).join(', ')}.`,
+            ),
+          );
         };
         out.replaceChildren(
           h('div', { className: 'lab-cols' }, box(cols[0]), box(cols[1])),
-          h('p', { className: 'ui-note', role: 'status' }, `Zelfde volgorde van aanvallen op 60 en 120 Hz: ${same ? 'ja' : 'NEE'}. Treffers buiten een raakvenster: ${outside}. ${policy === 'roll' ? 'Rollende speler (rolt vlak voor elke aanval): verwacht 0 schade.' : 'Stilstaande speler: elke aanval raakt, alleen in het raakvenster.'}`),
+          h(
+            'p',
+            { className: 'ui-note', role: 'status' },
+            `Zelfde volgorde van aanvallen op 60 en 120 Hz: ${same ? 'ja' : 'NEE'}. Treffers buiten een raakvenster: ${outside}. ${policy === 'roll' ? 'Rollende speler (rolt vlak voor elke aanval): verwacht 0 schade.' : 'Stilstaande speler: elke aanval raakt, alleen in het raakvenster.'}`,
+          ),
         );
-        onState({ sultanLab: { policy, enraged, damage60: cols[0].r.taken, damage120: cols[1].r.taken } });
+        onState({
+          sultanLab: { policy, enraged, damage60: cols[0].r.taken, damage120: cols[1].r.taken },
+        });
       };
-      const mk = (label: string, fn: () => void) => h('button', { type: 'button', className: 'ui-button lab-b', onclick: fn }, label);
+      const mk = (label: string, fn: () => void) =>
+        h('button', { type: 'button', className: 'ui-button lab-b', onclick: fn }, label);
       const root = h(
         'div',
         { className: 'lab' },
         h('h2', {}, 'Sultan-lab (S.8)'),
-        h('p', { className: 'ui-note' }, `Sultan: ${sultan.hp} hp, poise ${sultan.poise}, opening ${BOSS.vulnerableSeconds} s. Echte BossAI en echt rollen (onkwetsbaar ${P.dash.iFrames?.start ?? ''}–${P.dash.iFrames?.end ?? ''} s); alleen de arena is een vlakke ring. Kies een speler en druk Start: dezelfde 90 s gevecht op 60 en 120 Hz.`),
+        h(
+          'p',
+          { className: 'ui-note' },
+          `Sultan: ${sultan.hp} hp, poise ${sultan.poise}, opening ${BOSS.vulnerableSeconds} s. Echte BossAI en echt rollen (onkwetsbaar ${P.dash.iFrames?.start ?? ''}–${P.dash.iFrames?.end ?? ''} s); alleen de arena is een vlakke ring. Kies een speler en druk Start: dezelfde 90 s gevecht op 60 en 120 Hz.`,
+        ),
         table,
-        h('div', { className: 'b-row' }, mk('Speler staat stil', () => ((policy = 'still'), run())), mk('Speler rolt weg', () => ((policy = 'roll'), run())), mk('Kwaad aan/uit', () => ((enraged = !enraged), run()))),
+        h(
+          'div',
+          { className: 'b-row' },
+          mk('Speler staat stil', () => ((policy = 'still'), run())),
+          mk('Speler rolt weg', () => ((policy = 'roll'), run())),
+          mk('Kwaad aan/uit', () => ((enraged = !enraged), run())),
+        ),
         out,
       );
       run();

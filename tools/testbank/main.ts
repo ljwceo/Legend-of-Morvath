@@ -183,7 +183,6 @@ function chooseSpell(slot: number, spellId: string): void {
   refresh();
 }
 
-
 // ----------------------------------------------------------------- S.2: controller test
 
 const pc: any = (playerJson as any).controls ?? {};
@@ -367,7 +366,13 @@ function padTestPanel(): Panel {
           h(
             'thead',
             {},
-            h('tr', {}, h('th', {}, 'Actie'), h('th', {}, 'Toets / muis'), h('th', {}, 'Controller')),
+            h(
+              'tr',
+              {},
+              h('th', {}, 'Actie'),
+              h('th', {}, 'Toets / muis'),
+              h('th', {}, 'Controller'),
+            ),
           ),
           h('tbody', {}, ...tableRows),
         ),
@@ -376,7 +381,11 @@ function padTestPanel(): Panel {
           { className: 'ui-note' },
           'Andere knop? Open "Besturing (Settings)" links, klik op een controller-vakje en druk op een knop.',
         ),
-        h('button', { type: 'button', className: 'ui-button', onclick: () => overlays.close() }, i18n.t('common.close')),
+        h(
+          'button',
+          { type: 'button', className: 'ui-button', onclick: () => overlays.close() },
+          i18n.t('common.close'),
+        ),
       );
       return root;
     },
@@ -504,8 +513,15 @@ function renderBench(): void {
     ),
     group(
       'Stappen S.3 t/m S.8 – Souls-like gevecht',
-      row(btn('Gevechtslab', () => open('lab'), openPanel === 'lab'), btn('Sultan-lab (S.8)', () => open('sultan'), openPanel === 'sultan')),
-      h('p', { className: 'b-hint' }, 'Rol, blok en parry, stamina, poise, aanvalsfases en gold bij je lijk met de echte regels en data. 60 Hz naast 120 Hz.'),
+      row(
+        btn('Gevechtslab', () => open('lab'), openPanel === 'lab'),
+        btn('Sultan-lab (S.8)', () => open('sultan'), openPanel === 'sultan'),
+      ),
+      h(
+        'p',
+        { className: 'b-hint' },
+        'Rol, blok en parry, stamina, poise, aanvalsfases en gold bij je lijk met de echte regels en data. 60 Hz naast 120 Hz.',
+      ),
     ),
     group(
       'Stap S.2 – Gamepad',
@@ -514,9 +530,16 @@ function renderBench(): void {
         btn('Besturing (Settings)', () => open('controls'), openPanel === 'controls'),
       ),
       row(
-        btn('Standaard knoppen terug', () => (bindings.resetToDefaults(), saveBindings(), refresh())),
+        btn(
+          'Standaard knoppen terug',
+          () => (bindings.resetToDefaults(), saveBindings(), refresh()),
+        ),
       ),
-      h('p', { className: 'b-hint' }, 'Controllertest werkt alleen met een echte controller; zonder zie je de mapping als tabel.'),
+      h(
+        'p',
+        { className: 'b-hint' },
+        'Controllertest werkt alleen met een echte controller; zonder zie je de mapping als tabel.',
+      ),
     ),
     group(
       'Taal',
@@ -613,29 +636,127 @@ function renderBench(): void {
   ];
   state.replaceChildren(
     h('h3', {}, 'Per stap: proberen en zien (pc en controller)'),
-    h('ul', {},
-      h('li', {}, h('strong', {}, 'S.2 Gamepad'), ' — Proberen: ', 'Controllertest openen en een echte controller aansluiten; Besturing (Settings) openen.', ' Zien: ', 'Sticks en knoppen bewegen live met hun actie; de mapping klopt met controls.json. Zonder controller: de tabel.'),
-      h('li', {}, h('strong', {}, 'S.3 Stamina'), ' — Proberen: ', 'Gevechtslab: slaan tot de energie op is.', ' Zien: ', 'Kosten per actie uit player.json; bij 0 uitgeput, herstel pas na de pauze.'),
-      h('li', {}, h('strong', {}, 'S.4 Rol met onkwetsbare frames'), ' — Proberen: ', 'Gevechtslab: rol vlak voor een aanval; kijk naar de scan 60 versus 120 Hz.', ' Zien: ', 'Een aanval binnen het venster mist, erbuiten raakt; 60 en 120 Hz gelijk.'),
-      h('li', {}, h('strong', {}, 'S.4b Gold bij je lijk'), ' — Proberen: ', 'Gevechtslab, kaart: Sterf, loop erheen; sterf nog eens voor je het ophaalt.', ' Zien: ', "Gold ligt op de plek van je dood, ophalen geeft het terug, een tweede dood vervangt de markering; zie goldMarker onder 'Wat het spel zou opslaan'."),
-      h('li', {}, h('strong', {}, 'S.5a/b Aanvalsfases en aankondiging'), ' — Proberen: ', 'Gevechtslab: kies Green Slime of Goblin en start een aanval.', ' Zien: ', 'Aankondiging, raakvenster en herstel op de tijdlijn met de duur uit data; schade valt alleen in het raakvenster.'),
-      h('li', {}, h('strong', {}, 'S.6 Poise en stagger'), ' — Proberen: ', 'Gevechtslab: zware en kritieke slagen, schuif het gedragen gewicht.', ' Zien: ', 'De vijand wankelt als zijn poise breekt; meer gewicht geeft jou meer poise.'),
-      h('li', {}, h('strong', {}, 'S.7 Blokkeren en parry'), ' — Proberen: ', 'Gevechtslab: houd blok vast (R) en laat een aanval komen.', ' Zien: ', 'Goed getimed: parry (alles afgevangen, vijand wankelt); anders blok met 30% schade en energiekosten; bij 0 energie breekt het blok.'),
-      h('li', {}, h('strong', {}, 'S.8 Sultan'), ' — Proberen: ', 'Sultan-lab: speler staat stil, speler rolt weg, kwaad aan/uit.', ' Zien: ', 'Alle vier de aanvallen raken alleen in hun raakvenster; een rollende speler krijgt 0 schade; 60 en 120 Hz geven dezelfde aanvallen.'),
+    h(
+      'ul',
+      {},
+      h(
+        'li',
+        {},
+        h('strong', {}, 'S.2 Gamepad'),
+        ' — Proberen: ',
+        'Controllertest openen en een echte controller aansluiten; Besturing (Settings) openen.',
+        ' Zien: ',
+        'Sticks en knoppen bewegen live met hun actie; de mapping klopt met controls.json. Zonder controller: de tabel.',
+      ),
+      h(
+        'li',
+        {},
+        h('strong', {}, 'S.3 Stamina'),
+        ' — Proberen: ',
+        'Gevechtslab: slaan tot de energie op is.',
+        ' Zien: ',
+        'Kosten per actie uit player.json; bij 0 uitgeput, herstel pas na de pauze.',
+      ),
+      h(
+        'li',
+        {},
+        h('strong', {}, 'S.4 Rol met onkwetsbare frames'),
+        ' — Proberen: ',
+        'Gevechtslab: rol vlak voor een aanval; kijk naar de scan 60 versus 120 Hz.',
+        ' Zien: ',
+        'Een aanval binnen het venster mist, erbuiten raakt; 60 en 120 Hz gelijk.',
+      ),
+      h(
+        'li',
+        {},
+        h('strong', {}, 'S.4b Gold bij je lijk'),
+        ' — Proberen: ',
+        'Gevechtslab, kaart: Sterf, loop erheen; sterf nog eens voor je het ophaalt.',
+        ' Zien: ',
+        "Gold ligt op de plek van je dood, ophalen geeft het terug, een tweede dood vervangt de markering; zie goldMarker onder 'Wat het spel zou opslaan'.",
+      ),
+      h(
+        'li',
+        {},
+        h('strong', {}, 'S.5a/b Aanvalsfases en aankondiging'),
+        ' — Proberen: ',
+        'Gevechtslab: kies Green Slime of Goblin en start een aanval.',
+        ' Zien: ',
+        'Aankondiging, raakvenster en herstel op de tijdlijn met de duur uit data; schade valt alleen in het raakvenster.',
+      ),
+      h(
+        'li',
+        {},
+        h('strong', {}, 'S.6 Poise en stagger'),
+        ' — Proberen: ',
+        'Gevechtslab: zware en kritieke slagen, schuif het gedragen gewicht.',
+        ' Zien: ',
+        'De vijand wankelt als zijn poise breekt; meer gewicht geeft jou meer poise.',
+      ),
+      h(
+        'li',
+        {},
+        h('strong', {}, 'S.7 Blokkeren en parry'),
+        ' — Proberen: ',
+        'Gevechtslab: houd blok vast (R) en laat een aanval komen.',
+        ' Zien: ',
+        'Goed getimed: parry (alles afgevangen, vijand wankelt); anders blok met 30% schade en energiekosten; bij 0 energie breekt het blok.',
+      ),
+      h(
+        'li',
+        {},
+        h('strong', {}, 'S.8 Sultan'),
+        ' — Proberen: ',
+        'Sultan-lab: speler staat stil, speler rolt weg, kwaad aan/uit.',
+        ' Zien: ',
+        'Alle vier de aanvallen raken alleen in hun raakvenster; een rollende speler krijgt 0 schade; 60 en 120 Hz geven dezelfde aanvallen.',
+      ),
     ),
     h('h3', {}, 'Alleen in het spel te zien'),
     h(
       'ul',
       {},
-      h('li', {}, 'S.2: lopen, camera draaien, lock-on, slaan en rollen met een echte controller in de 3D-wereld: start het spel (npm run dev of GitHub Pages) en pak je controller.'),
-      h('li', {}, 'S.2: de knophints in teksten (A, RB, …) die verschijnen nadat je een controller gebruikt hebt: in het spel zelf, bij gesprekken en tips.'),
+      h(
+        'li',
+        {},
+        'S.2: lopen, camera draaien, lock-on, slaan en rollen met een echte controller in de 3D-wereld: start het spel (npm run dev of GitHub Pages) en pak je controller.',
+      ),
+      h(
+        'li',
+        {},
+        'S.2: de knophints in teksten (A, RB, …) die verschijnen nadat je een controller gebruikt hebt: in het spel zelf, bij gesprekken en tips.',
+      ),
       h('li', {}, 'S.2: Start = pauze in de wereld; hier telt de Controllertest hem alleen.'),
-      h('li', {}, 'S.4: het echte rollen (afstand, richting volgt lock-on, camera) en de onkwetsbaarheid zelf zie je pas in de wereld; het Gevechtslab toont alleen het venster.'),
-      h('li', {}, 'S.4b: de gouden markering als toon-object op de plek waar je viel, en het wakker worden na je dood: in de wereld (sterf en loop terug).'),
-      h('li', {}, 'S.5a/S.5b: de echte aankondiging-cues op de grond (schijf, lijn, gebied) bij Green Slime en Goblin in de wereld; hier alleen een schetsje met dezelfde duur.'),
-      h('li', {}, 'S.6: de wankel-animatie van vijanden en de poise-balk van de HUD (verschijnt bij minder dan vol): in de wereld.'),
-      h('li', {}, 'S.7: het blokken zelf (toets R / L3), animatie en geluid: in de wereld; er is nog geen guard-animatie of HUD-indicator.'),
-      h('li', {}, 'S.8: Sultan zelf (model, de sprong, de run, de rode lijn en de cues op de grond) en of hij eerlijk en leesbaar voelt: de bosgevechtsarena in het spel (poort bij de Greenwood). S.9 is nog niet gebouwd.'),
+      h(
+        'li',
+        {},
+        'S.4: het echte rollen (afstand, richting volgt lock-on, camera) en de onkwetsbaarheid zelf zie je pas in de wereld; het Gevechtslab toont alleen het venster.',
+      ),
+      h(
+        'li',
+        {},
+        'S.4b: de gouden markering als toon-object op de plek waar je viel, en het wakker worden na je dood: in de wereld (sterf en loop terug).',
+      ),
+      h(
+        'li',
+        {},
+        'S.5a/S.5b: de echte aankondiging-cues op de grond (schijf, lijn, gebied) bij Green Slime en Goblin in de wereld; hier alleen een schetsje met dezelfde duur.',
+      ),
+      h(
+        'li',
+        {},
+        'S.6: de wankel-animatie van vijanden en de poise-balk van de HUD (verschijnt bij minder dan vol): in de wereld.',
+      ),
+      h(
+        'li',
+        {},
+        'S.7: het blokken zelf (toets R / L3), animatie en geluid: in de wereld; er is nog geen guard-animatie of HUD-indicator.',
+      ),
+      h(
+        'li',
+        {},
+        'S.8: Sultan zelf (model, de sprong, de run, de rode lijn en de cues op de grond) en of hij eerlijk en leesbaar voelt: de bosgevechtsarena in het spel (poort bij de Greenwood). S.9 is nog niet gebouwd.',
+      ),
     ),
     h('h3', {}, 'Wat het spel zou opslaan'),
     h('dl', {}, ...lines.flatMap(([k, v]) => [h('dt', {}, k), h('dd', {}, v)])),
