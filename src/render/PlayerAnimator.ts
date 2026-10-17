@@ -11,10 +11,11 @@ import {
   Vector3,
 } from 'three';
 import { PLAYER_CLIP_ROLES } from '../data/schemas';
-import type { PlayerAnimationsDef, PlayerClipRole } from '../data/types';
+import type { CapeDef, PlayerAnimationsDef, PlayerClipRole } from '../data/types';
 import type { CombatState, SwordConfig } from '../systems/Combat';
 import type { MoverState } from '../systems/Movement';
 import type { StaffState } from '../systems/StaffCombat';
+import { type CapeDrive, type CapeMotion, capeStepDrive, SpringBones } from './SpringBones';
 
 /** The animator's states (PLAN.md, step A.3c). Attack and Cast each pick between a few clips. */
 export type PlayerAnimState =
@@ -569,13 +570,20 @@ export class PlayerAnimator {
   private readonly parentInverse = new Quaternion();
   private previewRole: PlayerClipRole | null = null;
   private previewTime = 0;
+  /** The cape's spring bones (null without cape data), and the last step's velocity and push. */
+  readonly cape: SpringBones | null;
+  private readonly capeMotion: CapeMotion = { vx: 0, vz: 0 };
+  private readonly capePush: CapeDrive = { x: 0, z: 0 };
 
   constructor(
     private readonly root: Object3D,
     clips: ReadonlyMap<PlayerClipRole, AnimationClip>,
     private readonly def: PlayerAnimationsDef,
+    private readonly capeDef: CapeDef | null = null,
   ) {
     this.mixer = new AnimationMixer(root);
+    const cape = capeDef ? new SpringBones(root, capeDef) : null;
+    this.cape = cape && cape.jointCount > 0 ? cape : null;
     const upperBones = namesUnder(root, def.upperBody.rootBone);
     const leanTrack = `${def.lean.bone}.quaternion`;
     let leanAnimated = false;
@@ -655,12 +663,27 @@ export class PlayerAnimator {
     this.gait = 'idle';
     this.lower.snap('idle');
     this.upper.snap('idle');
+    this.capeMotion.vx = this.capeMotion.vz = 0;
+    this.cape?.reset();
+  }
+
+  /**
+   * The cape's step, called from the fixed simulation step itself (once per step, not per
+   * frame): `velocityX/Z` is the ground velocity of that step (m/s) and `heading` the
+   * simulation's heading, not the drawn one. The cape then moves the same at any frame rate.
+   */
+  stepCape(velocityX: number, velocityZ: number, heading: number, dt: number): void {
+    const cape = this.cape;
+    if (!cape || !this.capeDef) return;
+    capeStepDrive(this.capeMotion, velocityX, velocityZ, heading, dt, this.capeDef, this.capePush);
+    cape.step(dt, this.capePush);
   }
 
   /**
    * One rendered frame. `velocityX/Z` is the ground velocity of the last simulation step (m/s),
    * `heading` the model's drawn heading; `seconds` moves the animation on (0 = frozen, e.g.
-   * paused). `input.speed` is ignored and replaced by the smoothed speed.
+   * paused). `input.speed` is ignored and replaced by the smoothed speed. `alpha` is the game
+   * loop's: how far the frame is between the last two simulation steps (the cape's blend).
    */
   update(
     input: PlayerAnimInput,
@@ -668,6 +691,7 @@ export class PlayerAnimator {
     velocityZ: number,
     heading: number,
     seconds: number,
+    alpha = 1,
   ): void {
     const def = this.def;
     if (seconds > 0) this.measure(velocityX, velocityZ, seconds);
@@ -702,6 +726,7 @@ export class PlayerAnimator {
     this.upper.blend(top, seconds);
     this.mixer.update(seconds);
     this.applyLean(heading, seconds);
+    this.cape?.apply(alpha);
   }
 
   /** Smooths the speed and the velocity; the acceleration is how far the velocity lags. */

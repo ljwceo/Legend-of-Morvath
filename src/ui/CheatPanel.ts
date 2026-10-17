@@ -59,9 +59,15 @@ export interface CheatPanelHandlers {
   clip(): PlayerClipRole | null;
   /** Plays that clip on its own, over and over, or (null) follows the simulation again. */
   setClip(role: PlayerClipRole | null): void;
+  /** The cape's stiffness factor (step A.4a), or null with the placeholder character. */
+  capeStiffness(): number | null;
+  setCapeStiffness(scale: number): void;
 }
 
 type SaveTool = 'none' | 'export' | 'import';
+
+/** The cape stiffness factors the cheat menu offers (1 = animations.json). */
+const CHEAT_CAPE_STIFFNESS = [0.25, 0.5, 1, 2, 4] as const;
 
 /** Length of an fps measurement from the cheat menu (seconds). */
 const MEASURE_SECONDS = 20;
@@ -414,6 +420,7 @@ export class CheatPanel {
       this.seasonSection(chip, section),
       this.dayNightSection(chip, section),
       this.animationSection(chip, section),
+      this.capeSection(chip, section),
       section(
         t('cheats.quality'),
         el('p', { className: 'ui-note', text: this.ctx.quality.debugLine() }),
@@ -576,6 +583,30 @@ export class CheatPanel {
         ...clips.map(({ role, name }) => chip(name, current === role, () => set(role))),
       ),
       el('p', { className: 'ui-note', text: t('cheats.animationNote') }),
+    );
+  }
+
+  /** The cape's springs: floppier or stiffer, to look at it (drawing only). */
+  private capeSection(
+    chip: (label: string, active: boolean, onClick: () => void) => HTMLButtonElement,
+    section: (label: string, ...content: (HTMLElement | null)[]) => HTMLElement,
+  ): HTMLElement | null {
+    const current = this.handlers.capeStiffness();
+    if (current === null) return null;
+    const t = this.ctx.i18n.t.bind(this.ctx.i18n);
+    return section(
+      t('cheats.cape'),
+      el(
+        'div',
+        { className: 'ui-chips' },
+        ...CHEAT_CAPE_STIFFNESS.map((scale) =>
+          chip(`×${scale}`, current === scale, () => {
+            this.handlers.setCapeStiffness(scale);
+            this.rebuild();
+          }),
+        ),
+      ),
+      el('p', { className: 'ui-note', text: t('cheats.capeNote') }),
     );
   }
 

@@ -1076,7 +1076,9 @@
     "bossEndingStaff": "Eindscène: mage",
     "animation": "Animatie",
     "animationAuto": "Auto",
-    "animationNote": "Speelt één clip los af, steeds opnieuw, terwijl je gewoon kunt lopen. Auto volgt het spel weer."
+    "animationNote": "Speelt één clip los af, steeds opnieuw, terwijl je gewoon kunt lopen. Auto volgt het spel weer.",
+    "cape": "Cape",
+    "capeNote": "Maakt de cape slapper (onder ×1) of stijver (boven ×1). Alleen het uiterlijk verandert."
   },
   "bag": {
     "title": "Tas",

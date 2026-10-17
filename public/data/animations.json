@@ -73,5 +73,27 @@
       "maxBackDeg": 4,
       "smoothingSeconds": 0.15
     }
+  },
+  "cape": {
+    "substepHz": 120,
+    "stiffness": 60,
+    "damping": 8,
+    "gravity": 20,
+    "maxAngleDeg": 40,
+    "inertia": 0.1,
+    "drag": 3,
+    "chains": [
+      ["Cape_L1", "Cape_L2", "Cape_L3"],
+      ["Cape_M1", "Cape_M2", "Cape_M3"],
+      ["Cape_R1", "Cape_R2", "Cape_R3"]
+    ],
+    "bones": {
+      "Cape_L1": { "stiffness": 90, "drive": 0.6 },
+      "Cape_M1": { "stiffness": 90, "drive": 0.6 },
+      "Cape_R1": { "stiffness": 90, "drive": 0.6 },
+      "Cape_L3": { "stiffness": 45, "drive": 1.3 },
+      "Cape_M3": { "stiffness": 45, "drive": 1.3 },
+      "Cape_R3": { "stiffness": 45, "drive": 1.3 }
+    }
   }
 }

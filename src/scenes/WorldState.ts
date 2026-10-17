@@ -800,6 +800,11 @@ export class WorldState implements GameState, InstanceHost {
         setClip: (role) => {
           if (this.playerAnimator) this.playerAnimator.preview = role;
         },
+        capeStiffness: () => this.playerAnimator?.cape?.stiffnessScale ?? null,
+        setCapeStiffness: (scale) => {
+          const cape = this.playerAnimator?.cape;
+          if (cape) cape.stiffnessScale = scale;
+        },
       },
     );
     // Next to the UI layer (not inside it), so it can sit above the debug overlay.
@@ -1087,6 +1092,14 @@ export class WorldState implements GameState, InstanceHost {
       doors.add(s.x, s.z);
       doors.step(dt);
     }
+    // The cape swings inside the same fixed step, from this step's velocity and heading (the
+    // simulation's, not the drawn ones), so it moves the same at any frame rate.
+    this.playerAnimator?.stepCape(
+      player.stepDeltaX() * SIM_HZ,
+      player.stepDeltaZ() * SIM_HZ,
+      s.heading,
+      dt,
+    );
     // Position first: entering a zone autosaves, and that save must have the new position.
     this.syncSave();
     if (sceneZone) {
@@ -1854,6 +1867,7 @@ export class WorldState implements GameState, InstanceHost {
       player.stepDeltaZ() * SIM_HZ,
       player.model.root.rotation.y,
       seconds,
+      alpha,
     );
   }
 
@@ -4568,6 +4582,7 @@ export class WorldState implements GameState, InstanceHost {
         this.scenePlayer.rig,
         this.scenePlayer.clips,
         data.animations.player,
+        data.animations.cape,
       );
       const blob = new Mesh(
         new CircleGeometry(BLOB_RADIUS, 24),

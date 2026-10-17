@@ -1076,7 +1076,9 @@
     "bossEndingStaff": "Ending: mage",
     "animation": "Animation",
     "animationAuto": "Auto",
-    "animationNote": "Plays one clip on its own, over and over, while you keep walking. Auto follows the game again."
+    "animationNote": "Plays one clip on its own, over and over, while you keep walking. Auto follows the game again.",
+    "cape": "Cape",
+    "capeNote": "Make the cape floppier (below ×1) or stiffer (above ×1). Only the look changes."
   },
   "bag": {
     "title": "Bag",

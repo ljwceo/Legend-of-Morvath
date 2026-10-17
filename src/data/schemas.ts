@@ -2316,6 +2316,37 @@ export const animationsFileSchema = z.strictObject({
       smoothingSeconds: nonNegative,
     }),
   }),
+  /**
+   * The cape's spring bones (step A.4a, drawing only). Each chain hangs from a bone of the
+   * model; every joint is a damped spring on its angle (relative to the joint above it), pulled
+   * back by `stiffness` (1/s²) towards its rest pose and by `gravity` (1/s²) towards hanging
+   * straight down, slowed by `damping` (1/s) and never bent further than `maxAngleDeg`. The
+   * body drives it: `inertia` (rad/s² per m/s² of acceleration) swings it against a push,
+   * `drag` (rad/s² per m/s) blows it back behind a runner. It runs inside the 60 Hz simulation
+   * step in `substepHz` slices, so it moves the same at any frame rate. `bones` overrides single
+   * joints (`drive` scales how much of the push that joint gets).
+   */
+  cape: z.strictObject({
+    substepHz: z.int().check(z.minimum(60), z.maximum(480)),
+    stiffness: max(positive, 2000),
+    damping: max(nonNegative, 200),
+    gravity: max(nonNegative, 500),
+    maxAngleDeg: max(positive, 90),
+    inertia: max(nonNegative, 5),
+    drag: max(nonNegative, 50),
+    /** Chains of bone names from the top down; a chain stops at the first bone the model lacks. */
+    chains: z.array(z.array(nodeName).check(z.minLength(1))),
+    bones: z.record(
+      nodeName,
+      z.strictObject({
+        stiffness: optional(max(positive, 2000)),
+        damping: optional(max(nonNegative, 200)),
+        gravity: optional(max(nonNegative, 500)),
+        maxAngleDeg: optional(max(positive, 90)),
+        drive: optional(max(nonNegative, 5)),
+      }),
+    ),
+  }),
 });
 
 export const dataSchemas = {

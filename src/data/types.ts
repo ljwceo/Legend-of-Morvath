@@ -41,6 +41,7 @@ export type DayNightFile = GameData['daynight'];
 export type DayLook = DayNightFile['looks'][number];
 export type AnimationsFile = GameData['animations'];
 export type PlayerAnimationsDef = AnimationsFile['player'];
+export type CapeDef = AnimationsFile['cape'];
 export type SceneDef = NonNullable<Zone['scene']>;
 export type SceneDoorDef = SceneDef['doors'][number];
 export type DoorSettingsDef = SceneDef['doorSettings'];
