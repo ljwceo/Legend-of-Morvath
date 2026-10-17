@@ -1156,7 +1156,7 @@
       "currency": "Geld"
     },
     "padInCombat": "Tijdens een gevecht kun je de tas nog niet met een controller openen.",
-    "liveFight": "Het gevecht gaat door terwijl de tas open is."
+    "liveFight": "Het gevecht gaat door terwijl de tas open is. Je kunt nu alleen drankjes gebruiken."
   },
   "load": {
     "light": "Licht",

@@ -1,19 +1,57 @@
 import type { ItemDef } from '../data/types';
-import { EMPTY_SLOT, activeSpell } from './Spellbook';
+import type { CombatState } from './Combat';
 import type { ItemStack } from './Inventory';
+import { activeSpell, EMPTY_SLOT } from './Spellbook';
 
 /**
- * Quick switching in a fight (Elden Ring-style, 2026-10-17): the D-pad, or 1 / 2 / 3 and the
- * wheel, cycle through what you have prepared, without opening a menu.
+ * Loadout rules during a fight (combat state and loadout locking). Exploration: change
+ * whatever you like. In a fight (`CombatState.inCombat`): your loadout is locked, only what is
+ * already prepared can be switched, and never in the middle of an action. Pure rules, no DOM;
+ * the world scene and the menus ask these instead of reading `inCombat` themselves.
  *
- * "Prepared" is what you carry in the bag: every weapon in it, every potion in it. The bag
- * already is your carried set (everything in it counts towards your load; the rest waits with
- * the pack animal), so there is no separate list and no slot limit yet: Bo and Lucas decide
- * later whether prepared slots get a number. Spells cycle through the filled slots of your
- * staff (the spellbook). The off hand has no items yet, so its list is empty.
- *
- * Pure rules, no DOM; the lists are built only when a switch is pressed or the HUD redraws.
+ * Quick switching (Elden Ring-style, 2026-10-17): the D-pad, or 1 / 2 / 3 and the wheel,
+ * cycle through what is prepared without opening a menu. Until the prepared slots of step
+ * S.15 exist (decision S-9: 2 main weapons, 1 off hand, 4 potion slots), "prepared" is what
+ * you carry in the bag: every weapon and every potion in it. Spells cycle through the filled
+ * slots of your staff (the spellbook). The off hand has no items yet, so it stays empty.
  */
+
+/**
+ * May the loadout change: equipping or taking off gear (weapons, armor, rings, amulets),
+ * the spells in the staff's slots, crystals, the pack animal's bag and the forge. Only outside
+ * a fight; a boss fight counts as a fight until it is won or lost.
+ */
+export function canModifyLoadout(c: Pick<CombatState, 'inCombat'>): boolean {
+  return !c.inCombat;
+}
+
+/** What the player is doing right now, as far as switching cares. */
+export interface PlayerAction {
+  /** Rolling, or about to roll this step. */
+  rolling: boolean;
+  /** Gathering a staff shot or charging a spell. */
+  casting: boolean;
+}
+
+/**
+ * May the player switch to a weapon, offhand item or spell that is already prepared (also in
+ * a fight)? Not in the middle of an action, so a switch never cuts off a swing, a heavy hit's
+ * wind-up, a roll, a raised guard (parry), a cast or a stagger halfway.
+ */
+export function canSwitchPrepared(
+  c: Pick<CombatState, 'swingTime' | 'heavyWindup' | 'guard' | 'poise' | 'hp'>,
+  action: PlayerAction,
+): boolean {
+  return (
+    c.hp > 0 &&
+    c.swingTime <= 0 &&
+    c.heavyWindup <= 0 &&
+    !c.guard.up &&
+    !c.poise.staggered &&
+    !action.rolling &&
+    !action.casting
+  );
+}
 
 /** Weapons in the bag, each id once, in the order of the bag. */
 export function preparedWeapons(
@@ -95,36 +133,4 @@ export function selectedSpell(loadout: readonly string[], slot: number): string 
   const id = loadout[slot];
   if (id !== undefined && id !== EMPTY_SLOT) return id;
   return activeSpell(loadout);
-}
-
-/** What the player is doing right now, for deciding when a weapon switch may happen. */
-export interface BusyState {
-  /** A sword swing is drawn (fast or heavy). */
-  swinging: boolean;
-  /** A heavy hit winds up. */
-  windingUp: boolean;
-  /** A roll (dash) or its recovery runs. */
-  rolling: boolean;
-  /** A staff gathers or charges a shot. */
-  casting: boolean;
-  /** The guard is up (block or parry window). */
-  guarding: boolean;
-  /** Staggered (poise broken). */
-  staggered: boolean;
-}
-
-/**
- * A weapon switch waits until you are free: never in the middle of an attack, a roll, a
- * parry or a cast, so their animations always play out. The switch you asked for is kept and
- * happens the first step you are free again.
- */
-export function canSwitchWeapon(busy: BusyState): boolean {
-  return (
-    !busy.swinging &&
-    !busy.windingUp &&
-    !busy.rolling &&
-    !busy.casting &&
-    !busy.guarding &&
-    !busy.staggered
-  );
 }

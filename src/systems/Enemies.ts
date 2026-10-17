@@ -348,6 +348,18 @@ export class Enemies {
     return n;
   }
 
+  /**
+   * True while a monster near the player is fighting them (chasing or attacking). Bosses are
+   * left out: their fight lasts as long as the encounter (`BossEncounter.fighting`).
+   */
+  get anyEngaged(): boolean {
+    for (let i = 0; i < this.shown.length; i++) {
+      const e = this.shown[i] as Enemy;
+      if (e.engaged && !e.boss) return true;
+    }
+    return false;
+  }
+
   /** The nearest living monster that is shown, or null (debug). */
   nearest(x: number, z: number): Enemy | null {
     let best: Enemy | null = null;

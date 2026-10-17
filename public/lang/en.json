@@ -1156,7 +1156,7 @@
       "currency": "Money"
     },
     "padInCombat": "During a fight the bag cannot be opened with a controller yet.",
-    "liveFight": "The fight goes on while the bag is open."
+    "liveFight": "The fight goes on while the bag is open. Only potions can be used now."
   },
   "load": {
     "light": "Light",

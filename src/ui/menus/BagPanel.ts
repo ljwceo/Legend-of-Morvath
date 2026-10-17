@@ -53,7 +53,8 @@ export const STAT_KEYS = [
  * save), and the lists scroll as one, so a long bag is never a tiny box inside a window
  * (Bo, 2026-10-13). Closing is the ✕ in the corner, Escape, your own close key, or the bag key
  * again — the panel has no Close button of its own. Out of a fight the game is paused while the
- * bag is open; in a fight it is not (2026-10-17), and a line at the top says so.
+ * bag is open; in a fight it is not (2026-10-17) and it shows only your potions (decision
+ * S-10), with a line at the top saying the fight goes on.
  */
 export function bagPanel(
   ctx: GameContext,
@@ -90,11 +91,15 @@ export function bagPanel(
         }
         return parts.join(' · ');
       };
-      const stacks = [...(character?.inventory ?? [])].sort(
-        (a, b) =>
-          BAG_TYPE_ORDER.indexOf(items.get(a.item)?.type ?? 'resource') -
-          BAG_TYPE_ORDER.indexOf(items.get(b.item)?.type ?? 'resource'),
-      );
+      // In a fight the bag is only for potions (decision S-10): no gear, no quests.
+      const fighting = gear.fighting();
+      const stacks = [...(character?.inventory ?? [])]
+        .filter((stack) => !fighting || items.get(stack.item)?.type === 'potion')
+        .sort(
+          (a, b) =>
+            BAG_TYPE_ORDER.indexOf(items.get(a.item)?.type ?? 'resource') -
+            BAG_TYPE_ORDER.indexOf(items.get(b.item)?.type ?? 'resource'),
+        );
       const rows = stacks.map((stack) => {
         const def = items.get(stack.item);
         const name = def?.name ?? stack.item;
@@ -193,47 +198,59 @@ export function bagPanel(
           el('h2', { className: 'ui-heading', text: t('bag.title') }),
           expand,
         ),
-        gear.fighting()
-          ? el('p', { className: 'ui-note ui-note-warn', text: t('bag.liveFight') })
-          : null,
-        el(
-          'div',
-          { className: 'ui-bag-tabs', attrs: { role: 'tablist' } },
-          tabButton('items', t('bag.tab.items')),
-          tabButton('quests', t('bag.tab.quests')),
-        ),
+        fighting ? el('p', { className: 'ui-note ui-note-warn', text: t('bag.liveFight') }) : null,
+        fighting
+          ? null
+          : el(
+              'div',
+              { className: 'ui-bag-tabs', attrs: { role: 'tablist' } },
+              tabButton('items', t('bag.tab.items')),
+              tabButton('quests', t('bag.tab.quests')),
+            ),
         el(
           'div',
           { className: 'ui-bag-content' },
-          tab === 'quests'
+          tab === 'quests' && !fighting
             ? questList(quests(), t)
-            : el(
-                'div',
-                { className: 'ui-bag-pane' },
-                el(
+            : fighting
+              ? el(
                   'div',
-                  { className: 'ui-bag-stats' },
+                  { className: 'ui-bag-pane' },
+                  rows.length > 0
+                    ? el('ul', { className: 'ui-bag-list' }, ...rows)
+                    : el('p', { className: 'ui-note', text: t('hud.noPotion') }),
+                )
+              : el(
+                  'div',
+                  { className: 'ui-bag-pane' },
                   el(
-                    'span',
-                    { className: 'ui-bag-gold' },
-                    el('span', { className: 'ui-hud-gold-coin' }),
-                    // "Gold" is a temporary name and stays English (data, not a text key).
-                    `${character?.gold ?? 0} ${items.get('gold')?.name ?? 'Gold'}`,
+                    'div',
+                    { className: 'ui-bag-stats' },
+                    el(
+                      'span',
+                      { className: 'ui-bag-gold' },
+                      el('span', { className: 'ui-hud-gold-coin' }),
+                      // "Gold" is a temporary name and stays English (data, not a text key).
+                      `${character?.gold ?? 0} ${items.get('gold')?.name ?? 'Gold'}`,
+                    ),
+                    el('span', { className: 'ui-bag-level', text: xpLine() }),
                   ),
-                  el('span', { className: 'ui-bag-level', text: xpLine() }),
+                  el(
+                    'p',
+                    { className: `ui-bag-load ui-bag-load-${load.tierId}` },
+                    t('bag.load', {
+                      kg: kg(load.kg),
+                      max: kg(load.maxKg),
+                      tier: t(load.tierLabel),
+                    }),
+                  ),
+                  el('h3', { className: 'ui-bag-subheading', text: t('bag.equipment') }),
+                  el('ul', { className: 'ui-bag-slots' }, ...slots),
+                  el('h3', { className: 'ui-bag-subheading', text: t('bag.items') }),
+                  rows.length > 0
+                    ? el('ul', { className: 'ui-bag-list' }, ...rows)
+                    : el('p', { className: 'ui-note', text: t('bag.empty') }),
                 ),
-                el(
-                  'p',
-                  { className: `ui-bag-load ui-bag-load-${load.tierId}` },
-                  t('bag.load', { kg: kg(load.kg), max: kg(load.maxKg), tier: t(load.tierLabel) }),
-                ),
-                el('h3', { className: 'ui-bag-subheading', text: t('bag.equipment') }),
-                el('ul', { className: 'ui-bag-slots' }, ...slots),
-                el('h3', { className: 'ui-bag-subheading', text: t('bag.items') }),
-                rows.length > 0
-                  ? el('ul', { className: 'ui-bag-list' }, ...rows)
-                  : el('p', { className: 'ui-note', text: t('bag.empty') }),
-              ),
         ),
       );
     },
