@@ -334,6 +334,13 @@ describe('validateGameData catches broken data', () => {
     expect(found).toContainEqual(expect.stringContaining('also bound to'));
   });
 
+  it('binds each controller button to one action only', () => {
+    const raw = freshData();
+    const spell = raw.controls.actions.find((action: { id: string }) => action.id === 'spellNext');
+    spell.pad = ['Pad5'];
+    expect(messages(raw)).toContainEqual(expect.stringContaining('"Pad5" is also bound to'));
+  });
+
   it('reports an element without a spell (a crystal of it would be useless)', () => {
     const raw = freshData();
     raw.spells.spells = raw.spells.spells.filter(

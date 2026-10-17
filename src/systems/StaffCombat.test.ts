@@ -8,6 +8,7 @@ import {
   affordableCharge,
   chargedManaCost,
   powerFactor,
+  resetKeepingCooldowns,
   SHARD_ID,
   type ShotConfig,
   shotDamage,
@@ -209,6 +210,88 @@ describe('charging a spell', () => {
     expect(affordableCharge(fireball, fireball.manaCost)).toBe(0);
     expect(affordableCharge(fireball, fireball.manaCost * 3)).toBe(1);
     expect(affordableCharge(fireball, fireball.manaCost * 2)).toBeCloseTo(0.5, 6);
+  });
+});
+
+describe('switching spells (combat controls, 2026-10-17)', () => {
+  const waterBolt = cfg.spells.get('water_bolt') as ShotConfig;
+  const max = fireball.charge?.maxSeconds ?? 0;
+
+  it('a cast that started keeps its spell when another one is selected', () => {
+    const made = fresh();
+    made.combat.mana = 1000;
+    // Start charging the Fireball, then the wheel / D-pad picks the Water Bolt.
+    run(made, max / 2, press(false, true), fireball);
+    expect(made.state.castSpell?.id).toBe('fireball');
+    const fired = run(made, 0.5, press(false), waterBolt);
+    expect(fired).toHaveLength(1);
+    expect(fired[0]?.shot?.id).toBe('fireball');
+    // The Fireball's cost, charged about halfway, not the Water Bolt's.
+    expect(1000 - made.combat.mana).toBeGreaterThan(fireball.manaCost);
+    expect(made.state.castSpell).toBeNull();
+    // The next cast is the newly selected spell.
+    run(made, 3, press(false));
+    const next = run(made, 0.05, press(false, true), waterBolt);
+    const after = [...next, ...run(made, 1, press(false), waterBolt)];
+    expect(after[0]?.shot?.id).toBe('water_bolt');
+  });
+
+  it('switching during the wind-up of an uncharged tap still fires the first spell', () => {
+    const made = fresh();
+    made.combat.mana = 100;
+    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    const fired = run(made, 1, press(false), waterBolt);
+    expect(fired).toHaveLength(1);
+    expect(fired[0]?.shot?.id).toBe('fireball');
+    expect(made.combat.mana).toBe(100 - fireball.manaCost);
+  });
+});
+
+describe('putting the staff away (a weapon switch)', () => {
+  it('stops what it was doing but keeps the cooldowns running', () => {
+    const made = fresh();
+    made.combat.mana = 100;
+    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    run(made, 1, press(false));
+    expect(made.state.spellCooldown).toBeGreaterThan(0);
+    const cooling = made.state.spellCooldown;
+    // Something is buffered, then the staff goes away and comes back.
+    stepStaff(made.state, made.combat, press(true), cfg, fireball, 1, DT, out());
+    resetKeepingCooldowns(made.state);
+    expect(made.state.casting).toBe(false);
+    expect(made.state.bufferedShard).toBe(0);
+    expect(made.state.spellCooldown).toBeCloseTo(cooling - DT, 9);
+    expect(staffReadiness(made.state, 'spell')).toBeLessThan(1);
+  });
+});
+
+describe('spells that cannot be charged', () => {
+  const plain: ShotConfig = { ...fireball, id: 'plain', charge: null };
+
+  it('holding the button fires at the end of the wind-up, for the plain mana cost', () => {
+    const made = fresh();
+    made.combat.mana = 100;
+    const fired = run(made, plain.windupSeconds + 0.05, press(false, true), plain);
+    expect(fired).toHaveLength(1);
+    expect(fired[0]?.charge).toBe(0);
+    expect(fired[0]?.damage).toBe(plain.damage);
+    expect(made.combat.mana).toBe(100 - plain.manaCost);
+  });
+
+  it('a spell without `charge` in spells.json is read as not chargeable', () => {
+    const data = structuredClone(spells);
+    const first = data.spells[0] as SpellsFile['spells'][number];
+    delete first.charge;
+    const parsed = spellsFileSchema.parse(data) as SpellsFile;
+    expect(staffConfig(player, parsed).spells.get(first.id)?.charge).toBeNull();
+  });
+
+  it('every mana cost comes from the data: the Shard 0, each spell its own', () => {
+    expect(cfg.shard.manaCost).toBe(player.staff.shard.manaCost);
+    expect(cfg.shard.manaCost).toBe(0);
+    for (const spell of spells.spells) {
+      expect(cfg.spells.get(spell.id)?.manaCost).toBe(spell.manaCost);
+    }
   });
 });
 

@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 19;
+export const SAVE_VERSION = 20;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -203,6 +203,16 @@ export function createNewSave(language: Language, now: Date = new Date()): SaveD
   };
 }
 
+/** The controller defaults of save version 19 that changed in version 20 (see migration 19). */
+const OLD_PAD_DEFAULTS_V19: Readonly<Record<string, readonly string[]>> = {
+  moveForward: ['Pad12'],
+  moveBack: ['Pad13'],
+  moveLeft: ['Pad14'],
+  moveRight: ['Pad15'],
+  interact: ['Pad2'],
+  potion: ['Pad3'],
+};
+
 /** Upgrades a raw save object from version `v` to `v + 1`. */
 export type Migration = (save: Record<string, unknown>) => Record<string, unknown>;
 
@@ -316,6 +326,22 @@ export const migrations: Readonly<Record<number, Migration>> = {
   },
   // v19 (step S.4b): gold left at your corpse; nothing lies on the ground yet.
   18: (save) => ({ ...save, version: 19, goldMarker: null }),
+  // v20 (combat controls, 2026-10-17): the D-pad picks spell, weapon, off hand and item, and X
+  // and Y swapped (X uses the item, Y talks). A controller button still on its old default is
+  // dropped from the save, so the new default reaches it; one the player chose stays.
+  19: (save) => {
+    const settings = (save.settings ?? {}) as Record<string, unknown>;
+    const keybindings = { ...((settings.keybindings ?? {}) as Record<string, unknown>) };
+    for (const [action, old] of Object.entries(OLD_PAD_DEFAULTS_V19)) {
+      const saved = keybindings[`pad:${action}`];
+      const same =
+        Array.isArray(saved) &&
+        saved.length === old.length &&
+        saved.every((code, i) => code === old[i]);
+      if (same) Reflect.deleteProperty(keybindings, `pad:${action}`);
+    }
+    return { ...save, version: 20, settings: { ...settings, keybindings } };
+  },
   // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged
   // them). Everyone starts on the default size and the default places.
   10: (save) => {

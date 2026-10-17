@@ -1,6 +1,7 @@
 import { AbilityBar, type AbilityChip } from './AbilityBar';
 import { el } from './dom';
 import { type HudBars, type HudConfig, HudRules, HudVisibility } from './HudVisibility';
+import { LoadoutCross, type LoadoutView } from './LoadoutCross';
 
 type BarId = 'hp' | 'mana' | 'energy' | 'xp';
 const BAR_IDS: readonly BarId[] = ['hp', 'mana', 'energy', 'xp'];
@@ -28,7 +29,8 @@ class HudPart {
  * - messages: first-visit texts, checkpoint, blocked gate, ... (one at a time, queued),
  * - HP / mana / energy / XP bars (top left) and gold (top right), following the HUD rules,
  * - the interaction icon above the nearest object you can use (tap it on a phone),
- * - the ability chips (which abilities are ready again), bottom centre, only on a computer.
+ * - the ability chips (which abilities are ready again), bottom centre, only on a computer,
+ * - the loadout cross (spell, weapon, off hand, quick item), bottom left, only on a computer.
  * Everything else sits at the top of the screen, so it never covers the joystick or the
  * buttons (their safe zones are the lower corners); the chips are left off a touch screen,
  * where the buttons draw the readiness themselves. Times come from player.json `hud`.
@@ -122,6 +124,10 @@ export class HUD {
   private readonly abilities: HudPart;
   private abilitiesInCombat = false;
   private abilitiesCovered = false;
+  /** Spell, weapon, off hand and quick item (2026-10-17), bottom left. */
+  private readonly loadoutCross = new LoadoutCross();
+  private readonly loadout: HudPart;
+  private loadoutCovered = false;
 
   constructor(
     private readonly cfg: HudConfig,
@@ -198,6 +204,8 @@ export class HUD {
 
     this.abilityBar.root.classList.add('ui-hud-part');
     this.abilities = new HudPart(this.abilityBar.root);
+    this.loadoutCross.root.classList.add('ui-hud-part');
+    this.loadout = new HudPart(this.loadoutCross.root);
 
     this.hurtGlow = el('div', { className: 'ui-hud-hurt' });
     this.staggerGlow = el('div', { className: 'ui-hud-stagger' });
@@ -234,6 +242,7 @@ export class HUD {
       this.victory,
       this.item,
       this.abilities.element,
+      this.loadout.element,
       this.blackout,
     );
     this.root.style.setProperty('--hud-fade', `${cfg.fadeSeconds}s`);
@@ -245,6 +254,7 @@ export class HUD {
       xp: bars.xp.visibility,
       gold: this.gold.visibility,
       abilities: this.abilities.visibility,
+      loadout: this.loadout.visibility,
     };
     this.rules = new HudRules(visibility, cfg, lowHpFraction);
   }
@@ -458,6 +468,21 @@ export class HUD {
     this.abilitiesInCombat = fighting;
   }
 
+  /** What the loadout cross shows (only the cells that changed are written). */
+  setLoadout(view: LoadoutView): void {
+    this.loadoutCross.set(view);
+  }
+
+  /**
+   * Hides the loadout cross whatever the rules say: under a dialogue window, or on a touch
+   * screen (its buttons sit in the same corner).
+   */
+  setLoadoutCovered(covered: boolean): void {
+    if (covered === this.loadoutCovered) return;
+    this.loadoutCovered = covered;
+    this.loadout.element.classList.toggle('ui-hud-covered', covered);
+  }
+
   /** A dialogue window is open on the chips' spot: they hide until it is closed. */
   setAbilitiesCovered(covered: boolean): void {
     this.abilitiesCovered = covered;
@@ -494,12 +519,14 @@ export class HUD {
     this.gold.update(seconds);
     for (let i = 0; i < BAR_IDS.length; i++) this.bars[BAR_IDS[i] as BarId].update(seconds);
     this.updateAbilities(seconds);
+    this.loadout.update(seconds);
   }
 
   dispose(): void {
     this.root.remove();
     this.queue.length = 0;
     this.abilityBar.dispose();
+    this.loadoutCross.dispose();
   }
 
   /** The chips' reasons come from the HUD rules: fighting or cooling, a linger, a dialogue. */

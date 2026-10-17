@@ -1667,15 +1667,18 @@ export const spellsFileSchema = z.strictObject({
        * Holding the cast button charges the spell. A tap fires it uncharged; holding it for
        * `maxSeconds` fires the biggest version (and that also lets it go by itself). The
        * factors say what a full charge does to the damage, the mana it costs, how big the
-       * shot is and how fast it flies.
+       * shot is and how fast it flies. A spell without `charge` cannot be charged: holding
+       * the button fires it as soon as its wind-up is over, for its plain `manaCost`.
        */
-      charge: z.strictObject({
-        maxSeconds: max(positive, 30),
-        damageFactor: range(1, 20),
-        manaFactor: range(1, 20),
-        radiusFactor: range(1, 10),
-        speedFactor: range(1, 10),
-      }),
+      charge: optional(
+        z.strictObject({
+          maxSeconds: max(positive, 30),
+          damageFactor: range(1, 20),
+          manaFactor: range(1, 20),
+          radiusFactor: range(1, 10),
+          speedFactor: range(1, 10),
+        }),
+      ),
     }),
   ),
 });
@@ -1839,6 +1842,11 @@ export const CONTROL_ACTIONS = [
   'status',
   'lock',
   'lockSwitch',
+  'spellNext',
+  'spellPrev',
+  'weaponNext',
+  'offhandNext',
+  'itemNext',
   'confirm',
   'close',
   'down',
@@ -2282,7 +2290,10 @@ export const dayNightFileSchema = z.strictObject({
   }),
 });
 
-/** A `KeyboardEvent.code` (KeyW, Space, ArrowUp, ...) or a mouse button (Mouse0 - Mouse4). */
+/**
+ * A `KeyboardEvent.code` (KeyW, Space, ArrowUp, ...), a mouse button (Mouse0 - Mouse4) or a
+ * wheel notch (WheelUp, WheelDown).
+ */
 const bindingCode = z
   .string()
   .check(z.regex(/^(Mouse[0-4]|[A-Za-z][A-Za-z0-9]{0,23})$/, 'not a key code or Mouse0-Mouse4'));

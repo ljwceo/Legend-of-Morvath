@@ -773,6 +773,102 @@
   }
 }
 
+/* ------------------------------------------- loadout cross (combat controls, 2026-10-17) */
+
+/*
+ * The current spell, weapon, off hand and quick item, bottom left, laid out like the D-pad that
+ * switches them. Four small chips in the style of the ability chips; no icons, no hotbar.
+ */
+.ui-loadout {
+  position: absolute;
+  left: max(16px, env(safe-area-inset-left));
+  bottom: max(28px, calc(env(safe-area-inset-bottom) + 16px));
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 132px));
+  grid-template-areas:
+    'spell spell'
+    'weapon offhand'
+    'item item';
+  gap: 6px;
+  justify-items: center;
+  pointer-events: none;
+}
+
+.ui-loadout.ui-hud-covered {
+  visibility: hidden;
+}
+
+.ui-loadout-spell {
+  grid-area: spell;
+}
+
+.ui-loadout-weapon {
+  grid-area: weapon;
+}
+
+.ui-loadout-offhand {
+  grid-area: offhand;
+}
+
+.ui-loadout-item {
+  grid-area: item;
+}
+
+.ui-loadout-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: 30px;
+  padding: 4px 8px;
+  font: 600 12px var(--gh-font-tekst);
+  color: var(--gh-tekst);
+  background: color-mix(in srgb, var(--gh-panel) 82%, transparent);
+  border: 1px solid var(--gh-rand);
+  border-radius: 8px;
+}
+
+.ui-loadout-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ui-loadout-key {
+  flex: none;
+  min-width: 18px;
+  padding: 1px 5px;
+  box-sizing: border-box;
+  font: 700 11px var(--gh-font-stats);
+  line-height: 1.2;
+  text-align: center;
+  color: var(--gh-tekst-zacht);
+  background: color-mix(in srgb, var(--gh-rand) 65%, transparent);
+  border-radius: 4px;
+}
+
+.ui-loadout-empty .ui-loadout-name {
+  color: var(--gh-tekst-zacht);
+  font-style: italic;
+}
+
+/* A weapon switch that waits for the end of the current attack, roll or cast. */
+.ui-loadout-pending {
+  border-style: dashed;
+  border-color: var(--gh-ornamentgoud);
+}
+
+.ui-loadout-pulse {
+  animation: ui-ability-pulse 0.45s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-loadout-pulse {
+    animation: none;
+  }
+}
+
 /* Interaction icon: floats above the object; tap it on a phone, press E on a computer. */
 .ui-layer > .ui-hud .ui-hud-interact {
   position: absolute;

@@ -10,23 +10,19 @@
   "actions": [
     {
       "id": "moveForward",
-      "keys": ["KeyW", "ArrowUp"],
-      "pad": ["Pad12"]
+      "keys": ["KeyW", "ArrowUp"]
     },
     {
       "id": "moveBack",
-      "keys": ["KeyS", "ArrowDown"],
-      "pad": ["Pad13"]
+      "keys": ["KeyS", "ArrowDown"]
     },
     {
       "id": "moveLeft",
-      "keys": ["KeyA", "ArrowLeft"],
-      "pad": ["Pad14"]
+      "keys": ["KeyA", "ArrowLeft"]
     },
     {
       "id": "moveRight",
-      "keys": ["KeyD", "ArrowRight"],
-      "pad": ["Pad15"]
+      "keys": ["KeyD", "ArrowRight"]
     },
     {
       "id": "attack",
@@ -51,12 +47,12 @@
     {
       "id": "interact",
       "keys": ["KeyE"],
-      "pad": ["Pad2"]
+      "pad": ["Pad3"]
     },
     {
       "id": "potion",
       "keys": ["KeyQ"],
-      "pad": ["Pad3"]
+      "pad": ["Pad2"]
     },
     {
       "id": "bag",
@@ -77,6 +73,30 @@
       "id": "lockSwitch",
       "keys": ["KeyX"],
       "pad": ["Pad6"]
+    },
+    {
+      "id": "spellNext",
+      "keys": ["WheelUp"],
+      "pad": ["Pad12"]
+    },
+    {
+      "id": "spellPrev",
+      "keys": ["WheelDown"]
+    },
+    {
+      "id": "weaponNext",
+      "keys": ["Digit1"],
+      "pad": ["Pad14"]
+    },
+    {
+      "id": "offhandNext",
+      "keys": ["Digit2"],
+      "pad": ["Pad15"]
+    },
+    {
+      "id": "itemNext",
+      "keys": ["Digit3"],
+      "pad": ["Pad13"]
     },
     {
       "id": "confirm",

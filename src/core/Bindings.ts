@@ -56,7 +56,14 @@ export function isMouseCode(code: string): boolean {
   return /^Mouse[0-4]$/.test(code);
 }
 
-/** True for a code the player may bind (a `KeyboardEvent.code` or `Mouse0`-`Mouse4`). */
+/** One notch of the mouse wheel away from you / towards you, bindable like a key. */
+export const WHEEL_UP = 'WheelUp';
+export const WHEEL_DOWN = 'WheelDown';
+
+/**
+ * True for a code the player may bind (a `KeyboardEvent.code`, `Mouse0`-`Mouse4`, or a wheel
+ * notch: `WheelUp` / `WheelDown`).
+ */
 export function isBindableCode(code: string): boolean {
   if (isPadCode(code)) return isBindablePadCode(code);
   if (code.startsWith('Mouse')) return isMouseCode(code);

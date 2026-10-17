@@ -391,7 +391,7 @@ describe('controller bindings in Bindings', () => {
     expect(b.actionForPad(0)).toBe('potion');
     expect([...b.codesFor('dash')]).toEqual(['Space']);
     b.clearPad('potion', 0);
-    expect(b.actionForPad(3)).toBe(undefined);
+    expect(b.actionForPad(2)).toBe(undefined);
     expect(b.isDefault()).toBe(false);
   });
 
@@ -405,8 +405,9 @@ describe('controller bindings in Bindings', () => {
     const some = fresh({ 'pad:dash': ['Pad2'] });
     expect([...some.padCodesFor('dash')]).toEqual(['Pad2']);
     expect([...some.padCodesFor('attack')]).toEqual(['Pad5']);
-    // Pad2 was taken from interact by the save.
-    expect([...some.padCodesFor('interact')]).toEqual([]);
+    // Pad2 was taken from potion (X, use the quick item) by the save.
+    expect([...some.padCodesFor('potion')]).toEqual([]);
+    expect([...some.padCodesFor('interact')]).toEqual(['Pad3']);
   });
 
   it('keeps every controller slot empty after clearing them all and reloading', () => {

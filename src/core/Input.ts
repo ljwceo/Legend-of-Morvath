@@ -1,4 +1,4 @@
-import { type Action, Bindings, mouseCode } from './Bindings';
+import { type Action, Bindings, mouseCode, WHEEL_DOWN, WHEEL_UP } from './Bindings';
 import { PadBridge, type PadFrame, type PadHub } from './gamepad';
 
 export type { Action };
@@ -68,7 +68,8 @@ const WHEEL_NOTCH_PX = 100;
  *   Settings -> Controls (defaults from controls.json: WASD / arrows, Space, E, Q, I, Tab, X).
  * - Mouse (like Genshin Impact): click once to capture the mouse (pointer lock); from then on
  *   moving the mouse turns the camera without holding a button. Escape releases it (the browser
- *   does that itself). Without the lock, dragging with the right button also turns. Wheel zooms.
+ *   does that itself). Without the lock, dragging with the right button also turns. The wheel
+ *   picks the spell (bindable as `WheelUp` / `WheelDown`); with Ctrl, or unbound, it zooms.
  * - Touch: a joystick appears where the thumb goes down in the walking half (lower left, or
  *   lower right for a left-handed player); one finger elsewhere turns the camera; two fingers
  *   pinch to zoom. The on-screen buttons (TouchControls) call `press`.
@@ -88,6 +89,10 @@ export class Input {
 
   private readonly held = new Set<Action>();
   private readonly pressed = new Set<Action>();
+  /** Actions whose last press came from a controller (see `pressedByPad`). */
+  private readonly padPressed = new Set<Action>();
+  /** Wheel pixels towards the next notch (a trackpad sends many small steps). */
+  private wheelRest = 0;
   private readonly look: LookDelta = { yaw: 0, pitch: 0, zoom: 1 };
 
   private joystickPointer: number | null = null;
@@ -117,7 +122,10 @@ export class Input {
   ) {
     this.usingPad = bindings.padHints;
     this.bridge = new PadBridge(bindings, {
-      press: (action) => this.press(action),
+      press: (action) => {
+        this.press(action);
+        this.padPressed.add(action);
+      },
       release: (action) => this.release(action),
       pause: () => this.onPausePressed?.(),
     });
@@ -249,10 +257,20 @@ export class Input {
     return true;
   }
 
+  /**
+   * True when the last press of `action` came from a controller button, not from a key, the
+   * mouse or a touch button. Read it together with `consumePressed`: some menus a controller
+   * cannot steer yet are not opened from a controller in a fight.
+   */
+  pressedByPad(action: Action): boolean {
+    return this.padPressed.has(action);
+  }
+
   /** Presses an action from an on-screen button (touch). */
   press(action: Action): void {
     this.held.add(action);
     this.pressed.add(action);
+    this.padPressed.delete(action);
   }
 
   release(action: Action): void {
@@ -288,6 +306,8 @@ export class Input {
     this.bridge.ignoreHeld(this.pads?.down ?? 0);
     this.held.clear();
     this.pressed.clear();
+    this.padPressed.clear();
+    this.wheelRest = 0;
     this.joystickPointer = null;
     this.lookPointer = null;
     this.pinchPointer = null;
@@ -484,9 +504,28 @@ export class Input {
     }
   }
 
+  /**
+   * The wheel: a notch up or down is an action when one is bound to it (`WheelUp` /
+   * `WheelDown`, the next and previous spell by default), one press per notch. Otherwise, and
+   * always with Ctrl held, the wheel zooms the camera.
+   */
   private readonly onWheel = (event: WheelEvent): void => {
     event.preventDefault();
     const px = event.deltaMode === 1 ? event.deltaY * WHEEL_LINE_PX : event.deltaY;
+    if (px === 0) return;
+    const action = event.ctrlKey
+      ? undefined
+      : this.bindings.actionFor(px < 0 ? WHEEL_UP : WHEEL_DOWN);
+    if (action) {
+      if (this.usingPad) this.setUsingPad(false);
+      // Turning the other way starts a new notch.
+      if (Math.sign(px) !== Math.sign(this.wheelRest)) this.wheelRest = 0;
+      this.wheelRest += px;
+      if (Math.abs(this.wheelRest) < WHEEL_NOTCH_PX) return;
+      this.wheelRest %= WHEEL_NOTCH_PX;
+      this.tap(action);
+      return;
+    }
     const notches = px / WHEEL_NOTCH_PX;
     this.look.zoom *= Math.exp(notches * this.cfg.zoomStepPerWheelNotch);
   };
