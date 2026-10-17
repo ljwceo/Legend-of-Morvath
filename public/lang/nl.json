@@ -569,6 +569,12 @@
     },
     "adept_staff": {
       "desc": "Een staf met twee spellplekken. Hij werkt alleen met een kristal."
+    },
+    "archmage_staff": {
+      "desc": "Een staf met drie spellplekken die zelfs het grootste kristal draagt."
+    },
+    "found_crystal": {
+      "desc": "Een kristal dat je gevonden hebt. Voeg het samen met het kristal van je staf als element en grootte hetzelfde zijn: je krijgt één kristal van de volgende grootte."
     }
   },
   "quest": {
@@ -1258,5 +1264,27 @@
     "noSlots": "Deze staf heeft geen spellplekken.",
     "hint": "De eerste gevulde plek is de spell die je cast-knop afvuurt. Spells wissel je alleen buiten een gevecht.",
     "inCombat": "Niet terwijl je vecht."
+  },
+  "crystal": {
+    "label": "Kristal",
+    "name": "{element} Crystal ({size})",
+    "spellSize": "spells {n}% groter",
+    "merge": "Samenvoegen",
+    "size": {
+      "small": "Klein",
+      "medium": "Middel",
+      "large": "Groot",
+      "grand": "Grand"
+    },
+    "grew": "Je kristal is gegroeid: {element} Crystal ({size}). Treffers en spells zijn sterker.",
+    "fail": {
+      "inCombat": "Niet terwijl je vecht.",
+      "noStaff": "Rust eerst een staf uit.",
+      "noCrystal": "Je staf heeft nog geen kristal.",
+      "otherElement": "Alleen kristallen van hetzelfde element voeg je samen. Een ander element heeft een tweede staf nodig.",
+      "staffTooSmall": "Je staf is te klein voor een groter kristal. Zoek een grotere staf.",
+      "maxSize": "Je kristal kan niet groter worden.",
+      "sizeMismatch": "Alleen kristallen van dezelfde grootte voeg je samen. Je staf-kristal heeft een andere grootte."
+    }
   }
 }

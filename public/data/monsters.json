@@ -196,7 +196,10 @@
       "drops": [
         { "item": "slime_gel", "chance": 0.75, "min": 1, "max": 2 },
         { "item": "health_potion", "chance": 0.15, "min": 1, "max": 1 },
-        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 }
+        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 },
+        { "item": "crystal_water_small", "chance": 0.05, "min": 1, "max": 1 },
+        { "item": "crystal_water_medium", "chance": 0.01, "min": 1, "max": 1 },
+        { "item": "crystal_water_large", "chance": 0.003, "min": 1, "max": 1 }
       ],
       "model": "placeholder:slime_water",
       "radius": 0.8,
@@ -260,7 +263,10 @@
       "drops": [
         { "item": "slime_gel", "chance": 0.75, "min": 1, "max": 2 },
         { "item": "health_potion", "chance": 0.15, "min": 1, "max": 1 },
-        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 }
+        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 },
+        { "item": "crystal_fire_small", "chance": 0.05, "min": 1, "max": 1 },
+        { "item": "crystal_fire_medium", "chance": 0.01, "min": 1, "max": 1 },
+        { "item": "crystal_fire_large", "chance": 0.003, "min": 1, "max": 1 }
       ],
       "model": "placeholder:slime_fire",
       "radius": 0.8,
@@ -324,7 +330,10 @@
       "drops": [
         { "item": "slime_gel", "chance": 0.75, "min": 1, "max": 2 },
         { "item": "health_potion", "chance": 0.15, "min": 1, "max": 1 },
-        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 }
+        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 },
+        { "item": "crystal_nature_small", "chance": 0.05, "min": 1, "max": 1 },
+        { "item": "crystal_nature_medium", "chance": 0.01, "min": 1, "max": 1 },
+        { "item": "crystal_nature_large", "chance": 0.003, "min": 1, "max": 1 }
       ],
       "model": "placeholder:slime_nature",
       "radius": 0.8,
@@ -386,7 +395,10 @@
       "drops": [
         { "item": "slime_gel", "chance": 0.75, "min": 1, "max": 2 },
         { "item": "health_potion", "chance": 0.15, "min": 1, "max": 1 },
-        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 }
+        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 },
+        { "item": "crystal_wind_small", "chance": 0.05, "min": 1, "max": 1 },
+        { "item": "crystal_wind_medium", "chance": 0.01, "min": 1, "max": 1 },
+        { "item": "crystal_wind_large", "chance": 0.003, "min": 1, "max": 1 }
       ],
       "model": "placeholder:slime_wind",
       "radius": 0.8,
@@ -450,7 +462,10 @@
       "drops": [
         { "item": "slime_gel", "chance": 0.75, "min": 1, "max": 2 },
         { "item": "health_potion", "chance": 0.15, "min": 1, "max": 1 },
-        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 }
+        { "item": "copper_amulet", "chance": 0.04, "min": 1, "max": 1 },
+        { "item": "crystal_dark_small", "chance": 0.05, "min": 1, "max": 1 },
+        { "item": "crystal_dark_medium", "chance": 0.01, "min": 1, "max": 1 },
+        { "item": "crystal_dark_large", "chance": 0.003, "min": 1, "max": 1 }
       ],
       "model": "placeholder:slime_dark",
       "radius": 0.8,

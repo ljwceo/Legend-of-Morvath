@@ -6,6 +6,7 @@ import { el } from '../dom';
 import type { QuestSummary } from '../questText';
 import type { Panel } from '../Overlays';
 import { bindT } from './ConfirmPanel';
+import { type CrystalSummary, crystalLine } from './crystalText';
 
 /** The two tabs of the bag: your things, and the quests you are running. */
 type BagTab = 'items' | 'quests';
@@ -28,6 +29,10 @@ export interface BagGear {
   /** Puts an item on; closing / rebuilding the panel is up to the bag. */
   equip(itemId: string): void;
   unequip(slot: EquipmentSlot): void;
+  /** Merges a crystal from the bag into the one in the staff (step 4.4). */
+  mergeCrystal(itemId: string): void;
+  /** The crystal in the staff, or null without one. */
+  crystal(): CrystalSummary | null;
   /** Carried and maximum kg, and the load tier (id for the colour, label key for the text). */
   load(): { kg: number; maxKg: number; tierId: string; tierLabel: string };
 }
@@ -109,11 +114,13 @@ export function bagPanel(
         const action =
           def?.type === 'potion'
             ? chip(t('bag.drink'), t('bag.drink'), () => drink(stack.item))
-            : canWearMore
-              ? chip(t('bag.equip'), t('bag.equip'), () => gear.equip(stack.item))
-              : worn > 0
-                ? el('span', { className: 'ui-bag-equipped', text: t('bag.equipped') })
-                : null;
+            : def?.type === 'crystal' && def.crystal?.mergeable === true
+              ? chip(t('crystal.merge'), t('crystal.merge'), () => gear.mergeCrystal(stack.item))
+              : canWearMore
+                ? chip(t('bag.equip'), t('bag.equip'), () => gear.equip(stack.item))
+                : worn > 0
+                  ? el('span', { className: 'ui-bag-equipped', text: t('bag.equipped') })
+                  : null;
         return el(
           'li',
           { className: 'ui-bag-row' },
@@ -153,6 +160,17 @@ export function bagPanel(
             : null,
         );
       });
+      const crystal = gear.crystal();
+      if (crystal) {
+        slots.push(
+          el(
+            'li',
+            { className: 'ui-bag-slot' },
+            el('span', { className: 'ui-bag-slot-label', text: t('crystal.label') }),
+            el('span', { className: 'ui-bag-gear', text: crystalLine(t, crystal) }),
+          ),
+        );
+      }
       const expand = el('button', {
         className: 'ui-bag-expand',
         text: full ? '⤡' : '⤢',

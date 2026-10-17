@@ -186,6 +186,16 @@ import {
   transferUpgrade,
   type UpgradeResult,
 } from '../systems/Forge';
+import {
+  crystalBonus,
+  effectiveLevel,
+  levelFor,
+  mergeCrystal,
+  mergeElement,
+  NO_CRYSTAL_BONUS,
+  spellSizeFactor,
+  type CrystalBonus,
+} from '../systems/Crystals';
 import { QuestTexts } from '../ui/questText';
 import type { ChecklistRow, DialogChoice, DialogLine, DialogOptions } from '../ui/Dialog';
 import { pausePanel } from '../ui/menus/PausePanel';
@@ -501,6 +511,8 @@ export class WorldState implements GameState, InstanceHost {
   private staffSlots = 0;
   /** The power curve factor of your path at your level (light grows, dark shrinks). */
   private spellPower = 1;
+  /** What the crystal in your staff adds (step 4.4): damage per hit and spell shot size. */
+  private crystal: CrystalBonus = NO_CRYSTAL_BONUS;
   /** The player's shots in flight (Arcane Shard and spells). */
   private shots: Shots | null = null;
   private shotRenderer: ShotRenderer | null = null;
@@ -1264,6 +1276,8 @@ export class WorldState implements GameState, InstanceHost {
     );
     // Debug: the cheat menu can make shots curve harder or not at all.
     fired.homingRadians = shot.homingRadians * this.cheats.homing;
+    // A bigger crystal makes the shots of your spells bigger (the Arcane Shard has no element).
+    if (shot.element !== '') fired.radius *= spellSizeFactor(this.crystal);
     // Shooting counts as fighting, so the bars show (HUD rules from the concept).
     player.combat.sinceCombat = 0;
   }
@@ -2936,6 +2950,7 @@ export class WorldState implements GameState, InstanceHost {
       character.crystal && elements.includes(character.crystal)
         ? character.crystal
         : this.lootRng.pick(elements);
+    if (character.crystal !== drawn || character.crystalUnits < 1) character.crystalUnits = 1;
     character.crystal = drawn;
     this.gainItem(crystalId, 1);
     const spell = data.spells.spells.find(
@@ -3046,7 +3061,14 @@ export class WorldState implements GameState, InstanceHost {
     const stats = gearStats(character.equipment, this.items, this.gearStatsOut, character.upgrades);
     const weapon = character.equipment.weapon;
     const def = weapon ? this.items.get(weapon) : undefined;
-    c.weaponBonus = effectiveDamageBonus(def, character.upgrades);
+    this.crystal = crystalBonus(
+      this.ctx.data?.items.crystalLevels ?? [],
+      this.ctx.data?.items.crystalSizes ?? [],
+      character.crystal,
+      character.crystalUnits,
+      this.staffCrystalMax(def),
+    );
+    c.weaponBonus = effectiveDamageBonus(def, character.upgrades) + this.crystal.damageBonus;
     this.applyWeapon(def);
     c.gearHp = stats.hp;
     c.gearMana = stats.mana;
@@ -3869,6 +3891,8 @@ export class WorldState implements GameState, InstanceHost {
         {
           equip: (itemId) => this.changeGear(() => this.equipItem(itemId)),
           unequip: (slot) => this.changeGear(() => this.unequipSlot(slot)),
+          mergeCrystal: (itemId) => this.changeGear(() => this.mergeCrystalItem(itemId)),
+          crystal: () => this.crystalSummary(),
           load: () => this.loadSummary(),
         },
         resume,
@@ -3907,6 +3931,7 @@ export class WorldState implements GameState, InstanceHost {
           slots: () => this.staffSlots,
           usable: () => this.usableKnown(),
           locked: () => this.player?.combat.inCombat ?? false,
+          crystal: () => this.crystalSummary(),
           choose: (slot, spellId) => this.chooseSpell(slot, spellId),
         },
         resume,
@@ -4026,6 +4051,82 @@ export class WorldState implements GameState, InstanceHost {
     const character = this.ctx.session?.character;
     if (!character) return false;
     return equip(character.equipment, character.inventory, this.items, itemId) === 'equipped';
+  }
+
+  /**
+   * Merges a crystal from your bag into the one in your staff (step 4.4): it is used up and
+   * your crystal grows when it reaches the next size. Says why when it does not work.
+   */
+  /** The biggest crystal size the staff holds; undefined for a sword or no weapon. */
+  private staffCrystalMax(def: ItemDef | undefined): string | undefined {
+    return def?.weapon?.kind === 'staff' ? (def.weapon.maxCrystalSize ?? 'small') : undefined;
+  }
+
+  private mergeCrystalItem(itemId: string): boolean {
+    const character = this.ctx.session?.character;
+    const data = this.ctx.data;
+    const def = this.items.get(itemId);
+    const element = mergeElement(def?.crystal?.elements ?? []);
+    if (!character || !data || !def?.crystal?.mergeable || element === null) return false;
+    const staff = character.equipment.weapon
+      ? this.items.get(character.equipment.weapon)
+      : undefined;
+    const result = mergeCrystal({
+      crystal: character.crystal,
+      units: character.crystalUnits,
+      foundElement: element,
+      foundSize: def.crystal.size,
+      staffMax:
+        staff?.weapon?.kind === 'staff' ? (staff.weapon.maxCrystalSize ?? 'small') : undefined,
+      inCombat: this.player?.combat.inCombat ?? false,
+      levels: data.items.crystalLevels,
+      sizes: data.items.crystalSizes,
+    });
+    const t = this.ctx.i18n;
+    if (!result.ok) {
+      this.hud?.showMessage(t.t(`crystal.fail.${result.reason}`));
+      return false;
+    }
+    if (!removeItem(character.inventory, itemId, 1)) return false;
+    character.crystalUnits = result.units;
+    const after = levelFor(data.items.crystalLevels, result.units)?.size ?? '';
+    this.hud?.showMessage(
+      t.t('crystal.grew', {
+        element: data.spells.elements.find((e) => e.id === element)?.name ?? element,
+        size: t.t(`crystal.size.${after}`),
+      }),
+    );
+    this.syncSave();
+    this.ctx.persist();
+    return true;
+  }
+
+  /** The crystal in your staff for the bag and spellbook: its element, size and what it gives. */
+  private crystalSummary(): {
+    element: string;
+    size: string;
+    damageBonus: number;
+    spellSizePercent: number;
+  } | null {
+    const character = this.ctx.session?.character;
+    const data = this.ctx.data;
+    if (!character || !data || character.crystal === null) return null;
+    const weapon = character.equipment.weapon;
+    const level = effectiveLevel(
+      data.items.crystalLevels,
+      data.items.crystalSizes,
+      character.crystal,
+      character.crystalUnits,
+      this.staffCrystalMax(weapon ? this.items.get(weapon) : undefined),
+    );
+    if (!level) return null;
+    const name = data.spells.elements.find((e) => e.id === character.crystal)?.name;
+    return {
+      element: name ?? character.crystal,
+      size: level.size,
+      damageBonus: level.damageBonus,
+      spellSizePercent: level.spellSizePercent,
+    };
   }
 
   private unequipSlot(slot: EquipmentSlot): boolean {
@@ -4264,7 +4365,10 @@ export class WorldState implements GameState, InstanceHost {
     character.spellLoadout = [];
     // The spellbook only offers spells of your crystal's element, so the crystal follows.
     const element = this.ctx.data?.spells.spells.find((entry) => entry.id === spellId)?.element;
-    if (element) character.crystal = element;
+    if (element) {
+      if (character.crystal !== element) character.crystalUnits = 1;
+      character.crystal = element;
+    }
     if (spellId) this.grantStaff();
     this.applyGear(false);
     this.ctx.persist();

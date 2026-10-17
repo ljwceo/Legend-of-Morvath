@@ -126,6 +126,7 @@ export function createCharacter(
     spells: [],
     spellLoadout: [],
     crystal: null,
+    crystalUnits: 0,
     upgrades: {},
   };
 }

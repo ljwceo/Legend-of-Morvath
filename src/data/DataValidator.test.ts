@@ -85,6 +85,35 @@ describe('merchants are only data', () => {
 });
 
 describe('validateGameData catches broken data', () => {
+  it('only found crystals merge, one element each, in light and dark alike', () => {
+    const { data } = validateGameData(readAllData(), options);
+    const crystals = data?.items.items.filter((item) => item.type === 'crystal') ?? [];
+    // The Crystal Ceremony items are not found crystals, so they never merge.
+    for (const id of ['wizard_crystal', 'dark_crystal']) {
+      expect(crystals.find((item) => item.id === id)?.crystal?.mergeable).toBeFalsy();
+    }
+    for (const element of ['water', 'fire', 'nature', 'wind', 'dark']) {
+      const found = crystals.filter(
+        (item) => item.crystal?.elements[0] === element && item.crystal.mergeable,
+      );
+      expect(found.map((item) => item.crystal?.size)).toEqual(['small', 'medium', 'large']);
+    }
+  });
+
+  it('reports broken crystalLevels and a mergeable crystal with two elements', () => {
+    const raw = freshData();
+    raw.items.crystalLevels[1].units = 1;
+    raw.items.crystalLevels[2].size = 'grand';
+    raw.items.crystalLevels.pop();
+    const found = raw.items.items.find((i: { id: string }) => i.id === 'crystal_fire_small');
+    found.crystal.elements = ['fire', 'water'];
+    const text = messages(raw).join('\n');
+    expect(text).toContain('needs exactly one level per crystal size');
+    expect(text).toContain('must be worth more than the size before it');
+    expect(text).toContain('expected "large"');
+    expect(text).toContain('a mergeable crystal has exactly one element');
+  });
+
   it('reports structural problems with file and path', () => {
     const raw = freshData();
     delete raw.npcs.npcs[0].zone;

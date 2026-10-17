@@ -44,6 +44,7 @@ function sampleSave() {
     spells: [],
     spellLoadout: [],
     crystal: null,
+    crystalUnits: 0,
     upgrades: {},
   };
   save.world = {
@@ -283,6 +284,21 @@ describe('migrate', () => {
     expect(result.save.version).toBe(SAVE_VERSION);
     expect(result.save.character?.spellLoadout).toEqual([]);
     expect(result.save.character?.spells).toEqual(['fireball']);
+  });
+
+  it('upgrades a version 18 save: a crystal counts as small, no crystal as 0', () => {
+    const run = (crystal: string | null): number | undefined => {
+      const current = sampleSave();
+      const character: Record<string, unknown> = { ...current.character, crystal };
+      delete character.crystalUnits;
+      const storage = new MemoryStorage();
+      storage.setItem(SAVE_KEY, JSON.stringify({ ...current, version: 18, character }));
+      const result = new SaveManager(storage).load();
+      expect(result.status).toBe('ok');
+      return result.status === 'ok' ? result.save.character?.crystalUnits : undefined;
+    };
+    expect(run('fire')).toBe(1);
+    expect(run(null)).toBe(0);
   });
 
   it('keeps a chosen spell loadout after saving and loading again', () => {

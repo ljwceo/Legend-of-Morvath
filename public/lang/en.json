@@ -569,6 +569,12 @@
     },
     "adept_staff": {
       "desc": "A staff with two spell slots. It only works with a crystal."
+    },
+    "archmage_staff": {
+      "desc": "A staff with three spell slots that holds even the biggest crystal."
+    },
+    "found_crystal": {
+      "desc": "A crystal you found. Merge it into the crystal of your staff when the element and the size are the same: you get one crystal of the next size."
     }
   },
   "quest": {
@@ -1258,5 +1264,27 @@
     "noSlots": "This staff has no spell slots.",
     "hint": "The first filled slot is the spell your cast button fires. Spells can only be changed outside a fight.",
     "inCombat": "Not while you are fighting."
+  },
+  "crystal": {
+    "label": "Crystal",
+    "name": "{element} Crystal ({size})",
+    "spellSize": "spells {n}% bigger",
+    "merge": "Merge",
+    "size": {
+      "small": "Small",
+      "medium": "Medium",
+      "large": "Large",
+      "grand": "Grand"
+    },
+    "grew": "Your crystal grew: {element} Crystal ({size}). Hits and spells are stronger.",
+    "fail": {
+      "inCombat": "Not while you are fighting.",
+      "noStaff": "Equip a staff first.",
+      "noCrystal": "Your staff has no crystal yet.",
+      "otherElement": "Only crystals of the same element merge. Another element needs a second staff.",
+      "staffTooSmall": "Your staff is too small for a bigger crystal. Find a bigger staff.",
+      "maxSize": "Your crystal cannot grow any bigger.",
+      "sizeMismatch": "Only crystals of the same size merge. Your staff crystal is another size."
+    }
   }
 }

@@ -3,6 +3,7 @@ import { EMPTY_SLOT, normalizeLoadout } from '../../systems/Spellbook';
 import { button, el } from '../dom';
 import type { Panel } from '../Overlays';
 import { bindT } from './ConfirmPanel';
+import { type CrystalSummary, crystalLine } from './crystalText';
 
 /** What the spellbook needs from the world (the world keeps the rules). */
 export interface SpellbookHandlers {
@@ -14,6 +15,8 @@ export interface SpellbookHandlers {
   usable(): string[];
   /** True in a fight: you can look, but not change. */
   locked(): boolean;
+  /** The crystal in the staff (its size changes your damage and spells), or null. */
+  crystal(): CrystalSummary | null;
 }
 
 /**
@@ -43,6 +46,8 @@ export function spellbookPanel(
         },
         el('h2', { className: 'ui-heading', text: t('spellbook.title') }),
       );
+      const crystal = handlers.crystal();
+      if (crystal) root.append(el('p', { className: 'ui-note', text: crystalLine(t, crystal) }));
       const note = (key: string): HTMLElement => el('p', { className: 'ui-note', text: t(key) });
       if (slots === 0) root.append(note('spellbook.noStaff'));
       else if (known.length === 0) root.append(note('spellbook.noSpells'));

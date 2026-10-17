@@ -23,6 +23,12 @@
     }
   ],
   "crystalSizes": ["small", "medium", "large", "grand"],
+  "crystalLevels": [
+    { "size": "small", "units": 1, "damageBonus": 1, "spellSizePercent": 0 },
+    { "size": "medium", "units": 2, "damageBonus": 2, "spellSizePercent": 15 },
+    { "size": "large", "units": 4, "damageBonus": 4, "spellSizePercent": 30 },
+    { "size": "grand", "units": 8, "damageBonus": 8, "spellSizePercent": 50 }
+  ],
   "items": [
     {
       "id": "gold",
@@ -674,7 +680,22 @@
         "kind": "staff",
         "damageBonus": 2,
         "spellSlots": 2,
-        "maxCrystalSize": "small"
+        "maxCrystalSize": "medium"
+      }
+    },
+    {
+      "id": "archmage_staff",
+      "name": "Archmage Staff",
+      "type": "weapon",
+      "rarity": "epic",
+      "tradeable": true,
+      "weight": 4,
+      "description": "item.archmage_staff.desc",
+      "weapon": {
+        "kind": "staff",
+        "damageBonus": 4,
+        "spellSlots": 3,
+        "maxCrystalSize": "grand"
       }
     },
     {
@@ -699,6 +720,201 @@
       "crystal": {
         "elements": ["dark"],
         "size": "small"
+      }
+    },
+    {
+      "id": "crystal_water_small",
+      "name": "Water Crystal",
+      "type": "crystal",
+      "rarity": "rare",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["water"],
+        "size": "small",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_water_medium",
+      "name": "Medium Water Crystal",
+      "type": "crystal",
+      "rarity": "rare",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["water"],
+        "size": "medium",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_water_large",
+      "name": "Large Water Crystal",
+      "type": "crystal",
+      "rarity": "epic",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["water"],
+        "size": "large",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_fire_small",
+      "name": "Fire Crystal",
+      "type": "crystal",
+      "rarity": "rare",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["fire"],
+        "size": "small",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_fire_medium",
+      "name": "Medium Fire Crystal",
+      "type": "crystal",
+      "rarity": "rare",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["fire"],
+        "size": "medium",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_fire_large",
+      "name": "Large Fire Crystal",
+      "type": "crystal",
+      "rarity": "epic",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["fire"],
+        "size": "large",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_nature_small",
+      "name": "Nature Crystal",
+      "type": "crystal",
+      "rarity": "rare",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["nature"],
+        "size": "small",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_nature_medium",
+      "name": "Medium Nature Crystal",
+      "type": "crystal",
+      "rarity": "rare",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["nature"],
+        "size": "medium",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_nature_large",
+      "name": "Large Nature Crystal",
+      "type": "crystal",
+      "rarity": "epic",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["nature"],
+        "size": "large",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_wind_small",
+      "name": "Wind Crystal",
+      "type": "crystal",
+      "rarity": "rare",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["wind"],
+        "size": "small",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_wind_medium",
+      "name": "Medium Wind Crystal",
+      "type": "crystal",
+      "rarity": "rare",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["wind"],
+        "size": "medium",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_wind_large",
+      "name": "Large Wind Crystal",
+      "type": "crystal",
+      "rarity": "epic",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["wind"],
+        "size": "large",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_dark_small",
+      "name": "Dark Crystal",
+      "type": "crystal",
+      "rarity": "rare",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["dark"],
+        "size": "small",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_dark_medium",
+      "name": "Medium Dark Crystal",
+      "type": "crystal",
+      "rarity": "rare",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["dark"],
+        "size": "medium",
+        "mergeable": true
+      }
+    },
+    {
+      "id": "crystal_dark_large",
+      "name": "Large Dark Crystal",
+      "type": "crystal",
+      "rarity": "epic",
+      "tradeable": true,
+      "description": "item.found_crystal.desc",
+      "crystal": {
+        "elements": ["dark"],
+        "size": "large",
+        "mergeable": true
       }
     },
     {

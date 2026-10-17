@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 18;
+export const SAVE_VERSION = 19;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -91,6 +91,11 @@ export const saveDataSchema = z.object({
        * sword fighter and before the ceremony. Stored, so a reload never redraws it.
        */
       crystal: z.nullable(id),
+      /**
+       * How much your crystal is worth in small crystals (step 4.4): 1 = Small, 2 = Medium,
+       * 4 = Large, 8 = Grand (items.json `crystalLevels`). 0 when you have no crystal.
+       */
+      crystalUnits: z.int().check(z.nonnegative()),
       /**
        * Forge level per item id (step 4.1): how often Hilda upgraded that weapon. Missing means
        * level 0. Per item id, so all copies of one weapon share the level.
@@ -298,6 +303,15 @@ export const migrations: Readonly<Record<number, Migration>> = {
       ...save,
       version: 18,
       character: character ? { ...character, spellLoadout: [] } : null,
+    };
+  },
+  // v19 (step 4.4): the size of your crystal; everyone's crystal so far is a small one.
+  18: (save) => {
+    const character = save.character as Record<string, unknown> | null | undefined;
+    return {
+      ...save,
+      version: 19,
+      character: character ? { ...character, crystalUnits: character.crystal ? 1 : 0 } : null,
     };
   },
   // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged

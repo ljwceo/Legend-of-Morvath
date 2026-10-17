@@ -1185,7 +1185,14 @@ const itemSchema = z.strictObject({
       maxCrystalSize: optional(id),
     }),
   ),
-  crystal: optional(z.strictObject({ elements: atLeast(z.array(id)), size: id })),
+  crystal: optional(
+    z.strictObject({
+      elements: atLeast(z.array(id)),
+      size: id,
+      /** True for crystals you find: they merge into your staff crystal (step 4.4). */
+      mergeable: optional(z.boolean()),
+    }),
+  ),
   /**
    * Hilda's Forge (step 4.1): the levels this weapon can be upgraded to, in order. Each level
    * costs gold and materials and adds `damageBonus` (weapons) and/or `stats` (gear).
@@ -1232,6 +1239,21 @@ export const itemsFileSchema = z.strictObject({
     }),
   ),
   crystalSizes: atLeast(z.array(id)),
+  /**
+   * What each crystal size does (step 4.4), in the order of `crystalSizes`. `units` is how many
+   * small crystals it is worth (merging two equal sizes doubles it), `damageBonus` is added to
+   * every hit of the staff, `spellSizePercent` makes the shots of your spells bigger.
+   */
+  crystalLevels: atLeast(
+    z.array(
+      z.strictObject({
+        size: id,
+        units: intRange(1, 1000),
+        damageBonus: nonNegative,
+        spellSizePercent: nonNegative,
+      }),
+    ),
+  ),
   items: z.array(itemSchema),
 });
 

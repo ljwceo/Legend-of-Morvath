@@ -290,6 +290,28 @@ class CrossChecker {
     this.issues.push({ file, path, message });
   }
 
+  /** Crystal levels (step 4.4): one per size, in order, getting worth more and more. */
+  private crystalLevels(items: GameData['items']): void {
+    const f = 'items';
+    const sizes = items.crystalSizes;
+    if (items.crystalLevels.length !== sizes.length) {
+      this.issue(f, 'crystalLevels', 'needs exactly one level per crystal size');
+    }
+    let prev = 0;
+    items.crystalLevels.forEach((level, i) => {
+      if (level.size !== sizes[i]) {
+        this.issue(f, `crystalLevels[${i}].size`, `expected "${sizes[i]}" (same order as sizes)`);
+      }
+      if (level.units <= prev) {
+        this.issue(f, `crystalLevels[${i}].units`, 'must be worth more than the size before it');
+      }
+      prev = level.units;
+    });
+    if (items.crystalLevels[0] && items.crystalLevels[0].units !== 1) {
+      this.issue(f, 'crystalLevels[0].units', 'the smallest crystal is worth 1 unit');
+    }
+  }
+
   /** Registers ids under a namespace and reports duplicates. */
   private unique(namespace: string, file: string, path: string, list: readonly { id: string }[]) {
     const set = (this.ids[namespace] ??= new Set());
@@ -359,6 +381,7 @@ class CrossChecker {
     this.unique('rarity', 'items', 'rarities', d.items.rarities);
     this.unique('item', 'items', 'items', d.items.items);
     this.unique('crystalSize', 'items', 'crystalSizes', d.items.crystalSizes.map(toEntry));
+    this.crystalLevels(d.items);
     this.unique('bodyType', 'appearance', 'bodyTypes', d.appearance.bodyTypes);
     this.unique('hairstyle', 'appearance', 'hairstyles', d.appearance.hairstyles);
     this.unique('hairColor', 'appearance', 'hairColors', d.appearance.hairColors);
@@ -1177,6 +1200,9 @@ class CrossChecker {
       }
       this.ref('crystalSize', f, `${p}.weapon.maxCrystalSize`, item.weapon?.maxCrystalSize);
       this.ref('crystalSize', f, `${p}.crystal.size`, item.crystal?.size);
+      if (item.crystal?.mergeable && item.crystal.elements.length !== 1) {
+        this.issue(f, `${p}.crystal.mergeable`, 'a mergeable crystal has exactly one element');
+      }
       item.crystal?.elements.forEach((element, e) =>
         this.ref('element', f, `${p}.crystal.elements[${e}]`, element),
       );
