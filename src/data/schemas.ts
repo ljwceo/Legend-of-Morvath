@@ -28,6 +28,15 @@ export type PathCheck = 'none' | 'any' | PlayerPath;
 /** What a weapon item is; it decides how you fight and which weapon the player model holds. */
 export const WEAPON_KINDS = ['sword', 'staff'] as const;
 export type WeaponKind = (typeof WEAPON_KINDS)[number];
+
+/**
+ * How a weapon is held (Fase G, G.1: data only, nothing reads it yet). `twoHanded` means
+ * mandatory two-handed: such a weapon can never be used together with a shield, but it can
+ * still cast from the Grimoire and use a Sword Art (G.0, U-3; built in G.6).
+ */
+export const WEAPON_GRIPS = ['oneHanded', 'twoHanded'] as const;
+export type WeaponGrip = (typeof WEAPON_GRIPS)[number];
+
 // zod 4 numbers are always finite (no Infinity / NaN).
 const nonNegative = z.number().check(z.nonnegative());
 const positive = z.number().check(z.positive());
@@ -922,6 +931,13 @@ export const playerFileSchema = z.strictObject({
     /** The drink key / button takes the first of these potions you have. */
     quickOrder: atLeast(z.array(id)),
   }),
+  /**
+   * The prepared loadout (Fase G, G.1: data only; the loadout itself is built in G.5).
+   * `mainWeapons` is the base number of prepared main weapons (S-9); Weapon Harness Upgrades
+   * add to it later. Prepared incantations come from the Grimoire item (`grimoire` in
+   * items.json). No maximum has been decided, so none is set here.
+   */
+  prepared: z.strictObject({ mainWeapons: posInt }),
   death: z.strictObject({
     goldLossFraction: fraction,
     /** Walk within this distance (metres) of the gold you left behind to pick it up. */
@@ -1297,6 +1313,8 @@ const itemSchema = z.strictObject({
     'quest',
     /** An egg from a mini-boss: weighs nothing, cannot be used, only handed to Sultan. */
     'egg',
+    /** A Grimoire to cast incantations from (Fase G; nothing gives or uses one before G.3). */
+    'grimoire',
   ]),
   slot: optional(z.enum(['hat', 'mantle', 'amulet', 'ring'])),
   rarity: id,
@@ -1307,15 +1325,28 @@ const itemSchema = z.strictObject({
   season: optional(id),
   dryTo: optional(id),
   dryHours: optional(positive),
+  /**
+   * Kept only so old saves keep working (Fase G): the playable staves leave the active game.
+   * The id must never be removed; nothing reads this flag yet (G.4 migrates, G.9 cleans up).
+   */
+  legacy: optional(z.boolean()),
   weapon: optional(
     z.object({
       kind: z.enum(WEAPON_KINDS),
+      /** Required for every weapon that is not `legacy` (DataValidator). */
+      grip: optional(z.enum(WEAPON_GRIPS)),
       damageBonus: nonNegative,
       spellSlots: optional(intRange(0, 3)),
       maxCrystalSize: optional(id),
     }),
   ),
   crystal: optional(z.strictObject({ elements: atLeast(z.array(id)), size: id })),
+  /**
+   * Grimoire settings (Fase G, G.1: data only). `incantationSlots` is the number of prepared
+   * incantations this Grimoire holds by itself; Grimoire Pages and the shared Academy slot add
+   * to it later (G.5/G.7). No maximum has been decided, so none is set here.
+   */
+  grimoire: optional(z.strictObject({ incantationSlots: posInt })),
   /**
    * Hilda's Forge (step 4.1): the levels this weapon can be upgraded to, in order. Each level
    * costs gold and materials and adds `damageBonus` (weapons) and/or `stats` (gear).
@@ -1638,7 +1669,14 @@ const powerCurve = atLeast(
 );
 
 export const spellsFileSchema = z.strictObject({
-  elements: atLeast(z.array(z.strictObject({ id, name, color: colorToken }))),
+  /**
+   * The elements. Fase G makes them permanent unlocks of your character instead of crystals you
+   * equip; `alwaysUnlocked` marks an element every character has from the start (Neutral, for
+   * Push). Unlocking an element never teaches its incantations by itself (G.0).
+   */
+  elements: atLeast(
+    z.array(z.strictObject({ id, name, color: colorToken, alwaysUnlocked: optional(z.boolean()) })),
+  ),
   powerCurves: z.record(z.string(), powerCurve),
   maxSpellSlots: intRange(1, 10),
   spells: z.array(
@@ -1681,6 +1719,13 @@ export const spellsFileSchema = z.strictObject({
       ),
     }),
   ),
+  /**
+   * Grimoire incantations (Fase G, G.1: data only, nothing casts them yet). Only the contract
+   * that is decided: an element, and the mana it costs. Range, damage, stagger and recovery come
+   * with G.3, when casting moves from the staff to the Grimoire. Ids may not clash with
+   * `spells` ids, so a learned id can never mean two things.
+   */
+  incantations: z.array(z.strictObject({ id, name, element: id, manaCost: nonNegative })),
 });
 
 // ---------------------------------------------------------------- stats.json

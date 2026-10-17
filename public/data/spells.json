@@ -24,6 +24,12 @@
       "id": "dark",
       "name": "Dark",
       "color": "schemerviolet"
+    },
+    {
+      "id": "neutral",
+      "name": "Neutral",
+      "color": "steengrijs",
+      "alwaysUnlocked": true
     }
   ],
   "powerCurves": {
@@ -305,6 +311,14 @@
         "speedFactor": 1.25
       },
       "learnLevel": 5
+    }
+  ],
+  "incantations": [
+    {
+      "id": "push",
+      "name": "Push",
+      "element": "neutral",
+      "manaCost": 0
     }
   ]
 }

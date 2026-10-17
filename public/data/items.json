@@ -42,6 +42,7 @@
       "description": "item.old_sword.desc",
       "weapon": {
         "kind": "sword",
+        "grip": "oneHanded",
         "damageBonus": 0
       },
       "upgrade": {
@@ -89,6 +90,7 @@
       "description": "item.honed_old_sword.desc",
       "weapon": {
         "kind": "sword",
+        "grip": "oneHanded",
         "damageBonus": 3
       },
       "upgrade": {
@@ -136,6 +138,7 @@
       "description": "item.academy_blade.desc",
       "weapon": {
         "kind": "sword",
+        "grip": "oneHanded",
         "damageBonus": 5
       },
       "stats": {
@@ -237,6 +240,7 @@
       "description": "item.goblin_cleaver.desc",
       "weapon": {
         "kind": "sword",
+        "grip": "oneHanded",
         "damageBonus": 6
       },
       "stats": {
@@ -287,6 +291,7 @@
       "description": "item.chiefs_greatblade.desc",
       "weapon": {
         "kind": "sword",
+        "grip": "oneHanded",
         "damageBonus": 10
       },
       "stats": {
@@ -655,6 +660,7 @@
       "tradeable": true,
       "weight": 3,
       "description": "item.mage_staff.desc",
+      "legacy": true,
       "weapon": {
         "kind": "staff",
         "damageBonus": 0,
@@ -670,6 +676,7 @@
       "tradeable": true,
       "weight": 3,
       "description": "item.adept_staff.desc",
+      "legacy": true,
       "weapon": {
         "kind": "staff",
         "damageBonus": 2,
@@ -699,6 +706,17 @@
       "crystal": {
         "elements": ["dark"],
         "size": "small"
+      }
+    },
+    {
+      "id": "rookie_grimoire",
+      "name": "Rookie Grimoire",
+      "type": "grimoire",
+      "rarity": "common",
+      "tradeable": false,
+      "description": "item.rookie_grimoire.desc",
+      "grimoire": {
+        "incantationSlots": 1
       }
     },
     {

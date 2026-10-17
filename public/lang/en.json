@@ -487,6 +487,9 @@
     "dark_crystal": {
       "desc": "A crystal of dark magic."
     },
+    "rookie_grimoire": {
+      "desc": "A small, plain spellbook. It holds one prepared incantation."
+    },
     "slime_gel": {
       "desc": "Sticky gel left behind by a slime."
     },
