@@ -1419,3 +1419,4 @@ De ene texture die na een hele intro blijft staan (constant over rondes, dus gee
 ### 2026-10-17
 - Stap S.14 Gevechtsstatus en loadout-vergrendeling: "in gevecht" volgt vijand-aggro en het baasgevecht (`holdCombat`, `Enemies.anyEngaged`, 4 s naloop tegen flikkeren), guards `canModifyLoadout` en `canSwitchPrepared` in `src/systems/Loadout.ts`; slotaantallen en drankjesregels open (vraag 26).
 - Besluit (Bo/Lucas, 2026-10-17, vraag 26): S-9 2 hoofdwapens + 1 offhand + 4 drankjesslots; S-10 de tas mag in een gevecht open voor drankjes zonder pauze. Bouwen in stap S.15.
+- Besluit (Bo/Lucas, 2026-10-17, stap S.15): max 5 per soort drankje per slot, aanvullen alleen bij een checkpoint of met de hand, stilstaan en kwetsbaar met de tas open in een gevecht, offhand-slot leeg tot er offhand-items zijn; wisselknoppen open (vraag 27). Afvinklijst in `PLAN.md` → S.15, nog niet gebouwd.
