@@ -121,7 +121,10 @@ export class CombatState {
   /** What is drawn now, and how far along it is (seconds left). */
   swing: SwingKind = 'none';
   swingTime = 0;
-  /** Seconds since the player last gave or took a hit. */
+  /**
+   * Seconds since the last sign of a fight: a hit given or taken, a cast, or an enemy that is
+   * fighting you (see `holdCombat`).
+   */
   sinceCombat = Infinity;
   /**
    * Seconds since the last fast or heavy hit landed, and since the player last took damage.
@@ -141,6 +144,16 @@ export class CombatState {
 
   /** Set from player.json (how long "in a fight" lasts after the last hit). */
   lingerSeconds = 4;
+}
+
+/**
+ * Keeps you in the fight while an enemy is fighting you (chasing or attacking) or a boss fight
+ * runs, `engaged` (the world sets it every fixed step). The fight only ends `lingerSeconds`
+ * after the last enemy let go (defeated, leashed home or calmed down), so walking along an
+ * aggro edge never flips the fight on and off.
+ */
+export function holdCombat(c: CombatState, engaged: boolean): void {
+  if (engaged) c.sinceCombat = 0;
 }
 
 /**

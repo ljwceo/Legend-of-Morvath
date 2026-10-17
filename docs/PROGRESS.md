@@ -55,6 +55,8 @@ Stap S.0: de acht vragen uit `PLAN.md` → Fase S zijn beantwoord.
 | S-6 | Magie staat centraal en een goede mage is lastiger te beheersen dan brute force (omgekeerd aan Elden Ring); de zwaardvechter is de toegankelijke keuze |
 | S-7 | Raids: de eigen client beslist over zijn eigen rol, de host controleert ruim |
 | S-8 | Springen blijft, geen dash of rol in de lucht |
+| S-9 | Voorbereide gevechtsslots: 2 hoofdwapens, 1 offhand en 4 drankjesslots (2026-10-17) |
+| S-10 | De tas mag in een gevecht open voor drankjes, maar het gevecht gaat gewoon door (geen pauze); buiten een gevecht pauzeert hij zoals nu (2026-10-17) |
 
 Gevolgen: harde eis 1 in `CLAUDE.md` noemt de iPhone niet meer; in Fase S vervallen de iPhone-delen van S.1 en S.9 en de touch-rolknop in S.4. De bestaande touch-code en de stappen buiten Fase S die de iPhone of touch noemen (o.a. 6.5 en de Notities in `PLAN.md`) zijn nog niet herzien. Het spelconcept in Google Docs is nog niet bijgewerkt.
 
@@ -1413,3 +1415,8 @@ De ene texture die na een hele intro blijft staan (constant over rondes, dus gee
 - 2026-10-16: Stap S.11 (auto/souls): vijand-poisebalk, extra poise-schade van achteren, Sultan wankelt zichtbaar (poise 45).
 - 2026-10-16 Stap S.12: Sultan draait per fase met eigen snelheid uit data (stalk 720, telegraph 150, attack 60, recovery 90 °/s); je kunt hem omlopen en zijn rug raken.
 - 2026-10-16 Stap S.13: elke Sultan-aanval heeft in de aankondiging een eigen houding uit data (`attacks[].pose`, `BossPose.ts`); duur = `warningSeconds`, gelijk op 60/120 Hz en alle grafische standen.
+
+### 2026-10-17
+- Stap S.14 Gevechtsstatus en loadout-vergrendeling: "in gevecht" volgt vijand-aggro en het baasgevecht (`holdCombat`, `Enemies.anyEngaged`, 4 s naloop tegen flikkeren), guards `canModifyLoadout` en `canSwitchPrepared` in `src/systems/Loadout.ts`; slotaantallen en drankjesregels open (vraag 26).
+- Besluit (Bo/Lucas, 2026-10-17, vraag 26): S-9 2 hoofdwapens + 1 offhand + 4 drankjesslots; S-10 de tas mag in een gevecht open voor drankjes zonder pauze. Bouwen in stap S.15.
+- Besluit (Bo/Lucas, 2026-10-17, stap S.15): max 5 per soort drankje per slot, aanvullen alleen bij een checkpoint of met de hand, stilstaan en kwetsbaar met de tas open in een gevecht, offhand-slot leeg tot er offhand-items zijn; wisselknoppen open (vraag 27). Afvinklijst in `PLAN.md` → S.15, nog niet gebouwd.
