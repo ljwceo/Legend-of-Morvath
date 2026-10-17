@@ -38,7 +38,7 @@ import { barrelGeometry } from '../render/cinematic/CinematicStage';
 import { resolveCutscene, shouldPlayCutscene } from '../render/cinematic/CinematicTimeline';
 import { pointInShape } from '../world/Shapes';
 import { Random } from '../core/Random';
-import { Input, type LookDelta } from '../core/Input';
+import { type Action, Input, type LookDelta } from '../core/Input';
 import type { GameState } from '../core/StateMachine';
 import type {
   GameData,
@@ -106,6 +106,7 @@ import {
   type StaffConfig,
   staffConfig,
   type StaffInput,
+  resetKeepingCooldowns,
   staffReadiness,
   type StaffResult,
   StaffState,
@@ -213,13 +214,17 @@ import {
   unspentPoints,
 } from '../systems/Stats';
 import { redistributePanel } from '../ui/menus/RedistributePanel';
+import { normalizeLoadout, setSlot, spellsToLearn, usableSpells } from '../systems/Spellbook';
 import {
-  activeSpell,
-  normalizeLoadout,
-  setSlot,
-  spellsToLearn,
-  usableSpells,
-} from '../systems/Spellbook';
+  type BusyState,
+  canSwitchWeapon,
+  cycle,
+  cycleSpellSlot,
+  preparedConsumables,
+  preparedWeapons,
+  selectedConsumable,
+  selectedSpell,
+} from '../systems/Loadout';
 import { spellbookPanel } from '../ui/menus/SpellbookPanel';
 import { statusPanel } from '../ui/menus/StatusPanel';
 import type { Panel } from '../ui/Overlays';
@@ -262,6 +267,7 @@ const CINEMATIC_CLASS = 'ui-cinematic-playing';
 const CHOICE_PUSH = 0.5;
 /** Debug overlay lines this scene owns (removed again on exit). */
 const DEBUG_KEYS = [
+  'loadout',
   'pos',
   'zone',
   'chunks',
@@ -298,6 +304,26 @@ const NO_SWORD_INPUT: SwordInput = { fast: false, heavy: false, critRoll: 1 };
 const NO_STAFF_INPUT: StaffInput = { shard: false, spell: false, critRoll: 1 };
 /** No ability chips on the HUD (a sword, or a touch screen whose buttons show it). */
 const NO_CHIPS: readonly AbilityChip[] = [];
+const NO_SPELLS: readonly string[] = [];
+/** Presses that do nothing while the bag is open in a fight (see `liveMenu`). */
+const LIVE_MENU_IGNORED: readonly Action[] = [
+  'attack',
+  'heavy',
+  'dash',
+  'interact',
+  'potion',
+  'bag',
+  'status',
+  'lock',
+  'lockSwitch',
+  'spellNext',
+  'spellPrev',
+  'weaponNext',
+  'offhandNext',
+  'itemNext',
+  'confirm',
+  'close',
+];
 /**
  * Line of sight for lock-on in the open world: this many samples of the terrain along the line,
  * and a hill only blocks when it rises this far (m) above it (so a bumpy field is no wall).
@@ -506,8 +532,24 @@ export class WorldState implements GameState, InstanceHost {
   private lockCfg: LockOnConfig | null = null;
   /** What the equipped weapon is: a sword swings, a staff shoots. */
   private weaponKind: 'sword' | 'staff' = 'sword';
-  /** The spell the right button casts (the first one you know), or null without one. */
+  /** The spell the right button casts (the selected slot of the staff), or null without one. */
   private spell: ShotConfig | null = null;
+  /** The staff slot the wheel / D-pad up picked (see Loadout); its spell is `spell`. */
+  private spellSlot = 0;
+  /** The quick item Q / X uses (a potion id), picked with 3 / D-pad down; null = the default. */
+  private quickItem: string | null = null;
+  /** A weapon switch that waits until the current attack, roll, parry or cast is over. */
+  private pendingWeapon: string | null = null;
+  /** The keys version the loadout cross was drawn with (other keys, or keyboard ↔ controller). */
+  private loadoutKeys = -1;
+  private readonly busy: BusyState = {
+    swinging: false,
+    windingUp: false,
+    rolling: false,
+    casting: false,
+    guarding: false,
+    staggered: false,
+  };
   /** Spell slots of the equipped staff (0 for a sword), for the spellbook. */
   private staffSlots = 0;
   /** The power curve factor of your path at your level (light grows, dark shrinks). */
@@ -579,6 +621,11 @@ export class WorldState implements GameState, InstanceHost {
   private loadTierId = '';
   private preset: QualityPreset | null = null;
   private paused = false;
+  /**
+   * True while the bag is open during a fight: the fight goes on (no pause, no safety), the
+   * mouse is free for the panel and the player stands still and does nothing else.
+   */
+  private liveMenu = false;
   /** Set after importing a save: leaving the world must not write the old state over it. */
   private keepSessionOnExit = false;
   private debugTimer = 0;
@@ -716,6 +763,10 @@ export class WorldState implements GameState, InstanceHost {
     if (zone?.scene) this.loadSceneZone(data, zone);
     else this.buildScene(data, null);
     this.paused = false;
+    this.liveMenu = false;
+    this.pendingWeapon = null;
+    this.spellSlot = 0;
+    this.quickItem = null;
     this.gateBlocked = false;
     if (this.labels) ctx.ui.append(this.labels.root);
     this.hud = new HUD(data.player.hud, data.player.lowHpThreshold, () => this.interact());
@@ -849,6 +900,7 @@ export class WorldState implements GameState, InstanceHost {
         this.hud?.setInteractKey(this.interactKeyLabel());
         this.hud?.setPoiseTexts(ctx.i18n.t('hud.poise'), ctx.i18n.t('hud.staggered'));
         this.refreshAbilities();
+        this.refreshLoadout();
         this.iconLabelFor = null;
       }),
       // Other keys (Settings -> Controls): the icon above an NPC and the ability chips show
@@ -968,6 +1020,17 @@ export class WorldState implements GameState, InstanceHost {
 
   update(dt: number): void {
     const { player, input, mover, movement, rig, streamer, sceneZone } = this;
+    // The bag open in a fight shuts when the fight is taken over: travelling, a cutscene,
+    // dying or a conversation.
+    if (
+      this.liveMenu &&
+      (this.travelling ||
+        this.cutscenePlaying ||
+        this.deathTimer !== NOT_DYING ||
+        this.dialog?.isOpen)
+    ) {
+      this.closeLiveMenu();
+    }
     // A cinematic plays on the fixed step too (the same on 60 and 120 fps); the world waits.
     if (this.cinematic && !this.paused) this.cinematic.step(dt);
     if (this.paused || this.travelling || this.cutscenePlaying) return;
@@ -1001,6 +1064,8 @@ export class WorldState implements GameState, InstanceHost {
       input.consumePressed('status');
       input.consumePressed('lock');
       input.consumePressed('lockSwitch');
+      input.consumePressed('weaponNext');
+      input.consumePressed('offhandNext');
       // The close key shuts the dialogue window, like the ✕ on a panel.
       if (input.consumePressed('close')) {
         this.dialog.close();
@@ -1008,10 +1073,20 @@ export class WorldState implements GameState, InstanceHost {
       }
       if (input.consumePressed('confirm') || next || dash) this.dialog.advance();
       // Answers ("Yes" / "No"): W/S, A/D, arrows or the joystick move the highlight, one step
-      // per push.
+      // per push; so do the D-pad up / down and the wheel (the spell and item buttons).
       const axis = this.choiceAxisNow();
       if (axis !== 0 && axis !== this.choiceAxis) this.dialog.moveSelection(axis);
       this.choiceAxis = axis;
+      if (input.consumePressed('spellNext')) this.dialog.moveSelection(-1);
+      const down = input.consumePressed('spellPrev');
+      if (input.consumePressed('itemNext') || down) this.dialog.moveSelection(1);
+      this.clearAttackInput();
+    } else if (this.liveMenu) {
+      // The bag is open in a fight: the world goes on, you stand still and do nothing else
+      // (the bag's own buttons still work: drinking costs you the time it takes).
+      this.command.x = 0;
+      this.command.z = 0;
+      for (const action of LIVE_MENU_IGNORED) input.consumePressed(action);
       this.clearAttackInput();
     } else {
       input.consumePressed('confirm');
@@ -1029,10 +1104,17 @@ export class WorldState implements GameState, InstanceHost {
       this.swordInput.heavy = right;
       this.staffInput.shard = left;
       this.staffInput.spell = right;
-      if (input.consumePressed('potion')) this.drink(null);
+      // Quick switching (Elden Ring-style): wheel / D-pad up the spell, 1 / D-pad left the
+      // weapon, 2 / D-pad right the off hand, 3 / D-pad down the quick item that Q / X uses.
+      if (input.consumePressed('spellNext')) this.cycleSpell(1);
+      if (input.consumePressed('spellPrev')) this.cycleSpell(-1);
+      if (input.consumePressed('weaponNext')) this.cycleWeapon();
+      if (input.consumePressed('offhandNext')) this.cycleOffhand();
+      if (input.consumePressed('itemNext')) this.cycleQuickItem();
+      if (input.consumePressed('potion')) this.useQuickItem();
       if (input.consumePressed('bag')) {
-        this.openBag();
-        return;
+        this.openBag(input.pressedByPad('bag'));
+        if (this.paused) return;
       }
       if (input.consumePressed('status')) {
         this.openStatus();
@@ -1169,6 +1251,8 @@ export class WorldState implements GameState, InstanceHost {
         this.clearAttackInput();
       }
     }
+    // A weapon switch asked for during an attack, roll, parry or cast happens now if free.
+    if (this.pendingWeapon !== null) this.trySwitchWeapon();
     this.stepPlayerGuard(dt);
     // One fresh roll per step decides whether a hit that lands is critical (Luck).
     const roll = this.critRng.next();
@@ -2236,6 +2320,7 @@ export class WorldState implements GameState, InstanceHost {
 
   /** The number on the drink button: potions the drink key would use. */
   private refreshPotions(): void {
+    this.refreshLoadout();
     const data = this.ctx.data;
     const bag = this.ctx.session?.character?.inventory;
     if (!data || !bag || !this.touch) return;
@@ -2276,6 +2361,9 @@ export class WorldState implements GameState, InstanceHost {
     // The dialogue window opens where the ability chips sit (talking to an NPC right after a
     // fight, or while a spell still cools): the chips hide until it is closed.
     hud.setAbilitiesCovered(this.dialog?.isOpen ?? false);
+    // The loadout cross hides under a dialogue too, and on a touch screen (its corner).
+    hud.setLoadoutCovered((this.dialog?.isOpen ?? false) || this.abilitiesTouch);
+    if (this.ctx.bindings.version !== this.loadoutKeys) this.refreshLoadout();
     hud.setBar('hp', c.maxHp > 0 ? c.hp / c.maxHp : 0);
     hud.setBar('mana', c.maxMana > 0 ? c.mana / c.maxMana : 0);
     hud.rules.setHpFraction(c.maxHp > 0 ? c.hp / c.maxHp : 1);
@@ -2532,7 +2620,9 @@ export class WorldState implements GameState, InstanceHost {
    * checkpoint (full HP and mana, and a save).
    */
   private interact(): void {
-    if (this.paused || this.dialog?.isOpen || this.deathTimer !== NOT_DYING) return;
+    if (this.paused || this.liveMenu || this.dialog?.isOpen || this.deathTimer !== NOT_DYING) {
+      return;
+    }
     const npc = this.targetNpc;
     if (npc) {
       this.interactWith(npc);
@@ -3223,7 +3313,11 @@ export class WorldState implements GameState, InstanceHost {
       placePlayer: (x, z, heading) => this.placePlayer(x, z, heading),
       playCutscene: (cutscene, onDone) => this.startCutscene(cutscene, undefined, onDone),
       canStart: () =>
-        !this.paused && this.deathTimer === NOT_DYING && !this.dialog?.isOpen && !this.cheats.fly,
+        !this.paused &&
+        !this.liveMenu &&
+        this.deathTimer === NOT_DYING &&
+        !this.dialog?.isOpen &&
+        !this.cheats.fly,
       floatText: (x, y, z, text) => this.damageNumbers?.spawnText(x, y, z, text, 'dodged'),
       usesTouch: () => (this.input?.usedTouch ?? false) || this.coarsePointer,
       questStarted: (questId) => this.questStarted(questId),
@@ -3322,7 +3416,9 @@ export class WorldState implements GameState, InstanceHost {
     if (kind !== this.weaponKind) {
       this.weaponKind = kind;
       this.scenePlayer?.showWeapon(kind);
-      this.staffState.reset();
+      // Nothing is being cast (a switch waits for that), but the cooldowns keep running:
+      // switching to a sword and back must not make a spell ready again.
+      resetKeepingCooldowns(this.staffState);
       this.clearAttackInput();
       this.touch?.setLabels(this.touchLabels());
     }
@@ -3335,12 +3431,160 @@ export class WorldState implements GameState, InstanceHost {
       character.spellLoadout = normalizeLoadout(character.spellLoadout, known, slots);
     }
     this.staffSlots = slots;
-    const carried = character && slots > 0 ? activeSpell(character.spellLoadout) : null;
-    this.spell = (carried && this.staff?.spells.get(carried)) || null;
+    this.pickSpell();
     this.spellPower = data
       ? powerFactor(data.spells.powerCurves, session?.path ?? null, this.conditionContext.level)
       : 1;
     this.refreshAbilities();
+    this.refreshLoadout();
+  }
+
+  /**
+   * The spell the cast button fires: the selected slot of the staff (wheel / D-pad up), or the
+   * first filled slot when that one is empty. A cast already under way keeps its own spell.
+   */
+  private pickSpell(): void {
+    const character = this.ctx.session?.character;
+    const loadout = character && this.staffSlots > 0 ? character.spellLoadout : NO_SPELLS;
+    const id = selectedSpell(loadout, this.spellSlot);
+    if (id !== null) this.spellSlot = loadout.indexOf(id);
+    this.spell = (id && this.staff?.spells.get(id)) || null;
+  }
+
+  /** Wheel / D-pad up: the next (or previous) spell in the staff's slots. */
+  private cycleSpell(step: 1 | -1): void {
+    if (this.deathTimer !== NOT_DYING) return;
+    const character = this.ctx.session?.character;
+    const loadout = character && this.staffSlots > 0 ? character.spellLoadout : NO_SPELLS;
+    const slot = cycleSpellSlot(loadout, this.spellSlot, step);
+    this.hud?.rules.loadoutChanged();
+    if (slot < 0) {
+      this.hud?.showMessage(this.ctx.i18n.t('hud.noSpell'));
+      return;
+    }
+    if (slot === this.spellSlot && this.spell) return;
+    this.spellSlot = slot;
+    this.pickSpell();
+    this.refreshAbilities();
+    this.refreshLoadout();
+  }
+
+  /**
+   * 1 / D-pad left: the next weapon you carry (Loadout). In a fight too: switching weapons you
+   * have prepared is allowed, other gear stays locked (`changeGear`). The switch waits until
+   * the attack, roll, parry or cast you are in is over, so no animation is cut off.
+   */
+  private cycleWeapon(): void {
+    const character = this.ctx.session?.character;
+    if (!character || this.deathTimer !== NOT_DYING) return;
+    this.hud?.rules.loadoutChanged();
+    const worn = character.equipment.weapon ?? null;
+    const list = preparedWeapons(character.inventory, this.items);
+    const next = cycle(list, this.pendingWeapon ?? worn, 1);
+    if (next === null || list.length < 2) {
+      this.hud?.showMessage(this.ctx.i18n.t('hud.oneWeapon'));
+      return;
+    }
+    // Round the whole list again: nothing changes after all.
+    this.pendingWeapon = next === worn ? null : next;
+    if (this.pendingWeapon !== null) this.trySwitchWeapon();
+    this.refreshLoadout();
+  }
+
+  /** Puts the waiting weapon in your hands once you are free (see `canSwitchWeapon`). */
+  private trySwitchWeapon(): void {
+    const id = this.pendingWeapon;
+    const character = this.ctx.session?.character;
+    const player = this.player;
+    if (id === null || !character || !player) return;
+    if (countItem(character.inventory, id) === 0) {
+      // Sold or stored meanwhile: nothing to switch to.
+      this.pendingWeapon = null;
+      this.refreshLoadout();
+      return;
+    }
+    const c = player.combat;
+    const s = player.state;
+    this.busy.swinging = c.swingTime > 0;
+    this.busy.windingUp = c.heavyWindup > 0;
+    this.busy.rolling = this.command.dash || s.dashTime > 0 || s.recoverTime > 0;
+    this.busy.casting = this.staffState.casting;
+    this.busy.guarding = c.guard.up;
+    this.busy.staggered = c.poise.staggered;
+    if (!canSwitchWeapon(this.busy)) return;
+    this.pendingWeapon = null;
+    character.equipment.weapon = id;
+    this.applyGear(false);
+    this.updatePlayerGear();
+  }
+
+  /** 2 / D-pad right: there is nothing for the off hand yet (no off-hand items in the data). */
+  private cycleOffhand(): void {
+    if (this.deathTimer !== NOT_DYING) return;
+    this.hud?.rules.loadoutChanged();
+    this.hud?.showMessage(this.ctx.i18n.t('hud.noOffhand'));
+  }
+
+  /** 3 / D-pad down: the next potion you carry becomes the quick item Q / X uses. */
+  private cycleQuickItem(): void {
+    const character = this.ctx.session?.character;
+    const data = this.ctx.data;
+    if (!character || !data || this.deathTimer !== NOT_DYING) return;
+    this.hud?.rules.loadoutChanged();
+    const list = preparedConsumables(character.inventory, this.items);
+    const current = selectedConsumable(list, this.quickItem, data.player.potions.quickOrder);
+    const next = cycle(list, current, 1);
+    if (next === null) {
+      this.hud?.showMessage(this.ctx.i18n.t('hud.noItem'));
+      return;
+    }
+    this.quickItem = next;
+    this.refreshLoadout();
+  }
+
+  /** Q / X: uses the quick item (the default order from player.json until you pick one). */
+  private useQuickItem(): void {
+    const character = this.ctx.session?.character;
+    const data = this.ctx.data;
+    if (!character || !data) return;
+    const list = preparedConsumables(character.inventory, this.items);
+    const id = selectedConsumable(list, this.quickItem, data.player.potions.quickOrder);
+    this.drink(id);
+  }
+
+  /**
+   * The loadout cross in the HUD: the spell, the weapon (or the one waiting to be switched to),
+   * the off hand and the quick item with how many you have, each with its switch key. Called
+   * on a change only (a switch, other gear, a potion used, other keys or language).
+   */
+  private refreshLoadout(): void {
+    const hud = this.hud;
+    const data = this.ctx.data;
+    const character = this.ctx.session?.character;
+    if (!hud || !data || !character) return;
+    const t = this.ctx.i18n;
+    this.loadoutKeys = this.ctx.bindings.version;
+    const cell = (slot: string, key: string, name: string | null, pending = false) => ({
+      text: name ?? t.t(`hud.loadout.${slot}`),
+      keyText: t.t(`hud.key.${key}`),
+      empty: name === null,
+      pending,
+    });
+    const spell = this.spell
+      ? (data.spells.spells.find((entry) => entry.id === this.spell?.id)?.name ?? this.spell.id)
+      : null;
+    const weaponId = this.pendingWeapon ?? character.equipment.weapon ?? null;
+    const weapon = weaponId ? (this.items.get(weaponId)?.name ?? weaponId) : null;
+    const list = preparedConsumables(character.inventory, this.items);
+    const itemId = selectedConsumable(list, this.quickItem, data.player.potions.quickOrder);
+    const count = itemId ? countItem(character.inventory, itemId) : 0;
+    const itemName = itemId ? (this.items.get(itemId)?.name ?? itemId) : null;
+    hud.setLoadout({
+      spell: cell('spell', 'spellNext', spell),
+      weapon: cell('weapon', 'weaponNext', weapon, this.pendingWeapon !== null),
+      offhand: cell('offhand', 'offhandNext', null),
+      item: cell('item', 'itemNext', itemName && count > 1 ? `${itemName} ×${count}` : itemName),
+    });
   }
 
   /** The known spells that fit the element of your crystal (the spellbook offers only these). */
@@ -3596,10 +3840,12 @@ export class WorldState implements GameState, InstanceHost {
     this.updateChargeOrb(a);
     input.consumeLook(this.look);
     const look = this.look;
-    // The right stick keeps turning while a menu is open; the camera must not move behind it.
-    if (this.paused) {
+    // The right stick keeps turning while a menu is open; the camera must not move behind it
+    // (also not behind the bag in a fight, where the world goes on).
+    if (this.paused || this.liveMenu) {
       look.yaw = 0;
       look.pitch = 0;
+      look.zoom = 1;
     }
     const turning = input.turningCamera || look.yaw !== 0 || look.pitch !== 0;
     const root = player.model.root;
@@ -3671,7 +3917,8 @@ export class WorldState implements GameState, InstanceHost {
   private updateChargeOrb(alpha: number): void {
     const { player, staff, chargeOrb } = this;
     const state = this.staffState;
-    const spell = this.spell;
+    // The spell being cast, also after the player picked another one meanwhile.
+    const spell = state.castSpell ?? this.spell;
     if (!chargeOrb) return;
     if (!player || !staff || !spell || state.pending !== 'spell') {
       chargeOrb.hide();
@@ -3835,7 +4082,7 @@ export class WorldState implements GameState, InstanceHost {
     const near = npc ? null : this.checkpoints?.near;
     const data = this.ctx.data;
     if (!hud) return;
-    if ((!npc && !near) || !data || this.paused || this.dialog?.isOpen) {
+    if ((!npc && !near) || !data || this.paused || this.liveMenu || this.dialog?.isOpen) {
       hud.setInteraction(null, 0, 0, false);
       return;
     }
@@ -4081,6 +4328,8 @@ export class WorldState implements GameState, InstanceHost {
   private pause(): void {
     // A cutscene already waits (and has its own Skip); the pause menu comes after it.
     if (this.cutscenePlaying) return;
+    // The bag open in a fight makes way (leaving the tab must really pause the fight).
+    this.closeLiveMenu();
     this.openMenu((resume) =>
       pausePanel(
         this.ctx,
@@ -4091,10 +4340,22 @@ export class WorldState implements GameState, InstanceHost {
     );
   }
 
-  /** The bag (I / B or the bag button); the game waits while it is open. */
-  private openBag(): void {
+  /**
+   * The bag (I / B, Back on a controller, or the bag button). Out of a fight the game waits
+   * while it is open; in a fight it does not (see `openLiveMenu`), and a controller cannot
+   * open it then, because it cannot steer the panel yet (it could only close it again).
+   */
+  private openBag(fromPad = false): void {
     if (this.dialog?.isOpen || this.deathTimer !== NOT_DYING) return;
-    this.openMenu((resume) =>
+    const fighting = this.player?.combat.inCombat ?? false;
+    if (fighting && fromPad) {
+      this.hud?.showMessage(this.ctx.i18n.t('bag.padInCombat'));
+      return;
+    }
+    const open = fighting
+      ? (make: (resume: () => void) => Panel) => this.openLiveMenu(make)
+      : (make: (resume: () => void) => Panel) => this.openMenu(make);
+    open((resume) =>
       bagPanel(
         this.ctx,
         (itemId) => {
@@ -4109,6 +4370,7 @@ export class WorldState implements GameState, InstanceHost {
           equip: (itemId) => this.changeGear(() => this.equipItem(itemId)),
           unequip: (slot) => this.changeGear(() => this.unequipSlot(slot)),
           load: () => this.loadSummary(),
+          fighting: () => this.liveMenu,
         },
         resume,
       ),
@@ -4273,9 +4535,42 @@ export class WorldState implements GameState, InstanceHost {
     return unequip(character.equipment, slot) === 'unequipped';
   }
 
+  /**
+   * A menu panel during a fight (the bag): nothing pauses and nobody turns safe, the enemies
+   * keep attacking. The mouse is let go so the cursor can use the panel, and the camera stays
+   * where it is (no mouse turning; `render` also drops the right stick). Closing the panel
+   * captures the mouse again, so turning and attacking work at once.
+   */
+  private openLiveMenu(makePanel: (resume: () => void) => Panel): void {
+    if (this.paused || this.liveMenu) return;
+    this.liveMenu = true;
+    this.input?.releasePointerLock();
+    this.input?.releaseAll();
+    this.clearAttackInput();
+    this.hud?.setInteraction(null, 0, 0, false);
+    this.ctx.overlays.open(
+      makePanel(() => {
+        this.liveMenu = false;
+        // Keys and buttons held in the panel must not act once you fight again.
+        this.input?.releaseAll();
+        this.clearAttackInput();
+        const taken = this.travelling || this.cutscenePlaying || this.deathTimer !== NOT_DYING;
+        // A click on ✕ or the bag key is a user gesture, so the mouse is captured at once;
+        // otherwise the next click captures it (that click never attacks).
+        if (this.input && !this.input.usedTouch && !taken) this.input.requestPointerLock();
+      }),
+    );
+  }
+
+  /** Shuts the bag that is open in a fight (it is always the top panel then). */
+  private closeLiveMenu(): void {
+    if (this.liveMenu && this.ctx.overlays.isOpen) this.ctx.overlays.close();
+    this.liveMenu = false;
+  }
+
   /** Pauses the game behind a menu panel; closing the panel resumes. */
   private openMenu(makePanel: (resume: () => void) => Panel): void {
-    if (this.paused) return;
+    if (this.paused || this.liveMenu) return;
     this.paused = true;
     this.ctx.quality.setMeasuring(false);
     this.input?.releasePointerLock();
@@ -5225,6 +5520,16 @@ export class WorldState implements GameState, InstanceHost {
       `${this.carriedKg.toFixed(1)}/${this.maxLoadKg} kg ${this.loadTierId} · walk ` +
         `${m?.walkSpeed.toFixed(2) ?? '-'} m/s · dash ${m?.canDash ? `${m.dashDistance.toFixed(1)} m, ${m.dashEnergyCost} en` : 'no'}` +
         `${s.recoverTime > 0 ? ' · getting up' : ''}${c.poise.staggered ? ' · staggered' : ''} · poise ${Math.round(c.poise.poise)}/${Math.round(c.poise.max)} · dmg ×${c.damageFactor.toFixed(2)} taken ×${c.damageTakenFactor.toFixed(2)}`,
+    );
+    const weapon = this.ctx.session?.character?.equipment.weapon ?? '-';
+    debug.lines.set(
+      'loadout',
+      `spell ${this.spell?.id ?? '-'} (slot ${this.spellSlot})` +
+        `${this.staffState.castSpell ? ` casting ${this.staffState.castSpell.id}` : ''} · ` +
+        `weapon ${weapon}${this.pendingWeapon ? ` → ${this.pendingWeapon}` : ''} · ` +
+        `item ${this.quickItem ?? 'default'} · ` +
+        `menu ${this.liveMenu ? 'open, fight goes on' : this.paused ? 'paused' : 'closed'} · ` +
+        `mouse ${this.input?.pointerLocked ? 'captured' : 'free'}`,
     );
     debug.lines.set('enemies', this.enemyDebugLine(s.x, s.z));
     debug.lines.set('effects', this.effectsDebugLine());

@@ -243,6 +243,19 @@ export class StaffState {
 }
 
 /**
+ * Clears what the staff is doing (a gathering, a charge, buffered presses) but keeps its
+ * cooldowns, so putting the staff away and back (a weapon switch) never readies a spell sooner.
+ */
+export function resetKeepingCooldowns(state: StaffState): void {
+  const { cooldown, cooldownTotal, spellCooldown, spellCooldownTotal } = state;
+  state.reset();
+  state.cooldown = cooldown;
+  state.cooldownTotal = cooldownTotal;
+  state.spellCooldown = spellCooldown;
+  state.spellCooldownTotal = spellCooldownTotal;
+}
+
+/**
  * How ready the staff is to fire `kind` again (0–1, see `readiness`): the Shard waits only for
  * the staff's own cooldown, a spell for that and for its own cooldown, so it is the lower of
  * the two. For the HUD chips and the touch buttons; what the staff does is unchanged.

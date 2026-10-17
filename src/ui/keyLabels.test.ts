@@ -88,6 +88,6 @@ describe('controller button labels', () => {
     expect(keyParams(bindings, i18n).keyMoveForward).toBe('W');
     bindings.setPadHints(false);
     expect(keyParams(bindings, i18n).keyDash).toBe('Space');
-    expect(keyParams(bindings, i18n).keySpellNext).toBe('Wheel up');
+    expect(keyParams(bindings, i18n).keySpellNext).toBe('Wheel ↑');
   });
 });

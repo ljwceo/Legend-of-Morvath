@@ -8,6 +8,7 @@ import {
   affordableCharge,
   chargedManaCost,
   powerFactor,
+  resetKeepingCooldowns,
   SHARD_ID,
   type ShotConfig,
   shotDamage,
@@ -243,6 +244,24 @@ describe('switching spells (combat controls, 2026-10-17)', () => {
     expect(fired).toHaveLength(1);
     expect(fired[0]?.shot?.id).toBe('fireball');
     expect(made.combat.mana).toBe(100 - fireball.manaCost);
+  });
+});
+
+describe('putting the staff away (a weapon switch)', () => {
+  it('stops what it was doing but keeps the cooldowns running', () => {
+    const made = fresh();
+    made.combat.mana = 100;
+    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    run(made, 1, press(false));
+    expect(made.state.spellCooldown).toBeGreaterThan(0);
+    const cooling = made.state.spellCooldown;
+    // Something is buffered, then the staff goes away and comes back.
+    stepStaff(made.state, made.combat, press(true), cfg, fireball, 1, DT, out());
+    resetKeepingCooldowns(made.state);
+    expect(made.state.casting).toBe(false);
+    expect(made.state.bufferedShard).toBe(0);
+    expect(made.state.spellCooldown).toBeCloseTo(cooling - DT, 9);
+    expect(staffReadiness(made.state, 'spell')).toBeLessThan(1);
   });
 });
 

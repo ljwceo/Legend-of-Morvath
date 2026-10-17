@@ -1018,8 +1018,8 @@
     "PageUp": "Page Up",
     "PageDown": "Page Down",
     "Delete": "Delete",
-    "WheelUp": "Wheel up",
-    "WheelDown": "Wheel down"
+    "WheelUp": "Wheel ↑",
+    "WheelDown": "Wheel ↓"
   },
   "cheats": {
     "debugView": "Debug overlay",
@@ -1289,7 +1289,7 @@
     "noStaff": "Equip a staff to use the spellbook.",
     "noSpells": "You do not know any spells yet.",
     "noSlots": "This staff has no spell slots.",
-    "hint": "The first filled slot is the spell your cast button fires. Spells can only be changed outside a fight.",
+    "hint": "Your cast button fires the selected slot; {keySpellNext} picks the next one, also in a fight. Which spells sit in the slots can only be changed outside a fight.",
     "inCombat": "Not while you are fighting."
   },
   "pad": {

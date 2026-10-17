@@ -1018,8 +1018,8 @@
     "PageUp": "Page Up",
     "PageDown": "Page Down",
     "Delete": "Delete",
-    "WheelUp": "Wiel omhoog",
-    "WheelDown": "Wiel omlaag"
+    "WheelUp": "Wiel ↑",
+    "WheelDown": "Wiel ↓"
   },
   "cheats": {
     "debugView": "Debugvenster",
@@ -1289,7 +1289,7 @@
     "noStaff": "Draag een staf om het spellboek te gebruiken.",
     "noSpells": "Je kent nog geen spells.",
     "noSlots": "Deze staf heeft geen spellplekken.",
-    "hint": "De eerste gevulde plek is de spell die je cast-knop afvuurt. Spells wissel je alleen buiten een gevecht.",
+    "hint": "Je cast-knop vuurt de gekozen plek af; met {keySpellNext} kies je de volgende, ook in een gevecht. Welke spells in de plekken zitten, verander je alleen buiten een gevecht.",
     "inCombat": "Niet terwijl je vecht."
   },
   "pad": {

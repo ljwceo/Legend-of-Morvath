@@ -30,6 +30,8 @@ export interface BagGear {
   unequip(slot: EquipmentSlot): void;
   /** Carried and maximum kg, and the load tier (id for the colour, label key for the text). */
   load(): { kg: number; maxKg: number; tierId: string; tierLabel: string };
+  /** True while the bag is open in a fight, which goes on meanwhile (the bag says so). */
+  fighting(): boolean;
 }
 
 /** Item stats in the order they are listed under a gear row. */
@@ -50,7 +52,8 @@ export const STAT_KEYS = [
  * The ⤢ button next to the title makes the bag fill the whole playing field (remembered in the
  * save), and the lists scroll as one, so a long bag is never a tiny box inside a window
  * (Bo, 2026-10-13). Closing is the ✕ in the corner, Escape, your own close key, or the bag key
- * again — the panel has no Close button of its own. The game is paused while the bag is open.
+ * again — the panel has no Close button of its own. Out of a fight the game is paused while the
+ * bag is open; in a fight it is not (2026-10-17), and a line at the top says so.
  */
 export function bagPanel(
   ctx: GameContext,
@@ -190,6 +193,9 @@ export function bagPanel(
           el('h2', { className: 'ui-heading', text: t('bag.title') }),
           expand,
         ),
+        gear.fighting()
+          ? el('p', { className: 'ui-note ui-note-warn', text: t('bag.liveFight') })
+          : null,
         el(
           'div',
           { className: 'ui-bag-tabs', attrs: { role: 'tablist' } },
