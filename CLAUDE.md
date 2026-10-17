@@ -11,15 +11,17 @@ De volledige oude master prompt staat in `docs/archive/CLAUDE-master-prompt-2026
 ## 1. Wat we bouwen
 
 **Legend of Morvath** is een co-op progressie-RPG in de browser, gemaakt door Bo en Lucas. Je bent een
-rondtrekkende mage of zwaardvechter op het continent Eryndor; twee demi-god necromancers, Lucael en
+rondtrekkende strijder met een melee-wapen en een Grimoire op het continent Eryndor; je build kan meer
+richting melee of meer richting magie gaan, en je keuze van leraar is een eerste specialisatie, geen
+vaste klasse (`PLAN.md` → Fase G). Twee demi-god necromancers, Lucael en
 Baelor, verspreiden corruptie en hoe verder je naar het oosten trekt, hoe sterker het kwaad. De wereld
 speel je solo, samen vechten alleen in raids (later, via PeerJS en een kamercode). De wereld is volledig
 3D (Three.js) met de camera over de schouder, zoals Genshin Impact.
 
 Het gevecht wordt **souls-like** (stamina, rol met onkwetsbare frames, aankondiging per aanval, parry en
 poise; de besluiten staan in `PLAN.md` → Fase S). Het spel is gemaakt voor **pc en console (controller)**:
-de telefoon wordt niet meer ondersteund. Magie staat centraal en een goede mage is lastiger te beheersen
-dan brute force; de zwaardvechter is de toegankelijke keuze.
+de telefoon wordt niet meer ondersteund. Magie staat centraal en spelen met veel magie is lastiger te
+beheersen dan brute force; een build die vooral op melee leunt is de toegankelijke keuze.
 
 Het volledige spelconcept staat in Google Docs: "Legend of Morvath – spelconcept"
 (id `10Yi8_lYVsLEa_WpR76Exs0ecsY9mXxTk5a6SC4sSKUk`). Lees het via de Google Drive-connector, en alleen
