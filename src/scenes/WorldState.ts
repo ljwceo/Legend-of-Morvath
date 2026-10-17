@@ -77,6 +77,7 @@ import {
   assistedHeading,
   type CombatState,
   damageTaken,
+  holdCombat,
   inSwingArc,
   regenMana,
   regenOutOfCombat,
@@ -135,6 +136,7 @@ import {
   removeItem,
   rollDrops,
 } from '../systems/Inventory';
+import { canModifyLoadout } from '../systems/Loadout';
 import { moveFromPack, moveToPack } from '../systems/PackAnimal';
 import { choosePath, teacherOffer } from '../systems/PathChoice';
 import { eggOffer, eggReward, handInEggs } from '../systems/Eggs';
@@ -1622,6 +1624,8 @@ export class WorldState implements GameState, InstanceHost {
     t.radius = movement.radius;
     t.hostile = this.cheats.monsters && !this.cheats.fly && this.deathTimer === NOT_DYING;
     enemies.step(dt, t, enemiesWorld);
+    // A monster fighting you, or a boss fight, keeps you in the fight (and the loadout locked).
+    holdCombat(player.combat, enemies.anyEngaged || (this.encounter?.fighting ?? false));
     if (projectiles && projectileWorld) projectiles.step(dt, t, projectileWorld, this.hurtPlayer);
     this.protectedMessageTimer = Math.max(0, this.protectedMessageTimer - dt);
     if (this.knockedOut) this.startDying();
@@ -3432,7 +3436,7 @@ export class WorldState implements GameState, InstanceHost {
   private upgradeItem(itemId: string): UpgradeResult | 'inCombat' {
     const character = this.ctx.session?.character;
     if (!character) return 'notUpgradable';
-    if (this.player?.combat.inCombat) return 'inCombat';
+    if (this.player && !canModifyLoadout(this.player.combat)) return 'inCombat';
     const result = applyUpgrade(this.items.get(itemId), character);
     if (result !== 'upgraded') return result;
     this.hud?.setGold(character.gold);
@@ -3451,7 +3455,7 @@ export class WorldState implements GameState, InstanceHost {
     const pack = npc.def.pack;
     const c = this.player?.combat;
     if (!pack || !c) return;
-    if (c.inCombat) {
+    if (!canModifyLoadout(c)) {
       this.hud?.showMessage(this.ctx.i18n.t('hud.packInCombat'));
       return;
     }
@@ -4145,7 +4149,7 @@ export class WorldState implements GameState, InstanceHost {
         {
           slots: () => this.staffSlots,
           usable: () => this.usableKnown(),
-          locked: () => this.player?.combat.inCombat ?? false,
+          locked: () => (this.player ? !canModifyLoadout(this.player.combat) : false),
           choose: (slot, spellId) => this.chooseSpell(slot, spellId),
         },
         resume,
@@ -4163,7 +4167,7 @@ export class WorldState implements GameState, InstanceHost {
       spellId,
       this.usableKnown(),
       this.staffSlots,
-      this.player?.combat.inCombat ?? false,
+      this.player ? !canModifyLoadout(this.player.combat) : false,
     );
     if (!next) {
       this.hud?.showMessage(this.ctx.i18n.t('spellbook.inCombat'));
@@ -4224,13 +4228,14 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /**
-   * Gear changes only outside a fight (concept: "wisselen alleen buiten gevechten"). After a
+   * Gear changes only outside a fight (concept: "wisselen alleen buiten gevechten"; a boss
+   * fight lasts until it is won or lost, see `canModifyLoadout`). After a
    * change the stats and load are recomputed and the bag is rebuilt.
    */
   private changeGear(change: () => boolean): void {
     const c = this.player?.combat;
     if (!c) return;
-    if (c.inCombat) {
+    if (!canModifyLoadout(c)) {
       this.hud?.showMessage(this.ctx.i18n.t('hud.gearInCombat'));
       return;
     }
