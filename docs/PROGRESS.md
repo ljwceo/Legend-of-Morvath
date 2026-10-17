@@ -1413,3 +1413,6 @@ De ene texture die na een hele intro blijft staan (constant over rondes, dus gee
 - 2026-10-16: Stap S.11 (auto/souls): vijand-poisebalk, extra poise-schade van achteren, Sultan wankelt zichtbaar (poise 45).
 - 2026-10-16 Stap S.12: Sultan draait per fase met eigen snelheid uit data (stalk 720, telegraph 150, attack 60, recovery 90 °/s); je kunt hem omlopen en zijn rug raken.
 - 2026-10-16 Stap S.13: elke Sultan-aanval heeft in de aankondiging een eigen houding uit data (`attacks[].pose`, `BossPose.ts`); duur = `warningSeconds`, gelijk op 60/120 Hz en alle grafische standen.
+
+### 2026-10-17
+- Stap S.14 Gevechtsstatus en loadout-vergrendeling: "in gevecht" volgt vijand-aggro en het baasgevecht (`holdCombat`, `Enemies.anyEngaged`, 4 s naloop tegen flikkeren), guards `canModifyLoadout` en `canSwitchPrepared` in `src/systems/Loadout.ts`; slotaantallen en drankjesregels open (vraag 26).
