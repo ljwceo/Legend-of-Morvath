@@ -1535,7 +1535,8 @@ class CrossChecker {
 
   /**
    * controls.json: every action exactly once (otherwise it cannot be bound in Settings), no
-   * code bound twice (a key does one thing), and a name in the language files.
+   * code bound twice (a key or controller button does one thing), and a name in the language
+   * files.
    */
   private checkControls(): void {
     const f = 'controls';
@@ -1550,6 +1551,13 @@ class CrossChecker {
         const other = codes.get(code);
         if (other !== undefined) {
           this.issue(f, `${p}.keys[${k}]`, `"${code}" is also bound to "${other}"`);
+        }
+        codes.set(code, action.id);
+      });
+      (action.pad ?? []).forEach((code, k) => {
+        const other = codes.get(code);
+        if (other !== undefined) {
+          this.issue(f, `${p}.pad[${k}]`, `"${code}" is also bound to "${other}"`);
         }
         codes.set(code, action.id);
       });

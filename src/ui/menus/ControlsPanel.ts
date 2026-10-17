@@ -1,4 +1,11 @@
-import { type Action, BINDINGS_PER_ACTION, isBindableCode, mouseCode } from '../../core/Bindings';
+import {
+  type Action,
+  BINDINGS_PER_ACTION,
+  isBindableCode,
+  mouseCode,
+  WHEEL_DOWN,
+  WHEEL_UP,
+} from '../../core/Bindings';
 import type { GameContext } from '../../core/GameContext';
 import { lowestButton, padCode } from '../../core/gamepad';
 import { button, el } from '../dom';
@@ -7,7 +14,7 @@ import type { Panel } from '../Overlays';
 import { bindT } from './ConfirmPanel';
 
 /**
- * Settings -> Controls: every action on the key or mouse button you want, and on the controller
+ * Settings -> Controls: every action on the key, mouse button or wheel notch you want, and on the controller
  * button you want (a second pair of slots per action). Clicking a slot waits for the next key,
  * mouse button or controller button; Escape cancels and Backspace clears the slot. A code that is
  * already in use is taken away from the other action, and the panel says so. The touch buttons
@@ -88,15 +95,24 @@ export function controlsPanel(ctx: GameContext): Panel {
       event.stopPropagation();
       take(mouseCode(event.button));
     };
+    // A wheel notch can be bound too (the next / previous spell by default).
+    const onWheel = (event: WheelEvent): void => {
+      if (pad || event.deltaY === 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      take(event.deltaY < 0 ? WHEEL_UP : WHEEL_DOWN);
+    };
     // Capture phase, so a key being bound never also does its old job in the game or the menu.
     // A controller slot takes the next button press; nobody else (Overlays, the game) sees it.
     if (pad) ctx.pads.capture = (risen) => take(padCode(lowestButton(risen)));
     window.addEventListener('keydown', onKeyDown, true);
     window.addEventListener('mousedown', onMouseDown, true);
+    window.addEventListener('wheel', onWheel, { capture: true, passive: false });
     window.addEventListener('contextmenu', preventDefault, true);
     stopListening = () => {
       window.removeEventListener('keydown', onKeyDown, true);
       window.removeEventListener('mousedown', onMouseDown, true);
+      window.removeEventListener('wheel', onWheel, true);
       window.removeEventListener('contextmenu', preventDefault, true);
     };
     refresh();

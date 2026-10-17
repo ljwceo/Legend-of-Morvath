@@ -83,8 +83,11 @@ describe('controller button labels', () => {
     expect(keyParams(bindings, i18n).keyDash).toBe('Space');
     bindings.setPadHints(true);
     expect(keyParams(bindings, i18n).keyDash).toBe('A');
-    expect(keyParams(bindings, i18n).keyMoveForward).toBe('D-pad ↑');
+    // The D-pad picks the spell (the left stick walks), so walking keeps its key.
+    expect(keyParams(bindings, i18n).keySpellNext).toBe('D-pad ↑');
+    expect(keyParams(bindings, i18n).keyMoveForward).toBe('W');
     bindings.setPadHints(false);
     expect(keyParams(bindings, i18n).keyDash).toBe('Space');
+    expect(keyParams(bindings, i18n).keySpellNext).toBe('Wheel up');
   });
 });
