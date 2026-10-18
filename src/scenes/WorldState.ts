@@ -1391,8 +1391,9 @@ export class WorldState implements GameState, InstanceHost {
     const casting = state.casting;
     // Charging counts as fighting, so you can see your mana while it drains.
     if (casting) c.sinceCombat = 0;
-    if (casting) {
-      this.command.dash = false;
+    if (casting) this.command.dash = false;
+    // No jumping or sprinting while a shot gathers or the guard is up (with a staff since G.2).
+    if (casting || c.guard.up) {
       this.command.jump = false;
       this.command.sprint = false;
     }
