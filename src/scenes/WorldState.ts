@@ -5630,7 +5630,10 @@ export class WorldState implements GameState, InstanceHost {
     );
     debug.lines.set('npcs', this.npcDebugLine(s.x, s.z));
     debug.lines.set('doors', this.doorDebugLine());
-    debug.lines.set('energy', `${Math.round(s.energy)} · dash cd ${s.dashCooldown.toFixed(2)} s`);
+    debug.lines.set(
+      'energy',
+      `${Math.round(s.energy)} · dash cd ${s.dashCooldown.toFixed(2)} s · ${this.grimoireDebug()}`,
+    );
     const c = player.combat;
     debug.lines.set(
       'combat',
@@ -5638,7 +5641,7 @@ export class WorldState implements GameState, InstanceHost {
         `(${this.ctx.session?.progress.xp ?? 0} xp) · gold ${this.ctx.session?.character?.gold ?? 0} · ` +
         `${this.deathTimer !== NOT_DYING ? 'dying · ' : ''}` +
         `${this.weaponKind === 'staff' ? this.staffDebug() : this.swordDebug(c)} · ` +
-        `${this.grimoireDebug()} · ${c.inCombat ? 'in fight' : 'calm'}`,
+        `${c.inCombat ? 'in fight' : 'calm'}`,
     );
     const m = this.movement;
     debug.lines.set(
