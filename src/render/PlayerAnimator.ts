@@ -14,7 +14,7 @@ import { PLAYER_CLIP_ROLES } from '../data/schemas';
 import type { PlayerAnimationsDef, PlayerClipRole } from '../data/types';
 import type { CombatState, SwordConfig } from '../systems/Combat';
 import type { MoverState } from '../systems/Movement';
-import type { StaffState } from '../systems/StaffCombat';
+import type { CastState } from '../systems/Casting';
 import { SpringBones } from './SpringBones';
 
 /** The animator's states (PLAN.md, step A.3c). Attack and Cast each pick between a few clips. */
@@ -96,7 +96,7 @@ export interface PlayerAnimSources {
   mover: MoverState;
   combat: CombatState;
   /** The staff's state, or null with a sword. */
-  staff: StaffState | null;
+  staff: CastState | null;
   sword: SwordConfig;
   /** How long a dash and getting up after one last now (movement config, with the load). */
   dashSeconds: number;

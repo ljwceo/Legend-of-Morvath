@@ -9,7 +9,7 @@ import { assistedHeading } from './Combat';
 import type { FightDef } from './FightScript';
 import { readiness } from './Readiness';
 import { type Shot, Shots, type ShotTarget, type ShotWorld } from './Shots';
-import type { ShotConfig } from './StaffCombat';
+import type { ShotConfig } from './Casting';
 
 export type FightAbility = NonNullable<FightDef['abilities']>[number];
 export type MeleeAbility = Extract<FightAbility, { kind: 'melee' }>;

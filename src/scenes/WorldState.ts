@@ -106,15 +106,16 @@ import {
   powerFactor,
   SHARD_ID,
   type ShotConfig,
-  type StaffConfig,
-  staffConfig,
-  type StaffInput,
+  type CastConfig,
+  type CastSources,
+  castConfig,
+  type CastInput,
   resetKeepingCooldowns,
   staffReadiness,
-  type StaffResult,
-  StaffState,
-  stepStaff,
-} from '../systems/StaffCombat';
+  type CastResult,
+  CastState,
+  stepCast,
+} from '../systems/Casting';
 import { guardHit, makeGuardResult, stepGuard, weaponFreeForGuard } from '../systems/Guard';
 import { backstabPoiseDamage, damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
@@ -304,7 +305,7 @@ const BLOB_OPACITY = 0.28;
 const SUN_DISTANCE = 150;
 /** No attack this step (while a dash finishes). */
 const NO_SWORD_INPUT: SwordInput = { fast: false, heavy: false, critRoll: 1 };
-const NO_STAFF_INPUT: StaffInput = { shard: false, spell: false, critRoll: 1 };
+const NO_CAST_INPUT: CastInput = { shard: false, spell: false, cast: false, critRoll: 1 };
 /** No ability chips on the HUD (a sword, or a touch screen whose buttons show it). */
 const NO_CHIPS: readonly AbilityChip[] = [];
 const NO_SPELLS: readonly string[] = [];
@@ -535,7 +536,7 @@ export class WorldState implements GameState, InstanceHost {
   private poiseBars: EnemyPoiseBars | null = null;
   private sword: SwordConfig | null = null;
   /** Staff numbers (Arcane Shard and the spells), null until the world is built. */
-  private staff: StaffConfig | null = null;
+  private staff: CastConfig | null = null;
   private lockCfg: LockOnConfig | null = null;
   /** What the equipped weapon is: a sword swings, a staff shoots. */
   private weaponKind: 'sword' | 'staff' = 'sword';
@@ -646,9 +647,10 @@ export class WorldState implements GameState, InstanceHost {
     combo: false,
     crit: false,
   };
-  private readonly staffState = new StaffState();
-  private readonly staffInput: StaffInput = { shard: false, spell: false, critRoll: 1 };
-  private readonly staffResult: StaffResult = {
+  private readonly castState = new CastState();
+  private readonly castInput: CastInput = { shard: false, spell: false, cast: false, critRoll: 1 };
+  private readonly castSources: CastSources = { staff: false, spell: null, power: 1 };
+  private readonly castResult: CastResult = {
     fired: 'none',
     shot: null,
     damage: 0,
@@ -1125,8 +1127,8 @@ export class WorldState implements GameState, InstanceHost {
       const right = input.consumePressed('heavy') || input.isPressed('heavy');
       this.swordInput.fast = left;
       this.swordInput.heavy = right;
-      this.staffInput.shard = left;
-      this.staffInput.spell = right;
+      this.castInput.shard = left;
+      this.castInput.spell = right;
       // Quick switching (Elden Ring-style): wheel / D-pad up the spell, 1 / D-pad left the
       // weapon, 2 / D-pad right the off hand, 3 / D-pad down the quick item that Q / X uses.
       if (input.consumePressed('spellNext')) this.cycleSpell(1);
@@ -1258,8 +1260,8 @@ export class WorldState implements GameState, InstanceHost {
   private clearAttackInput(): void {
     this.swordInput.fast = false;
     this.swordInput.heavy = false;
-    this.staffInput.shard = false;
-    this.staffInput.spell = false;
+    this.castInput.shard = false;
+    this.castInput.spell = false;
   }
 
   /** Fighting and walking for one step: with a sword you swing, with a staff you shoot. */
@@ -1282,7 +1284,7 @@ export class WorldState implements GameState, InstanceHost {
     // One fresh roll per step decides whether a hit that lands is critical (Luck).
     const roll = this.critRng.next();
     this.swordInput.critRoll = roll;
-    this.staffInput.critRoll = roll;
+    this.castInput.critRoll = roll;
     if (this.weaponKind === 'staff') this.stepStaffAndMove(dt);
     else this.stepSwordAndMove(dt);
   }
@@ -1305,14 +1307,14 @@ export class WorldState implements GameState, InstanceHost {
       !c.poise.staggered &&
       !this.command.dash &&
       s.dashTime <= 0 &&
-      weaponFreeForGuard(c, this.staffState);
+      weaponFreeForGuard(c, this.castState);
     const up = stepGuard(c.guard, s, cfg, this.input?.isPressed('block') ?? false, free, dt);
     if (!up) return;
     this.clearAttackInput();
     c.bufferedFast = 0;
     c.bufferedHeavy = 0;
-    this.staffState.bufferedShard = 0;
-    this.staffState.bufferedSpell = 0;
+    this.castState.bufferedShard = 0;
+    this.castState.bufferedSpell = 0;
   }
 
   /**
@@ -1368,21 +1370,16 @@ export class WorldState implements GameState, InstanceHost {
     const c = player.combat;
     // A dash in progress finishes first and nobody casts in the air (A.5a); shots wait.
     const held = s.dashTime > 0 || s.airborne;
-    const input = held ? NO_STAFF_INPUT : this.staffInput;
-    const state = this.staffState;
+    const input = held ? NO_CAST_INPUT : this.castInput;
+    const state = this.castState;
     const wants = input.shard || input.spell || state.bufferedShard > 0 || state.bufferedSpell > 0;
     const aiming = state.casting || (wants && state.cooldown <= 0);
     if (aiming && !held) this.aim(staff.aimRange, staff.aimHalfArc);
-    const result = stepStaff(
-      state,
-      c,
-      input,
-      staff,
-      this.spell,
-      this.spellPower,
-      dt,
-      this.staffResult,
-    );
+    const sources = this.castSources;
+    sources.staff = true;
+    sources.spell = this.spell;
+    sources.power = this.spellPower;
+    const result = stepCast(state, c, s, input, staff, sources, dt, this.castResult);
     if (result.shot) {
       this.fireShot(result.shot, this.weakened(result.damage), result.charge, result.crit);
     }
@@ -1814,7 +1811,7 @@ export class WorldState implements GameState, InstanceHost {
     c.swing = 'none';
     c.bufferedFast = 0;
     c.bufferedHeavy = 0;
-    this.staffState.reset();
+    this.castState.reset();
   }
 
   /** What a monster's hit leaves behind: its status effects, and leech for itself. */
@@ -2116,7 +2113,7 @@ export class WorldState implements GameState, InstanceHost {
     enemies?.resetAll();
     this.projectiles?.clear();
     this.shots?.clear();
-    this.staffState.reset();
+    this.castState.reset();
     this.status?.clear();
     this.locked = null;
     this.placePlayer(this.respawn.x, this.respawn.z);
@@ -2163,7 +2160,7 @@ export class WorldState implements GameState, InstanceHost {
       };
       this.animSources = src;
     }
-    src.staff = this.weaponKind === 'staff' ? this.staffState : null;
+    src.staff = this.weaponKind === 'staff' ? this.castState : null;
     src.sword = sword;
     src.dashSeconds = movement.dashDurationSeconds;
     src.recoverSeconds = movement.dashRecoverySeconds;
@@ -2469,8 +2466,8 @@ export class WorldState implements GameState, InstanceHost {
       this.refreshAbilities();
     }
     const staff = this.weaponKind === 'staff';
-    const shard = staff ? staffReadiness(this.staffState, 'shard') : 1;
-    const spell = staff ? staffReadiness(this.staffState, 'spell') : 1;
+    const shard = staff ? staffReadiness(this.castState, 'shard') : 1;
+    const spell = staff ? staffReadiness(this.castState, 'spell') : 1;
     this.hud?.setAbilityReadiness('shard', shard);
     this.hud?.setAbilityReadiness('spell', spell);
     this.touch?.setReadiness('attack', shard);
@@ -3459,7 +3456,7 @@ export class WorldState implements GameState, InstanceHost {
       this.scenePlayer?.showWeapon(kind);
       // Nothing is being cast (a switch waits for that), but the cooldowns keep running:
       // switching to a sword and back must not make a spell ready again.
-      resetKeepingCooldowns(this.staffState);
+      resetKeepingCooldowns(this.castState);
       this.clearAttackInput();
       this.touch?.setLabels(this.touchLabels());
     }
@@ -3546,7 +3543,7 @@ export class WorldState implements GameState, InstanceHost {
     }
     const s = player.state;
     this.action.rolling = this.command.dash || s.dashTime > 0 || s.recoverTime > 0;
-    this.action.casting = this.staffState.casting;
+    this.action.casting = this.castState.casting;
     if (!canSwitchPrepared(player.combat, this.action)) return;
     this.pendingWeapon = null;
     character.equipment.weapon = id;
@@ -3860,7 +3857,7 @@ export class WorldState implements GameState, InstanceHost {
       }
     }
     if (this.playerAnimator) this.animatePlayer(this.playerAnimator, a, waiting ? 0 : frameSeconds);
-    else if (this.weaponKind === 'staff') player.showStaff(this.staffState.progress);
+    else if (this.weaponKind === 'staff') player.showStaff(this.castState.progress);
     else if (this.sword) player.showSword(this.sword);
     const hopSeconds = this.ctx.data?.npcs.settings.petHopSeconds ?? 1;
     this.npcRenderer?.update(a, hopSeconds);
@@ -3952,7 +3949,7 @@ export class WorldState implements GameState, InstanceHost {
   /** The ball of magic in front of the staff while a spell is being charged. */
   private updateChargeOrb(alpha: number): void {
     const { player, staff, chargeOrb } = this;
-    const state = this.staffState;
+    const state = this.castState;
     // The spell being cast, also after the player picked another one meanwhile.
     const spell = state.castSpell ?? this.spell;
     if (!chargeOrb) return;
@@ -4694,7 +4691,7 @@ export class WorldState implements GameState, InstanceHost {
     this.poiseBars?.clear();
     // Shots in flight and your locked target belong to where you came from.
     this.shots?.clear();
-    this.staffState.reset();
+    this.castState.reset();
     this.locked = null;
     if (this.npcWorld) {
       const s = player.state;
@@ -5002,10 +4999,10 @@ export class WorldState implements GameState, InstanceHost {
     player.state.exhausted = false;
     player.state.sinceEnergySpent = data.player.regen.energyDelaySeconds;
     this.sword = swordConfig(data.player);
-    this.staff = staffConfig(data.player, data.spells);
+    this.staff = castConfig(data.player, data.spells);
     this.lockCfg = lockOnConfig(data.player);
     this.lockMarkerHeight = data.player.lockOn.marker.heightFraction;
-    this.staffState.reset();
+    this.castState.reset();
     this.locked = null;
     const combat = player.combat;
     combat.lingerSeconds = this.sword.combatLingerSeconds;
@@ -5570,7 +5567,7 @@ export class WorldState implements GameState, InstanceHost {
     debug.lines.set(
       'loadout',
       `spell ${this.spell?.id ?? '-'} (slot ${this.spellSlot})` +
-        `${this.staffState.castSpell ? ` casting ${this.staffState.castSpell.id}` : ''} · ` +
+        `${this.castState.castSpell ? ` casting ${this.castState.castSpell.id}` : ''} · ` +
         `weapon ${weapon}${this.pendingWeapon ? ` → ${this.pendingWeapon}` : ''} · ` +
         `item ${this.quickItem ?? 'default'} · ` +
         `menu ${this.liveMenu ? 'open, fight goes on' : this.paused ? 'paused' : 'closed'} · ` +
@@ -5608,7 +5605,7 @@ export class WorldState implements GameState, InstanceHost {
 
   /** Debug: the staff, its spell, the shots in flight and the locked target. */
   private staffDebug(): string {
-    const state = this.staffState;
+    const state = this.castState;
     const spell = this.spell?.id ?? 'no spell';
     const charge =
       state.pending === 'spell' && state.chargeFraction > 0

@@ -1,6 +1,7 @@
 import type { PlayerConfig, SpellsFile } from '../data/types';
 import type { CombatState } from './Combat';
 import { readiness } from './Readiness';
+import type { EnergyPool } from './Stamina';
 
 const DEG = Math.PI / 180;
 
@@ -71,8 +72,11 @@ export function affordableCharge(shot: ShotConfig, mana: number): number {
   return Math.min(1, (mana / shot.manaCost - 1) / extra);
 }
 
-/** Everything staff fighting needs from player.json and spells.json. */
-export interface StaffConfig {
+/**
+ * Everything casting needs from player.json and spells.json: the staff's shots (the Arcane
+ * Shard and the spells) and, since G.3, the Grimoire's incantations.
+ */
+export interface CastConfig {
   shard: ShotConfig;
   /** Spells by id (spells.json). */
   spells: ReadonlyMap<string, ShotConfig>;
@@ -103,7 +107,7 @@ function shotFromSpell(spell: SpellsFile['spells'][number]): ShotConfig {
   };
 }
 
-export function staffConfig(player: PlayerConfig, spells: SpellsFile): StaffConfig {
+export function castConfig(player: PlayerConfig, spells: SpellsFile): CastConfig {
   const staff = player.staff;
   const shard = staff.shard;
   const byId = new Map<string, ShotConfig>();
@@ -171,14 +175,16 @@ export function shotDamage(
   return Math.max(1, Math.round(base * power * damageFactor * charged));
 }
 
-export type StaffAction = 'none' | 'shard' | 'spell';
+export type CastAction = 'none' | 'shard' | 'spell';
 
 /**
- * The staff's state for one player (fixed step, serializable later for raids): what is being
- * gathered, when the next shot may leave and when the spell is ready again.
+ * The cast state of one player (fixed step, serializable later for raids): what is being
+ * gathered, when the next shot may leave and when the spell is ready again. One state for
+ * everything that is cast: the staff's shots and, since G.3, the Grimoire's incantations, so
+ * two casts can never overlap.
  */
-export class StaffState {
-  /** Seconds until any shot may start. */
+export class CastState {
+  /** Seconds until any staff shot may start (the staff's own rhythm and recovery). */
   cooldown = 0;
   /** What `cooldown` started from after the last shot (for drawing how ready the staff is). */
   cooldownTotal = 0;
@@ -187,7 +193,7 @@ export class StaffState {
   /** How long the current gathering takes in total (for drawing the staff rising). */
   windupTotal = 0;
   /** What the current wind-up will fire. */
-  pending: StaffAction = 'none';
+  pending: CastAction = 'none';
   /**
    * The spell being gathered or charged, fixed when the cast starts: picking another spell
    * meanwhile never changes the shot (or its mana cost) that is on its way out.
@@ -243,10 +249,10 @@ export class StaffState {
 }
 
 /**
- * Clears what the staff is doing (a gathering, a charge, buffered presses) but keeps its
- * cooldowns, so putting the staff away and back (a weapon switch) never readies a spell sooner.
+ * Clears what is being cast (a gathering, a charge, buffered presses) but keeps the cooldowns,
+ * so putting the staff away and back (a weapon switch) never readies a spell sooner.
  */
-export function resetKeepingCooldowns(state: StaffState): void {
+export function resetKeepingCooldowns(state: CastState): void {
   const { cooldown, cooldownTotal, spellCooldown, spellCooldownTotal } = state;
   state.reset();
   state.cooldown = cooldown;
@@ -260,23 +266,36 @@ export function resetKeepingCooldowns(state: StaffState): void {
  * the staff's own cooldown, a spell for that and for its own cooldown, so it is the lower of
  * the two. For the HUD chips and the touch buttons; what the staff does is unchanged.
  */
-export function staffReadiness(state: StaffState, kind: 'shard' | 'spell'): number {
+export function staffReadiness(state: CastState, kind: 'shard' | 'spell'): number {
   const staff = readiness(state.cooldown, state.cooldownTotal);
   if (kind === 'shard') return staff;
   return Math.min(staff, readiness(state.spellCooldown, state.spellCooldownTotal));
 }
 
-/** What the player pressed this step (left = Shard, right = spell). */
-export interface StaffInput {
+/** What the player pressed this step (left = Shard, right = spell, cast = the Grimoire). */
+export interface CastInput {
   shard: boolean;
   spell: boolean;
+  cast: boolean;
   /** A fresh random number (0-1) that decides a critical hit (Luck); 1 never crits. */
   critRoll: number;
 }
 
-/** What the staff fired this step. */
-export interface StaffResult {
-  fired: StaffAction;
+/**
+ * What may be cast this step and with what: `staff` is true while a staff is in hand (only
+ * then do the Shard and the spell exist and do the staff's own timers run; a weapon switch
+ * never readies a spell sooner), `spell` is the selected spell and `power` the path's power
+ * curve. A reused object: the caller fills it every step.
+ */
+export interface CastSources {
+  staff: boolean;
+  spell: ShotConfig | null;
+  power: number;
+}
+
+/** What left the player this step. */
+export interface CastResult {
+  fired: CastAction;
   /** The shot that left the staff (null when nothing fired). */
   shot: ShotConfig | null;
   damage: number;
@@ -291,14 +310,14 @@ export interface StaffResult {
  * gets the shot, its damage and how far it was charged.
  */
 function release(
-  state: StaffState,
+  state: CastState,
   combat: CombatState,
-  cfg: StaffConfig,
+  cfg: CastConfig,
   spell: ShotConfig | null,
   power: number,
   critRoll: number,
-  out: StaffResult,
-): StaffResult {
+  out: CastResult,
+): CastResult {
   const kind = state.pending;
   const shot = kind === 'spell' ? (state.castSpell ?? spell) : cfg.shard;
   const held = state.charge;
@@ -336,39 +355,46 @@ function release(
 }
 
 /**
- * One fixed step of the staff. The Arcane Shard (left) costs no mana and fires at its own rate;
- * the spell (right) costs mana, has a longer wind-up and its own cooldown, and does nothing
- * without enough mana (`noMana`). Holding the button charges only a spell with `charge` in
- * spells.json; one without fires as soon as its wind-up is over. `spell` is the selected
- * spell; a cast that already started keeps its own (`castSpell`). Mana (from spells.json, more
- * for a charged spell) is paid when the shot leaves at the end of the wind-up. The caller fires
- * the shot it returns (see Shots).
+ * One fixed step of casting. With a staff in hand (`sources.staff`): the Arcane Shard (left)
+ * costs no mana and fires at its own rate; the spell (right) costs mana, has a longer wind-up
+ * and its own cooldown, and does nothing without enough mana (`noMana`). Holding the button
+ * charges only a spell with `charge` in spells.json; one without fires as soon as its wind-up
+ * is over. `sources.spell` is the selected spell; a cast that already started keeps its own
+ * (`castSpell`). Mana (from spells.json, more for a charged spell) is paid when the shot leaves
+ * at the end of the wind-up. The caller fires the shot it returns (see Shots). Without a staff
+ * the staff's timers stand still, exactly as they did when the staff was put away.
  */
-export function stepStaff(
-  state: StaffState,
+export function stepCast(
+  state: CastState,
   combat: CombatState,
-  input: StaffInput,
-  cfg: StaffConfig,
-  spell: ShotConfig | null,
-  power: number,
+  energy: EnergyPool,
+  input: CastInput,
+  cfg: CastConfig,
+  sources: CastSources,
   dt: number,
-  out: StaffResult,
-): StaffResult {
+  out: CastResult,
+): CastResult {
+  void energy;
   out.fired = 'none';
   out.shot = null;
   out.damage = 0;
   out.charge = 0;
   out.crit = false;
   state.noMana = false;
+  const staff = sources.staff;
+  const spell = sources.spell;
+  const power = sources.power;
   // Dexterity and (later) perks make casting and charging faster.
   const speed = combat.attackSpeedFactor > 0 ? combat.attackSpeedFactor : 1;
-  state.cooldown = Math.max(0, state.cooldown - dt);
-  state.spellCooldown = Math.max(0, state.spellCooldown - dt);
+  if (staff) {
+    state.cooldown = Math.max(0, state.cooldown - dt);
+    state.spellCooldown = Math.max(0, state.spellCooldown - dt);
+  }
   combat.sinceCombat += dt;
   combat.sinceHurt += dt;
   state.sinceFired += dt;
-  if (input.shard) state.bufferedShard = cfg.inputBufferSeconds + dt;
-  if (input.spell) state.bufferedSpell = cfg.inputBufferSeconds + dt;
+  if (staff && input.shard) state.bufferedShard = cfg.inputBufferSeconds + dt;
+  if (staff && input.spell) state.bufferedSpell = cfg.inputBufferSeconds + dt;
   state.bufferedShard = Math.max(0, state.bufferedShard - dt);
   state.bufferedSpell = Math.max(0, state.bufferedSpell - dt);
 
@@ -390,6 +416,7 @@ export function stepStaff(
     if (state.windup > 0) return out;
     return release(state, combat, cfg, spell, power, input.critRoll, out);
   }
+  if (!staff) return out;
   if (state.cooldown > 0) return out;
 
   const wantSpell = input.spell || state.bufferedSpell > 0;

@@ -33,12 +33,13 @@ import { Shots } from './Shots';
 import {
   powerFactor,
   type ShotConfig,
-  type StaffInput,
-  type StaffResult,
-  StaffState,
-  staffConfig,
-  stepStaff,
-} from './StaffCombat';
+  type CastInput,
+  type CastResult,
+  type CastSources,
+  CastState,
+  castConfig,
+  stepCast,
+} from './Casting';
 import { leechHeal, slowFactor, StatusEffects, weakenFactor } from './StatusEffects';
 import { WaveFight } from './WaveFight';
 import {
@@ -434,7 +435,7 @@ const questsFile = questsFileSchema.parse(readPublicJson('data/quests.json'));
 const items = itemsFileSchema.parse(readPublicJson('data/items.json')) as ItemsFile;
 const spells = spellsFileSchema.parse(readPublicJson('data/spells.json')) as SpellsFile;
 const skills = skillsFileSchema.parse(readPublicJson('data/skills.json')) as SkillsFile;
-const staff = staffConfig(player, spells);
+const staff = castConfig(player, spells);
 const itemsById = new Map(items.items.map((item) => [item.id, item]));
 const PATHS: readonly PlayerPath[] = ['sword', 'light', 'dark'];
 const DRILLS: Readonly<Record<PlayerPath, string>> = {
@@ -720,7 +721,7 @@ function runFight(bot: SimBot, scene: Scene, maxSeconds = 240): FightOutcome {
 
   const cmd: MoveCommand = { x: 0, z: 0, dash: false };
   const swordInput = { fast: false, heavy: false, critRoll: 1 };
-  const staffInput: StaffInput = { shard: false, spell: false, critRoll: 1 };
+  const staffInput: CastInput = { shard: false, spell: false, cast: false, critRoll: 1 };
   const swordOut: SwordResult = {
     landed: 'none',
     damage: 0,
@@ -728,8 +729,9 @@ function runFight(bot: SimBot, scene: Scene, maxSeconds = 240): FightOutcome {
     combo: false,
     crit: false,
   };
-  const staffOut: StaffResult = { fired: 'none', shot: null, damage: 0, charge: 0, crit: false };
-  const staffState = new StaffState();
+  const staffOut: CastResult = { fired: 'none', shot: null, damage: 0, charge: 0, crit: false };
+  const staffState = new CastState();
+  const castSources: CastSources = { staff: true, spell: null, power: 1 };
   let warned = 0;
   // A player does not back off forever in a crowd: dodge a lunge, then hit again.
   let dodgeLeft = 0;
@@ -884,13 +886,15 @@ function runFight(bot: SimBot, scene: Scene, maxSeconds = 240): FightOutcome {
       if ((staffInput.shard || staffInput.spell || staffState.casting) && near && s.dashTime <= 0) {
         s.heading = headingTo(s.x, s.z, near.x, near.z, s.heading);
       }
-      stepStaff(
+      castSources.spell = spell;
+      castSources.power = fighter.power;
+      stepCast(
         staffState,
         c,
-        s.dashTime > 0 ? { shard: false, spell: false, critRoll: 1 } : staffInput,
+        s,
+        s.dashTime > 0 ? { shard: false, spell: false, cast: false, critRoll: 1 } : staffInput,
         staff,
-        spell,
-        fighter.power,
+        castSources,
         DT,
         staffOut,
       );

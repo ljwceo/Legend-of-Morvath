@@ -6,54 +6,64 @@ import { applyStats, CombatState } from './Combat';
 import { MIN_SHOWN_COOLDOWN } from './Readiness';
 import {
   affordableCharge,
+  type CastSources,
   chargedManaCost,
   powerFactor,
   resetKeepingCooldowns,
   SHARD_ID,
   type ShotConfig,
   shotDamage,
-  staffConfig,
-  type StaffInput,
+  castConfig,
+  type CastInput,
   staffReadiness,
-  type StaffResult,
-  StaffState,
-  stepStaff,
-} from './StaffCombat';
+  type CastResult,
+  CastState,
+  stepCast,
+} from './Casting';
 
 const DT = 1 / 60;
 const player = playerFileSchema.parse(readPublicJson('data/player.json')) as PlayerConfig;
 const spells = spellsFileSchema.parse(readPublicJson('data/spells.json')) as SpellsFile;
-const cfg = staffConfig(player, spells);
+const cfg = castConfig(player, spells);
 const fireball = cfg.spells.get('fireball') as ShotConfig;
 
-function fresh(level = 1): { state: StaffState; combat: CombatState } {
+function fresh(level = 1): { state: CastState; combat: CombatState } {
   const combat = new CombatState();
   applyStats(combat, player, level);
   combat.hp = combat.maxHp;
   combat.mana = combat.maxMana;
-  return { state: new StaffState(), combat };
+  return { state: new CastState(), combat };
 }
 
-const out = (): StaffResult => ({ fired: 'none', shot: null, damage: 0, charge: 0, crit: false });
+const out = (): CastResult => ({ fired: 'none', shot: null, damage: 0, charge: 0, crit: false });
 /** `critRoll` 1 never crits, so the damage in these tests is the plain damage. */
-const press = (shard: boolean, spell = false, critRoll = 1): StaffInput => ({
+const press = (shard: boolean, spell = false, critRoll = 1): CastInput => ({
   shard,
   spell,
+  cast: false,
   critRoll,
 });
+/** A staff in hand with `spell` selected (what `WorldState` hands `stepCast` every step). */
+const staff = (spell: ShotConfig | null = fireball, power = 1): CastSources => ({
+  staff: true,
+  spell,
+  power,
+});
+/** Energy only matters for the Grimoire (G.3); the staff's shots never spend any. */
+const pool = () => ({ energy: 100, sinceEnergySpent: 10, exhausted: false });
 
 /** Runs `seconds` of steps with the same input; returns every shot that left the staff. */
 function run(
   made: ReturnType<typeof fresh>,
   seconds: number,
-  input: StaffInput,
+  input: CastInput,
   spell: ShotConfig | null = fireball,
   power = 1,
-): StaffResult[] {
-  const fired: StaffResult[] = [];
+): CastResult[] {
+  const fired: CastResult[] = [];
   const steps = Math.round(seconds / DT);
   for (let i = 0; i < steps; i++) {
-    const r = stepStaff(made.state, made.combat, input, cfg, spell, power, DT, out());
+    const r = stepCast(made.state, made.combat, pool(), input, cfg, staff(spell, power), DT, out());
     if (r.fired !== 'none') fired.push({ ...r });
   }
   return fired;
@@ -90,7 +100,16 @@ describe('spells', () => {
     const made = fresh();
     made.combat.mana = 50;
     // One step with the button down (a click), then let go: it fires uncharged.
-    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    stepCast(
+      made.state,
+      made.combat,
+      pool(),
+      press(false, true),
+      cfg,
+      staff(fireball, 1),
+      DT,
+      out(),
+    );
     expect(made.combat.mana).toBe(50);
     const landed = run(made, 0.6, press(false));
     expect(landed).toHaveLength(1);
@@ -110,17 +129,17 @@ describe('spells', () => {
   it('keep their cooldown: tapping fast does not cast every step', () => {
     const made = fresh();
     made.combat.mana = 1000;
-    const fired: StaffResult[] = [];
+    const fired: CastResult[] = [];
     const steps = Math.round(3 / DT);
     for (let i = 0; i < steps; i++) {
       // A tap every other step (press one step, let go the next).
-      const r = stepStaff(
+      const r = stepCast(
         made.state,
         made.combat,
+        pool(),
         press(false, i % 2 === 0),
         cfg,
-        fireball,
-        1,
+        staff(),
         DT,
         out(),
       );
@@ -146,7 +165,16 @@ describe('charging a spell', () => {
     const made = fresh();
     made.combat.mana = 100;
     // One step with the button down (a click), then let go.
-    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    stepCast(
+      made.state,
+      made.combat,
+      pool(),
+      press(false, true),
+      cfg,
+      staff(fireball, 1),
+      DT,
+      out(),
+    );
     const fired = run(made, 1, press(false));
     expect(fired).toHaveLength(1);
     expect(fired[0]?.charge).toBe(0);
@@ -239,7 +267,16 @@ describe('switching spells (combat controls, 2026-10-17)', () => {
   it('switching during the wind-up of an uncharged tap still fires the first spell', () => {
     const made = fresh();
     made.combat.mana = 100;
-    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    stepCast(
+      made.state,
+      made.combat,
+      pool(),
+      press(false, true),
+      cfg,
+      staff(fireball, 1),
+      DT,
+      out(),
+    );
     const fired = run(made, 1, press(false), waterBolt);
     expect(fired).toHaveLength(1);
     expect(fired[0]?.shot?.id).toBe('fireball');
@@ -251,12 +288,21 @@ describe('putting the staff away (a weapon switch)', () => {
   it('stops what it was doing but keeps the cooldowns running', () => {
     const made = fresh();
     made.combat.mana = 100;
-    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    stepCast(
+      made.state,
+      made.combat,
+      pool(),
+      press(false, true),
+      cfg,
+      staff(fireball, 1),
+      DT,
+      out(),
+    );
     run(made, 1, press(false));
     expect(made.state.spellCooldown).toBeGreaterThan(0);
     const cooling = made.state.spellCooldown;
     // Something is buffered, then the staff goes away and comes back.
-    stepStaff(made.state, made.combat, press(true), cfg, fireball, 1, DT, out());
+    stepCast(made.state, made.combat, pool(), press(true), cfg, staff(fireball, 1), DT, out());
     resetKeepingCooldowns(made.state);
     expect(made.state.casting).toBe(false);
     expect(made.state.bufferedShard).toBe(0);
@@ -283,7 +329,7 @@ describe('spells that cannot be charged', () => {
     const first = data.spells[0] as SpellsFile['spells'][number];
     delete first.charge;
     const parsed = spellsFileSchema.parse(data) as SpellsFile;
-    expect(staffConfig(player, parsed).spells.get(first.id)?.charge).toBeNull();
+    expect(castConfig(player, parsed).spells.get(first.id)?.charge).toBeNull();
   });
 
   it('every mana cost comes from the data: the Shard 0, each spell its own', () => {
@@ -301,7 +347,16 @@ describe('your stats at the staff (fase 3.7)', () => {
     made.combat.mana = 1000;
     made.combat.spellFactor = 1.24;
     // A tap (one step down, then let go) fires the spell uncharged.
-    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    stepCast(
+      made.state,
+      made.combat,
+      pool(),
+      press(false, true),
+      cfg,
+      staff(fireball, 1),
+      DT,
+      out(),
+    );
     const spell = run(made, 1, press(false));
     expect(spell[0]?.damage).toBe(Math.round(fireball.damage * 1.24));
     const shard = run(fresh(), 0.6, press(true));
@@ -377,7 +432,16 @@ describe('readiness (the HUD chips and the touch buttons)', () => {
     // A spell leaves (a tap, then let go): the recovery and the spell's own cooldown.
     const mage = fresh();
     mage.combat.mana = 100;
-    stepStaff(mage.state, mage.combat, press(false, true), cfg, fireball, 1, DT, out());
+    stepCast(
+      mage.state,
+      mage.combat,
+      pool(),
+      press(false, true),
+      cfg,
+      staff(fireball, 1),
+      DT,
+      out(),
+    );
     expect(run(mage, 1, press(false))).toHaveLength(1);
     expect(mage.state.cooldownTotal).toBeCloseTo(cfg.recoverySeconds, 9);
     expect(mage.state.spellCooldownTotal).toBe(fireball.cooldownSeconds);
@@ -385,7 +449,16 @@ describe('readiness (the HUD chips and the touch buttons)', () => {
     const quick = fresh();
     quick.combat.mana = 100;
     quick.combat.attackSpeedFactor = 2;
-    stepStaff(quick.state, quick.combat, press(false, true), cfg, fireball, 1, DT, out());
+    stepCast(
+      quick.state,
+      quick.combat,
+      pool(),
+      press(false, true),
+      cfg,
+      staff(fireball, 1),
+      DT,
+      out(),
+    );
     expect(run(quick, 1, press(false))).toHaveLength(1);
     expect(quick.state.cooldownTotal).toBeCloseTo(cfg.recoverySeconds / 2, 9);
     expect(quick.state.spellCooldownTotal).toBe(fireball.cooldownSeconds);
@@ -397,7 +470,16 @@ describe('readiness (the HUD chips and the touch buttons)', () => {
   it('a spell waits for the longer of its own cooldown and the staff recovery', () => {
     const made = fresh();
     made.combat.mana = 100;
-    stepStaff(made.state, made.combat, press(false, true), cfg, fireball, 1, DT, out());
+    stepCast(
+      made.state,
+      made.combat,
+      pool(),
+      press(false, true),
+      cfg,
+      staff(fireball, 1),
+      DT,
+      out(),
+    );
     run(made, 1, press(false));
     const state = made.state;
     // The step right after the spell left: the recovery is over, the spell still cools.
@@ -430,15 +512,42 @@ describe('readiness (the HUD chips and the touch buttons)', () => {
     const fast = fresh();
     slow.combat.mana = fast.combat.mana = 100;
     // A tap at both rates (the press lasts one step: 1/60 s against 1/120 s, both a tap).
-    stepStaff(slow.state, slow.combat, press(false, true), cfg, fireball, 1, 1 / 60, out());
-    stepStaff(fast.state, fast.combat, press(false, true), cfg, fireball, 1, 1 / 120, out());
+    stepCast(
+      slow.state,
+      slow.combat,
+      pool(),
+      press(false, true),
+      cfg,
+      staff(fireball, 1),
+      1 / 60,
+      out(),
+    );
+    stepCast(
+      fast.state,
+      fast.combat,
+      pool(),
+      press(false, true),
+      cfg,
+      staff(fireball, 1),
+      1 / 120,
+      out(),
+    );
     // From the step the spell leaves (the wind-up's last step may differ by one step between
     // the rates, as a float rounding; the cooldown after it is what the chips show).
     const curve = (made: ReturnType<typeof fresh>, dt: number): number[] => {
       const values: number[] = [];
       let fired = false;
       for (let i = 0; i < Math.round(3 / dt); i++) {
-        const r = stepStaff(made.state, made.combat, press(false), cfg, fireball, 1, dt, out());
+        const r = stepCast(
+          made.state,
+          made.combat,
+          pool(),
+          press(false),
+          cfg,
+          staff(fireball, 1),
+          dt,
+          out(),
+        );
         if (r.fired !== 'none') {
           expect(fired).toBe(false);
           fired = true;
@@ -472,16 +581,32 @@ describe('fps independence', () => {
     let fastCount = 0;
     for (let i = 0; i < 180; i++) {
       if (
-        stepStaff(slow.state, slow.combat, press(true), cfg, fireball, 1, 1 / 60, out()).fired !==
-        'none'
+        stepCast(
+          slow.state,
+          slow.combat,
+          pool(),
+          press(true),
+          cfg,
+          staff(fireball, 1),
+          1 / 60,
+          out(),
+        ).fired !== 'none'
       ) {
         slowCount++;
       }
     }
     for (let i = 0; i < 360; i++) {
       if (
-        stepStaff(fast.state, fast.combat, press(true), cfg, fireball, 1, 1 / 120, out()).fired !==
-        'none'
+        stepCast(
+          fast.state,
+          fast.combat,
+          pool(),
+          press(true),
+          cfg,
+          staff(fireball, 1),
+          1 / 120,
+          out(),
+        ).fired !== 'none'
       ) {
         fastCount++;
       }
