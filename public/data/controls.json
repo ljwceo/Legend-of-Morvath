@@ -45,6 +45,10 @@
       "pad": ["Pad10"]
     },
     {
+      "id": "cast",
+      "keys": ["KeyV"]
+    },
+    {
       "id": "interact",
       "keys": ["KeyE"],
       "pad": ["Pad3"]

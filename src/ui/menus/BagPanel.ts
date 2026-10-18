@@ -14,6 +14,7 @@ type BagTab = 'items' | 'quests';
 export const BAG_TYPE_ORDER: readonly ItemDef['type'][] = [
   'potion',
   'weapon',
+  'grimoire',
   'armor',
   'crystal',
   'egg',

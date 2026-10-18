@@ -69,6 +69,7 @@ import {
   type PlayerAnimSources,
   PlayerAnimator,
 } from '../render/PlayerAnimator';
+import { CapeColliderView } from '../render/CapeColliderView';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
 import { Cheats, stepFlying } from '../systems/Cheats';
 import { SwingingDoors } from '../systems/Doors';
@@ -87,6 +88,7 @@ import {
   type SwordResult,
   stepSword,
   swordConfig,
+  tickCombatClock,
 } from '../systems/Combat';
 import { Enemies, type EnemiesWorld } from '../systems/Enemies';
 import {
@@ -105,16 +107,21 @@ import {
   powerFactor,
   SHARD_ID,
   type ShotConfig,
-  type StaffConfig,
-  staffConfig,
-  type StaffInput,
+  type CastConfig,
+  type CastSources,
+  cancelCast,
+  type IncantationConfig,
+  pushTargets,
+  castConfig,
+  type CastInput,
   resetKeepingCooldowns,
   staffReadiness,
-  type StaffResult,
-  StaffState,
-  stepStaff,
-} from '../systems/StaffCombat';
+  type CastResult,
+  CastState,
+  stepCast,
+} from '../systems/Casting';
 import { guardHit, makeGuardResult, stepGuard, weaponFreeForGuard } from '../systems/Guard';
+import { hasGrimoireAccess, knownIncantations, selectedIncantation } from '../systems/Grimoire';
 import { backstabPoiseDamage, damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
   carriedWeight,
@@ -177,6 +184,7 @@ import {
   screenToWorld,
   stepAirTime,
   stepMovement,
+  dashStartsThisStep,
 } from '../systems/Movement';
 import { type NpcWorld, Npcs } from '../systems/Npcs';
 import { CheatPanel } from '../ui/CheatPanel';
@@ -303,7 +311,7 @@ const BLOB_OPACITY = 0.28;
 const SUN_DISTANCE = 150;
 /** No attack this step (while a dash finishes). */
 const NO_SWORD_INPUT: SwordInput = { fast: false, heavy: false, critRoll: 1 };
-const NO_STAFF_INPUT: StaffInput = { shard: false, spell: false, critRoll: 1 };
+const NO_CAST_INPUT: CastInput = { shard: false, spell: false, cast: false, critRoll: 1 };
 /** No ability chips on the HUD (a sword, or a touch screen whose buttons show it). */
 const NO_CHIPS: readonly AbilityChip[] = [];
 const NO_SPELLS: readonly string[] = [];
@@ -311,6 +319,7 @@ const NO_SPELLS: readonly string[] = [];
 const LIVE_MENU_IGNORED: readonly Action[] = [
   'attack',
   'heavy',
+  'cast',
   'dash',
   'interact',
   'potion',
@@ -413,6 +422,8 @@ export class WorldState implements GameState, InstanceHost {
   private collision: CollisionWorld | null = null;
   /** Walls and ground for walking: GroundedMover (open world) or the SceneZone. */
   private mover: Mover | null = null;
+  /** The open world's mover (also in `mover`), for the player's height; null in a scene zone. */
+  private groundedMover: GroundedMover | null = null;
   /** A Blender-built zone being played (zones.json `scene`), or null in the open world. */
   private sceneZone: SceneZone | null = null;
   private sceneZoneDef: Zone | null = null;
@@ -422,6 +433,8 @@ export class WorldState implements GameState, InstanceHost {
   private scenePlayer: ScenePlayerModel | null = null;
   /** Plays the clips of the Blender character (null with the placeholder model). */
   private playerAnimator: PlayerAnimator | null = null;
+  /** The cape's colliders as wire spheres (cheat menu), null = not shown. */
+  private capeColliderView: CapeColliderView | null = null;
   private readonly animInput = createPlayerAnimInput();
   private animSources: PlayerAnimSources | null = null;
   private blob: Mesh | null = null;
@@ -530,7 +543,7 @@ export class WorldState implements GameState, InstanceHost {
   private poiseBars: EnemyPoiseBars | null = null;
   private sword: SwordConfig | null = null;
   /** Staff numbers (Arcane Shard and the spells), null until the world is built. */
-  private staff: StaffConfig | null = null;
+  private staff: CastConfig | null = null;
   private lockCfg: LockOnConfig | null = null;
   /** What the equipped weapon is: a sword swings, a staff shoots. */
   private weaponKind: 'sword' | 'staff' = 'sword';
@@ -630,7 +643,8 @@ export class WorldState implements GameState, InstanceHost {
   // Reused every step / frame (no allocations in the game loop).
   private readonly moveInput = { x: 0, y: 0 };
   private readonly moveWorld = { x: 0, z: 0 };
-  private readonly command: MoveCommand = { x: 0, z: 0, dash: false };
+  /** `jump` and `sprint` stay false until their buttons exist (step A.5c). */
+  private readonly command: MoveCommand = { x: 0, z: 0, dash: false, jump: false, sprint: false };
   private readonly swordInput: SwordInput = { fast: false, heavy: false, critRoll: 1 };
   private readonly guardResult = makeGuardResult();
   private readonly swordResult: SwordResult = {
@@ -640,14 +654,28 @@ export class WorldState implements GameState, InstanceHost {
     combo: false,
     crit: false,
   };
-  private readonly staffState = new StaffState();
-  private readonly staffInput: StaffInput = { shard: false, spell: false, critRoll: 1 };
-  private readonly staffResult: StaffResult = {
+  private readonly castState = new CastState();
+  private readonly castInput: CastInput = { shard: false, spell: false, cast: false, critRoll: 1 };
+  private readonly castSources: CastSources = {
+    staff: false,
+    spell: null,
+    power: 1,
+    incantation: null,
+  };
+  /** The incantation the cast button fires (G.3: Push), null before the data is loaded. */
+  private pushIncantation: IncantationConfig | null = null;
+  private readonly knownIncantationIds: string[] = [];
+  /** Everything in Push's cone this step (a reused array). */
+  private readonly pushHits: Enemy[] = [];
+  private readonly castResult: CastResult = {
     fired: 'none',
     shot: null,
     damage: 0,
     charge: 0,
     crit: false,
+    effect: 'none',
+    incantation: null,
+    poiseDamage: 0,
   };
   /** player.json lock-on numbers with the debug aim-help multipliers applied (reused). */
   private readonly lockNow: LockOnConfig = {
@@ -857,6 +885,29 @@ export class WorldState implements GameState, InstanceHost {
         setClip: (role) => {
           if (this.playerAnimator) this.playerAnimator.preview = role;
         },
+        cape: () => {
+          const cape = this.playerAnimator?.cape;
+          if (!cape) return null;
+          return {
+            enabled: cape.enabled,
+            stiffness: cape.stiffnessScale,
+            gravity: cape.gravityScale,
+            colliders: this.capeColliderView !== null,
+          };
+        },
+        setCape: (change) => {
+          const cape = this.playerAnimator?.cape;
+          if (!cape) return;
+          cape.enabled = change.enabled ?? cape.enabled;
+          cape.stiffnessScale = change.stiffness ?? cape.stiffnessScale;
+          cape.gravityScale = change.gravity ?? cape.gravityScale;
+          if (change.colliders === true && !this.capeColliderView && this.worldRoot) {
+            this.capeColliderView = new CapeColliderView(cape, this.worldRoot);
+          } else if (change.colliders === false) {
+            this.capeColliderView?.dispose();
+            this.capeColliderView = null;
+          }
+        },
       },
     );
     // Next to the UI layer (not inside it), so it can sit above the debug overlay.
@@ -1053,6 +1104,7 @@ export class WorldState implements GameState, InstanceHost {
       // A click both confirms and attacks; while talking it only shows the next line.
       input.consumePressed('attack');
       input.consumePressed('heavy');
+      input.consumePressed('cast');
       input.consumePressed('potion');
       input.consumePressed('bag');
       input.consumePressed('status');
@@ -1096,8 +1148,10 @@ export class WorldState implements GameState, InstanceHost {
       const right = input.consumePressed('heavy') || input.isPressed('heavy');
       this.swordInput.fast = left;
       this.swordInput.heavy = right;
-      this.staffInput.shard = left;
-      this.staffInput.spell = right;
+      this.castInput.shard = left;
+      this.castInput.spell = right;
+      // The Grimoire on its own key (V); holding it is for the charge spells of a later step.
+      this.castInput.cast = input.consumePressed('cast') || input.isPressed('cast');
       // Quick switching (Elden Ring-style): wheel / D-pad up the spell, 1 / D-pad left the
       // weapon, 2 / D-pad right the off hand, 3 / D-pad down the quick item that Q / X uses.
       if (input.consumePressed('spellNext')) this.cycleSpell(1);
@@ -1165,11 +1219,13 @@ export class WorldState implements GameState, InstanceHost {
       if (arena) keepInArena(s, arena, movement.radius);
       this.checkGate(fromX, fromZ);
       if (sceneZone) {
-        // Stairs, ledges and falling; under the water or off the map: back to the spawn.
-        const settled = sceneZone.settle(s, dt);
+        // Stairs, ledges, jumping and falling; under the water or off the map: back to the spawn.
+        const settled = sceneZone.settle(s, movement, dt);
         if (settled === 'lost') this.respawnInScene();
         stepAirTime(s, settled === 'falling', dt);
         sceneZone.setReferenceHeight(s.y);
+      } else if (this.groundedMover) {
+        stepAirTime(s, this.groundedMover.settle(s, movement, dt), dt);
       } else if (streamer) {
         s.y = streamer.heightAt(s.x, s.z);
       }
@@ -1227,8 +1283,9 @@ export class WorldState implements GameState, InstanceHost {
   private clearAttackInput(): void {
     this.swordInput.fast = false;
     this.swordInput.heavy = false;
-    this.staffInput.shard = false;
-    this.staffInput.spell = false;
+    this.castInput.shard = false;
+    this.castInput.spell = false;
+    this.castInput.cast = false;
   }
 
   /** Fighting and walking for one step: with a sword you swing, with a staff you shoot. */
@@ -1251,9 +1308,8 @@ export class WorldState implements GameState, InstanceHost {
     // One fresh roll per step decides whether a hit that lands is critical (Luck).
     const roll = this.critRng.next();
     this.swordInput.critRoll = roll;
-    this.staffInput.critRoll = roll;
-    if (this.weaponKind === 'staff') this.stepStaffAndMove(dt);
-    else this.stepSwordAndMove(dt);
+    this.castInput.critRoll = roll;
+    this.stepWeaponAndMove(dt);
   }
 
   /**
@@ -1274,90 +1330,105 @@ export class WorldState implements GameState, InstanceHost {
       !c.poise.staggered &&
       !this.command.dash &&
       s.dashTime <= 0 &&
-      weaponFreeForGuard(c, this.staffState);
+      weaponFreeForGuard(c, this.castState);
     const up = stepGuard(c.guard, s, cfg, this.input?.isPressed('block') ?? false, free, dt);
     if (!up) return;
     this.clearAttackInput();
     c.bufferedFast = 0;
     c.bufferedHeavy = 0;
-    this.staffState.bufferedShard = 0;
-    this.staffState.bufferedSpell = 0;
+    this.castState.bufferedShard = 0;
+    this.castState.bufferedSpell = 0;
+    this.castState.bufferedCast = 0;
   }
 
   /**
-   * The sword and walking for one step. While a heavy hit winds up you walk slowly and cannot
-   * dash. Starting an attack turns you towards the nearest enemy in front (aim assist), or
-   * towards your locked target. A hit that lands damages every enemy in the swing arc.
+   * The weapon in hand, the Grimoire and walking for one step. With a sword: starting an attack
+   * turns you towards the nearest enemy in front (aim assist) or your locked target, and a hit
+   * that lands damages every enemy in the swing arc; while a heavy hit winds up you walk slowly
+   * and cannot dash. With a staff (a legacy mage): the Arcane Shard (left) costs no mana, a spell
+   * (right) costs mana and has its own cooldown, and the shot leaves towards your locked target
+   * or the nearest enemy in front and then flies on its own (see Shots), so it can miss. Casting
+   * runs every step whatever is in hand (`stepCast`), so the Grimoire can join in (G.3); while
+   * anything is being cast you walk slowly and cannot dash.
    */
-  private stepSwordAndMove(dt: number): void {
-    const { player, movement, mover, sword, enemies } = this;
+  private stepWeaponAndMove(dt: number): void {
+    const { player, movement, mover, sword, staff, enemies } = this;
     const data = this.ctx.data;
-    if (!player || !movement || !mover || !sword || !data) return;
+    if (!player || !movement || !mover || !sword || !staff || !data) return;
     const s = player.state;
     const c = player.combat;
-    const input = this.swordInput;
-    const wants = input.fast || input.heavy || c.bufferedFast > 0 || c.bufferedHeavy > 0;
-    const starting = wants && c.attackCooldown <= 0 && c.heavyWindup <= 0;
-    if (starting && s.dashTime <= 0) this.aim(sword.aimRange, sword.aimHalfArc);
-    // A dash in progress finishes first; attacks wait for it.
-    const result =
-      s.dashTime > 0
-        ? stepSword(c, s, NO_SWORD_INPUT, sword, dt, this.swordResult)
-        : stepSword(c, s, input, sword, dt, this.swordResult);
-    if (result.landed !== 'none' && enemies) this.landHit(result);
+    const state = this.castState;
+    const staffInHand = this.weaponKind === 'staff';
+    // A dash in progress finishes first and nobody attacks or casts in the air (A.5a); they wait.
+    const held = s.dashTime > 0 || s.airborne;
 
+    if (staffInHand) {
+      // No sword this step: the world ticks the fight clock (stepSword does it with a sword).
+      tickCombatClock(c, dt);
+    } else {
+      // Push being prepared: the sword waits (no swing, no heavy wind-up, no remembered press),
+      // just as Push waits for a swing (`incantationFree`). After Push the recovery holds the
+      // sword for a moment (`attackCooldown`), then it is free again.
+      const pushing = state.pending === 'incantation';
+      if (pushing) {
+        c.bufferedFast = 0;
+        c.bufferedHeavy = 0;
+      }
+      const input = held || pushing ? NO_SWORD_INPUT : this.swordInput;
+      const wants = input.fast || input.heavy || c.bufferedFast > 0 || c.bufferedHeavy > 0;
+      const starting = wants && c.attackCooldown <= 0 && c.heavyWindup <= 0;
+      if (starting && !held) this.aim(sword.aimRange, sword.aimHalfArc);
+      const result = stepSword(c, s, input, sword, dt, this.swordResult);
+      if (result.landed !== 'none' && enemies) this.landHit(result);
+    }
+
+    // A staff shot cannot be rolled out of (as before); Push can (U-1): a roll that will start
+    // this step cuts it short now, before the cast step could let it go off, and no new cast
+    // starts in the step a roll starts.
+    const staffCasting = state.pending === 'shard' || state.pending === 'spell';
+    const rolling = !held && !staffCasting && dashStartsThisStep(s, this.command, movement, dt);
+    if (rolling) cancelCast(state);
+    const input = held || rolling ? NO_CAST_INPUT : this.castInput;
+    if (staffInHand) {
+      const wants =
+        input.shard || input.spell || state.bufferedShard > 0 || state.bufferedSpell > 0;
+      const aiming = state.casting || (wants && state.cooldown <= 0);
+      if (aiming && !held) this.aim(staff.aimRange, staff.aimHalfArc);
+    }
+    const sources = this.castSources;
+    sources.staff = staffInHand;
+    sources.spell = this.spell;
+    sources.power = this.spellPower;
+    // The Grimoire: owning one is enough (never equipped); until G.4 every character may cast.
+    const bag = this.ctx.session?.character?.inventory;
+    sources.incantation = bag && hasGrimoireAccess(bag, this.items) ? this.pushIncantation : null;
+    if (input.cast && !sources.incantation && !state.casting) this.sayNoGrimoire();
+    // Push turns you towards your target or the nearest enemy in front while it is prepared.
+    const preparing = state.pending === 'incantation' ? state.castIncantation : null;
+    if (preparing && !held) this.aim(preparing.effect.range, preparing.effect.halfArc);
+    const result = stepCast(state, c, s, input, staff, sources, dt, this.castResult);
+    if (result.shot) {
+      this.fireShot(result.shot, this.weakened(result.damage), result.charge, result.crit);
+    }
+    if (result.effect === 'push' && result.incantation) this.landPush(result.incantation, result);
+    if (state.noMana) this.sayNoMana();
+
+    const casting = state.casting;
     const windingUp = c.heavyWindup > 0;
-    if (windingUp) this.command.dash = false;
+    // Gathering or charging counts as fighting, so you can see your mana while it drains.
+    if (casting) c.sinceCombat = 0;
+    // No roll out of a staff shot or a heavy wind-up; out of Push you may (it was cut above).
+    if (staffCasting || windingUp) this.command.dash = false;
+    // No jumping out of a swing, a wind-up or a cast, no sprinting while it lasts, and neither
+    // with the guard up (with a staff since G.2).
+    if (casting || windingUp || c.swingTime > 0 || c.guard.up) {
+      this.command.jump = false;
+      this.command.sprint = false;
+    }
     movement.walkSpeed =
       this.baseWalkSpeed *
       this.cheats.speed *
       (windingUp ? sword.heavyMoveFactor : 1) *
-      (c.guard.up ? (data.player.guard?.moveFactor ?? 1) : 1) *
-      slowFactor(this.statusTotals.slowPercent);
-    stepMovement(s, this.command, movement, dt, mover);
-    this.stepRegen(c, dt);
-  }
-
-  /**
-   * The staff and walking for one step (a mage). The Arcane Shard (left) costs no mana, a spell
-   * (right) costs mana and has its own cooldown; while the staff gathers a shot you walk slowly
-   * and cannot dash. The shot leaves towards your locked target, or towards the nearest enemy
-   * in front (aim assist), and then flies on its own (see Shots), so it can miss.
-   */
-  private stepStaffAndMove(dt: number): void {
-    const { player, movement, mover, staff } = this;
-    const data = this.ctx.data;
-    if (!player || !movement || !mover || !staff || !data) return;
-    const s = player.state;
-    const c = player.combat;
-    // A dash in progress finishes first; shots wait for it.
-    const input = s.dashTime > 0 ? NO_STAFF_INPUT : this.staffInput;
-    const state = this.staffState;
-    const wants = input.shard || input.spell || state.bufferedShard > 0 || state.bufferedSpell > 0;
-    const aiming = state.casting || (wants && state.cooldown <= 0);
-    if (aiming && s.dashTime <= 0) this.aim(staff.aimRange, staff.aimHalfArc);
-    const result = stepStaff(
-      state,
-      c,
-      input,
-      staff,
-      this.spell,
-      this.spellPower,
-      dt,
-      this.staffResult,
-    );
-    if (result.shot) {
-      this.fireShot(result.shot, this.weakened(result.damage), result.charge, result.crit);
-    }
-    if (state.noMana) this.sayNoMana();
-
-    const casting = state.casting;
-    // Charging counts as fighting, so you can see your mana while it drains.
-    if (casting) c.sinceCombat = 0;
-    if (casting) this.command.dash = false;
-    movement.walkSpeed =
-      this.baseWalkSpeed *
-      this.cheats.speed *
       (casting ? staff.castMoveFactor : 1) *
       (c.guard.up ? (data.player.guard?.moveFactor ?? 1) : 1) *
       slowFactor(this.statusTotals.slowPercent);
@@ -1675,6 +1746,57 @@ export class WorldState implements GameState, InstanceHost {
     if (hitAny) player.combat.sinceCombat = 0;
   }
 
+  /**
+   * Push went off (G.3): everything in its short cone in front of you takes its low damage and
+   * its poise damage through the same rules as a swing (`Enemies.hit`: a boss only in its
+   * opening, a stagger only when poise breaks). Each enemy in the cone is hit exactly once.
+   * Push never counts for a `train` objective (decision 2026-10-18) and, as the last blow on
+   * Sultan, counts as the sword (P-8).
+   */
+  private landPush(incantation: IncantationConfig, result: CastResult): void {
+    const { player, enemies, enemyRenderer } = this;
+    if (!player || !enemies) return;
+    const s = player.state;
+    const effect = incantation.effect;
+    const damage = this.weakened(result.damage);
+    const hits = pushTargets(s.x, s.z, s.heading, effect, enemies.shown, this.pushHits);
+    let hitAny = false;
+    for (let i = 0; i < hits.length; i++) {
+      const e = hits[i] as Enemy;
+      if (!e.alive) continue;
+      const top = e.y + (enemyRenderer?.heightOf(e) ?? 1.5);
+      if (!e.hittable) {
+        if (e.guarded) this.encounter?.onGuardedHit(e, top);
+        else this.showProtected(e);
+        continue;
+      }
+      const defeated = enemies.hit(e, damage, result.poiseDamage);
+      hitAny = true;
+      this.damageNumbers?.spawn(e.x, top, e.z, damage, result.crit ? 'crit' : 'heavy');
+      if (defeated) {
+        this.defeated(e, top, 'sword');
+        continue;
+      }
+      // Shoved straight away from you (standing inside it: along your heading).
+      let dx = e.x - s.x;
+      let dz = e.z - s.z;
+      if (dx * dx + dz * dz < 1e-12) {
+        dx = Math.sin(s.heading);
+        dz = Math.cos(s.heading);
+      }
+      enemies.push(e, dx, dz, effect.knockbackMeters, effect.knockbackSeconds);
+    }
+    hits.length = 0;
+    if (hitAny) player.combat.sinceCombat = 0;
+  }
+
+  /** The cast key without a Grimoire to cast from (not more often than every few seconds). */
+  private sayNoGrimoire(): void {
+    if (this.protectedMessageTimer > 0) return;
+    this.protectedMessageTimer = PROTECTED_MESSAGE_SECONDS;
+    this.hud?.showMessage(this.ctx.i18n.t('hud.noGrimoire'));
+  }
+
   /** Dash pressed while overloaded: say why nothing happens (not more often than every few seconds). */
   private sayTooHeavy(): void {
     if (this.protectedMessageTimer > 0) return;
@@ -1772,7 +1894,7 @@ export class WorldState implements GameState, InstanceHost {
     c.swing = 'none';
     c.bufferedFast = 0;
     c.bufferedHeavy = 0;
-    this.staffState.reset();
+    this.castState.reset();
   }
 
   /** What a monster's hit leaves behind: its status effects, and leech for itself. */
@@ -2074,7 +2196,7 @@ export class WorldState implements GameState, InstanceHost {
     enemies?.resetAll();
     this.projectiles?.clear();
     this.shots?.clear();
-    this.staffState.reset();
+    this.castState.reset();
     this.status?.clear();
     this.locked = null;
     this.placePlayer(this.respawn.x, this.respawn.z);
@@ -2121,7 +2243,8 @@ export class WorldState implements GameState, InstanceHost {
       };
       this.animSources = src;
     }
-    src.staff = this.weaponKind === 'staff' ? this.staffState : null;
+    // The cast clips play for a staff shot and for Push alike (the Grimoire itself is G.8).
+    src.staff = this.castState;
     src.sword = sword;
     src.dashSeconds = movement.dashDurationSeconds;
     src.recoverSeconds = movement.dashRecoverySeconds;
@@ -2138,6 +2261,10 @@ export class WorldState implements GameState, InstanceHost {
       player.model.root.rotation.y,
       seconds,
     );
+    // The cape last: it hangs from a bone the clips have just moved. Simulated in the world
+    // root's own coordinates, so a shift of the floating origin does not whip it.
+    animator.cape?.update(seconds, this.worldRoot);
+    this.capeColliderView?.update();
   }
 
   /** The screen during dying (drawn every frame from the simulation's death timer). */
@@ -2423,8 +2550,8 @@ export class WorldState implements GameState, InstanceHost {
       this.refreshAbilities();
     }
     const staff = this.weaponKind === 'staff';
-    const shard = staff ? staffReadiness(this.staffState, 'shard') : 1;
-    const spell = staff ? staffReadiness(this.staffState, 'spell') : 1;
+    const shard = staff ? staffReadiness(this.castState, 'shard') : 1;
+    const spell = staff ? staffReadiness(this.castState, 'spell') : 1;
     this.hud?.setAbilityReadiness('shard', shard);
     this.hud?.setAbilityReadiness('spell', spell);
     this.touch?.setReadiness('attack', shard);
@@ -3413,7 +3540,7 @@ export class WorldState implements GameState, InstanceHost {
       this.scenePlayer?.showWeapon(kind);
       // Nothing is being cast (a switch waits for that), but the cooldowns keep running:
       // switching to a sword and back must not make a spell ready again.
-      resetKeepingCooldowns(this.staffState);
+      resetKeepingCooldowns(this.castState);
       this.clearAttackInput();
       this.touch?.setLabels(this.touchLabels());
     }
@@ -3500,7 +3627,7 @@ export class WorldState implements GameState, InstanceHost {
     }
     const s = player.state;
     this.action.rolling = this.command.dash || s.dashTime > 0 || s.recoverTime > 0;
-    this.action.casting = this.staffState.casting;
+    this.action.casting = this.castState.casting;
     if (!canSwitchPrepared(player.combat, this.action)) return;
     this.pendingWeapon = null;
     character.equipment.weapon = id;
@@ -3814,7 +3941,7 @@ export class WorldState implements GameState, InstanceHost {
       }
     }
     if (this.playerAnimator) this.animatePlayer(this.playerAnimator, a, waiting ? 0 : frameSeconds);
-    else if (this.weaponKind === 'staff') player.showStaff(this.staffState.progress);
+    else if (this.weaponKind === 'staff') player.showStaff(this.castState.progress);
     else if (this.sword) player.showSword(this.sword);
     const hopSeconds = this.ctx.data?.npcs.settings.petHopSeconds ?? 1;
     this.npcRenderer?.update(a, hopSeconds);
@@ -3906,7 +4033,7 @@ export class WorldState implements GameState, InstanceHost {
   /** The ball of magic in front of the staff while a spell is being charged. */
   private updateChargeOrb(alpha: number): void {
     const { player, staff, chargeOrb } = this;
-    const state = this.staffState;
+    const state = this.castState;
     // The spell being cast, also after the player picked another one meanwhile.
     const spell = state.castSpell ?? this.spell;
     if (!chargeOrb) return;
@@ -4641,12 +4768,14 @@ export class WorldState implements GameState, InstanceHost {
     player.place(player.state.x, player.state.y, player.state.z, player.state.heading);
     origin.reset(player.state.x, player.state.z);
     rig.orbit.snap(player.state.x, player.state.y, player.state.z, heading ?? rig.orbit.yaw);
+    // Standing at the new place, the cape hanging still (it never swings after a teleport).
+    this.playerAnimator?.reset();
     this.dialog?.close();
     this.damageNumbers?.clear();
     this.poiseBars?.clear();
     // Shots in flight and your locked target belong to where you came from.
     this.shots?.clear();
-    this.staffState.reset();
+    this.castState.reset();
     this.locked = null;
     if (this.npcWorld) {
       const s = player.state;
@@ -4954,10 +5083,15 @@ export class WorldState implements GameState, InstanceHost {
     player.state.exhausted = false;
     player.state.sinceEnergySpent = data.player.regen.energyDelaySeconds;
     this.sword = swordConfig(data.player);
-    this.staff = staffConfig(data.player, data.spells);
+    this.staff = castConfig(data.player, data.spells);
+    const known = knownIncantations(data.spells, this.knownIncantationIds);
+    const incantationId = selectedIncantation(known);
+    this.pushIncantation = incantationId
+      ? (this.staff.incantations.get(incantationId) ?? null)
+      : null;
     this.lockCfg = lockOnConfig(data.player);
     this.lockMarkerHeight = data.player.lockOn.marker.heightFraction;
-    this.staffState.reset();
+    this.castState.reset();
     this.locked = null;
     const combat = player.combat;
     combat.lingerSeconds = this.sword.combatLingerSeconds;
@@ -5144,10 +5278,11 @@ export class WorldState implements GameState, InstanceHost {
         new Worker(new URL('../workers/terrain.worker.ts', import.meta.url), { type: 'module' }),
       listener: this.structures,
     });
-    this.mover = new GroundedMover(this.collision, this.streamer, {
+    this.groundedMover = new GroundedMover(this.collision, this.streamer, {
       maxRise: Math.tan(data.player.movement.slopeLimitDegrees * DEG),
       minHeight: world.terrain.seaLevel - world.terrain.deepWater,
     });
+    this.mover = this.groundedMover;
 
     const water = new Mesh(
       new PlaneGeometry(1, 1),
@@ -5193,6 +5328,7 @@ export class WorldState implements GameState, InstanceHost {
     lighting.uniforms.windowCol.value.setHex(resolveColorToken(def.windowColor));
     this.sceneZone = zone;
     this.mover = zone;
+    this.groundedMover = null;
     // The doors this build has (an instance may lack some), in the order `setDoorAngle` uses.
     this.doors =
       zone.doors.length > 0
@@ -5234,6 +5370,7 @@ export class WorldState implements GameState, InstanceHost {
     s.dashTime = 0;
     s.invulnerable = false;
     rig.orbit.snap(s.x, s.y, s.z, s.heading);
+    this.playerAnimator?.reset();
     this.damageNumbers?.clear();
     this.poiseBars?.clear();
     if (npcWorld) this.npcs?.snapCompanions(s.x, s.z, s.heading, npcWorld);
@@ -5367,6 +5504,8 @@ export class WorldState implements GameState, InstanceHost {
     this.disposeBossProps();
     this.player?.dispose();
     this.player = null;
+    this.capeColliderView?.dispose();
+    this.capeColliderView = null;
     this.playerAnimator?.dispose();
     this.playerAnimator = null;
     this.animSources = null;
@@ -5398,6 +5537,7 @@ export class WorldState implements GameState, InstanceHost {
     this.shotWorld = null;
     this.locked = null;
     this.staff = null;
+    this.pushIncantation = null;
     this.lockCfg = null;
     this.spell = null;
     this.enemies = null;
@@ -5450,6 +5590,7 @@ export class WorldState implements GameState, InstanceHost {
     this.rig = null;
     this.collision = null;
     this.mover = null;
+    this.groundedMover = null;
     this.origin = null;
     this.zones = null;
     this.preset = null;
@@ -5495,7 +5636,10 @@ export class WorldState implements GameState, InstanceHost {
     );
     debug.lines.set('npcs', this.npcDebugLine(s.x, s.z));
     debug.lines.set('doors', this.doorDebugLine());
-    debug.lines.set('energy', `${Math.round(s.energy)} · dash cd ${s.dashCooldown.toFixed(2)} s`);
+    debug.lines.set(
+      'energy',
+      `${Math.round(s.energy)} · dash cd ${s.dashCooldown.toFixed(2)} s · ${this.grimoireDebug()}`,
+    );
     const c = player.combat;
     debug.lines.set(
       'combat',
@@ -5516,7 +5660,7 @@ export class WorldState implements GameState, InstanceHost {
     debug.lines.set(
       'loadout',
       `spell ${this.spell?.id ?? '-'} (slot ${this.spellSlot})` +
-        `${this.staffState.castSpell ? ` casting ${this.staffState.castSpell.id}` : ''} · ` +
+        `${this.castState.castSpell ? ` casting ${this.castState.castSpell.id}` : ''} · ` +
         `weapon ${weapon}${this.pendingWeapon ? ` → ${this.pendingWeapon}` : ''} · ` +
         `item ${this.quickItem ?? 'default'} · ` +
         `menu ${this.liveMenu ? 'open, fight goes on' : this.paused ? 'paused' : 'closed'} · ` +
@@ -5540,6 +5684,7 @@ export class WorldState implements GameState, InstanceHost {
     );
     debug.lines.set('daynight', this.dayNightLine());
     debug.lines.set('anim', this.playerAnimator?.debugLine() ?? 'placeholder');
+    debug.lines.set('cape', this.playerAnimator?.cape?.debugLine() ?? '-');
     debug.lines.set(
       'cheats',
       `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'} · F6 = cheat menu`,
@@ -5553,7 +5698,7 @@ export class WorldState implements GameState, InstanceHost {
 
   /** Debug: the staff, its spell, the shots in flight and the locked target. */
   private staffDebug(): string {
-    const state = this.staffState;
+    const state = this.castState;
     const spell = this.spell?.id ?? 'no spell';
     const charge =
       state.pending === 'spell' && state.chargeFraction > 0
@@ -5568,6 +5713,20 @@ export class WorldState implements GameState, InstanceHost {
         ? ` · aim ×${this.cheats.aimAssist} lock ×${this.cheats.lockRange} curve ×${this.cheats.homing}`
         : '';
     return `${busy} · ${spell}${cooldown} · ×${this.spellPower.toFixed(2)} · shots ${shots} · ${lock}${aim}`;
+  }
+
+  /** Debug: the Grimoire (G.3): preparing Push, its lockout or cooldown, or ready. */
+  private grimoireDebug(): string {
+    const state = this.castState;
+    if (!this.castSources.incantation) return 'grimoire none';
+    if (state.pending === 'incantation') {
+      return `grimoire casting ${state.castIncantation?.id ?? '?'} ${Math.round(state.progress * 100)}%`;
+    }
+    if (state.castLockout > 0) return `grimoire lockout ${state.castLockout.toFixed(2)} s`;
+    if (state.incantationCooldown > 0) {
+      return `grimoire cd ${state.incantationCooldown.toFixed(2)} s`;
+    }
+    return 'grimoire ready';
   }
 
   /** Debug: phase, time left, clock speed, lighting setting and night monsters. */

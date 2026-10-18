@@ -15,7 +15,7 @@ import { Enemies, type EnemiesWorld } from './Enemies';
 import type { EnemyTarget } from './EnemyAI';
 import { carriedWeight } from './Gear';
 import type { Mover } from './Movement';
-import { chargeScale, staffConfig } from './StaffCombat';
+import { chargeScale, castConfig } from './Casting';
 import { backstabPoiseDamage, damagePoise, PoiseState, playerMaxPoise, stepPoise } from './Poise';
 import { EnemyPoiseBars } from '../ui/EnemyPoiseBars';
 
@@ -188,7 +188,7 @@ describe('poise (S.6)', () => {
 
   it('staff shots break poise too: charge and critical hits raise it, so a mage can stagger', () => {
     const spells = spellsFileSchema.parse(readPublicJson('data/spells.json')) as SpellsFile;
-    const staff = staffConfig(player, spells);
+    const staff = castConfig(player, spells);
     const slime = monsters.monsters.find((m) => m.id === 'green_slime')?.poise ?? 0;
     expect(staff.shard.poiseDamage).toBeGreaterThan(0);
     expect(staff.shard.poiseDamage).toBeLessThan(slime);

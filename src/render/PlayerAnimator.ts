@@ -14,7 +14,8 @@ import { PLAYER_CLIP_ROLES } from '../data/schemas';
 import type { PlayerAnimationsDef, PlayerClipRole } from '../data/types';
 import type { CombatState, SwordConfig } from '../systems/Combat';
 import type { MoverState } from '../systems/Movement';
-import type { StaffState } from '../systems/StaffCombat';
+import type { CastState } from '../systems/Casting';
+import { SpringBones } from './SpringBones';
 
 /** The animator's states (PLAN.md, step A.3c). Attack and Cast each pick between a few clips. */
 export type PlayerAnimState =
@@ -53,7 +54,7 @@ export interface PlayerAnimInput {
   swingSeconds: number;
   /** The combo place of that hit (1, 2, 3, ...: Slash_1/2/3 in turn), 0 for a heavy hit. */
   landedCombo: number;
-  /** The staff is gathering a shot; seconds since the last shot left it. */
+  /** A shot or Push is being prepared; seconds since the last one left. */
   gathering: boolean;
   sinceFired: number;
   sinceHurt: number;
@@ -94,8 +95,8 @@ export function createPlayerAnimInput(): PlayerAnimInput {
 export interface PlayerAnimSources {
   mover: MoverState;
   combat: CombatState;
-  /** The staff's state, or null with a sword. */
-  staff: StaffState | null;
+  /** The cast state: a staff gathering a shot, or the Grimoire preparing Push (G.3). */
+  staff: CastState | null;
   sword: SwordConfig;
   /** How long a dash and getting up after one last now (movement config, with the load). */
   dashSeconds: number;
@@ -140,10 +141,10 @@ export function fillPlayerAnimInput(
   out.sinceHurt = sinceAt(lag, c.sinceHurt);
   out.sinceInteract = sinceAt(lag, src.sinceInteract);
   out.airTime = s.airTime;
-  out.rising = false;
+  out.rising = !s.grounded && s.vy > 0;
   out.sinceLanded = sinceAt(lag, s.sinceLanded);
   out.lastAirTime = s.lastAirTime;
-  out.sprinting = false;
+  out.sprinting = s.sprinting;
   return out;
 }
 
@@ -545,6 +546,11 @@ class ClipLayer {
  */
 export class PlayerAnimator {
   state: PlayerAnimState = 'idle';
+  /**
+   * The cape's spring bones (step A.4a), or null when the rig has no cape bones. They run after
+   * the clips: the world calls `cape.update` once the animator is done.
+   */
+  readonly cape: SpringBones | null;
   private readonly mixer: AnimationMixer;
   private readonly lower = new ClipLayer();
   private readonly upper = new ClipLayer();
@@ -589,6 +595,7 @@ export class PlayerAnimator {
     }
     // The lean goes on top of the clip's pose; a bone no clip moves would keep turning.
     this.leanBone = leanAnimated ? (root.getObjectByName(def.lean.bone) ?? null) : null;
+    this.cape = SpringBones.create(root, def.cape);
   }
 
   private action(clip: AnimationClip, role: PlayerClipRole): AnimationAction {
@@ -655,6 +662,7 @@ export class PlayerAnimator {
     this.gait = 'idle';
     this.lower.snap('idle');
     this.upper.snap('idle');
+    this.cape?.reset();
   }
 
   /**

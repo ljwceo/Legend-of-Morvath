@@ -696,6 +696,25 @@ export const playerFileSchema = z.strictObject({
         path: ['iFrames', 'endSeconds'],
       }),
     ),
+  /** Sprinting: holding the dash button after the roll (decision A.5a). */
+  sprint: z.strictObject({
+    /** m/s on foot; faster than `movement.walkSpeed` (DataValidator). */
+    speed: max(positive, 30),
+    energyPerSecond: max(nonNegative, 1000),
+  }),
+  /** Jumping (decision S-8: no roll, attack or cast in the air). */
+  jump: z.strictObject({
+    heightMeters: max(positive, 10),
+    /** m/s²; also the fall speed off ledges. */
+    gravity: range(1, 100),
+    energyCost: nonNegative,
+    /** A jump still works this long after walking off a ledge. */
+    coyoteSeconds: range(0, 0.25),
+    /** A jump pressed this long before landing goes off on landing. */
+    bufferSeconds: range(0, 0.25),
+    /** 0 = the take-off speed carries you, 1 = steer freely in the air. */
+    airControl: range(0, 1),
+  }),
   /**
    * Equip load (like Elden Ring): the weight of the weapons and gear you carry (worn or spare in
    * the bag; resources, potions and quest items weigh nothing) as a share of what you can carry.
@@ -884,6 +903,14 @@ export const playerFileSchema = z.strictObject({
     shotHeight: max(nonNegative, 5),
     /** Without lock-on, shots aim at the nearest enemy within this range and angle. */
     aimAssist: z.strictObject({ range: max(nonNegative, 100), arcDegrees: range(0, 360) }),
+  }),
+  /**
+   * Casting from the Grimoire (Fase G, G.3): the shared cast pipeline for incantations. The
+   * timings of an incantation are its own (spells.json); only the input buffer is the player's.
+   */
+  casting: z.strictObject({
+    /** A cast press while nothing may start yet is remembered this long (s), then dropped. */
+    inputBufferSeconds: max(nonNegative, 2),
   }),
   /**
    * Lock-on (the key or button bound to it, see controls.json): the camera keeps the target in
@@ -1226,6 +1253,11 @@ const monsterSchema = z.strictObject({
   poise: optional(max(positive, 100_000)),
   /** Poise damage its hit does to the player (see player.json `poise`); default 0. */
   poiseDamage: optional(max(nonNegative, 100_000)),
+  /**
+   * How much of a knockback (Push, G.3) it shrugs off: 0 = the full shove, 1 = none at all.
+   * Independent of poise (P-10). A boss and a static dummy are never shoved, whatever this says.
+   */
+  knockbackResistance: optional(fraction),
   groupSize: optional(z.strictObject({ min: posInt, max: posInt })),
   splitsInto: optional(z.strictObject({ monster: id, count: posInt })),
   transformsFrom: optional(id),
@@ -1720,12 +1752,45 @@ export const spellsFileSchema = z.strictObject({
     }),
   ),
   /**
-   * Grimoire incantations (Fase G, G.1: data only, nothing casts them yet). Only the contract
-   * that is decided: an element, and the mana it costs. Range, damage, stagger and recovery come
-   * with G.3, when casting moves from the staff to the Grimoire. Ids may not clash with
-   * `spells` ids, so a learned id can never mean two things.
+   * Grimoire incantations (Fase G). Since G.3 the Grimoire casts them without a staff: `cast`
+   * holds the timing and the stamina (every number a start value for Bo/Lucas), `effect` says
+   * what leaves the Grimoire. Ids may not clash with `spells` ids, so a learned id can never
+   * mean two things. Neutral's Push costs no mana (G.0).
    */
-  incantations: z.array(z.strictObject({ id, name, element: id, manaCost: nonNegative })),
+  incantations: z.array(
+    z.strictObject({
+      id,
+      name,
+      element: id,
+      manaCost: nonNegative,
+      cast: z.strictObject({
+        /** Preparing the cast takes this long (s) before the effect goes off. */
+        windupSeconds: max(nonNegative, 5),
+        /** After the effect went off nothing may start for this long (s). */
+        recoverySeconds: max(nonNegative, 5),
+        /** Seconds before this incantation may be cast again. */
+        cooldownSeconds: max(nonNegative, 120),
+        /** A cast a roll cut short may not start again for this long (s): shorter than the cooldown. */
+        cancelLockoutSeconds: max(nonNegative, 5),
+        /** Energy (stamina) paid when the cast starts; never refunded. */
+        energyCost: max(nonNegative, 100),
+      }),
+      effect: z.discriminatedUnion('kind', [
+        /** A short frontal cone that shoves: low damage, poise damage and a knockback (P-2). */
+        z.strictObject({
+          kind: z.literal('push'),
+          range: max(positive, 20),
+          arcDegrees: range(0, 360),
+          damage: nonNegative,
+          /** Poise damage to a monster; never scaled by the player's stats (P-9). */
+          poiseDamage: max(nonNegative, 1000),
+          /** How far (m) and how long (s) a light enemy is shoved; bosses never are (P-1). */
+          knockbackMeters: max(nonNegative, 20),
+          knockbackSeconds: max(nonNegative, 5),
+        }),
+      ]),
+    }),
+  ),
 });
 
 // ---------------------------------------------------------------- stats.json
@@ -1881,6 +1946,7 @@ export const CONTROL_ACTIONS = [
   'heavy',
   'dash',
   'block',
+  'cast',
   'interact',
   'potion',
   'bag',
@@ -2495,6 +2561,53 @@ export const animationsFileSchema = z.strictObject({
       maxForwardDeg: max(nonNegative, 30),
       maxBackDeg: max(nonNegative, 30),
       smoothingSeconds: nonNegative,
+    }),
+    /**
+     * The cape (step A.4a, drawing only): chains of bones that hang from one anchor bone and
+     * that no clip moves. Each bone's tail is a simulated point (spring bones) that is pulled
+     * back to the animated pose and down by gravity. It is simulated in `substepHz` steps of its
+     * own (at most `maxSubsteps` per frame), so it moves the same at any frame rate.
+     */
+    cape: z.strictObject({
+      substepHz: range(30, 480),
+      maxSubsteps: intRange(1, 32),
+      /** The bone names per chain, from the top (next to the anchor) to the hem. */
+      chains: atLeast(z.array(atLeast(z.array(nodeName)))),
+      /**
+       * The numbers per place in a chain (first = the top bone, last = the hem); every chain
+       * is as long as this list. `stiffness`: how hard the tail is pulled back to the animated
+       * pose (1/s², the swing is about √stiffness/2π times per second). `damping`: how fast
+       * the tail loses speed (1/s). `gravity`: pull down (m/s²). `maxAngleDeg`: the furthest
+       * the bone may turn from the animated pose.
+       */
+      places: atLeast(
+        z.array(
+          z.strictObject({
+            stiffness: max(nonNegative, 4000),
+            damping: max(nonNegative, 100),
+            gravity: max(nonNegative, 100),
+            maxAngleDeg: range(0, 175),
+          }),
+        ),
+      ),
+      /**
+       * Step A.4b: when the anchor moves further than this in one frame (m), the cape does not
+       * swing after it but starts over, hanging still (a teleport, waking up at a checkpoint).
+       */
+      resetDistance: range(0.5, 100),
+      /**
+       * Step A.4b: the body parts the cape's tails cannot go into. A sphere around `bone`, or
+       * with `to` a capsule from `bone` to the bone `to` (a thigh, a shin). `offset` (m, in the
+       * frame of `bone`) moves the whole shape; `radius` in m.
+       */
+      colliders: z.array(
+        z.strictObject({
+          bone: nodeName,
+          to: optional(nodeName),
+          offset: optional(z.tuple([range(-1, 1), range(-1, 1), range(-1, 1)])),
+          radius: range(0.01, 1),
+        }),
+      ),
     }),
   }),
 });

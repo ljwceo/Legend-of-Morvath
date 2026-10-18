@@ -314,6 +314,7 @@
       "item": "Snel item"
     },
     "noSpell": "Geen spell om te kiezen.",
+    "noGrimoire": "Je hebt geen Grimoire om uit te casten.",
     "noOffhand": "Je hebt nog niets voor je andere hand.",
     "oneWeapon": "Je draagt geen ander wapen.",
     "noItem": "Niets om snel te gebruiken."
@@ -952,6 +953,7 @@
       "heavy": "Zware slag / spreuk",
       "dash": "Dash",
       "block": "Blokkeren / parry",
+      "cast": "Casten (Grimoire)",
       "interact": "Praten en gebruiken",
       "potion": "Snel item gebruiken",
       "bag": "Tas",
@@ -1103,7 +1105,12 @@
     "bossEndingStaff": "Eindscène: mage",
     "animation": "Animatie",
     "animationAuto": "Auto",
-    "animationNote": "Speelt één clip los af, steeds opnieuw, terwijl je gewoon kunt lopen. Auto volgt het spel weer."
+    "animationNote": "Speelt één clip los af, steeds opnieuw, terwijl je gewoon kunt lopen. Auto volgt het spel weer.",
+    "cape": "Cape",
+    "capeStiffness": "Stijfheid (× animations.json)",
+    "capeGravity": "Zwaartekracht (× animations.json)",
+    "capeColliders": "Botsbollen tonen",
+    "capeNote": "Veerbotten van de cape. Uit = de cape hangt zoals gemodelleerd; weer aan = hij begint opnieuw, stil hangend."
   },
   "bag": {
     "title": "Tas",
@@ -1156,7 +1163,8 @@
       "quest": "Questitems",
       "recipe": "Recepten",
       "resource": "Materialen",
-      "currency": "Geld"
+      "currency": "Geld",
+      "grimoire": "Grimoires"
     },
     "padInCombat": "Tijdens een gevecht kun je de tas nog niet met een controller openen.",
     "liveFight": "Het gevecht gaat door terwijl de tas open is. Je kunt nu alleen drankjes gebruiken."

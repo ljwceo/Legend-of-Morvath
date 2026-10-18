@@ -1,4 +1,9 @@
-import type { Mover } from '../systems/Movement';
+import {
+  stepVertical,
+  type Mover,
+  type VerticalBody,
+  type VerticalConfig,
+} from '../systems/Movement';
 import type { CollisionWorld } from '../systems/Collision';
 import type { PointXZ } from './Colliders';
 import type { Ground } from './Ground';
@@ -49,6 +54,14 @@ export class GroundedMover implements Mover {
         p.z = fromZ;
       }
     }
+  }
+
+  /**
+   * The walker's height for one step: on the terrain (always following it down, so walking never
+   * falls), or jumping under gravity until it lands on the terrain again. True while in the air.
+   */
+  settle(p: PointXZ & VerticalBody, cfg: VerticalConfig, dt: number): boolean {
+    return stepVertical(p, this.ground.heightAt(p.x, p.z), Infinity, cfg, dt);
   }
 
   private allowed(from: number, x: number, z: number, distance: number): boolean {

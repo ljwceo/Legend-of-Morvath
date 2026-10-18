@@ -21,7 +21,13 @@ import {
 import { MeshBVH, type ExtendedTriangle } from 'three-mesh-bvh';
 import type { SceneDef, SceneDoorDef } from '../../data/types';
 import { palette } from '../../render/palette';
-import type { Mover, MoveTrace } from '../../systems/Movement';
+import {
+  stepVertical,
+  type Mover,
+  type MoveTrace,
+  type VerticalBody,
+  type VerticalConfig,
+} from '../../systems/Movement';
 import type { PointXZ } from '../Colliders';
 import type { Ground } from '../Ground';
 import type { CameraOccluder } from '../StructureLayer';
@@ -46,8 +52,6 @@ const WALL_PASSES = 3;
 const CAPSULE_HEIGHT = 1.7;
 /** Walking down steps up to this far (m) follows the ground instead of falling. */
 const STEP_DOWN = 0.6;
-/** Gravity (m/s²) when walking off a ledge. */
-const GRAVITY = 22;
 /** Heights for NPCs and monsters are looked up from this far (m) above the player's height. */
 const REFERENCE_ABOVE = 3;
 /** Grid size (m) for tree trunk lookups. */
@@ -86,10 +90,17 @@ export function doorAngleFromCheat(degrees: number | null, door: SceneDoorDef): 
 /** What `settle` found: on the ground, falling, or lost (under water / off the map). */
 export type SettleResult = 'ground' | 'falling' | 'lost';
 
-/** Something with a height that walks in a scene zone (the player's MoverState). */
+/**
+ * Something with a height that walks in a scene zone. With `grounded` false (the player in the
+ * air) `moveCircle` no longer follows the ground down.
+ */
 export interface ScenePoint extends PointXZ {
   y: number;
+  grounded?: boolean;
 }
+
+/** A walker that falls and jumps (the player's MoverState). */
+export type SceneBody = ScenePoint & VerticalBody;
 
 /**
  * A zone built in Blender (zones.json `scene`), ready to play: static meshes with the toon
@@ -129,8 +140,6 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
   private referenceY = 0;
   /** Told every substep position of `moveCircle` while set (the player pushing doors). */
   private trace: MoveTrace | null = null;
-  /** Falling speed of the player (m/s, negative = down). */
-  private fallSpeed = 0;
 
   // Reused objects (no allocations while playing).
   private readonly ray = new Ray(new Vector3(), new Vector3(0, -1, 0));
@@ -420,7 +429,8 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
       this.pushOut(p, y, radius);
       if (hasY) {
         const ground = this.groundBelow(p.x, y, p.z);
-        if (ground > y - STEP_DOWN) point.y = ground;
+        // In the air only a step you move into lifts you; the ground below never pulls you down.
+        if (ground > y - STEP_DOWN && (point.grounded !== false || ground > y)) point.y = ground;
       }
       if (this.trace) this.trace.add(p.x, p.z);
     }
@@ -441,28 +451,17 @@ export class SceneZone implements Ground, Mover, CameraOccluder {
    * The player's height for one step: stays on the ground (and walks down small drops), or falls
    * with gravity. 'lost' = under the water or off the map (put the player back at the spawn).
    */
-  settle(p: ScenePoint, dt: number): SettleResult {
+  settle(p: SceneBody, cfg: VerticalConfig, dt: number): SettleResult {
     const ground = this.groundBelow(p.x, p.y, p.z);
-    let result: SettleResult = 'ground';
-    if (this.fallSpeed === 0 && ground > p.y - STEP_DOWN) {
-      p.y = ground;
-    } else {
-      this.fallSpeed -= GRAVITY * dt;
-      p.y += this.fallSpeed * dt;
-      if (p.y <= ground) {
-        p.y = ground;
-        this.fallSpeed = 0;
-      } else {
-        result = 'falling';
-      }
-    }
+    let result: SettleResult = stepVertical(p, ground, STEP_DOWN, cfg, dt) ? 'falling' : 'ground';
     if (p.y < this.waterY - this.def.respawnBelowWater || !this.onMap(p.x, p.z)) result = 'lost';
     return result;
   }
 
   /** Places a walker on the ground near height `y` (or on top, if nothing is below it). */
-  placeOnGround(p: ScenePoint): void {
-    this.fallSpeed = 0;
+  placeOnGround(p: SceneBody): void {
+    p.vy = 0;
+    p.grounded = true;
     const below = this.groundBelow(p.x, p.y + 2, p.z);
     p.y = Number.isFinite(below) ? below : this.heightAt(p.x, p.z);
   }
