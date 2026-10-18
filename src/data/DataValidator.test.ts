@@ -131,6 +131,47 @@ describe('validateGameData catches broken data', () => {
     );
   });
 
+  it('reports a cape chain without numbers, a bone in two chains and a spring too stiff for its step', () => {
+    const raw = freshData();
+    const cape = raw.animations.player.cape;
+    cape.chains[0].push('Cape_L4');
+    cape.chains[1][0] = cape.chains[2][0];
+    cape.substepHz = 30;
+    cape.places[1].stiffness = 3000;
+    let found = messages(raw);
+    expect(found).toContainEqual(
+      'animations.json → player.cape.chains[0]: has 4 bones but places has 3',
+    );
+    expect(found).toContainEqual(
+      'animations.json → player.cape.chains[2]: "Cape_R1" is used twice',
+    );
+    expect(
+      found.some((m) => m.startsWith('animations.json → player.cape.places[1].stiffness')),
+    ).toBe(true);
+    // And the shape of the numbers is checked by the schema (strict: a misspelled field fails).
+    const typo = freshData();
+    delete typo.animations.player.cape.places[0].gravity;
+    typo.animations.player.cape.places[0].gravty = 9.81;
+    found = messages(typo);
+    expect(found.some((m) => m.startsWith('animations.json → player.cape.places[0]'))).toBe(true);
+  });
+
+  it('reports a cape collider on a cape bone and a capsule to its own bone', () => {
+    const raw = freshData();
+    const colliders = raw.animations.player.cape.colliders;
+    colliders[0].bone = 'Cape_M2';
+    colliders[2].to = colliders[2].bone;
+    const found = messages(raw);
+    expect(found).toContainEqual(
+      'animations.json → player.cape.colliders[0]: "Cape_M2" is a cape bone',
+    );
+    expect(found).toContainEqual(
+      'animations.json → player.cape.colliders[2].to: is the same bone (leave it out)',
+    );
+    // The real data passes.
+    expect(messages(freshData()).filter((m) => m.includes('player.cape'))).toEqual([]);
+  });
+
   it('reports animated NPC models whose speeds do not fit together', () => {
     const raw = freshData();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,6 +191,27 @@ describe('validateGameData catches broken data', () => {
     const raw = freshData();
     raw.player.regen.exhaustedRecoverEnergy = raw.player.base.energy + 1;
     expect(messages(raw).join('\n')).toContain('exhaustedRecoverEnergy');
+  });
+
+  it('rejects a sprint slower than walking and a jump dearer than all energy', () => {
+    const raw = freshData();
+    raw.player.sprint.speed = raw.player.movement.walkSpeed;
+    raw.player.jump.energyCost = raw.player.base.energy + 1;
+    const found = messages(raw).join('\n');
+    expect(found).toContain('sprint.speed');
+    expect(found).toContain('jump.energyCost');
+    const real = messages(freshData()).join('\n');
+    expect(real).not.toContain('sprint.');
+    expect(real).not.toContain('jump.');
+  });
+
+  it('keeps coyote time and the jump buffer short', () => {
+    const raw = freshData();
+    raw.player.jump.coyoteSeconds = 0.5;
+    raw.player.jump.bufferSeconds = -0.1;
+    const found = messages(raw).join('\n');
+    expect(found).toContain('coyoteSeconds');
+    expect(found).toContain('bufferSeconds');
   });
 
   it('rejects unknown (misspelled) fields', () => {

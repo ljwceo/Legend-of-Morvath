@@ -696,6 +696,25 @@ export const playerFileSchema = z.strictObject({
         path: ['iFrames', 'endSeconds'],
       }),
     ),
+  /** Sprinting: holding the dash button after the roll (decision A.5a). */
+  sprint: z.strictObject({
+    /** m/s on foot; faster than `movement.walkSpeed` (DataValidator). */
+    speed: max(positive, 30),
+    energyPerSecond: max(nonNegative, 1000),
+  }),
+  /** Jumping (decision S-8: no roll, attack or cast in the air). */
+  jump: z.strictObject({
+    heightMeters: max(positive, 10),
+    /** m/s²; also the fall speed off ledges. */
+    gravity: range(1, 100),
+    energyCost: nonNegative,
+    /** A jump still works this long after walking off a ledge. */
+    coyoteSeconds: range(0, 0.25),
+    /** A jump pressed this long before landing goes off on landing. */
+    bufferSeconds: range(0, 0.25),
+    /** 0 = the take-off speed carries you, 1 = steer freely in the air. */
+    airControl: range(0, 1),
+  }),
   /**
    * Equip load (like Elden Ring): the weight of the weapons and gear you carry (worn or spare in
    * the bag; resources, potions and quest items weigh nothing) as a share of what you can carry.
@@ -2495,6 +2514,53 @@ export const animationsFileSchema = z.strictObject({
       maxForwardDeg: max(nonNegative, 30),
       maxBackDeg: max(nonNegative, 30),
       smoothingSeconds: nonNegative,
+    }),
+    /**
+     * The cape (step A.4a, drawing only): chains of bones that hang from one anchor bone and
+     * that no clip moves. Each bone's tail is a simulated point (spring bones) that is pulled
+     * back to the animated pose and down by gravity. It is simulated in `substepHz` steps of its
+     * own (at most `maxSubsteps` per frame), so it moves the same at any frame rate.
+     */
+    cape: z.strictObject({
+      substepHz: range(30, 480),
+      maxSubsteps: intRange(1, 32),
+      /** The bone names per chain, from the top (next to the anchor) to the hem. */
+      chains: atLeast(z.array(atLeast(z.array(nodeName)))),
+      /**
+       * The numbers per place in a chain (first = the top bone, last = the hem); every chain
+       * is as long as this list. `stiffness`: how hard the tail is pulled back to the animated
+       * pose (1/s², the swing is about √stiffness/2π times per second). `damping`: how fast
+       * the tail loses speed (1/s). `gravity`: pull down (m/s²). `maxAngleDeg`: the furthest
+       * the bone may turn from the animated pose.
+       */
+      places: atLeast(
+        z.array(
+          z.strictObject({
+            stiffness: max(nonNegative, 4000),
+            damping: max(nonNegative, 100),
+            gravity: max(nonNegative, 100),
+            maxAngleDeg: range(0, 175),
+          }),
+        ),
+      ),
+      /**
+       * Step A.4b: when the anchor moves further than this in one frame (m), the cape does not
+       * swing after it but starts over, hanging still (a teleport, waking up at a checkpoint).
+       */
+      resetDistance: range(0.5, 100),
+      /**
+       * Step A.4b: the body parts the cape's tails cannot go into. A sphere around `bone`, or
+       * with `to` a capsule from `bone` to the bone `to` (a thigh, a shin). `offset` (m, in the
+       * frame of `bone`) moves the whole shape; `radius` in m.
+       */
+      colliders: z.array(
+        z.strictObject({
+          bone: nodeName,
+          to: optional(nodeName),
+          offset: optional(z.tuple([range(-1, 1), range(-1, 1), range(-1, 1)])),
+          radius: range(0.01, 1),
+        }),
+      ),
     }),
   }),
 });

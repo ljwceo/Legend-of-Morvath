@@ -1103,7 +1103,12 @@
     "bossEndingStaff": "Eindscène: mage",
     "animation": "Animatie",
     "animationAuto": "Auto",
-    "animationNote": "Speelt één clip los af, steeds opnieuw, terwijl je gewoon kunt lopen. Auto volgt het spel weer."
+    "animationNote": "Speelt één clip los af, steeds opnieuw, terwijl je gewoon kunt lopen. Auto volgt het spel weer.",
+    "cape": "Cape",
+    "capeStiffness": "Stijfheid (× animations.json)",
+    "capeGravity": "Zwaartekracht (× animations.json)",
+    "capeColliders": "Botsbollen tonen",
+    "capeNote": "Veerbotten van de cape. Uit = de cape hangt zoals gemodelleerd; weer aan = hij begint opnieuw, stil hangend."
   },
   "bag": {
     "title": "Tas",

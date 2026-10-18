@@ -69,6 +69,7 @@ import {
   type PlayerAnimSources,
   PlayerAnimator,
 } from '../render/PlayerAnimator';
+import { CapeColliderView } from '../render/CapeColliderView';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
 import { Cheats, stepFlying } from '../systems/Cheats';
 import { SwingingDoors } from '../systems/Doors';
@@ -413,6 +414,8 @@ export class WorldState implements GameState, InstanceHost {
   private collision: CollisionWorld | null = null;
   /** Walls and ground for walking: GroundedMover (open world) or the SceneZone. */
   private mover: Mover | null = null;
+  /** The open world's mover (also in `mover`), for the player's height; null in a scene zone. */
+  private groundedMover: GroundedMover | null = null;
   /** A Blender-built zone being played (zones.json `scene`), or null in the open world. */
   private sceneZone: SceneZone | null = null;
   private sceneZoneDef: Zone | null = null;
@@ -422,6 +425,8 @@ export class WorldState implements GameState, InstanceHost {
   private scenePlayer: ScenePlayerModel | null = null;
   /** Plays the clips of the Blender character (null with the placeholder model). */
   private playerAnimator: PlayerAnimator | null = null;
+  /** The cape's colliders as wire spheres (cheat menu), null = not shown. */
+  private capeColliderView: CapeColliderView | null = null;
   private readonly animInput = createPlayerAnimInput();
   private animSources: PlayerAnimSources | null = null;
   private blob: Mesh | null = null;
@@ -630,7 +635,8 @@ export class WorldState implements GameState, InstanceHost {
   // Reused every step / frame (no allocations in the game loop).
   private readonly moveInput = { x: 0, y: 0 };
   private readonly moveWorld = { x: 0, z: 0 };
-  private readonly command: MoveCommand = { x: 0, z: 0, dash: false };
+  /** `jump` and `sprint` stay false until their buttons exist (step A.5c). */
+  private readonly command: MoveCommand = { x: 0, z: 0, dash: false, jump: false, sprint: false };
   private readonly swordInput: SwordInput = { fast: false, heavy: false, critRoll: 1 };
   private readonly guardResult = makeGuardResult();
   private readonly swordResult: SwordResult = {
@@ -856,6 +862,29 @@ export class WorldState implements GameState, InstanceHost {
         clip: () => this.playerAnimator?.preview ?? null,
         setClip: (role) => {
           if (this.playerAnimator) this.playerAnimator.preview = role;
+        },
+        cape: () => {
+          const cape = this.playerAnimator?.cape;
+          if (!cape) return null;
+          return {
+            enabled: cape.enabled,
+            stiffness: cape.stiffnessScale,
+            gravity: cape.gravityScale,
+            colliders: this.capeColliderView !== null,
+          };
+        },
+        setCape: (change) => {
+          const cape = this.playerAnimator?.cape;
+          if (!cape) return;
+          cape.enabled = change.enabled ?? cape.enabled;
+          cape.stiffnessScale = change.stiffness ?? cape.stiffnessScale;
+          cape.gravityScale = change.gravity ?? cape.gravityScale;
+          if (change.colliders === true && !this.capeColliderView && this.worldRoot) {
+            this.capeColliderView = new CapeColliderView(cape, this.worldRoot);
+          } else if (change.colliders === false) {
+            this.capeColliderView?.dispose();
+            this.capeColliderView = null;
+          }
         },
       },
     );
@@ -1165,11 +1194,13 @@ export class WorldState implements GameState, InstanceHost {
       if (arena) keepInArena(s, arena, movement.radius);
       this.checkGate(fromX, fromZ);
       if (sceneZone) {
-        // Stairs, ledges and falling; under the water or off the map: back to the spawn.
-        const settled = sceneZone.settle(s, dt);
+        // Stairs, ledges, jumping and falling; under the water or off the map: back to the spawn.
+        const settled = sceneZone.settle(s, movement, dt);
         if (settled === 'lost') this.respawnInScene();
         stepAirTime(s, settled === 'falling', dt);
         sceneZone.setReferenceHeight(s.y);
+      } else if (this.groundedMover) {
+        stepAirTime(s, this.groundedMover.settle(s, movement, dt), dt);
       } else if (streamer) {
         s.y = streamer.heightAt(s.x, s.z);
       }
@@ -1298,16 +1329,21 @@ export class WorldState implements GameState, InstanceHost {
     const input = this.swordInput;
     const wants = input.fast || input.heavy || c.bufferedFast > 0 || c.bufferedHeavy > 0;
     const starting = wants && c.attackCooldown <= 0 && c.heavyWindup <= 0;
-    if (starting && s.dashTime <= 0) this.aim(sword.aimRange, sword.aimHalfArc);
-    // A dash in progress finishes first; attacks wait for it.
-    const result =
-      s.dashTime > 0
-        ? stepSword(c, s, NO_SWORD_INPUT, sword, dt, this.swordResult)
-        : stepSword(c, s, input, sword, dt, this.swordResult);
+    // A dash in progress finishes first and nobody attacks in the air (A.5a); attacks wait.
+    const held = s.dashTime > 0 || s.airborne;
+    if (starting && !held) this.aim(sword.aimRange, sword.aimHalfArc);
+    const result = held
+      ? stepSword(c, s, NO_SWORD_INPUT, sword, dt, this.swordResult)
+      : stepSword(c, s, input, sword, dt, this.swordResult);
     if (result.landed !== 'none' && enemies) this.landHit(result);
 
     const windingUp = c.heavyWindup > 0;
     if (windingUp) this.command.dash = false;
+    // No jumping out of a swing or a wind-up, and no sprinting while it lasts.
+    if (windingUp || c.swingTime > 0 || c.guard.up) {
+      this.command.jump = false;
+      this.command.sprint = false;
+    }
     movement.walkSpeed =
       this.baseWalkSpeed *
       this.cheats.speed *
@@ -1330,12 +1366,13 @@ export class WorldState implements GameState, InstanceHost {
     if (!player || !movement || !mover || !staff || !data) return;
     const s = player.state;
     const c = player.combat;
-    // A dash in progress finishes first; shots wait for it.
-    const input = s.dashTime > 0 ? NO_STAFF_INPUT : this.staffInput;
+    // A dash in progress finishes first and nobody casts in the air (A.5a); shots wait.
+    const held = s.dashTime > 0 || s.airborne;
+    const input = held ? NO_STAFF_INPUT : this.staffInput;
     const state = this.staffState;
     const wants = input.shard || input.spell || state.bufferedShard > 0 || state.bufferedSpell > 0;
     const aiming = state.casting || (wants && state.cooldown <= 0);
-    if (aiming && s.dashTime <= 0) this.aim(staff.aimRange, staff.aimHalfArc);
+    if (aiming && !held) this.aim(staff.aimRange, staff.aimHalfArc);
     const result = stepStaff(
       state,
       c,
@@ -1355,6 +1392,11 @@ export class WorldState implements GameState, InstanceHost {
     // Charging counts as fighting, so you can see your mana while it drains.
     if (casting) c.sinceCombat = 0;
     if (casting) this.command.dash = false;
+    // No jumping or sprinting while a shot gathers or the guard is up (with a staff since G.2).
+    if (casting || c.guard.up) {
+      this.command.jump = false;
+      this.command.sprint = false;
+    }
     movement.walkSpeed =
       this.baseWalkSpeed *
       this.cheats.speed *
@@ -2138,6 +2180,10 @@ export class WorldState implements GameState, InstanceHost {
       player.model.root.rotation.y,
       seconds,
     );
+    // The cape last: it hangs from a bone the clips have just moved. Simulated in the world
+    // root's own coordinates, so a shift of the floating origin does not whip it.
+    animator.cape?.update(seconds, this.worldRoot);
+    this.capeColliderView?.update();
   }
 
   /** The screen during dying (drawn every frame from the simulation's death timer). */
@@ -4641,6 +4687,8 @@ export class WorldState implements GameState, InstanceHost {
     player.place(player.state.x, player.state.y, player.state.z, player.state.heading);
     origin.reset(player.state.x, player.state.z);
     rig.orbit.snap(player.state.x, player.state.y, player.state.z, heading ?? rig.orbit.yaw);
+    // Standing at the new place, the cape hanging still (it never swings after a teleport).
+    this.playerAnimator?.reset();
     this.dialog?.close();
     this.damageNumbers?.clear();
     this.poiseBars?.clear();
@@ -5144,10 +5192,11 @@ export class WorldState implements GameState, InstanceHost {
         new Worker(new URL('../workers/terrain.worker.ts', import.meta.url), { type: 'module' }),
       listener: this.structures,
     });
-    this.mover = new GroundedMover(this.collision, this.streamer, {
+    this.groundedMover = new GroundedMover(this.collision, this.streamer, {
       maxRise: Math.tan(data.player.movement.slopeLimitDegrees * DEG),
       minHeight: world.terrain.seaLevel - world.terrain.deepWater,
     });
+    this.mover = this.groundedMover;
 
     const water = new Mesh(
       new PlaneGeometry(1, 1),
@@ -5193,6 +5242,7 @@ export class WorldState implements GameState, InstanceHost {
     lighting.uniforms.windowCol.value.setHex(resolveColorToken(def.windowColor));
     this.sceneZone = zone;
     this.mover = zone;
+    this.groundedMover = null;
     // The doors this build has (an instance may lack some), in the order `setDoorAngle` uses.
     this.doors =
       zone.doors.length > 0
@@ -5234,6 +5284,7 @@ export class WorldState implements GameState, InstanceHost {
     s.dashTime = 0;
     s.invulnerable = false;
     rig.orbit.snap(s.x, s.y, s.z, s.heading);
+    this.playerAnimator?.reset();
     this.damageNumbers?.clear();
     this.poiseBars?.clear();
     if (npcWorld) this.npcs?.snapCompanions(s.x, s.z, s.heading, npcWorld);
@@ -5367,6 +5418,8 @@ export class WorldState implements GameState, InstanceHost {
     this.disposeBossProps();
     this.player?.dispose();
     this.player = null;
+    this.capeColliderView?.dispose();
+    this.capeColliderView = null;
     this.playerAnimator?.dispose();
     this.playerAnimator = null;
     this.animSources = null;
@@ -5450,6 +5503,7 @@ export class WorldState implements GameState, InstanceHost {
     this.rig = null;
     this.collision = null;
     this.mover = null;
+    this.groundedMover = null;
     this.origin = null;
     this.zones = null;
     this.preset = null;
@@ -5540,6 +5594,7 @@ export class WorldState implements GameState, InstanceHost {
     );
     debug.lines.set('daynight', this.dayNightLine());
     debug.lines.set('anim', this.playerAnimator?.debugLine() ?? 'placeholder');
+    debug.lines.set('cape', this.playerAnimator?.cape?.debugLine() ?? '-');
     debug.lines.set(
       'cheats',
       `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'} · F6 = cheat menu`,

@@ -9,7 +9,7 @@ import {
   type DataFileName,
   TOUCH_BUTTONS,
 } from './schemas';
-import type { GameData, PlayerConfig, Shape, Zone } from './types';
+import type { GameData, PlayerAnimationsDef, PlayerConfig, Shape, Zone } from './types';
 
 export interface ValidationIssue {
   /** Data file name without extension, e.g. "npcs". */
@@ -162,6 +162,51 @@ class CrossChecker {
         this.issue(f, `player.strike.contactSeconds.${role}`, 'is earlier than leadSeconds');
       }
     }
+    this.checkCape(p.cape);
+  }
+
+  /**
+   * The cape (step A.4a): every chain needs its numbers per place, a bone may be in one chain
+   * only, and the spring must be gentle enough for the substep (stiffness × dt² above 1 makes
+   * the simulation shake itself apart). A collider (step A.4b) is never on a cape bone. That the
+   * bones exist in player.glb is checked by a test.
+   */
+  private checkCape(cape: PlayerAnimationsDef['cape']): void {
+    const f = 'animations';
+    const seen = new Set<string>();
+    cape.chains.forEach((chain, c) => {
+      if (chain.length !== cape.places.length) {
+        this.issue(
+          f,
+          `player.cape.chains[${c}]`,
+          `has ${chain.length} bones but places has ${cape.places.length}`,
+        );
+      }
+      for (const bone of chain) {
+        if (seen.has(bone)) this.issue(f, `player.cape.chains[${c}]`, `"${bone}" is used twice`);
+        seen.add(bone);
+      }
+    });
+    const dt = 1 / cape.substepHz;
+    cape.places.forEach((place, i) => {
+      if (place.stiffness * dt * dt > 1) {
+        this.issue(f, `player.cape.places[${i}].stiffness`, 'is too high for substepHz');
+      }
+      if (place.damping * dt > 1) {
+        this.issue(f, `player.cape.places[${i}].damping`, 'is too high for substepHz');
+      }
+    });
+    // A collider on a cape bone would push the cape away from itself.
+    cape.colliders.forEach((collider, i) => {
+      for (const bone of [collider.bone, collider.to]) {
+        if (bone !== undefined && seen.has(bone)) {
+          this.issue(f, `player.cape.colliders[${i}]`, `"${bone}" is a cape bone`);
+        }
+      }
+      if (collider.to === collider.bone) {
+        this.issue(f, `player.cape.colliders[${i}].to`, 'is the same bone (leave it out)');
+      }
+    });
   }
 
   /** Day and night: a look per phase, the golden hour look, known colors and text keys. */
@@ -728,6 +773,12 @@ class CrossChecker {
     }
     if (player.dash.energyCost > player.base.energy) {
       this.issue(f, 'dash.energyCost', 'dash costs more energy than the maximum');
+    }
+    if (player.jump.energyCost > player.base.energy) {
+      this.issue(f, 'jump.energyCost', 'a jump costs more energy than the maximum');
+    }
+    if (player.sprint.speed <= player.movement.walkSpeed) {
+      this.issue(f, 'sprint.speed', 'sprinting must be faster than walking');
     }
     if (player.regen.exhaustedRecoverEnergy > player.base.energy) {
       this.issue(
