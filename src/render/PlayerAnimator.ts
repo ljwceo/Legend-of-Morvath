@@ -54,7 +54,7 @@ export interface PlayerAnimInput {
   swingSeconds: number;
   /** The combo place of that hit (1, 2, 3, ...: Slash_1/2/3 in turn), 0 for a heavy hit. */
   landedCombo: number;
-  /** The staff is gathering a shot; seconds since the last shot left it. */
+  /** A shot or Push is being prepared; seconds since the last one left. */
   gathering: boolean;
   sinceFired: number;
   sinceHurt: number;
@@ -95,7 +95,7 @@ export function createPlayerAnimInput(): PlayerAnimInput {
 export interface PlayerAnimSources {
   mover: MoverState;
   combat: CombatState;
-  /** The staff's state, or null with a sword. */
+  /** The cast state: a staff gathering a shot, or the Grimoire preparing Push (G.3). */
   staff: CastState | null;
   sword: SwordConfig;
   /** How long a dash and getting up after one last now (movement config, with the load). */

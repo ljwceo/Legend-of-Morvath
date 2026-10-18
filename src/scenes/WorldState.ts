@@ -2237,7 +2237,8 @@ export class WorldState implements GameState, InstanceHost {
       };
       this.animSources = src;
     }
-    src.staff = this.weaponKind === 'staff' ? this.castState : null;
+    // The cast clips play for a staff shot and for Push alike (the Grimoire itself is G.8).
+    src.staff = this.castState;
     src.sword = sword;
     src.dashSeconds = movement.dashDurationSeconds;
     src.recoverSeconds = movement.dashRecoverySeconds;
@@ -5637,7 +5638,7 @@ export class WorldState implements GameState, InstanceHost {
         `(${this.ctx.session?.progress.xp ?? 0} xp) · gold ${this.ctx.session?.character?.gold ?? 0} · ` +
         `${this.deathTimer !== NOT_DYING ? 'dying · ' : ''}` +
         `${this.weaponKind === 'staff' ? this.staffDebug() : this.swordDebug(c)} · ` +
-        `${c.inCombat ? 'in fight' : 'calm'}`,
+        `${this.grimoireDebug()} · ${c.inCombat ? 'in fight' : 'calm'}`,
     );
     const m = this.movement;
     debug.lines.set(
@@ -5703,6 +5704,20 @@ export class WorldState implements GameState, InstanceHost {
         ? ` · aim ×${this.cheats.aimAssist} lock ×${this.cheats.lockRange} curve ×${this.cheats.homing}`
         : '';
     return `${busy} · ${spell}${cooldown} · ×${this.spellPower.toFixed(2)} · shots ${shots} · ${lock}${aim}`;
+  }
+
+  /** Debug: the Grimoire (G.3): preparing Push, its lockout or cooldown, or ready. */
+  private grimoireDebug(): string {
+    const state = this.castState;
+    if (!this.castSources.incantation) return 'grimoire none';
+    if (state.pending === 'incantation') {
+      return `grimoire casting ${state.castIncantation?.id ?? '?'} ${Math.round(state.progress * 100)}%`;
+    }
+    if (state.castLockout > 0) return `grimoire lockout ${state.castLockout.toFixed(2)} s`;
+    if (state.incantationCooldown > 0) {
+      return `grimoire cd ${state.incantationCooldown.toFixed(2)} s`;
+    }
+    return 'grimoire ready';
   }
 
   /** Debug: phase, time left, clock speed, lighting setting and night monsters. */
