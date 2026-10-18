@@ -90,6 +90,18 @@ describe('player clips and weapons (animations.json)', () => {
     expect(anchors.size).toBe(1);
   });
 
+  it('every cape collider bone exists in player.glb', () => {
+    for (const { bone, to } of anim.cape.colliders) {
+      for (const name of [bone, to]) {
+        if (name === undefined) continue;
+        expect(
+          glb.nodes.some((node) => node.name === name),
+          name,
+        ).toBe(true);
+      }
+    }
+  });
+
   it('weaponOf picks the weapon by the start of the name', () => {
     expect(weaponOf('Sword_Blade', anim.weapons)).toBe('sword');
     expect(weaponOf('Staff_Crystal_1', anim.weapons)).toBe('staff');

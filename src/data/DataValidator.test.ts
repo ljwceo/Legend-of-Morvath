@@ -156,6 +156,22 @@ describe('validateGameData catches broken data', () => {
     expect(found.some((m) => m.startsWith('animations.json → player.cape.places[0]'))).toBe(true);
   });
 
+  it('reports a cape collider on a cape bone and a capsule to its own bone', () => {
+    const raw = freshData();
+    const colliders = raw.animations.player.cape.colliders;
+    colliders[0].bone = 'Cape_M2';
+    colliders[2].to = colliders[2].bone;
+    const found = messages(raw);
+    expect(found).toContainEqual(
+      'animations.json → player.cape.colliders[0]: "Cape_M2" is a cape bone',
+    );
+    expect(found).toContainEqual(
+      'animations.json → player.cape.colliders[2].to: is the same bone (leave it out)',
+    );
+    // The real data passes.
+    expect(messages(freshData()).filter((m) => m.includes('player.cape'))).toEqual([]);
+  });
+
   it('reports animated NPC models whose speeds do not fit together', () => {
     const raw = freshData();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

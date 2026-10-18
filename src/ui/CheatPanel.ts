@@ -64,11 +64,15 @@ export interface CheatPanelHandlers {
   setCape(change: Partial<CapeCheats>): void;
 }
 
-/** What the cheat menu can set on the cape: on/off, and multipliers on stiffness and gravity. */
+/**
+ * What the cheat menu can set on the cape: on/off, multipliers on stiffness and gravity, and
+ * whether its colliders are drawn as wire spheres (step A.4b).
+ */
 export interface CapeCheats {
   enabled: boolean;
   stiffness: number;
   gravity: number;
+  colliders: boolean;
 }
 
 const CAPE_STIFFNESS_SCALES = [0.5, 1, 2] as const;
@@ -631,6 +635,13 @@ export class CheatPanel {
         ...CAPE_GRAVITY_SCALES.map((scale) =>
           chip(`${scale}×`, cape.gravity === scale, () => set({ gravity: scale })),
         ),
+      ),
+      el('p', { className: 'ui-label', text: t('cheats.capeColliders') }),
+      el(
+        'div',
+        { className: 'ui-chips' },
+        chip(t('cheats.on'), cape.colliders, () => set({ colliders: true })),
+        chip(t('cheats.off'), !cape.colliders, () => set({ colliders: false })),
       ),
       el('p', { className: 'ui-note', text: t('cheats.capeNote') }),
     );

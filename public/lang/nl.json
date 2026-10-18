@@ -1107,6 +1107,7 @@
     "cape": "Cape",
     "capeStiffness": "Stijfheid (× animations.json)",
     "capeGravity": "Zwaartekracht (× animations.json)",
+    "capeColliders": "Botsbollen tonen",
     "capeNote": "Veerbotten van de cape. Uit = de cape hangt zoals gemodelleerd; weer aan = hij begint opnieuw, stil hangend."
   },
   "bag": {

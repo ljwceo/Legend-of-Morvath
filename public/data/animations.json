@@ -85,6 +85,15 @@
         { "stiffness": 60, "damping": 13, "gravity": 60, "maxAngleDeg": 22 },
         { "stiffness": 40, "damping": 11, "gravity": 60, "maxAngleDeg": 30 },
         { "stiffness": 25, "damping": 9, "gravity": 60, "maxAngleDeg": 38 }
+      ],
+      "resetDistance": 3,
+      "colliders": [
+        { "bone": "Hips", "offset": [0, 0, -0.02], "radius": 0.15 },
+        { "bone": "Spine1", "offset": [0, 0, -0.02], "radius": 0.15 },
+        { "bone": "LeftUpLeg", "to": "LeftLeg", "radius": 0.09 },
+        { "bone": "RightUpLeg", "to": "RightLeg", "radius": 0.09 },
+        { "bone": "LeftLeg", "to": "LeftFoot", "radius": 0.07 },
+        { "bone": "RightLeg", "to": "RightFoot", "radius": 0.07 }
       ]
     }
   }
