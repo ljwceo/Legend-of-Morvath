@@ -1,8 +1,9 @@
 # PLAN – verslagen van afgeronde stappen
 
-Hier staan de uitgebreide notities van afgeronde stappen, woord voor woord overgenomen uit `PLAN.md`
-(op 2026-10-16, zodat `PLAN.md` kort en in één keer te lezen blijft). In `PLAN.md` staat per stap alleen
-de opdracht en het "Klaar als:"-criterium, met een verwijzing naar het stapnummer hieronder.
+Hier staan de uitgebreide notities van 21 afgeronde stappen, woord voor woord overgenomen uit `PLAN.md`
+(op 2026-10-16, om `PLAN.md` korter te maken). In `PLAN.md` staat bij deze stappen alleen de opdracht en
+het "Klaar als:"-criterium, met een verwijzing naar het stapnummer hieronder. Niet alle afgeronde stappen
+zijn verplaatst: van de andere staat het verslag nog in `PLAN.md` zelf.
 
 Een nieuw verslag? Eén korte regel in `PLAN.md`; het lange verhaal hier of in `docs/PROGRESS.md`.
 

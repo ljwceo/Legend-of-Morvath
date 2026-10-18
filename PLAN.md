@@ -4,8 +4,9 @@
 > één korte sessie af kunnen. Lees **alleen de stap waar je aan werkt**, niet het hele bestand.
 > Geschiedenis, besluiten en meetresultaten staan in `docs/PROGRESS.md`; techniek in
 > `docs/ARCHITECTURE.md`. De projectregels staan in `CLAUDE.md`.
-> Uitgebreide verslagen van afgeronde stappen (wat er gebouwd en gemeten is) staan in
-> `docs/PLAN-RESULTATEN.md`; hier staat per stap alleen de opdracht en "Klaar als:".
+> Van een deel van de afgeronde stappen (C.4a, C.4, 3.10.x, D.1–D.4, A.0–A.3d, 4.1–4.3) staat het
+> uitgebreide verslag in `docs/PLAN-RESULTATEN.md`; hier staat bij die stappen alleen de opdracht,
+> "Klaar als:" en een verwijzing. Andere afgeronde stappen hebben hun verslag nog hier.
 
 **Status:** `[ ]` open · `[~]` bezig · `[x]` klaar
 **Eén stap = één sessie = één branch = één pull request.**
