@@ -1757,7 +1757,18 @@ export class WorldState implements GameState, InstanceHost {
       const defeated = enemies.hit(e, damage, result.poiseDamage);
       hitAny = true;
       this.damageNumbers?.spawn(e.x, top, e.z, damage, result.crit ? 'crit' : 'heavy');
-      if (defeated) this.defeated(e, top, 'sword');
+      if (defeated) {
+        this.defeated(e, top, 'sword');
+        continue;
+      }
+      // Shoved straight away from you (standing inside it: along your heading).
+      let dx = e.x - s.x;
+      let dz = e.z - s.z;
+      if (dx * dx + dz * dz < 1e-12) {
+        dx = Math.sin(s.heading);
+        dz = Math.cos(s.heading);
+      }
+      enemies.push(e, dx, dz, effect.knockbackMeters, effect.knockbackSeconds);
     }
     hits.length = 0;
     if (hitAny) player.combat.sinceCombat = 0;
