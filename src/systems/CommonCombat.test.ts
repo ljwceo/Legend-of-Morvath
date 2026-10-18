@@ -23,6 +23,7 @@ import { guardHit, makeGuardResult, stepGuard, weaponFreeForGuard } from './Guar
 import { MoverState } from './Movement';
 import { applyPath } from './Paths';
 import {
+  type ShotConfig,
   type StaffInput,
   type StaffResult,
   StaffState,
@@ -306,65 +307,269 @@ describe('G.2: guard and parry for every build', () => {
   });
 });
 
+/** One player in a fight: combat numbers, staff, energy (the mover) and mana regen. */
+interface Fighter {
+  c: CombatState;
+  st: StaffState;
+  pool: MoverState;
+  manaPerSecond: number;
+}
+
+function fighter(path: PlayerPath, mana: number, regen = 0): Fighter {
+  const { c, manaPerSecond } = build(path, { regen });
+  c.mana = mana;
+  return { c, st: new StaffState(), pool: energyPool(), manaPerSecond };
+}
+
+/** What the player holds this step: block, the left button (fast hit / Shard), the right one. */
+interface Held {
+  block: boolean;
+  light: boolean;
+  heavy: boolean;
+}
+
+/** What one step did: the guard after it, the staff gathering after it, and what left. */
+interface StepTrace {
+  up: boolean;
+  casting: boolean;
+  fired: 'none' | 'shard' | 'spell' | 'fast' | 'heavy';
+  staffCooldown: number;
+}
+
+/**
+ * One fixed step of the player's fight in the order `WorldState.stepAttackAndMove` runs it:
+ * first the guard (`stepPlayerGuard`: free only when `weaponFreeForGuard` says so, and while it
+ * is up it drops this step's attack input and every remembered press, sword and staff), then
+ * the weapon in hand (`stepStaffAndMove` / `stepSwordAndMove`), then mana regen (`stepRegen`).
+ * This mirrors WorldState without running it; the headless `scripts/g2-check.mjs` covers the
+ * real wiring.
+ */
+function playerStep(
+  f: Fighter,
+  weapon: 'sword' | 'staff',
+  held: Held,
+  spell: ShotConfig | null,
+  dt: number,
+): StepTrace {
+  const { c, st, pool } = f;
+  let light = held.light;
+  let heavy = held.heavy;
+  const up = stepGuard(c.guard, pool, guardCfg, held.block, weaponFreeForGuard(c, st), dt);
+  if (up) {
+    light = false;
+    heavy = false;
+    c.bufferedFast = 0;
+    c.bufferedHeavy = 0;
+    st.bufferedShard = 0;
+    st.bufferedSpell = 0;
+  }
+  let fired: StepTrace['fired'];
+  if (weapon === 'staff') {
+    const input = { shard: light, spell: heavy, critRoll: 1 };
+    fired = stepStaff(st, c, input, staff, spell, 1, dt, staffOut()).fired;
+  } else {
+    fired = stepSword(c, pool, { fast: light, heavy, critRoll: 1 }, sword, dt, swordOut()).landed;
+  }
+  regenMana(c, f.manaPerSecond, dt);
+  return { up: c.guard.up, casting: st.casting, fired, staffCooldown: st.cooldown };
+}
+
+const fireball = staff.spells.get('fireball') as ShotConfig;
+const STEP = 1 / 60;
+
+/** Runs `steps` fixed steps with a script of held buttons; returns the trace of every step. */
+function script(
+  weapon: 'sword' | 'staff',
+  steps: number,
+  held: (step: number) => Partial<Held>,
+  f: Fighter = fighter('light', 30),
+): StepTrace[] {
+  const trace: StepTrace[] = [];
+  for (let i = 0; i < steps; i++) {
+    const h = held(i);
+    const input = { block: h.block ?? false, light: h.light ?? false, heavy: h.heavy ?? false };
+    trace.push(playerStep(f, weapon, input, fireball, STEP));
+  }
+  return trace;
+}
+
+const firedAt = (trace: StepTrace[], kind: StepTrace['fired']): number[] =>
+  trace.flatMap((t, i) => (t.fired === kind ? [i] : []));
+const firstUp = (trace: StepTrace[]): number => trace.findIndex((t) => t.up);
+
+/** Never a guard that is up while a shot leaves or the staff gathers one. */
+function expectNoOverlap(trace: StepTrace[]): void {
+  const both = trace.flatMap((t, i) => (t.up && (t.fired !== 'none' || t.casting) ? [i] : []));
+  expect(both).toEqual([]);
+}
+
+describe('G.2: staff shots and the guard never share a step', () => {
+  /** The step the Shard leaves when it is pressed at step `pressed` (its wind-up, in steps). */
+  const shardLeaves = (pressed: number): number =>
+    pressed + Math.round(staff.shard.windupSeconds / STEP) + 1;
+
+  it('block and Shard held together: the guard goes up and no shot ever starts', () => {
+    const f = fighter('light', 30);
+    const trace = script('staff', 120, () => ({ block: true, light: true }), f);
+    expect(firstUp(trace)).toBe(0);
+    expect(trace.every((t) => t.up)).toBe(true);
+    expect(trace.every((t) => !t.casting && t.fired === 'none')).toBe(true);
+    // Only the raise cost energy: the guard took the step, not the staff.
+    expect(f.pool.energy).toBe(player.base.energy - guardCfg.raiseEnergyCost);
+  });
+
+  it('a shot on its way out keeps the guard down; it goes up the step after the shot left', () => {
+    const trace = script('staff', 40, (i) => ({ light: i === 0, block: i >= 1 }));
+    const leaves = shardLeaves(0);
+    expect(firedAt(trace, 'shard')).toEqual([leaves]);
+    for (let i = 0; i < leaves; i++) {
+      expect(trace[i]?.casting).toBe(true);
+      expect(trace[i]?.up).toBe(false);
+    }
+    // The step the shot leaves the guard is still down (it was judged before the staff).
+    expect(trace[leaves]).toMatchObject({ fired: 'shard', up: false, casting: false });
+    expect(firstUp(trace)).toBe(leaves + 1);
+    expectNoOverlap(trace);
+  });
+
+  it('a charging spell keeps the guard down until it is let go and leaves', () => {
+    // Hold the spell from step 0 to 59 (charging), hold block from step 1 on.
+    const f = fighter('light', 30);
+    const trace = script('staff', 90, (i) => ({ heavy: i < 60, block: i >= 1 }), f);
+    expect(firedAt(trace, 'spell')).toEqual([60]);
+    expect(trace.slice(0, 60).every((t) => t.casting && !t.up)).toBe(true);
+    expect(trace[60]?.up).toBe(false);
+    expect(firstUp(trace)).toBe(61);
+    // It really charged: it cost more than an uncharged Fireball.
+    expect(30 - f.c.mana).toBeGreaterThan(fireball.manaCost);
+    expectNoOverlap(trace);
+  });
+
+  it('a press remembered during the cooldown fires later, but a guard in between wipes it', () => {
+    const first = shardLeaves(0);
+    const pressed = first + 1;
+    const press = (i: number) => i === 0 || i === pressed;
+    // Without the guard the remembered press fires once the staff is ready again.
+    const free = script('staff', 120, (i) => ({ light: press(i) }));
+    const shots = firedAt(free, 'shard');
+    expect(shots).toHaveLength(2);
+    expect(shots[0]).toBe(first);
+    expect(shots[1]).toBeGreaterThan(pressed + 1);
+    // A guard raised in the cooldown (steps pressed+1 … pressed+6) forgets it: one shot only.
+    const guarded = script('staff', 120, (i) => ({
+      light: press(i),
+      block: i > pressed && i <= pressed + 6,
+    }));
+    expect(firstUp(guarded)).toBe(pressed + 1);
+    expect(firedAt(guarded, 'shard')).toEqual([first]);
+    expectNoOverlap(guarded);
+  });
+
+  it('a press on the last guarded step is dropped, one on the first free step starts a shot', () => {
+    const trace = script('staff', 80, (i) => ({ block: i < 30, light: i === 29 || i === 30 }));
+    expect(trace[29]).toMatchObject({ up: true, casting: false, fired: 'none' });
+    expect(trace[30]).toMatchObject({ up: false, casting: true });
+    expect(firedAt(trace, 'shard')).toEqual([shardLeaves(30)]);
+    expectNoOverlap(trace);
+  });
+});
+
+describe('G.2: guard after an attack, as built now (F2: a balance question for Bo/Lucas)', () => {
+  it('with a staff the guard may go up in the step after a spell left, inside its recovery', () => {
+    const trace = script('staff', 60, (i) => ({ heavy: i === 0, block: i >= 1 }));
+    const spells = firedAt(trace, 'spell');
+    expect(spells).toHaveLength(1);
+    const rise = (spells[0] ?? -1) + 1;
+    expect(firstUp(trace)).toBe(rise);
+    // Still recovering from the cast (castRecoverySeconds), and yet the guard is up.
+    expect(trace[rise]?.staffCooldown).toBeCloseTo(staff.recoverySeconds - STEP, 9);
+    expect(trace[rise]?.staffCooldown).toBeGreaterThan(0);
+  });
+
+  it('with a sword the guard waits until the swing is drawn (fastSwingSeconds)', () => {
+    // The guard is judged before the sword counts its swing down, so it rises one step after
+    // the step in which `swingTime` reaches 0: 15 steps (0.25 s) after the hit, against 1 step
+    // after a staff shot.
+    const guardDelay = Math.ceil(sword.fastSwingSeconds / STEP - 1e-9) + 1;
+    const fast = script('sword', 60, (i) => ({ light: i === 0, block: i >= 1 }));
+    expect(firedAt(fast, 'fast')).toEqual([0]);
+    expect(firstUp(fast)).toBe(guardDelay);
+    const heavy = script('sword', 120, (i) => ({ heavy: i === 0, block: i >= 1 }));
+    const landed = firedAt(heavy, 'heavy');
+    expect(landed).toHaveLength(1);
+    const lands = landed[0] ?? -1;
+    expect(heavy.slice(0, lands + guardDelay).some((t) => t.up)).toBe(false);
+    expect(firstUp(heavy)).toBe(lands + guardDelay);
+  });
+});
+
 describe('G.2: a fight plays the same at 60 and 120 fps', () => {
+  const SECONDS = 5;
+  const START_MANA = 20;
+  const REGEN_POINTS = 5;
+
   /**
-   * A short scripted fight: block from 0 to 1 s (hits of 10 at 0.1 s and 0.6 s), then attack
-   * until 3 s (the sword swings, the staff shoots shards), then rest; mana comes back all the
-   * while from empty. Returns everything that happened, step by step.
+   * Five seconds of fighting through the fixed step at a display rate: the attack button is held
+   * from 0 to 3 s and block overlaps it from 0.5 to 1.5 s; two hits of 10 come in while the
+   * guard is up (5 and 20 steps after it rose: a parry and a block); the right button is tapped
+   * at 2.5 s (a Fireball with the staff, a heavy hit with the sword). Mana starts at 20 and
+   * comes back all the while.
    */
   function fight(path: PlayerPath, weapon: 'sword' | 'staff', fps: number) {
-    const { c, manaPerSecond } = build(path, { regen: 5 });
-    c.mana = 0;
-    const st = new StaffState();
-    const pool = energyPool();
+    const f = fighter(path, START_MANA, REGEN_POINTS);
     const time = new FixedStep();
     const guardOut = makeGuardResult();
     const log: string[] = [];
     let step = 0;
-    for (let frame = 0; frame < fps * 5; frame++) {
+    let rose = -1;
+    let overlap = 0;
+    for (let frame = 0; frame < fps * SECONDS; frame++) {
       const n = time.advance(1 / fps);
       for (let i = 0; i < n; i++, step++) {
-        const sim = step * time.dt;
-        const blocking = sim < 1;
-        const attacking = sim >= 1 && sim < 3;
-        stepGuard(c.guard, pool, guardCfg, blocking, weaponFreeForGuard(c, st), time.dt);
-        if (weapon === 'staff') {
-          const r = stepStaff(
-            st,
-            c,
-            attacking ? SHARD : NO_STAFF,
-            staff,
-            null,
-            1,
-            time.dt,
-            staffOut(),
-          );
-          if (r.fired !== 'none') log.push(`${step} shot ${r.damage}`);
-        } else {
-          const input = { fast: attacking, heavy: false, critRoll: 1 };
-          const r = stepSword(c, pool, input, sword, time.dt, swordOut());
-          if (r.landed !== 'none') log.push(`${step} hit ${r.damage}`);
-        }
-        if (step === 6 || step === 36) {
-          guardHit(c.guard, pool, guardCfg, 10, guardOut);
+        const held = {
+          light: step < 180,
+          block: step >= 30 && step < 90,
+          heavy: step === 150,
+        };
+        const t = playerStep(f, weapon, held, fireball, time.dt);
+        if (t.up && rose < 0) rose = step;
+        if (t.up && (t.fired !== 'none' || t.casting)) overlap++;
+        if (t.fired !== 'none') log.push(`${step} ${t.fired}`);
+        if (rose >= 0 && (step === rose + 5 || step === rose + 20)) {
+          guardHit(f.c.guard, f.pool, guardCfg, 10, guardOut);
           log.push(`${step} ${guardOut.outcome}`);
         }
-        regenMana(c, manaPerSecond, time.dt);
       }
     }
-    return { log, mana: c.mana, energy: pool.energy, guardUp: c.guard.up };
+    return { log, rose, overlap, steps: step, mana: f.c.mana, energy: f.pool.energy };
   }
 
-  it('the same outcome for both paths and both weapons', () => {
+  it('the same outcome for both paths and both weapons, with the exact mana', () => {
     for (const path of PATHS) {
       for (const weapon of ['sword', 'staff'] as const) {
         const a = fight(path, weapon, 60);
         const b = fight(path, weapon, 120);
-        expect(a.log).toContain('6 parry');
-        expect(a.log).toContain('36 block');
-        expect(a.log.length).toBeGreaterThan(2);
         expect(b).toEqual(a);
-        expect(a.mana).toBeGreaterThan(0);
+        expect(a.steps).toBe(SECONDS * 60);
+        expect(a.overlap).toBe(0);
+        // The guard rose while the attack button was still held (it wins), within one swing.
+        expect(a.rose).toBeGreaterThanOrEqual(30);
+        expect(a.rose).toBeLessThan(30 + 20);
+        expect(a.log).toContain(`${a.rose + 5} parry`);
+        expect(a.log).toContain(`${a.rose + 20} block`);
+        // Nothing left the weapon while the guard was up (rose … 89).
+        const attacks = a.log
+          .filter((l) => !/parry|block/.test(l))
+          .map((l) => Number(l.split(' ')[0]));
+        expect(attacks.filter((s) => s >= a.rose && s < 90)).toEqual([]);
+        expect(attacks.some((s) => s < a.rose)).toBe(true);
+        expect(attacks.some((s) => s >= 90)).toBe(true);
+        // Regen 5: 0.4 + 5 × 0.03 = 0.55 mana/s for 5 s from 20 (the Shard is free);
+        // the staff also cast one uncharged Fireball (10 mana).
+        expect(a.log.filter((l) => l.endsWith('spell'))).toHaveLength(weapon === 'staff' ? 1 : 0);
+        const expected = weapon === 'staff' ? 20 + 0.55 * 5 - 10 : 20 + 0.55 * 5;
+        expect(a.mana).toBeCloseTo(expected, 9);
+        expect(a.mana).toBeCloseTo(weapon === 'staff' ? 12.75 : 22.75, 9);
       }
     }
   });
