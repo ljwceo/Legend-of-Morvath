@@ -730,9 +730,18 @@ function runFight(bot: SimBot, scene: Scene, maxSeconds = 240): FightOutcome {
     combo: false,
     crit: false,
   };
-  const staffOut: CastResult = { fired: 'none', shot: null, damage: 0, charge: 0, crit: false };
+  const staffOut: CastResult = {
+    fired: 'none',
+    shot: null,
+    damage: 0,
+    charge: 0,
+    crit: false,
+    effect: 'none',
+    incantation: null,
+    poiseDamage: 0,
+  };
   const staffState = new CastState();
-  const castSources: CastSources = { staff: true, spell: null, power: 1 };
+  const castSources: CastSources = { staff: true, spell: null, power: 1, incantation: null };
   let warned = 0;
   // A player does not back off forever in a crowd: dodge a lunge, then hit again.
   let dodgeLeft = 0;

@@ -1,12 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { FixedStep } from '../core/Time';
 import { playerFileSchema, spellsFileSchema } from '../data/schemas';
 import type { PlayerConfig, SpellsFile } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
 import { applyStats, CombatState } from './Combat';
 import { MIN_SHOWN_COOLDOWN } from './Readiness';
+import type { EnergyPool } from './Stamina';
 import {
   affordableCharge,
   type CastSources,
+  type IncantationConfig,
+  incantationFree,
+  pushDamage,
   chargedManaCost,
   powerFactor,
   resetKeepingCooldowns,
@@ -35,7 +40,16 @@ function fresh(level = 1): { state: CastState; combat: CombatState } {
   return { state: new CastState(), combat };
 }
 
-const out = (): CastResult => ({ fired: 'none', shot: null, damage: 0, charge: 0, crit: false });
+const out = (): CastResult => ({
+  fired: 'none',
+  shot: null,
+  damage: 0,
+  charge: 0,
+  crit: false,
+  effect: 'none',
+  incantation: null,
+  poiseDamage: 0,
+});
 /** `critRoll` 1 never crits, so the damage in these tests is the plain damage. */
 const press = (shard: boolean, spell = false, critRoll = 1): CastInput => ({
   shard,
@@ -48,6 +62,7 @@ const staff = (spell: ShotConfig | null = fireball, power = 1): CastSources => (
   staff: true,
   spell,
   power,
+  incantation: null,
 });
 /** Energy only matters for the Grimoire (G.3); the staff's shots never spend any. */
 const pool = () => ({ energy: 100, sinceEnergySpent: 10, exhausted: false });
@@ -646,5 +661,280 @@ describe('G.3: the fight clock is ticked once per step, never by casting', () =>
     expect(made.state.cooldown).toBe(cooldownBefore);
     expect(made.state.casting).toBe(false);
     expect(made.state.bufferedShard).toBe(0);
+  });
+});
+
+describe('G.3: Push from the Grimoire', () => {
+  const push = cfg.incantations.get('push') as IncantationConfig;
+  const WINDUP_STEPS = Math.round(push.windupSeconds / DT);
+  /** A sword in hand (no staff) and the Grimoire with Push selected. */
+  const grimoire = (inHand = false): CastSources => ({
+    staff: inHand,
+    spell: inHand ? fireball : null,
+    power: 1,
+    incantation: push,
+  });
+  const cast = (critRoll = 1): CastInput => ({ shard: false, spell: false, cast: true, critRoll });
+  const idle = (): CastInput => ({ shard: false, spell: false, cast: false, critRoll: 1 });
+
+  /** Steps until Push goes off with `input` every step; -1 when it never does. */
+  function stepsUntilPush(
+    made: ReturnType<typeof fresh>,
+    energy: EnergyPool,
+    input: CastInput,
+    src: CastSources,
+    steps = 600,
+    dt = DT,
+  ): { at: number; result: CastResult | null } {
+    for (let i = 0; i < steps; i++) {
+      const r = stepCast(made.state, made.combat, energy, input, cfg, src, dt, out());
+      if (r.effect === 'push') return { at: i, result: { ...r } };
+    }
+    return { at: -1, result: null };
+  }
+
+  it('is read from the data: Neutral, no mana, a wind-up, a recovery, a cooldown and a push', () => {
+    expect(push.element).toBe('neutral');
+    expect(push.manaCost).toBe(0);
+    expect(push.windupSeconds).toBeGreaterThan(0);
+    expect(push.cancelLockoutSeconds).toBeLessThanOrEqual(push.cooldownSeconds);
+    expect(push.effect.kind).toBe('push');
+    expect(cfg.castBufferSeconds).toBe(player.casting.inputBufferSeconds);
+  });
+
+  it('with a sword in hand: V prepares Push, it goes off after the wind-up and costs no mana', () => {
+    const made = fresh();
+    const energy = pool();
+    const mana = made.combat.mana;
+    const first = stepCast(made.state, made.combat, energy, cast(), cfg, grimoire(), DT, out());
+    expect(first.effect).toBe('none');
+    expect(made.state.pending).toBe('incantation');
+    expect(made.state.casting).toBe(true);
+    expect(made.state.castIncantation?.id).toBe('push');
+    const { at, result } = stepsUntilPush(made, energy, cast(), grimoire());
+    // The wind-up counts whole steps: it leaves on the step the wind-up reaches 0.
+    expect(at).toBe(WINDUP_STEPS - 1);
+    expect(result?.fired).toBe('incantation');
+    expect(result?.incantation?.id).toBe('push');
+    expect(result?.poiseDamage).toBe(push.effect.poiseDamage);
+    expect(made.combat.mana).toBe(mana);
+    expect(made.state.pending).toBe('none');
+    expect(made.state.sinceFired).toBe(0);
+  });
+
+  it('pays its stamina when the cast starts, not when it goes off, and never gives it back', () => {
+    const made = fresh();
+    const energy = pool();
+    stepCast(made.state, made.combat, energy, cast(), cfg, grimoire(), DT, out());
+    expect(energy.energy).toBe(100 - push.energyCost);
+    expect(energy.sinceEnergySpent).toBe(0);
+    stepsUntilPush(made, energy, idle(), grimoire());
+    expect(energy.energy).toBe(100 - push.energyCost);
+    // Exhausted: no cast at all, and the press is spent.
+    const tired = fresh();
+    const empty = { energy: 0, sinceEnergySpent: 0, exhausted: true };
+    expect(stepsUntilPush(tired, empty, cast(), grimoire(), 120).at).toBe(-1);
+    expect(tired.state.pending).toBe('none');
+    // Not enough for the full price: it starts anyway and leaves you exhausted (like a heavy hit).
+    const low = fresh();
+    const little = { energy: push.energyCost / 2, sinceEnergySpent: 10, exhausted: false };
+    stepCast(low.state, low.combat, little, cast(), cfg, grimoire(), DT, out());
+    expect(low.state.pending).toBe('incantation');
+    expect(little.energy).toBe(0);
+    expect(little.exhausted).toBe(true);
+  });
+
+  it('scales its damage with Magic Power and gear, never with the weapon in hand or a curve', () => {
+    const plain = fresh();
+    expect(pushDamage(push.effect, plain.combat, false)).toBe(Math.max(1, push.effect.damage));
+    const strong = fresh();
+    strong.combat.spellFactor = 1.5;
+    strong.combat.damageFactor = 1.2;
+    strong.combat.weaponBonus = 50;
+    strong.combat.normalFactor = 3;
+    strong.combat.staffNormalFactor = 3;
+    expect(pushDamage(push.effect, strong.combat, false)).toBe(
+      Math.max(1, Math.round(push.effect.damage * 1.5 * 1.2)),
+    );
+    const src = grimoire();
+    src.power = 1.3;
+    const { result } = stepsUntilPush(strong, pool(), cast(), src);
+    expect(result?.damage).toBe(Math.max(1, Math.round(push.effect.damage * 1.5 * 1.2)));
+    expect(result?.crit).toBe(false);
+    // Luck: a critical hit multiplies the HP damage, the poise damage stays what the data says.
+    const lucky = fresh();
+    lucky.combat.critChance = 0.5;
+    const crit = stepsUntilPush(lucky, pool(), cast(0.1), grimoire());
+    expect(crit.result?.crit).toBe(true);
+    expect(crit.result?.damage).toBe(Math.round(push.effect.damage * lucky.combat.critFactor));
+    expect(crit.result?.poiseDamage).toBe(push.effect.poiseDamage);
+  });
+
+  it('after it goes off: a recovery holds everything, then its cooldown holds only itself', () => {
+    const made = fresh();
+    const energy = pool();
+    stepsUntilPush(made, energy, cast(), grimoire());
+    expect(made.state.castLockout).toBeCloseTo(push.recoverySeconds, 9);
+    expect(made.state.incantationCooldown).toBeCloseTo(push.cooldownSeconds, 9);
+    expect(made.combat.attackCooldown).toBeCloseTo(push.recoverySeconds, 9);
+    // Holding V: the next Push comes exactly one cooldown later (plus its wind-up).
+    const { at } = stepsUntilPush(made, energy, cast(), grimoire());
+    expect(at).toBe(Math.round(push.cooldownSeconds / DT) + WINDUP_STEPS - 1);
+  });
+
+  it('does not start halfway a swing, a heavy wind-up, a guard or a stagger, and keeps the press', () => {
+    const busy = fresh();
+    busy.combat.swingTime = 0.1;
+    expect(incantationFree(busy.state, busy.combat)).toBe(false);
+    const heavy = fresh();
+    heavy.combat.heavyWindup = 0.5;
+    expect(incantationFree(heavy.state, heavy.combat)).toBe(false);
+    const guarded = fresh();
+    guarded.combat.guard.up = true;
+    expect(incantationFree(guarded.state, guarded.combat)).toBe(false);
+    const dizzy = fresh();
+    dizzy.combat.poise.reset(10);
+    dizzy.combat.poise.staggerTime = 0.5;
+    expect(incantationFree(dizzy.state, dizzy.combat)).toBe(false);
+    expect(incantationFree(fresh().state, fresh().combat)).toBe(true);
+    // A press during a swing is remembered: the cast starts the step the swing is over.
+    const made = fresh();
+    made.combat.swingTime = 3 * DT;
+    const energy = pool();
+    stepCast(made.state, made.combat, energy, cast(), cfg, grimoire(), DT, out());
+    expect(made.state.pending).toBe('none');
+    expect(made.state.bufferedCast).toBeGreaterThan(0);
+    made.combat.swingTime = 0;
+    stepCast(made.state, made.combat, energy, idle(), cfg, grimoire(), DT, out());
+    expect(made.state.pending).toBe('incantation');
+    expect(made.state.bufferedCast).toBe(0);
+    // A press that is remembered too long is dropped.
+    const late = fresh();
+    late.combat.swingTime = 10;
+    stepCast(late.state, late.combat, pool(), cast(), cfg, grimoire(), DT, out());
+    for (let i = 0; i < 120; i++) {
+      stepCast(late.state, late.combat, pool(), idle(), cfg, grimoire(), DT, out());
+    }
+    late.combat.swingTime = 0;
+    stepCast(late.state, late.combat, pool(), idle(), cfg, grimoire(), DT, out());
+    expect(late.state.pending).toBe('none');
+  });
+
+  it('holding V changes nothing: Push has no charge and goes off at the end of its wind-up', () => {
+    const held = stepsUntilPush(fresh(), pool(), cast(), grimoire());
+    const made = fresh();
+    const energy = pool();
+    stepCast(made.state, made.combat, energy, cast(), cfg, grimoire(), DT, out());
+    const tapped = stepsUntilPush(made, energy, idle(), grimoire());
+    expect(tapped.at + 1).toBe(held.at);
+    expect(tapped.result?.damage).toBe(held.result?.damage);
+  });
+
+  it('without Grimoire access V does nothing at all', () => {
+    const made = fresh();
+    const src = grimoire();
+    src.incantation = null;
+    expect(stepsUntilPush(made, pool(), cast(), src, 120).at).toBe(-1);
+    expect(made.state.bufferedCast).toBe(0);
+    expect(made.state.pending).toBe('none');
+  });
+
+  it('with a staff in hand Push works too, and never overlaps a shot', () => {
+    const made = fresh();
+    const energy = pool();
+    // A Shard is on its way out: V waits (buffered) until it left and the staff recovered.
+    stepCast(made.state, made.combat, energy, press(true), cfg, grimoire(true), DT, out());
+    expect(made.state.pending).toBe('shard');
+    stepCast(made.state, made.combat, energy, cast(), cfg, grimoire(true), DT, out());
+    expect(made.state.pending).toBe('shard');
+    let fired = 0;
+    let pushAt = -1;
+    for (let i = 0; i < 120 && pushAt < 0; i++) {
+      const r = stepCast(made.state, made.combat, energy, cast(), cfg, grimoire(true), DT, out());
+      if (r.effect === 'shot') fired++;
+      if (r.effect === 'push') pushAt = i;
+    }
+    expect(fired).toBe(1);
+    expect(pushAt).toBeGreaterThan(0);
+    // Push being prepared: the left button starts no Shard, and afterwards the staff recovers.
+    const other = fresh();
+    const e2 = pool();
+    stepCast(other.state, other.combat, e2, cast(), cfg, grimoire(true), DT, out());
+    expect(other.state.pending).toBe('incantation');
+    const r = stepCast(other.state, other.combat, e2, press(true), cfg, grimoire(true), DT, out());
+    expect(r.effect).toBe('none');
+    expect(other.state.pending).toBe('incantation');
+    stepsUntilPush(other, e2, idle(), grimoire(true));
+    expect(other.state.cooldown).toBeCloseTo(push.recoverySeconds, 9);
+  });
+
+  it('a weapon switch keeps the Grimoire timers too; a full reset clears them', () => {
+    const made = fresh();
+    stepsUntilPush(made, pool(), cast(), grimoire());
+    const lockout = made.state.castLockout;
+    const cooldown = made.state.incantationCooldown;
+    resetKeepingCooldowns(made.state);
+    expect(made.state.castLockout).toBe(lockout);
+    expect(made.state.incantationCooldown).toBe(cooldown);
+    made.state.reset();
+    expect(made.state.castLockout).toBe(0);
+    expect(made.state.incantationCooldown).toBe(0);
+  });
+
+  it('Dexterity shortens the wind-up and the recovery, not the cooldown', () => {
+    const quick = fresh();
+    quick.combat.attackSpeedFactor = 2;
+    const { at } = stepsUntilPush(quick, pool(), cast(), grimoire());
+    // The start step plus the wind-up in whole steps (a half step still counts as a step).
+    expect(at).toBe(Math.ceil(push.windupSeconds / 2 / DT - 1e-9));
+    expect(quick.state.castLockout).toBeCloseTo(push.recoverySeconds / 2, 9);
+    expect(quick.state.incantationCooldown).toBeCloseTo(push.cooldownSeconds, 9);
+  });
+
+  it('goes off on the same fixed steps at 60 and 120 fps, twice in a row, with the same energy', () => {
+    // The game always steps at 60 Hz through the accumulator; the frame rate only decides how
+    // many steps a frame takes. The same holds for a 120 Hz step size on its own.
+    const run = (fps: number) => {
+      const time = new FixedStep();
+      const made = fresh();
+      const energy = pool();
+      const at: number[] = [];
+      let step = 0;
+      for (let frame = 0; frame < fps * 3; frame++) {
+        const n = time.advance(1 / fps);
+        for (let i = 0; i < n; i++, step++) {
+          const r = stepCast(
+            made.state,
+            made.combat,
+            energy,
+            cast(),
+            cfg,
+            grimoire(),
+            time.dt,
+            out(),
+          );
+          if (r.effect === 'push') at.push(step);
+        }
+      }
+      return { at, energy: energy.energy, lockout: made.state.castLockout };
+    };
+    const a = run(60);
+    const b = run(120);
+    expect(a.at).toHaveLength(2);
+    expect(b).toEqual(a);
+    // With a step twice as fine the casts go off at the same times, to within one fine step.
+    const fine = fresh();
+    const energy = pool();
+    const times: number[] = [];
+    for (let i = 0; i < 360; i++) {
+      const r = stepCast(fine.state, fine.combat, energy, cast(), cfg, grimoire(), 1 / 120, out());
+      if (r.effect === 'push') times.push((i + 1) / 120);
+    }
+    expect(times).toHaveLength(2);
+    for (let i = 0; i < 2; i++) {
+      expect(Math.abs((times[i] as number) - ((a.at[i] as number) + 1) / 60)).toBeLessThanOrEqual(
+        1 / 120 + 1e-9,
+      );
+    }
   });
 });

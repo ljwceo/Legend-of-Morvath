@@ -82,7 +82,12 @@ function energyPool(): MoverState {
 
 const NO_STAFF: CastInput = { shard: false, spell: false, cast: false, critRoll: 1 };
 /** A staff in hand with `spell` selected (what `WorldState` hands `stepCast` every step). */
-const inHand = (spell: ShotConfig | null = null): CastSources => ({ staff: true, spell, power: 1 });
+const inHand = (spell: ShotConfig | null = null): CastSources => ({
+  staff: true,
+  spell,
+  power: 1,
+  incantation: null,
+});
 const SHARD: CastInput = { shard: true, spell: false, cast: false, critRoll: 1 };
 const staffOut = (): CastResult => ({
   fired: 'none',
@@ -90,6 +95,9 @@ const staffOut = (): CastResult => ({
   damage: 0,
   charge: 0,
   crit: false,
+  effect: 'none',
+  incantation: null,
+  poiseDamage: 0,
 });
 const swordOut = (): SwordResult => ({
   landed: 'none',
@@ -340,7 +348,7 @@ interface Held {
 interface StepTrace {
   up: boolean;
   casting: boolean;
-  fired: 'none' | 'shard' | 'spell' | 'fast' | 'heavy';
+  fired: 'none' | 'shard' | 'spell' | 'incantation' | 'fast' | 'heavy';
   staffCooldown: number;
 }
 

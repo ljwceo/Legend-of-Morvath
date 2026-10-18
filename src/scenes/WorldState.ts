@@ -109,6 +109,8 @@ import {
   type ShotConfig,
   type CastConfig,
   type CastSources,
+  type IncantationConfig,
+  pushTargets,
   castConfig,
   type CastInput,
   resetKeepingCooldowns,
@@ -118,6 +120,7 @@ import {
   stepCast,
 } from '../systems/Casting';
 import { guardHit, makeGuardResult, stepGuard, weaponFreeForGuard } from '../systems/Guard';
+import { hasGrimoireAccess, knownIncantations, selectedIncantation } from '../systems/Grimoire';
 import { backstabPoiseDamage, damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
   carriedWeight,
@@ -314,6 +317,7 @@ const NO_SPELLS: readonly string[] = [];
 const LIVE_MENU_IGNORED: readonly Action[] = [
   'attack',
   'heavy',
+  'cast',
   'dash',
   'interact',
   'potion',
@@ -650,13 +654,26 @@ export class WorldState implements GameState, InstanceHost {
   };
   private readonly castState = new CastState();
   private readonly castInput: CastInput = { shard: false, spell: false, cast: false, critRoll: 1 };
-  private readonly castSources: CastSources = { staff: false, spell: null, power: 1 };
+  private readonly castSources: CastSources = {
+    staff: false,
+    spell: null,
+    power: 1,
+    incantation: null,
+  };
+  /** The incantation the cast button fires (G.3: Push), null before the data is loaded. */
+  private pushIncantation: IncantationConfig | null = null;
+  private readonly knownIncantationIds: string[] = [];
+  /** Everything in Push's cone this step (a reused array). */
+  private readonly pushHits: Enemy[] = [];
   private readonly castResult: CastResult = {
     fired: 'none',
     shot: null,
     damage: 0,
     charge: 0,
     crit: false,
+    effect: 'none',
+    incantation: null,
+    poiseDamage: 0,
   };
   /** player.json lock-on numbers with the debug aim-help multipliers applied (reused). */
   private readonly lockNow: LockOnConfig = {
@@ -1085,6 +1102,7 @@ export class WorldState implements GameState, InstanceHost {
       // A click both confirms and attacks; while talking it only shows the next line.
       input.consumePressed('attack');
       input.consumePressed('heavy');
+      input.consumePressed('cast');
       input.consumePressed('potion');
       input.consumePressed('bag');
       input.consumePressed('status');
@@ -1130,6 +1148,8 @@ export class WorldState implements GameState, InstanceHost {
       this.swordInput.heavy = right;
       this.castInput.shard = left;
       this.castInput.spell = right;
+      // The Grimoire on its own key (V); holding it is for the charge spells of a later step.
+      this.castInput.cast = input.consumePressed('cast') || input.isPressed('cast');
       // Quick switching (Elden Ring-style): wheel / D-pad up the spell, 1 / D-pad left the
       // weapon, 2 / D-pad right the off hand, 3 / D-pad down the quick item that Q / X uses.
       if (input.consumePressed('spellNext')) this.cycleSpell(1);
@@ -1263,6 +1283,7 @@ export class WorldState implements GameState, InstanceHost {
     this.swordInput.heavy = false;
     this.castInput.shard = false;
     this.castInput.spell = false;
+    this.castInput.cast = false;
   }
 
   /** Fighting and walking for one step: with a sword you swing, with a staff you shoot. */
@@ -1363,10 +1384,18 @@ export class WorldState implements GameState, InstanceHost {
     sources.staff = staffInHand;
     sources.spell = this.spell;
     sources.power = this.spellPower;
+    // The Grimoire: owning one is enough (never equipped); until G.4 every character may cast.
+    const bag = this.ctx.session?.character?.inventory;
+    sources.incantation = bag && hasGrimoireAccess(bag, this.items) ? this.pushIncantation : null;
+    if (input.cast && !sources.incantation && !state.casting) this.sayNoGrimoire();
+    // Push turns you towards your target or the nearest enemy in front while it is prepared.
+    const preparing = state.pending === 'incantation' ? state.castIncantation : null;
+    if (preparing && !held) this.aim(preparing.effect.range, preparing.effect.halfArc);
     const result = stepCast(state, c, s, input, staff, sources, dt, this.castResult);
     if (result.shot) {
       this.fireShot(result.shot, this.weakened(result.damage), result.charge, result.crit);
     }
+    if (result.effect === 'push' && result.incantation) this.landPush(result.incantation, result);
     if (state.noMana) this.sayNoMana();
 
     const casting = state.casting;
@@ -1699,6 +1728,46 @@ export class WorldState implements GameState, InstanceHost {
       if (defeated) this.defeated(e, top, 'sword');
     }
     if (hitAny) player.combat.sinceCombat = 0;
+  }
+
+  /**
+   * Push went off (G.3): everything in its short cone in front of you takes its low damage and
+   * its poise damage through the same rules as a swing (`Enemies.hit`: a boss only in its
+   * opening, a stagger only when poise breaks). Each enemy in the cone is hit exactly once.
+   * Push never counts for a `train` objective (decision 2026-10-18) and, as the last blow on
+   * Sultan, counts as the sword (P-8).
+   */
+  private landPush(incantation: IncantationConfig, result: CastResult): void {
+    const { player, enemies, enemyRenderer } = this;
+    if (!player || !enemies) return;
+    const s = player.state;
+    const effect = incantation.effect;
+    const damage = this.weakened(result.damage);
+    const hits = pushTargets(s.x, s.z, s.heading, effect, enemies.shown, this.pushHits);
+    let hitAny = false;
+    for (let i = 0; i < hits.length; i++) {
+      const e = hits[i] as Enemy;
+      if (!e.alive) continue;
+      const top = e.y + (enemyRenderer?.heightOf(e) ?? 1.5);
+      if (!e.hittable) {
+        if (e.guarded) this.encounter?.onGuardedHit(e, top);
+        else this.showProtected(e);
+        continue;
+      }
+      const defeated = enemies.hit(e, damage, result.poiseDamage);
+      hitAny = true;
+      this.damageNumbers?.spawn(e.x, top, e.z, damage, result.crit ? 'crit' : 'heavy');
+      if (defeated) this.defeated(e, top, 'sword');
+    }
+    hits.length = 0;
+    if (hitAny) player.combat.sinceCombat = 0;
+  }
+
+  /** The cast key without a Grimoire to cast from (not more often than every few seconds). */
+  private sayNoGrimoire(): void {
+    if (this.protectedMessageTimer > 0) return;
+    this.protectedMessageTimer = PROTECTED_MESSAGE_SECONDS;
+    this.hud?.showMessage(this.ctx.i18n.t('hud.noGrimoire'));
   }
 
   /** Dash pressed while overloaded: say why nothing happens (not more often than every few seconds). */
@@ -4987,6 +5056,11 @@ export class WorldState implements GameState, InstanceHost {
     player.state.sinceEnergySpent = data.player.regen.energyDelaySeconds;
     this.sword = swordConfig(data.player);
     this.staff = castConfig(data.player, data.spells);
+    const known = knownIncantations(data.spells, this.knownIncantationIds);
+    const incantationId = selectedIncantation(known);
+    this.pushIncantation = incantationId
+      ? (this.staff.incantations.get(incantationId) ?? null)
+      : null;
     this.lockCfg = lockOnConfig(data.player);
     this.lockMarkerHeight = data.player.lockOn.marker.heightFraction;
     this.castState.reset();
@@ -5435,6 +5509,7 @@ export class WorldState implements GameState, InstanceHost {
     this.shotWorld = null;
     this.locked = null;
     this.staff = null;
+    this.pushIncantation = null;
     this.lockCfg = null;
     this.spell = null;
     this.enemies = null;
