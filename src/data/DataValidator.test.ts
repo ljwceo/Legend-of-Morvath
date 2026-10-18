@@ -4,7 +4,7 @@ import { colorTokens } from '../render/palette';
 import { computeStatEffects, emptyStatEffects, presetPoints } from '../systems/Stats';
 import { readAllData, readPublicJson } from '../test/loadPublic';
 import { formatIssue, validateGameData } from './DataValidator';
-import type { DataFileName } from './schemas';
+import { WEAPON_GRIPS, type DataFileName } from './schemas';
 
 const textKeys = new Set(flattenStrings(readPublicJson('lang/en.json')).keys());
 const options = { textKeys, colorTokens };
@@ -667,8 +667,9 @@ describe('Grimoire data foundation (G.1)', () => {
       expect(item(id)?.legacy).toBe(true);
     }
     for (const id of ['wizard_crystal', 'dark_crystal']) expect(item(id)?.type).toBe('crystal');
+    // New eggs may be added; the existing ones may never be renamed or removed.
     const eggs = data?.items.items.filter((entry) => entry.type === 'egg').map((e) => e.id);
-    expect(eggs).toEqual([
+    const existingEggs = [
       'mossback_egg',
       'rootgnarl_egg',
       'fenstalker_egg',
@@ -680,17 +681,24 @@ describe('Grimoire data foundation (G.1)', () => {
       'windlash_egg',
       'blightborn_egg',
       'sultan_egg',
-    ]);
+    ];
+    expect(eggs).toEqual(expect.arrayContaining(existingEggs));
   });
 
-  it('gives every active weapon a grip and keeps all current swords one-handed', () => {
+  // Grips are provisional (G.6 decides the hand usage): only check that they are valid.
+  it('gives every active weapon a valid grip', () => {
     for (const entry of data?.items.items ?? []) {
       if (!entry.weapon || entry.legacy) continue;
-      expect({ id: entry.id, grip: entry.weapon.grip }).toEqual({
+      const grip = entry.weapon.grip;
+      expect({ id: entry.id, valid: grip !== undefined && WEAPON_GRIPS.includes(grip) }).toEqual({
         id: entry.id,
-        grip: 'oneHanded',
+        valid: true,
       });
     }
+    const raw = freshData();
+    raw.items.items.find((i: { id: string }) => i.id === 'goblin_cleaver').weapon.grip =
+      'threeHanded';
+    expect(messages(raw)).toContainEqual(expect.stringContaining('weapon.grip'));
   });
 
   it('changes nothing in play yet: no Neutral spell, start kit as before, nothing hands it out', () => {
@@ -711,7 +719,7 @@ describe('Grimoire data foundation (G.1)', () => {
     }
   });
 
-  it('accepts a mandatory two-handed weapon', () => {
+  it('accepts a two-handed weapon', () => {
     const raw = freshData();
     raw.items.items.find((i: { id: string }) => i.id === 'chiefs_greatblade').weapon.grip =
       'twoHanded';

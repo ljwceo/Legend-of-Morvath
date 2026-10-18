@@ -30,9 +30,11 @@ export const WEAPON_KINDS = ['sword', 'staff'] as const;
 export type WeaponKind = (typeof WEAPON_KINDS)[number];
 
 /**
- * How a weapon is held (Fase G, G.1: data only, nothing reads it yet). `twoHanded` means
- * mandatory two-handed: such a weapon can never be used together with a shield, but it can
- * still cast from the Grimoire and use a Sword Art (G.0, U-3; built in G.6).
+ * How a weapon is normally held (Fase G, G.1: data only, nothing reads it yet). Provisional:
+ * G.6 decides the actual hand usage, including Strength-gated wielding (e.g. Chief's Greatblade
+ * is normally two-handed but can be held one-handed with enough Strength; the threshold is not
+ * decided). Held in two hands, a weapon cannot be combined with a shield but can still cast
+ * from the Grimoire and use a Sword Art (G.0, U-3).
  */
 export const WEAPON_GRIPS = ['oneHanded', 'twoHanded'] as const;
 export type WeaponGrip = (typeof WEAPON_GRIPS)[number];
