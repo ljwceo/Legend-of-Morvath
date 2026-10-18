@@ -354,7 +354,16 @@
     "watchtower": "The watchtower keeps an eye on the northern coast.",
     "greenwood_shrine": "A small elven shrine. It is your checkpoint in the Greenwood.",
     "wortelgrotten": "Roots block the entrance to De Wortelgrotten. Something stirs deep below.",
-    "mournfen_monastery": "A wooden monastery on stilts, high above the wet ground. It is your checkpoint in the Mournfen."
+    "mournfen_monastery": "A wooden monastery on stilts, high above the wet ground. It is your checkpoint in the Mournfen.",
+    "morvath_pass_blocked": "The air beyond the pass burns. You are not strong enough to go further.",
+    "morvath_threshold": "The air itself is wrong here. This is Morvath: nothing living has walked this road for an age.",
+    "fallen_chapel": "A half-collapsed chapel. Its hearth still holds a little warmth: this is your checkpoint in Morvath.",
+    "blight_crossing": "A shattered spire marks the crossing. The road runs on east; a path climbs to the terrace in the north.",
+    "hollow_rise": "The terrace above the valley. Something large has worn a hollow into the ground further east.",
+    "blightborn_hollow": "A crater of scorched earth. Whatever made it is still here.",
+    "morvath_cache_north": "A hollow in the ridge wall, hidden from the road. Someone left marks here.",
+    "shadow_cove": "A hidden cove behind the knoll. A sealed door in the rock leads down into the dark.",
+    "citadel_gate": "The outer gate of the Black Citadel. Beyond it stands the keep of the Lords of Morvath."
   },
   "npc": {
     "brother_ansel": {

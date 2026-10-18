@@ -53,6 +53,11 @@
         "id": "reed",
         "model": "placeholder:reed",
         "colliderRadius": 0
+      },
+      {
+        "id": "blight_crystal",
+        "model": "placeholder:blight_crystal",
+        "colliderRadius": 0.4
       }
     ],
     "rivers": [
@@ -1892,44 +1897,496 @@
       },
       "terrainColor": "verdorven",
       "fogColor": "schemerviolet",
-      "lighting": "cycle",
+      "lighting": "fixed",
       "terrain": {
         "baseHeight": 5,
-        "amplitude": 20
+        "amplitude": 20,
+        "features": [
+          {
+            "id": "morvath_valley_floor",
+            "mode": "level",
+            "half": 70,
+            "falloff": 60,
+            "points": [
+              [1230, 0, 9],
+              [1330, -30, 10],
+              [1430, 15, 11],
+              [1530, 40, 12],
+              [1620, 0, 13],
+              [1748, 0, 14]
+            ]
+          },
+          {
+            "id": "morvath_north_ramp",
+            "mode": "level",
+            "half": 6,
+            "falloff": 8,
+            "points": [
+              [1440, -40, 11],
+              [1470, -90, 16],
+              [1500, -135, 22]
+            ]
+          },
+          {
+            "id": "morvath_north_terrace",
+            "mode": "level",
+            "half": 35,
+            "falloff": 20,
+            "points": [
+              [1505, -150, 22],
+              [1660, -150, 22]
+            ]
+          },
+          {
+            "id": "blightborn_hollow",
+            "mode": "level",
+            "half": 18,
+            "falloff": 10,
+            "points": [[1600, -140, 19]],
+            "color": "lavasteen",
+            "colorStrength": 0.7
+          },
+          {
+            "id": "cove_knoll",
+            "mode": "offset",
+            "half": 25,
+            "falloff": 15,
+            "points": [
+              [1555, 105, 9],
+              [1645, 110, 9]
+            ]
+          },
+          {
+            "id": "cove_gorge",
+            "mode": "level",
+            "half": 2.5,
+            "falloff": 4,
+            "points": [
+              [1572, 58, 12.5],
+              [1584, 100, 12],
+              [1598, 130, 11.5]
+            ],
+            "noScatter": true
+          },
+          {
+            "id": "shadow_cove",
+            "mode": "level",
+            "half": 20,
+            "falloff": 12,
+            "points": [[1605, 150, 11]]
+          },
+          {
+            "id": "morvath_road",
+            "mode": "offset",
+            "half": 3.5,
+            "falloff": 4,
+            "points": [
+              [1222, 0, -0.8],
+              [1260, -8, -0.8],
+              [1300, -22, -0.8],
+              [1340, -32, -0.8],
+              [1390, -12, -0.8],
+              [1430, 12, -0.8],
+              [1480, 32, -0.8],
+              [1530, 40, -0.8],
+              [1575, 22, -0.8],
+              [1620, 0, -0.8],
+              [1670, -6, -0.8],
+              [1715, -3, -0.8],
+              [1748, 0, -0.8]
+            ],
+            "color": "lavasteen",
+            "colorStrength": 0.8,
+            "noScatter": true
+          },
+          {
+            "id": "morvath_west_ridge_north",
+            "mode": "offset",
+            "half": 14,
+            "falloff": 5,
+            "points": [
+              [1212, -1240, 80],
+              [1212, -240, 80],
+              [1212, -200, 40],
+              [1212, -70, 26]
+            ],
+            "color": "nachtinkt",
+            "colorStrength": 0.55
+          },
+          {
+            "id": "morvath_west_ridge_south",
+            "mode": "offset",
+            "half": 14,
+            "falloff": 5,
+            "points": [
+              [1212, 70, 26],
+              [1212, 200, 26],
+              [1212, 600, 26],
+              [1212, 1240, 26]
+            ],
+            "color": "nachtinkt",
+            "colorStrength": 0.55
+          },
+          {
+            "id": "morvath_valley_ridge_north",
+            "mode": "offset",
+            "half": 14,
+            "falloff": 5,
+            "points": [
+              [1212, -200, 26],
+              [1749, -200, 26]
+            ],
+            "color": "nachtinkt",
+            "colorStrength": 0.55
+          },
+          {
+            "id": "morvath_valley_ridge_south",
+            "mode": "offset",
+            "half": 14,
+            "falloff": 5,
+            "points": [
+              [1212, 200, 26],
+              [1749, 200, 26]
+            ],
+            "color": "nachtinkt",
+            "colorStrength": 0.55
+          }
+        ]
       },
       "neighbors": ["karad_vorn", "plains_of_tharond", "black_citadel"],
       "spawnPoints": [
         {
-          "id": "west_edge",
-          "x": 1220,
-          "z": 0
+          "id": "west_pass",
+          "x": 1235,
+          "z": 0,
+          "headingDegrees": 90
         }
       ],
       "npcs": [],
-      "areas": [],
+      "areas": [
+        {
+          "id": "fallen_chapel_yard",
+          "shape": {
+            "type": "circle",
+            "x": 1335,
+            "z": -60,
+            "radius": 22
+          },
+          "noScatter": true
+        },
+        {
+          "id": "blightborn_hollow",
+          "shape": {
+            "type": "circle",
+            "x": 1600,
+            "z": -140,
+            "radius": 24
+          },
+          "noScatter": true
+        },
+        {
+          "id": "morvath_cache_north",
+          "shape": {
+            "type": "circle",
+            "x": 1650,
+            "z": -150,
+            "radius": 6
+          }
+        },
+        {
+          "id": "shadow_cove",
+          "shape": {
+            "type": "circle",
+            "x": 1605,
+            "z": 150,
+            "radius": 18
+          },
+          "noScatter": true
+        }
+      ],
       "spawns": [
         {
           "id": "blightborn_lair",
           "monster": "blightborn",
           "x": 1600,
-          "z": 0,
+          "z": -140,
           "wanderRadius": 12,
           "respawnSeconds": 600
         }
       ],
-      "instances": [],
+      "instances": [
+        {
+          "id": "morvath_crypt",
+          "name": "Sealed Crypt",
+          "entrance": {
+            "x": 1612,
+            "z": 158
+          },
+          "enabled": false
+        }
+      ],
       "scatter": [
         {
           "prop": "dead_tree",
-          "perHectare": 8,
+          "perHectare": 10,
           "minScale": 0.9,
-          "maxScale": 1.5
+          "maxScale": 1.6
         },
         {
           "prop": "rock",
           "perHectare": 6,
           "minScale": 0.8,
           "maxScale": 2
+        },
+        {
+          "prop": "blight_crystal",
+          "perHectare": 4,
+          "minScale": 0.8,
+          "maxScale": 2.2
+        }
+      ],
+      "look": "blight",
+      "fogScale": 0.7,
+      "checkpoint": {
+        "id": "morvath_chapel",
+        "kind": "ruined_chapel",
+        "x": 1335,
+        "z": -60,
+        "radius": 8
+      },
+      "structures": [
+        {
+          "id": "pass_cliff_north",
+          "name": "The Pass",
+          "model": "placeholder:block",
+          "x": 1212,
+          "z": -47,
+          "size": [44, 22, 46],
+          "color": "nachtinkt",
+          "collider": "box"
+        },
+        {
+          "id": "pass_cliff_south",
+          "model": "placeholder:block",
+          "x": 1212,
+          "z": 47,
+          "size": [44, 22, 46],
+          "color": "nachtinkt",
+          "collider": "box"
+        },
+        {
+          "id": "fallen_chapel",
+          "name": "Fallen Chapel",
+          "model": "placeholder:ruin",
+          "x": 1335,
+          "z": -60,
+          "size": [12, 7, 18],
+          "color": "steengrijs",
+          "collider": "none"
+        },
+        {
+          "id": "fallen_chapel_back_wall",
+          "model": "placeholder:block",
+          "x": 1335,
+          "z": -68.4,
+          "size": [12, 6.5, 0.9],
+          "color": "steengrijs",
+          "collider": "box"
+        },
+        {
+          "id": "fallen_chapel_west_wall",
+          "model": "placeholder:block",
+          "x": 1329.5,
+          "z": -64,
+          "size": [0.9, 5, 8],
+          "color": "steengrijs",
+          "collider": "box"
+        },
+        {
+          "id": "fallen_chapel_east_wall",
+          "model": "placeholder:block",
+          "x": 1340.5,
+          "z": -64,
+          "size": [0.9, 4, 8],
+          "color": "steengrijs",
+          "collider": "box"
+        },
+        {
+          "id": "crossing_spire",
+          "name": "Shattered Spire",
+          "model": "placeholder:obelisk",
+          "x": 1480,
+          "z": 52,
+          "size": [4, 14, 4],
+          "color": "schemerviolet",
+          "collider": "circle"
+        },
+        {
+          "id": "waypost_1",
+          "model": "placeholder:obelisk",
+          "x": 1265,
+          "z": -16,
+          "size": [1.6, 5, 1.6],
+          "color": "nachtinkt",
+          "collider": "circle"
+        },
+        {
+          "id": "waypost_2",
+          "model": "placeholder:obelisk",
+          "x": 1390,
+          "z": -20,
+          "size": [1.6, 5, 1.6],
+          "color": "nachtinkt",
+          "collider": "circle"
+        },
+        {
+          "id": "waypost_3",
+          "model": "placeholder:obelisk",
+          "x": 1530,
+          "z": 32,
+          "size": [1.6, 5, 1.6],
+          "color": "nachtinkt",
+          "collider": "circle"
+        },
+        {
+          "id": "waypost_4",
+          "model": "placeholder:obelisk",
+          "x": 1620,
+          "z": -8,
+          "size": [1.6, 5, 1.6],
+          "color": "nachtinkt",
+          "collider": "circle"
+        },
+        {
+          "id": "waypost_5",
+          "model": "placeholder:obelisk",
+          "x": 1715,
+          "z": -11,
+          "size": [1.6, 5, 1.6],
+          "color": "nachtinkt",
+          "collider": "circle"
+        },
+        {
+          "id": "shadow_crypt_door",
+          "name": "Sealed Crypt",
+          "model": "placeholder:cave_entrance",
+          "x": 1612,
+          "z": 163,
+          "size": [9, 6, 7],
+          "rotation": 180,
+          "color": "nachtinkt",
+          "collider": "box"
+        },
+        {
+          "id": "barrier_west_north_1",
+          "model": "placeholder:barrier",
+          "x": 1212,
+          "z": -1045,
+          "size": [20, 1, 390],
+          "collider": "box"
+        },
+        {
+          "id": "barrier_west_north_2",
+          "model": "placeholder:barrier",
+          "x": 1212,
+          "z": -655,
+          "size": [20, 1, 390],
+          "collider": "box"
+        },
+        {
+          "id": "barrier_west_north_3",
+          "model": "placeholder:barrier",
+          "x": 1212,
+          "z": -265,
+          "size": [20, 1, 390],
+          "collider": "box"
+        },
+        {
+          "id": "barrier_west_south_1",
+          "model": "placeholder:barrier",
+          "x": 1212,
+          "z": 265,
+          "size": [20, 1, 390],
+          "collider": "box"
+        },
+        {
+          "id": "barrier_west_south_2",
+          "model": "placeholder:barrier",
+          "x": 1212,
+          "z": 655,
+          "size": [20, 1, 390],
+          "collider": "box"
+        },
+        {
+          "id": "barrier_west_south_3",
+          "model": "placeholder:barrier",
+          "x": 1212,
+          "z": 1045,
+          "size": [20, 1, 390],
+          "collider": "box"
+        },
+        {
+          "id": "barrier_valley_north_1",
+          "model": "placeholder:barrier",
+          "x": 1349,
+          "z": -200,
+          "size": [274, 1, 20],
+          "collider": "box"
+        },
+        {
+          "id": "barrier_valley_north_2",
+          "model": "placeholder:barrier",
+          "x": 1623,
+          "z": -200,
+          "size": [274, 1, 20],
+          "collider": "box"
+        },
+        {
+          "id": "barrier_valley_south_1",
+          "model": "placeholder:barrier",
+          "x": 1349,
+          "z": 200,
+          "size": [274, 1, 20],
+          "collider": "box"
+        },
+        {
+          "id": "barrier_valley_south_2",
+          "model": "placeholder:barrier",
+          "x": 1623,
+          "z": 200,
+          "size": [274, 1, 20],
+          "collider": "box"
+        }
+      ],
+      "spawnAreas": [
+        {
+          "id": "morvath_blight_pack_west",
+          "monster": "dark_slime",
+          "x": 1300,
+          "z": -12,
+          "radius": 14,
+          "count": 3,
+          "respawnSeconds": 60
+        },
+        {
+          "id": "morvath_blight_pack_east",
+          "monster": "dark_big_slime",
+          "x": 1660,
+          "z": 30,
+          "radius": 16,
+          "count": 2,
+          "respawnSeconds": 90
+        }
+      ],
+      "safeZones": [
+        {
+          "id": "fallen_chapel_safe",
+          "shape": {
+            "type": "circle",
+            "x": 1335,
+            "z": -60,
+            "radius": 26
+          }
         }
       ]
     },
@@ -1947,22 +2404,135 @@
       },
       "terrainColor": "nachtinkt",
       "fogColor": "verdorven",
-      "lighting": "cycle",
+      "lighting": "fixed",
       "terrain": {
         "baseHeight": 10,
-        "amplitude": 4
+        "amplitude": 4,
+        "features": [
+          {
+            "id": "citadel_court",
+            "mode": "level",
+            "half": 80,
+            "falloff": 40,
+            "points": [[1850, 0, 14]],
+            "color": "nachtinkt",
+            "colorStrength": 0.4
+          },
+          {
+            "id": "citadel_ridge_north",
+            "mode": "offset",
+            "half": 14,
+            "falloff": 5,
+            "points": [
+              [1751, -200, 26],
+              [1995, -200, 26]
+            ],
+            "color": "nachtinkt",
+            "colorStrength": 0.55
+          },
+          {
+            "id": "citadel_ridge_south",
+            "mode": "offset",
+            "half": 14,
+            "falloff": 5,
+            "points": [
+              [1751, 200, 26],
+              [1995, 200, 26]
+            ],
+            "color": "nachtinkt",
+            "colorStrength": 0.55
+          }
+        ]
       },
       "neighbors": ["morvath"],
       "spawnPoints": [
         {
           "id": "gate",
-          "x": 1770,
-          "z": 0
+          "x": 1772,
+          "z": 0,
+          "headingDegrees": 90
         }
       ],
       "npcs": [],
       "areas": [],
-      "instances": []
+      "instances": [
+        {
+          "id": "black_citadel_keep",
+          "name": "The Black Citadel",
+          "entrance": {
+            "x": 1824,
+            "z": 0
+          },
+          "enabled": false
+        }
+      ],
+      "look": "blight",
+      "fogScale": 0.7,
+      "structures": [
+        {
+          "id": "citadel_wall_north",
+          "model": "placeholder:wall",
+          "x": 1760,
+          "z": -107,
+          "size": [4, 14, 186],
+          "color": "nachtinkt",
+          "collider": "box"
+        },
+        {
+          "id": "citadel_wall_south",
+          "model": "placeholder:wall",
+          "x": 1760,
+          "z": 107,
+          "size": [4, 14, 186],
+          "color": "nachtinkt",
+          "collider": "box"
+        },
+        {
+          "id": "citadel_gate_tower_north",
+          "model": "placeholder:tower",
+          "x": 1760,
+          "z": -17,
+          "size": [9, 24, 9],
+          "color": "nachtinkt",
+          "collider": "circle"
+        },
+        {
+          "id": "citadel_gate_tower_south",
+          "model": "placeholder:tower",
+          "x": 1760,
+          "z": 17,
+          "size": [9, 24, 9],
+          "color": "nachtinkt",
+          "collider": "circle"
+        },
+        {
+          "id": "black_citadel_keep",
+          "name": "The Black Citadel",
+          "model": "placeholder:citadel",
+          "x": 1868,
+          "z": 0,
+          "size": [84, 110, 84],
+          "color": "nachtinkt",
+          "collider": "box",
+          "horizon": true
+        },
+        {
+          "id": "barrier_citadel_north",
+          "model": "placeholder:barrier",
+          "x": 1880,
+          "z": -200,
+          "size": [250, 1, 20],
+          "collider": "box"
+        },
+        {
+          "id": "barrier_citadel_south",
+          "model": "placeholder:barrier",
+          "x": 1880,
+          "z": 200,
+          "size": [250, 1, 20],
+          "collider": "box"
+        }
+      ]
     }
   ]
 }
