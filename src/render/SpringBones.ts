@@ -12,12 +12,30 @@ const DEG = Math.PI / 180;
  */
 const TICK_EPSILON = 1e-6;
 
+/** Rounds of "out of the colliders, back onto the bone's length" per tail and step (A.4b). */
+const COLLISION_PASSES = 3;
+
+/**
+ * A bone touching a collider close to its head is swung out as if it touched at this fraction
+ * of its length: no wild swing of the tail for a touch at the very top (the bone above has
+ * that point as its tail and keeps it out already).
+ */
+const MIN_LEVER = 0.25;
+
 /** How long a fresh cape hangs on its own, to settle under gravity before it is shown (s). */
 const SETTLE_SECONDS = 1;
 
 /** A number out of a typed array (an index inside the array is a number, never undefined). */
 function at(array: Float64Array, index: number): number {
   return array[index] as number;
+}
+
+/** A body part the cape cannot go into (step A.4b): a sphere, or a capsule up to `to`. */
+interface Collider {
+  bone: Object3D;
+  to: Object3D | null;
+  offset: Vector3;
+  radius: number;
 }
 
 /**
@@ -37,6 +55,13 @@ function at(array: Float64Array, index: number): number {
  * Everything is simulated in the space of the object `update` gets (the world root: the game's
  * own coordinates, without the floating origin's shifts) so a shift of the origin does not whip
  * the cape. No allocations in `update`.
+ *
+ * Step A.4b: after the cone, a bone that cuts into one of the colliders (spheres and capsules
+ * on the hips, the back and the legs) is swung out to its surface, about its head.
+ * The colliders move with the animation and are interpolated per step like the anchor, so a
+ * leg swinging back during a run or a dash pushes the cape in every step and never jumps
+ * through it. When the anchor moves further than `resetDistance` in one frame (a teleport), the
+ * cape starts over, hanging still, instead of swinging after it.
  */
 export class SpringBones {
   /** Off = the cape hangs as modelled. Back on = it starts over, hanging still. */
@@ -49,6 +74,8 @@ export class SpringBones {
   ticks = 0;
   /** The furthest any bone is drawn from its animated direction (rad), last frame. */
   maxAngle = 0;
+  /** How often the cape started over by itself after a jump of the anchor (debug, tests). */
+  jumpResets = 0;
 
   private readonly hz: number;
   private readonly dt2: number;
@@ -76,6 +103,15 @@ export class SpringBones {
    */
   private readonly cur: Float64Array;
   private readonly last: Float64Array;
+  private readonly resetDistanceSq: number;
+  private readonly colliders: Collider[];
+  /**
+   * Per collider its two ends (x y z, x y z; a sphere has both the same), in the space: at the
+   * start and the end of the frame, and at the step being run.
+   */
+  private readonly colStart: Float64Array;
+  private readonly colEnd: Float64Array;
+  private readonly colTick: Float64Array;
   /** How far into the next step the clock is (in steps). */
   private acc = 0;
   private needsInit = true;
@@ -92,6 +128,9 @@ export class SpringBones {
   private readonly quatCur = new Quaternion();
   private readonly shownQuat = new Quaternion();
   private readonly space = new Matrix4();
+  private readonly spaceInverse = new Matrix4();
+  private readonly boneSpace = new Matrix4();
+  private readonly shift = new Vector3();
   private readonly scale = new Vector3();
   /** Scratch. */
   private readonly goal = new Vector3();
@@ -128,12 +167,28 @@ export class SpringBones {
       console.warn('player.glb: the cape bones do not match animations.json → player.cape');
       return null;
     }
+    const colliders: Collider[] = [];
+    for (const entry of def.colliders) {
+      const bone = root.getObjectByName(entry.bone);
+      const to = entry.to === undefined ? null : root.getObjectByName(entry.to);
+      if (!bone || to === undefined) {
+        console.warn(`player.glb: no bone for cape collider ${entry.bone}${entry.to ?? ''}`);
+        continue;
+      }
+      const offset = new Vector3(...(entry.offset ?? [0, 0, 0]));
+      colliders.push({ bone, to, offset, radius: entry.radius });
+    }
     root.updateMatrixWorld(true);
-    return new SpringBones(anchor, bones, def);
+    return new SpringBones(anchor, bones, def, colliders);
   }
 
-  private constructor(anchor: Object3D, bones: Object3D[][], def: CapeDef) {
+  private constructor(anchor: Object3D, bones: Object3D[][], def: CapeDef, colliders: Collider[]) {
     this.anchor = anchor;
+    this.resetDistanceSq = def.resetDistance * def.resetDistance;
+    this.colliders = colliders;
+    this.colStart = new Float64Array(colliders.length * 6);
+    this.colEnd = new Float64Array(colliders.length * 6);
+    this.colTick = new Float64Array(colliders.length * 6);
     this.chains = bones.length;
     this.places = def.places.length;
     this.hz = def.substepHz;
@@ -202,7 +257,25 @@ export class SpringBones {
   /** The state for the debug overlay (F3). */
   debugLine(): string {
     if (!this.enabled) return 'off';
-    return `${this.lastSubsteps} substeps · max ${(this.maxAngle / DEG).toFixed(1)}°`;
+    const angle = (this.maxAngle / DEG).toFixed(1);
+    return `${this.lastSubsteps} substeps · max ${angle}° · ${this.colliders.length} colliders · ${this.jumpResets} jumps`;
+  }
+
+  /** How many colliders the cape has (the ones whose bones the model has). */
+  get colliderCount(): number {
+    return this.colliders.length;
+  }
+
+  /**
+   * Collider `i` as of the last update, in the space: its two ends into `a` and `b` (the same
+   * for a sphere). Returns its radius. For the debug view.
+   */
+  collider(i: number, a: Vector3, b: Vector3): number {
+    const k = i * 6;
+    const end = this.colEnd;
+    a.set(at(end, k), at(end, k + 1), at(end, k + 2));
+    b.set(at(end, k + 3), at(end, k + 4), at(end, k + 5));
+    return (this.colliders[i] as Collider).radius;
   }
 
   /**
@@ -217,12 +290,19 @@ export class SpringBones {
     }
     this.restShown = false;
     this.sampleAnchor(space);
+    this.sampleColliders();
+    if (!this.needsInit && this.startPos.distanceToSquared(this.endPos) > this.resetDistanceSq) {
+      // A teleport: swinging after it would whip the cape through the world.
+      this.needsInit = true;
+      this.jumpResets++;
+    }
     if (this.needsInit) {
       this.init();
     } else if (seconds > 0) {
       this.run(seconds);
       this.startPos.copy(this.endPos);
       this.startQuat.copy(this.endQuat);
+      this.colStart.set(this.colEnd);
     } else {
       this.lastSubsteps = 0;
     }
@@ -240,6 +320,13 @@ export class SpringBones {
       at(last, k + 1) + (at(cur, k + 1) - at(last, k + 1)) * a,
       at(last, k + 2) + (at(cur, k + 2) - at(last, k + 2)) * a,
     );
+  }
+
+  /** The tail of the bone at `place` of `chain` as of the last step (in the space). */
+  stepTail(chain: number, place: number, out: Vector3): Vector3 {
+    const k = (chain * (this.places + 1) + place + 1) * 3;
+    const cur = this.cur;
+    return out.set(at(cur, k), at(cur, k + 1), at(cur, k + 2));
   }
 
   /** How far a bone's real direction is from its animated one, as of the last step (rad). */
@@ -264,9 +351,37 @@ export class SpringBones {
   private sampleAnchor(space: Object3D | null): void {
     const anchor = this.anchor;
     anchor.updateWorldMatrix(true, false);
-    if (space) this.space.copy(space.matrixWorld).invert().multiply(anchor.matrixWorld);
-    else this.space.copy(anchor.matrixWorld);
+    if (space) this.spaceInverse.copy(space.matrixWorld).invert();
+    else this.spaceInverse.identity();
+    this.space.multiplyMatrices(this.spaceInverse, anchor.matrixWorld);
     this.space.decompose(this.endPos, this.endQuat, this.scale);
+  }
+
+  /** The colliders' ends in the space, into `colEnd` (after `sampleAnchor`). */
+  private sampleColliders(): void {
+    const end = this.colEnd;
+    const point = this.point;
+    const origin = this.goal;
+    for (let i = 0; i < this.colliders.length; i++) {
+      const { bone, to, offset } = this.colliders[i] as Collider;
+      bone.updateWorldMatrix(true, false);
+      const m = this.boneSpace.multiplyMatrices(this.spaceInverse, bone.matrixWorld);
+      point.copy(offset).applyMatrix4(m);
+      const k = i * 6;
+      end[k] = point.x;
+      end[k + 1] = point.y;
+      end[k + 2] = point.z;
+      if (to) {
+        // The offset moves the whole capsule: the far end by as much as the near one.
+        this.shift.subVectors(point, origin.setFromMatrixPosition(m));
+        to.updateWorldMatrix(true, false);
+        m.multiplyMatrices(this.spaceInverse, to.matrixWorld);
+        point.setFromMatrixPosition(m).add(this.shift);
+      }
+      end[k + 3] = point.x;
+      end[k + 4] = point.y;
+      end[k + 5] = point.z;
+    }
   }
 
   /** The cape as modelled (bones at their own rest pose), until it is switched on again. */
@@ -286,6 +401,7 @@ export class SpringBones {
     this.startQuat.copy(this.endQuat);
     this.quatLast.copy(this.endQuat);
     this.quatCur.copy(this.endQuat);
+    this.colStart.set(this.colEnd);
     const n = this.places;
     const cur = this.cur;
     for (let c = 0; c < this.chains; c++) {
@@ -341,6 +457,13 @@ export class SpringBones {
     const tickQuat = this.tickQuat.slerpQuaternions(this.startQuat, this.endQuat, u);
     this.quatLast.copy(this.quatCur);
     this.quatCur.copy(tickQuat);
+    const colliders = this.colliders.length;
+    const col = this.colTick;
+    const colStart = this.colStart;
+    const colEnd = this.colEnd;
+    for (let k = 0; k < colliders * 6; k++) {
+      col[k] = at(colStart, k) + (at(colEnd, k) - at(colStart, k)) * u;
+    }
     const cur = this.cur;
     const last = this.last;
     const goal = this.goal;
@@ -416,9 +539,84 @@ export class SpringBones {
           dy = goal.y * cosMax + (py / p) * sin;
           dz = goal.z * cosMax + (pz / p) * sin;
         }
-        hx += dx * len;
-        hy += dy * len;
-        hz += dz * len;
+        let tx = hx + dx * len;
+        let ty = hy + dy * len;
+        let tz = hz + dz * len;
+        // Out of the body (step A.4b): the whole bone, not just its tail (the cloth runs
+        // straight from head to tail, so a thigh could poke through between the two). Where
+        // the bone comes closest to a collider's core and is inside it, the tail is swung out
+        // by as much as it takes at that point, then put back onto the bone's length (which
+        // may lead back in a little: a few rounds). The body wins over the cone.
+        for (let pass = 0; pass < COLLISION_PASSES; pass++) {
+          let pushed = false;
+          for (let q = 0; q < colliders; q++) {
+            const r = (this.colliders[q] as Collider).radius;
+            const b = q * 6;
+            const ax = at(col, b);
+            const ay = at(col, b + 1);
+            const az = at(col, b + 2);
+            // The closest points of the bone (head + s × bone) and the core (a + t × core).
+            const bx = tx - hx;
+            const by = ty - hy;
+            const bz = tz - hz;
+            const sx = at(col, b + 3) - ax;
+            const sy = at(col, b + 4) - ay;
+            const sz = at(col, b + 5) - az;
+            const wx = hx - ax;
+            const wy = hy - ay;
+            const wz = hz - az;
+            const bb = bx * bx + by * by + bz * bz;
+            const ss = sx * sx + sy * sy + sz * sz;
+            const bs = bx * sx + by * sy + bz * sz;
+            const bw = bx * wx + by * wy + bz * wz;
+            const sw = sx * wx + sy * wy + sz * wz;
+            let s: number;
+            let t = 0;
+            if (ss <= 1e-12) {
+              s = bb > 1e-12 ? Math.min(1, Math.max(0, -bw / bb)) : 1;
+            } else {
+              const denom = bb * ss - bs * bs;
+              s = denom > 1e-12 ? Math.min(1, Math.max(0, (bs * sw - bw * ss) / denom)) : 1;
+              t = (bs * s + sw) / ss;
+              if (t < 0) {
+                t = 0;
+                s = Math.min(1, Math.max(0, -bw / bb));
+              } else if (t > 1) {
+                t = 1;
+                s = Math.min(1, Math.max(0, (bs - bw) / bb));
+              }
+            }
+            const ex = hx + bx * s - (ax + sx * t);
+            const ey = hy + by * s - (ay + sy * t);
+            const ez = hz + bz * s - (az + sz * t);
+            const e2 = ex * ex + ey * ey + ez * ez;
+            // Exactly on the core there is no way out to pick: left as it is (never happens
+            // from a hanging cape, which comes from outside).
+            if (e2 >= r * r || e2 < 1e-18) continue;
+            const e = Math.sqrt(e2);
+            // Moving the tail by d moves the point at s by s × d.
+            const out = (r - e) / e / Math.max(s, MIN_LEVER);
+            tx += ex * out;
+            ty += ey * out;
+            tz += ez * out;
+            pushed = true;
+          }
+          // The last round ends outside: a bone a few mm long or short is never seen, a cape
+          // inside a leg is.
+          if (!pushed || pass === COLLISION_PASSES - 1) break;
+          const ex = tx - hx;
+          const ey = ty - hy;
+          const ez = tz - hz;
+          const e = Math.sqrt(ex * ex + ey * ey + ez * ez);
+          if (e > 1e-12) {
+            tx = hx + (ex / e) * len;
+            ty = hy + (ey / e) * len;
+            tz = hz + (ez / e) * len;
+          }
+        }
+        hx = tx;
+        hy = ty;
+        hz = tz;
         cur[k] = hx;
         cur[k + 1] = hy;
         cur[k + 2] = hz;

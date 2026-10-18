@@ -2526,6 +2526,24 @@ export const animationsFileSchema = z.strictObject({
           }),
         ),
       ),
+      /**
+       * Step A.4b: when the anchor moves further than this in one frame (m), the cape does not
+       * swing after it but starts over, hanging still (a teleport, waking up at a checkpoint).
+       */
+      resetDistance: range(0.5, 100),
+      /**
+       * Step A.4b: the body parts the cape's tails cannot go into. A sphere around `bone`, or
+       * with `to` a capsule from `bone` to the bone `to` (a thigh, a shin). `offset` (m, in the
+       * frame of `bone`) moves the whole shape; `radius` in m.
+       */
+      colliders: z.array(
+        z.strictObject({
+          bone: nodeName,
+          to: optional(nodeName),
+          offset: optional(z.tuple([range(-1, 1), range(-1, 1), range(-1, 1)])),
+          radius: range(0.01, 1),
+        }),
+      ),
     }),
   }),
 });

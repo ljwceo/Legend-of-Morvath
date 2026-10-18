@@ -168,7 +168,8 @@ class CrossChecker {
   /**
    * The cape (step A.4a): every chain needs its numbers per place, a bone may be in one chain
    * only, and the spring must be gentle enough for the substep (stiffness × dt² above 1 makes
-   * the simulation shake itself apart). That the bones exist in player.glb is checked by a test.
+   * the simulation shake itself apart). A collider (step A.4b) is never on a cape bone. That the
+   * bones exist in player.glb is checked by a test.
    */
   private checkCape(cape: PlayerAnimationsDef['cape']): void {
     const f = 'animations';
@@ -193,6 +194,17 @@ class CrossChecker {
       }
       if (place.damping * dt > 1) {
         this.issue(f, `player.cape.places[${i}].damping`, 'is too high for substepHz');
+      }
+    });
+    // A collider on a cape bone would push the cape away from itself.
+    cape.colliders.forEach((collider, i) => {
+      for (const bone of [collider.bone, collider.to]) {
+        if (bone !== undefined && seen.has(bone)) {
+          this.issue(f, `player.cape.colliders[${i}]`, `"${bone}" is a cape bone`);
+        }
+      }
+      if (collider.to === collider.bone) {
+        this.issue(f, `player.cape.colliders[${i}].to`, 'is the same bone (leave it out)');
       }
     });
   }

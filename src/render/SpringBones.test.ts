@@ -1,20 +1,31 @@
 import { Group, Object3D, Quaternion, Vector3 } from 'three';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { AnimationsFile } from '../data/types';
 import { animationsFileSchema } from '../data/schemas';
 import { readPublicJson } from '../test/loadPublic';
 import { SpringBones, type CapeDef } from './SpringBones';
 
 const animations = readPublicJson('data/animations.json') as AnimationsFile;
-const def: CapeDef = animations.player.cape;
+/** The real numbers, without the colliders (their bones are not in the test rig). */
+const def: CapeDef = { ...animations.player.cape, colliders: [] };
 const DEG = Math.PI / 180;
 const BONE = 0.355;
+/** A leg (step A.4b): a capsule from the hip to the foot, right in front of the right chain. */
+const LEG_RADIUS = 0.09;
+const LEG_LENGTH = 0.85;
+const withLeg: CapeDef = {
+  ...def,
+  colliders: [{ bone: 'LegTop', to: 'LegBottom', radius: LEG_RADIUS }],
+};
 
 /** The cape as player.glb has it, simplified: three chains of three bones hanging straight down. */
 interface Rig {
   world: Group;
   anchor: Object3D;
   bones: SpringBones;
+  /** The leg's hip joint: turning it about x swings the leg back (+) or forward (-). */
+  leg: Object3D;
+  legEnd: Object3D;
 }
 
 function makeRig(options: { lean?: number; def?: CapeDef } = {}): Rig {
@@ -25,6 +36,16 @@ function makeRig(options: { lean?: number; def?: CapeDef } = {}): Rig {
   anchor.name = 'Spine2';
   world.add(root);
   root.add(anchor);
+  // The leg hangs from the anchor (in the real rig from Hips): at the right chain's x, 0.3 m
+  // lower, straight down.
+  const leg = new Object3D();
+  leg.name = 'LegTop';
+  leg.position.set(0.15, -0.3, 0);
+  const legEnd = new Object3D();
+  legEnd.name = 'LegBottom';
+  legEnd.position.set(0, -LEG_LENGTH, 0);
+  leg.add(legEnd);
+  anchor.add(leg);
   cape.chains.forEach((names, c) => {
     let parent: Object3D = anchor;
     names.forEach((name, j) => {
@@ -44,7 +65,7 @@ function makeRig(options: { lean?: number; def?: CapeDef } = {}): Rig {
   world.updateMatrixWorld(true);
   const bones = SpringBones.create(root, cape);
   if (!bones) throw new Error('no cape bones');
-  return { world, anchor, bones };
+  return { world, anchor, bones, leg, legEnd };
 }
 
 /** The anchor's pose over time: position and heading. */
@@ -191,7 +212,7 @@ describe('SpringBones behaviour', () => {
     let widest = 0;
     for (let i = 1; i <= 1500; i++) {
       const t = i / 60;
-      // Jerks of tens of m/s², a spin, a tumble.
+      // Jerks of tens of m/sÂ², a spin, a tumble.
       pos.set(Math.sin(t * 9) * 3, 1.3 + Math.sin(t * 13), Math.cos(t * 7) * 4);
       rig.anchor.position.copy(pos);
       rig.anchor.quaternion.setFromAxisAngle(axis, t * 6);
@@ -367,6 +388,190 @@ describe('SpringBones behaviour', () => {
     expect(collections).toBeLessThanOrEqual(5);
   });
 });
+
+/** The distance from `p` to the segment a-b. */
+function toSegment(p: Vector3, a: Vector3, b: Vector3): number {
+  const ab = b.clone().sub(a);
+  const t = Math.min(1, Math.max(0, p.clone().sub(a).dot(ab) / ab.lengthSq()));
+  return p.distanceTo(a.clone().addScaledVector(ab, t));
+}
+
+/** The leg swings back and forth like in a run, the body stands still. */
+const legSwing = (rig: Rig, t: number): void => {
+  rig.anchor.position.set(0, 1.3, 0);
+  rig.leg.rotation.x = 0.3 + 0.6 * Math.sin(2 * Math.PI * 1.2 * t);
+};
+
+describe('SpringBones collision (step A.4b)', () => {
+  /**
+   * The closest any bone (anywhere from its head to its tail: the cloth runs straight between
+   * them) gets to the leg's core over 4 s at 120 fps (one step per frame).
+   */
+  function closestToLeg(cape: CapeDef): number {
+    const rig = makeRig({ def: cape });
+    legSwing(rig, 0);
+    rig.bones.update(0, rig.world);
+    const head = new Vector3();
+    const tail = new Vector3();
+    const point = new Vector3();
+    const top = new Vector3();
+    const bottom = new Vector3();
+    let closest = Infinity;
+    for (let i = 1; i <= 480; i++) {
+      legSwing(rig, i / 120);
+      rig.bones.update(1 / 120, rig.world);
+      rig.leg.getWorldPosition(top);
+      rig.legEnd.getWorldPosition(bottom);
+      for (let c = 0; c < 3; c++) {
+        // The top bone hangs from the anchor; the leg never comes up there.
+        rig.bones.stepTail(c, 0, head);
+        for (let j = 1; j < 3; j++) {
+          rig.bones.stepTail(c, j, tail);
+          for (let s = 0; s <= 20; s++) {
+            point.lerpVectors(head, tail, s / 20);
+            closest = Math.min(closest, toSegment(point, top, bottom));
+          }
+          head.copy(tail);
+        }
+      }
+    }
+    return closest;
+  }
+
+  it('keeps every bone out of a leg that swings back through the cape', () => {
+    // Without the collider the leg goes right through the cape...
+    expect(closestToLeg(def)).toBeLessThan(LEG_RADIUS / 2);
+    // ...with it no part of the cape goes into the leg (2 mm for the rounds onto the length).
+    expect(closestToLeg(withLeg)).toBeGreaterThan(LEG_RADIUS - 2e-3);
+  });
+
+  it('pushes the same at 30, 60, 120 and 144 fps (within 2.5 mm at 30, 1 mm above)', () => {
+    const run = (fps: number): number[] => {
+      const rig = makeRig({ def: withLeg });
+      legSwing(rig, 0);
+      rig.bones.update(0, rig.world);
+      const tail = new Vector3();
+      const out: number[] = [];
+      for (let i = 1; i <= fps * 3; i++) {
+        legSwing(rig, i / fps);
+        rig.bones.update(1 / fps, rig.world);
+        if (i % (fps / 6) === 0) {
+          for (let j = 0; j < 3; j++) out.push(...rig.bones.tail(2, j, tail).toArray());
+        }
+      }
+      return out;
+    };
+    const reference = run(120);
+    // Between two frames a collider moves in a straight line, the swinging leg in an arc: the
+    // difference grows with the frame time (measured 1.8 mm at 30 fps, 0.6 at 60, 0.07 at 144).
+    for (const [fps, limit] of [
+      [30, 2.5e-3],
+      [60, 1e-3],
+      [144, 1e-3],
+    ] as const) {
+      const other = run(fps);
+      const worst = Math.max(...other.map((v, k) => Math.abs(v - (reference[k] ?? NaN))));
+      expect(worst, `${fps} fps`).toBeLessThan(limit);
+    }
+  });
+
+  it('draws its colliders where the bones are, and skips one whose bone is missing', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const missing: CapeDef = {
+      ...withLeg,
+      colliders: [...withLeg.colliders, { bone: 'NoSuchBone', radius: 0.1 }],
+    };
+    const rig = makeRig({ def: missing });
+    expect(warn).toHaveBeenCalledOnce();
+    warn.mockRestore();
+    expect(rig.bones.colliderCount).toBe(1);
+    rig.leg.rotation.x = 0.5;
+    rig.bones.update(0, rig.world);
+    const a = new Vector3();
+    const b = new Vector3();
+    expect(rig.bones.collider(0, a, b)).toBe(LEG_RADIUS);
+    expect(a.distanceTo(rig.leg.getWorldPosition(new Vector3()))).toBeLessThan(1e-9);
+    expect(b.distanceTo(rig.legEnd.getWorldPosition(new Vector3()))).toBeLessThan(1e-9);
+  });
+
+  it('moves a capsule as a whole by its offset', () => {
+    const shifted: CapeDef = {
+      ...def,
+      colliders: [{ bone: 'LegTop', to: 'LegBottom', offset: [0, 0, -0.05], radius: 0.1 }],
+    };
+    const rig = makeRig({ def: shifted });
+    rig.bones.update(0, rig.world);
+    const a = new Vector3();
+    const b = new Vector3();
+    rig.bones.collider(0, a, b);
+    expect(a.z).toBeCloseTo(-0.05, 9);
+    expect(b.z).toBeCloseTo(-0.05, 9);
+    expect(a.y - b.y).toBeCloseTo(LEG_LENGTH, 9);
+  });
+
+  it('does not allocate with colliders either', async () => {
+    const rig = makeRig({ def: withLeg });
+    rig.bones.update(0, rig.world);
+    const run = (frames: number): void => {
+      for (let i = 1; i <= frames; i++) {
+        legSwing(rig, i / 60);
+        rig.bones.update(1 / 60, rig.world);
+      }
+    };
+    run(2000);
+    await new Promise((resolve) => setImmediate(resolve));
+    let collections = 0;
+    const observer = new PerformanceObserver((list) => {
+      collections += list.getEntries().length;
+    });
+    observer.observe({ entryTypes: ['gc'] });
+    run(200_000);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    observer.disconnect();
+    expect(collections).toBeLessThanOrEqual(5);
+  });
+});
+
+describe('SpringBones after a teleport (step A.4b)', () => {
+  it('starts over hanging still when the anchor jumps further than resetDistance', () => {
+    const rig = makeRig();
+    rig.bones.update(0, rig.world);
+    for (let i = 1; i <= 60; i++) {
+      rig.anchor.position.set(0, 1.3, i * 0.08);
+      rig.bones.update(1 / 60, rig.world);
+    }
+    expect(rig.bones.maxAngle).toBeGreaterThan(5 * DEG);
+    // 100 m away in one frame.
+    rig.anchor.position.set(100, 1.3, 50);
+    rig.bones.update(1 / 60, rig.world);
+    expect(rig.bones.jumpResets).toBe(1);
+    const tail = new Vector3();
+    for (let c = 0; c < 3; c++) {
+      for (let j = 0; j < 3; j++) {
+        rig.bones.tail(c, j, tail);
+        // Straight below its place on the anchor: no swing, no streak back to where it was.
+        expect(tail.x).toBeCloseTo(100 + (c - 1) * 0.15, 4);
+        expect(tail.z).toBeCloseTo(50 - 0.15, 4);
+        expect(tail.y).toBeCloseTo(1.3 + 0.13 - (j + 1) * BONE, 4);
+      }
+    }
+    expect(rig.bones.maxAngle).toBeLessThan(0.01 * DEG);
+  });
+
+  it('swings after a fast move below resetDistance (a dash at 20 fps is no teleport)', () => {
+    const rig = makeRig();
+    rig.bones.update(0, rig.world);
+    // A dash: 4 m in 0.18 s (player.json), drawn at 20 fps = 1.1 m per frame.
+    for (let i = 1; i <= 4; i++) {
+      rig.anchor.position.set(0, 1.3, i * 1.1);
+      rig.bones.update(1 / 20, rig.world);
+    }
+    expect(def.resetDistance).toBeGreaterThan(1.1);
+    expect(rig.bones.jumpResets).toBe(0);
+    expect(rig.bones.maxAngle).toBeGreaterThan(5 * DEG);
+  });
+});
+
 describe('player.cape in animations.json', () => {
   it('passes the schema and has numbers for every place of every chain', () => {
     const parsed = animationsFileSchema.safeParse(animations);

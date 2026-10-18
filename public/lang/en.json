@@ -1107,6 +1107,7 @@
     "cape": "Cape",
     "capeStiffness": "Stiffness (× animations.json)",
     "capeGravity": "Gravity (× animations.json)",
+    "capeColliders": "Show collision spheres",
     "capeNote": "Spring bones of the cape. Off = the cape hangs as modelled; back on = it starts over, hanging still."
   },
   "bag": {

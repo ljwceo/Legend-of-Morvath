@@ -69,6 +69,7 @@ import {
   type PlayerAnimSources,
   PlayerAnimator,
 } from '../render/PlayerAnimator';
+import { CapeColliderView } from '../render/CapeColliderView';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
 import { Cheats, stepFlying } from '../systems/Cheats';
 import { SwingingDoors } from '../systems/Doors';
@@ -421,6 +422,8 @@ export class WorldState implements GameState, InstanceHost {
   private scenePlayer: ScenePlayerModel | null = null;
   /** Plays the clips of the Blender character (null with the placeholder model). */
   private playerAnimator: PlayerAnimator | null = null;
+  /** The cape's colliders as wire spheres (cheat menu), null = not shown. */
+  private capeColliderView: CapeColliderView | null = null;
   private readonly animInput = createPlayerAnimInput();
   private animSources: PlayerAnimSources | null = null;
   private blob: Mesh | null = null;
@@ -865,6 +868,7 @@ export class WorldState implements GameState, InstanceHost {
             enabled: cape.enabled,
             stiffness: cape.stiffnessScale,
             gravity: cape.gravityScale,
+            colliders: this.capeColliderView !== null,
           };
         },
         setCape: (change) => {
@@ -873,6 +877,12 @@ export class WorldState implements GameState, InstanceHost {
           cape.enabled = change.enabled ?? cape.enabled;
           cape.stiffnessScale = change.stiffness ?? cape.stiffnessScale;
           cape.gravityScale = change.gravity ?? cape.gravityScale;
+          if (change.colliders === true && !this.capeColliderView && this.worldRoot) {
+            this.capeColliderView = new CapeColliderView(cape, this.worldRoot);
+          } else if (change.colliders === false) {
+            this.capeColliderView?.dispose();
+            this.capeColliderView = null;
+          }
         },
       },
     );
@@ -2156,6 +2166,7 @@ export class WorldState implements GameState, InstanceHost {
     // The cape last: it hangs from a bone the clips have just moved. Simulated in the world
     // root's own coordinates, so a shift of the floating origin does not whip it.
     animator.cape?.update(seconds, this.worldRoot);
+    this.capeColliderView?.update();
   }
 
   /** The screen during dying (drawn every frame from the simulation's death timer). */
@@ -4662,6 +4673,8 @@ export class WorldState implements GameState, InstanceHost {
     player.place(player.state.x, player.state.y, player.state.z, player.state.heading);
     origin.reset(player.state.x, player.state.z);
     rig.orbit.snap(player.state.x, player.state.y, player.state.z, heading ?? rig.orbit.yaw);
+    // Standing at the new place, the cape hanging still (it never swings after a teleport).
+    this.playerAnimator?.reset();
     this.dialog?.close();
     this.damageNumbers?.clear();
     this.poiseBars?.clear();
@@ -5255,6 +5268,7 @@ export class WorldState implements GameState, InstanceHost {
     s.dashTime = 0;
     s.invulnerable = false;
     rig.orbit.snap(s.x, s.y, s.z, s.heading);
+    this.playerAnimator?.reset();
     this.damageNumbers?.clear();
     this.poiseBars?.clear();
     if (npcWorld) this.npcs?.snapCompanions(s.x, s.z, s.heading, npcWorld);
@@ -5388,6 +5402,8 @@ export class WorldState implements GameState, InstanceHost {
     this.disposeBossProps();
     this.player?.dispose();
     this.player = null;
+    this.capeColliderView?.dispose();
+    this.capeColliderView = null;
     this.playerAnimator?.dispose();
     this.playerAnimator = null;
     this.animSources = null;
