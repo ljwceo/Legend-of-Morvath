@@ -7,6 +7,14 @@ const DEG = Math.PI / 180;
 export type StructureDef = NonNullable<Zone['structures']>[number];
 
 /**
+ * An invisible wall: collision only, nothing is drawn (StructureLayer skips it) and the camera
+ * passes through it (no `solid` box). Buried in a cliff or ridge it makes a natural boundary
+ * really hold: the mover's slope rule is per movement direction, so any slope can be inched up
+ * at a grazing angle, a collider cannot.
+ */
+export const BARRIER_MODEL = 'placeholder:barrier';
+
+/**
  * Collider fractions of a structure model (from StructureFactory): circle radius as a fraction
  * of the larger footprint side (trunk, pillar); corner posts' offset from the center and radius.
  */
@@ -130,9 +138,12 @@ function placeStanding(
 
   const colliders: Collider[] = [];
   let solid: SolidBox | null = null;
+  // A barrier blocks walking, never the camera: its box would be a tall invisible wall.
+  const occludes = def.model !== BARRIER_MODEL;
   switch (def.collider) {
     case 'box': {
       colliders.push(boxColliderAt(x, z, halfX * 2, halfZ * 2));
+      if (!occludes) break;
       solid = {
         minX: x - halfX,
         minY: base,
@@ -146,6 +157,7 @@ function placeStanding(
     case 'circle': {
       const radius = shape.circleRadius * Math.max(width, depth);
       colliders.push(circleCollider(x, z, radius));
+      if (!occludes) break;
       solid = {
         minX: x - radius,
         minY: base,

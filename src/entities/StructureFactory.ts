@@ -1,5 +1,5 @@
 import {
-  type BufferGeometry,
+  BufferGeometry,
   BoxGeometry,
   Color,
   ConeGeometry,
@@ -10,7 +10,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { palette, terrainColors } from '../render/palette';
-import type { StructureShape } from '../world/StructurePlacement';
+import { BARRIER_MODEL, type StructureShape } from '../world/StructurePlacement';
 
 /**
  * Placeholder models for buildings and landmarks (zones.json `structures[].model`). Every model
@@ -215,6 +215,63 @@ const MODELS: Readonly<Record<string, ModelDef>> = {
       parts.push([new DodecahedronGeometry(0.12, 0), palette.spreukviolet, 0, 0.3, 0]);
       return colored(parts);
     },
+  },
+  // Ruin: a roofless shell whose walls are broken down to different heights (a collapsed chapel).
+  'placeholder:ruin': {
+    tinted: true,
+    build: () =>
+      colored([
+        // Back wall (-z) still stands; the front (+z) is a low stump with a gap in the middle.
+        [new BoxGeometry(1, 1, 0.08), WALL, 0, 0.5, -0.46],
+        [new BoxGeometry(0.3, 0.3, 0.08), WALL, -0.35, 0.15, 0.46],
+        [new BoxGeometry(0.3, 0.2, 0.08), WALL, 0.35, 0.1, 0.46],
+        // Side walls, broken off towards the front.
+        [new BoxGeometry(0.08, 0.85, 0.55), WALL, -0.46, 0.425, -0.225],
+        [new BoxGeometry(0.08, 0.35, 0.45), WALL, -0.46, 0.175, 0.275],
+        [new BoxGeometry(0.08, 0.6, 0.5), WALL, 0.46, 0.3, -0.25],
+        [new BoxGeometry(0.08, 0.25, 0.5), WALL, 0.46, 0.125, 0.25],
+        // Rubble on the floor and the stump of a tower in the back corner.
+        [new DodecahedronGeometry(0.12, 0).scale(1, 0.6, 1), DARK, 0.15, 0.07, 0.1],
+        [new DodecahedronGeometry(0.09, 0).scale(1, 0.6, 1), DARK, -0.2, 0.05, 0.25],
+        [new CylinderGeometry(0.12, 0.13, 1.2, 8), ROOF, -0.36, 0.6, -0.36],
+      ]),
+  },
+  // Obelisk: a tapered dark pillar (wayposts along a road).
+  'placeholder:obelisk': {
+    tinted: true,
+    circleRadius: 0.5,
+    build: () =>
+      colored([
+        [new BoxGeometry(1, 0.12, 1), ROOF, 0, 0.06, 0],
+        [new CylinderGeometry(0.22, 0.4, 0.82, 4), WALL, 0, 0.53, 0],
+        [new ConeGeometry(0.22, 0.12, 4), DARK, 0, 1.0, 0],
+      ]),
+  },
+  // Citadel: a dark keep with four corner spires and a tall central tower (the Black Citadel).
+  'placeholder:citadel': {
+    tinted: true,
+    build: () => {
+      const parts: Part[] = [
+        [new BoxGeometry(1, 0.42, 1), WALL, 0, 0.21, 0],
+        [new BoxGeometry(0.6, 0.65, 0.6), WALL, 0, 0.325, 0],
+        [new CylinderGeometry(0.11, 0.14, 0.86, 8), WALL, 0, 0.43, 0],
+        [new ConeGeometry(0.13, 0.14, 8), DARK, 0, 0.93, 0],
+      ];
+      for (let i = 0; i < 4; i++) {
+        const sx = i & 1 ? 0.42 : -0.42;
+        const sz = i & 2 ? 0.42 : -0.42;
+        parts.push(
+          [new CylinderGeometry(0.07, 0.09, 0.62, 8), WALL, sx, 0.31, sz],
+          [new ConeGeometry(0.09, 0.1, 8), DARK, sx, 0.67, sz],
+        );
+      }
+      return colored(parts);
+    },
+  },
+  // Invisible wall (BARRIER_MODEL in StructurePlacement): no geometry at all.
+  [BARRIER_MODEL]: {
+    tinted: false,
+    build: () => new BufferGeometry(),
   },
   // Cave entrance: a mound of rock with a dark opening on the front (+z).
   'placeholder:cave_entrance': {

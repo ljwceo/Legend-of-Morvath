@@ -1,6 +1,6 @@
 import { hashSeed, Random } from '../core/Random';
 import type { ScatterConfig } from './terrainConfig';
-import type { TerrainField } from './TerrainField';
+import { type LineHit, nearestOnLine, type TerrainField } from './TerrainField';
 
 /** Floats per placed prop: local x, height, local z, scale, rotation around y. */
 export const PROP_STRIDE = 5;
@@ -8,6 +8,7 @@ export const PROP_STRIDE = 5;
 const MAX_SLOPE = 0.7;
 
 const random = new Random(0);
+const lineHit: LineHit = { distance: 0, t: 0, segment: 0 };
 
 /**
  * Places the props (trees, rocks, ...) of one chunk. Deterministic: every chunk has its own
@@ -44,6 +45,7 @@ export function scatterChunk(
       const scale = random.range(rule.minScale, rule.maxScale);
       const rotation = random.range(0, Math.PI * 2);
       if (inClearing(cfg.clearings, x, z) || inRect(cfg.clearRects, x, z)) continue;
+      if (nearLine(cfg.clearLines, cfg.clearLineReach, x, z)) continue;
       if (field.riverAt(x, z) > 0) continue;
       const h = field.heightAt(x, z);
       if (h < cfg.minHeight) continue;
@@ -76,6 +78,19 @@ function inRect(rects: readonly number[], x: number, z: number): boolean {
     ) {
       return true;
     }
+  }
+  return false;
+}
+
+function nearLine(
+  lines: readonly number[][],
+  reach: readonly number[],
+  x: number,
+  z: number,
+): boolean {
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i] as number[];
+    if (nearestOnLine(line, 2, x, z, lineHit).distance < (reach[i] as number)) return true;
   }
   return false;
 }

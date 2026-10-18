@@ -1,6 +1,7 @@
 import type { ZonesFile } from '../data/types';
 import { emptyBox, shapeBounds } from './Shapes';
-import type { TerrainConfig } from './TerrainField';
+import { BARRIER_MODEL } from './StructurePlacement';
+import type { TerrainConfig, TerrainFeature } from './TerrainField';
 
 /** Extra room (m) kept free of props around a building. */
 const STRUCTURE_MARGIN = 1.5;
@@ -38,6 +39,12 @@ export interface ScatterConfig {
   clearings: number[];
   /** No props in these rectangles: [minX, minZ, maxX, maxZ] (areas with `noScatter`). */
   clearRects: number[];
+  /**
+   * No props within reach of these lines (terrain features with `noScatter`, e.g. a road):
+   * for each line its x, z pairs; `clearLineReach` gives its reach (m).
+   */
+  clearLines: number[][];
+  clearLineReach: number[];
   /** Props never stand in water shallower than this above sea level. */
   minHeight: number;
   /** Quality density (0–1) multiplies `perHectare` of decorative props only. */
@@ -68,6 +75,9 @@ export function buildWorldGenConfig(
   const rules: ScatterRule[] = [];
   const clearings: number[] = [];
   const clearRects: number[] = [];
+  const clearLines: number[][] = [];
+  const clearLineReach: number[] = [];
+  const features: TerrainFeature[] = [];
   const terrainZones = zones.zones.map((zone) => {
     shapeBounds(zone.bounds, box);
     for (const rule of zone.scatter ?? []) {
@@ -90,6 +100,8 @@ export function buildWorldGenConfig(
     }
     for (const structure of zone.structures ?? []) {
       if (structure.x === undefined || structure.z === undefined) continue;
+      // An invisible barrier inside a cliff leaves the trees and rocks on the cliff alone.
+      if (structure.model === BARRIER_MODEL) continue;
       // Half the diagonal of the footprint, plus room to walk around it.
       const radius = Math.hypot(structure.size[0], structure.size[2]) / 2 + STRUCTURE_MARGIN;
       clearings.push(structure.x, structure.z, radius);
@@ -98,6 +110,28 @@ export function buildWorldGenConfig(
       if (!area.noScatter) continue;
       const areaBox = shapeBounds(area.shape, emptyBox());
       clearRects.push(areaBox.minX, areaBox.minZ, areaBox.maxX, areaBox.maxZ);
+    }
+    for (const feature of zone.terrain.features ?? []) {
+      const reach = feature.half + feature.falloff;
+      const xs = feature.points.map((point) => point[0]);
+      const zs = feature.points.map((point) => point[1]);
+      features.push({
+        id: feature.id,
+        level: feature.mode === 'level',
+        half: feature.half,
+        falloff: feature.falloff,
+        points: feature.points.flat(),
+        color: feature.color ? color(feature.color) : -1,
+        colorStrength: feature.colorStrength ?? 1,
+        minX: Math.min(...xs) - reach,
+        minZ: Math.min(...zs) - reach,
+        maxX: Math.max(...xs) + reach,
+        maxZ: Math.max(...zs) + reach,
+      });
+      if (feature.noScatter) {
+        clearLines.push(feature.points.flatMap((point) => [point[0], point[1]]));
+        clearLineReach.push(reach);
+      }
     }
     return {
       id: zone.id,
@@ -142,6 +176,7 @@ export function buildWorldGenConfig(
         };
       }),
       riverColor: color(RIVER_BED_COLOR),
+      features,
     },
     scatter: {
       seed: world.seed,
@@ -149,6 +184,8 @@ export function buildWorldGenConfig(
       rules,
       clearings,
       clearRects,
+      clearLines,
+      clearLineReach,
       minHeight: t.seaLevel + 0.3,
       density: propDensity,
     },

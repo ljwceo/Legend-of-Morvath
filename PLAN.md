@@ -523,6 +523,17 @@ Volgorde en afhankelijkheden: G.0 → G.1 → G.2 → G.3 → G.4 → G.5 → G.
 
 ---
 
+## Fase W – Wereld: Morvath, de endgame-regio · **W.1 gebouwd** (2026-10-18), wacht op spelen
+
+Doel: Morvath (het paarse, verdorven rijk van Lucael en Baelor, level 40–50) als speelbare wereld, met The Black Citadel als eindbestemming. Geen bazen, vijand-AI of gevechtssystemen in deze fase; wel het terrein, de sfeer en de haakjes voor latere vijanden, mini-bosses, items en dungeons. Alles in data (`zones.json`, `triggers.json`, `daynight.json`), met een paar generieke mechanismen in code die elke zone kan gebruiken.
+
+- [x] **W.1 Morvath World Prototype V1** — een afgebakend, speelbaar dal van de westelijke pas tot de buitenpoort van de Black Citadel: veilig spawnpunt, een duidelijke hoofdroute (de verzonken weg met wegpalen), een optionele route (het noordelijke terras met de krater van de Blightborn), een geheim (de kom achter de heuvel met een verzegelde crypte-deur), een checkpoint (de half ingestorte kapel uit het concept), hoogteverschillen, natuurlijke grenzen (kliffen) en de Citadel als silhouet aan de horizon. _Klaar als:_ de speler kan vanaf de pas naar de poort lopen, elke plek is bereikbaar en je kunt nergens vast komen te zitten (test), het dal is afgesloten (test), de game start zonder fouten en Greyhaven, de Greenwood en Sultan doen precies wat ze deden.
+  - _Gebouwd (2026-10-18):_ nieuwe generieke mechanismen: **terrein-features** per zone (`terrain.features`: ridges, kloven, wegen, plateaus en kraters als lijnen met hoogte, modus `offset` of `level`, met kleur en `noScatter`), **vaste belichting** per zone (`"lighting": "fixed"` + `look`, nieuwe look `blight` in `daynight.json`, faadt in 3 s bij de zonegrens), **dichtere mist** per zone (`fogScale`), **horizon-landmarks** (`horizon: true` op een gebouw: een silhouet aan de rand van de mist, exact in de juiste richting en grootte; `src/render/HorizonLandmarks.ts`) en **onzichtbare barrières** (`placeholder:barrier`: alleen botsing). Nieuwe placeholder-modellen: `ruin`, `obelisk`, `citadel` en de prop `blight_crystal`. Tests: `Morvath.test.ts` (looptest met de echte bewegingsregels: alle plekken bereikbaar, geen softlocks, dal afgesloten), `TerrainFeatures.test.ts`, `HorizonLandmarks.test.ts`, `DayNightLighting.test.ts`, validatorregels.
+  - _Bewust nog niet:_ eigen vijanden voor Morvath (de twee slime-groepen zijn placeholders met bestaande monsters), de crypte en de burcht als instance (staan als `enabled: false`), items op de grond (er is nog geen oppak-systeem; de plekken staan als `areas`), een echte poortvoorwaarde (de pas gebruikt `canEnterMorvath` = `always`), geluid, en de rest van Morvath buiten het dal (nu onbereikbare woestenij). Namen (Fallen Chapel, Shattered Spire, Sealed Crypt, de plek-id's) zijn **tijdelijk**.
+- [ ] **W.2 Morvath uitbreiden** — een tweede dal of de woestenij ten noorden of zuiden openen, met eigen vijanden (level 40+), een mini-boss-arena met echte spelregels en de eerste echte buit-plekken. Pas na feedback van Bo op W.1.
+
+---
+
 ## Later (backlog, nog geen stappen)
 
 Seizoenseffecten · crafting en drogen · de Garden en farming (ook de bedden `MON_FarmPlot_1…6` in de kloostertuin) · lichtwezen-quest in Old Tjikko (alleen lente) · Nature Crystal in de Greenwood · de overige zones (Eredhollow, Ruins of Dunmar, Mountains of Karad Vorn, Plains of Tharond, Morvath, Black Citadel, Frozen Lake) · Warrior/Berserker (level 15) · Old Rivals (pas daar komt de naam Ruben voor) · Nine Lives (rematch met Sultan) · Second Wind · de Greenwood-side quests van de leraren (na de poort, gear als beloning) · een echte landpoort in het Blender-model.
@@ -541,6 +552,7 @@ Fases met een letter in plaats van een nummer. Een letter hoort bij precies éé
 - **G** – Grimoire-migratie (stappen G.0–G.9; vastgelegd 2026-10-17)
 - **H** – Geluid (stappen H.0–H.7; tot 2026-10-18 voorgesteld als "Fase G", hernoemd omdat G voor de Grimoire is)
 - **S** – Souls-like gevecht (Fase S)
+- **W** – Wereld: Morvath, de endgame-regio (stappen W.1 en verder; 2026-10-18)
 
 ### Open vragen voor Bo en Lucas
 
@@ -557,6 +569,7 @@ Fases met een letter in plaats van een nummer. Een letter hoort bij precies éé
 | 10  | Moet de snel-drink-knop ook mana potions pakken?                     | **Opgelost in S.16:** met 3 / D-pad ↓ kies je welk drankje Q / X gebruikt (standaard eerst de health potions uit `quickOrder`)                 |
 | A.5 | Vier vragen over rennen en springen (zie stap A.5a)                  | **Beantwoord (Bo, 2026-10-18):** (1) in de lucht dashen of rollen: **nee** (besluit S-8); (2) in de lucht aanvallen of casten: **nee**; (3) springen kost energie: **ja, een beetje** (`jump.energyCost` 10); (4) sprinten: **de dash-knop vasthouden**, je rolt en loopt de rol uit in een sprint (geen aparte sprint-toets, geen aan/uit) |
 | 19  | Hoe komt de speler het klooster uit? De kerk (met het portaal) heeft geen deur naar de kloostergang en de tuinmuur is dicht | Game: `openings` in `zones.json` maakt deuren beloopbaar (hal → kloostergang, hal → tuin, portaal). Nodig in Blender: een deur(opening) kloostergang → zuidbeuk van de kerk, of een hek in de tuinmuur; daarna één regel data |
+| 30  | **Morvath (W.1):** moet de pas naar Morvath een echte voorwaarde krijgen (bijv. level 40, of een quest), en wat moeten de tijdelijke plek-namen worden (Fallen Chapel, Shattered Spire, Sealed Crypt, de plek-id's)? | Nu `canEnterMorvath` = `always` in `triggers.json` (één regel anders); de namen staan alleen in data en `en.json`/`nl.json` |
 | 20  | Brother Ansel zegt nog dat hij je **bewusteloos langs de weg** vond (`quest.a_quiet_awakening.offer.1`, `quest.tales_by_the_fire.offer.1`), terwijl in de nieuwe intro de kat je eerst vindt in de badlands | Zo gelaten: de reis van Morvath naar Greyhaven is een sprong naar zwart. Wil Bo de zin anders, dan is het alleen tekst in `en.json` en `nl.json` |
 | 21  | Is het kasteel van de intro **The Black Citadel**? | De intro noemt het kasteel niet bij naam (verhaaltekst `intro.panel_1..3`, ongewijzigd); een naam is één tekstregel |
 | 22  | In de intro zit **donder op de drankknop** (Q) en de **ijspegel op de lock-on-knop** (Tab of de middelste muisknop): zo houden, of eigen toetsen? | Alleen in de intro (`abilities[].action` in `cutscenes.json`), de echte bindingen blijven; de tip toont de ingestelde toets via `{keyPotion}` en `{keyLock}`, op de telefoon staan de namen op de knoppen. Eigen toetsen = een nieuwe `action` in `controls.json` + Settings → Besturing |

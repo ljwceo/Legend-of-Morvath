@@ -697,6 +697,62 @@ describe('validateGameData catches broken data', () => {
  * Fase G, step G.1: only the data contracts for the Grimoire. Nothing in the game reads them
  * yet, so these tests also check that no content hands any of it out before G.3.
  */
+describe('Morvath world data (terrain features, fixed look, far landmarks)', () => {
+  const morvath = (raw: ReturnType<typeof freshData>) =>
+    raw.zones.zones.find((zone: { id: string }) => zone.id === 'morvath');
+
+  it('reports a terrain feature point outside its zone', () => {
+    const raw = freshData();
+    morvath(raw).terrain.features[0].points[0] = [100, 0, 9];
+    expect(messages(raw)).toContainEqual(
+      expect.stringContaining('feature point lies outside the zone'),
+    );
+  });
+
+  it('reports duplicate feature ids within a zone', () => {
+    const raw = freshData();
+    const features = morvath(raw).terrain.features;
+    features[1].id = features[0].id;
+    expect(messages(raw)).toContainEqual(
+      expect.stringContaining(`duplicate id "${features[0].id}"`),
+    );
+  });
+
+  it('reports a fixed look that does not exist, and a look without fixed lighting', () => {
+    const raw = freshData();
+    morvath(raw).look = 'sunny_afternoon';
+    expect(messages(raw)).toContainEqual(expect.stringContaining('unknown look "sunny_afternoon"'));
+    const raw2 = freshData();
+    morvath(raw2).lighting = 'fixed';
+    delete morvath(raw2).look;
+    expect(messages(raw2)).toContainEqual(expect.stringContaining('needs a look'));
+    const raw3 = freshData();
+    morvath(raw3).lighting = 'cycle';
+    expect(messages(raw3)).toContainEqual(
+      expect.stringContaining('only shows with lighting "fixed"'),
+    );
+  });
+
+  it('reports a bridge marked as a far landmark', () => {
+    const raw = freshData();
+    const greenwood = raw.zones.zones.find((zone: { id: string }) => zone.id === 'greenwood');
+    const bridge = greenwood.structures.find((s: { connects?: unknown }) => s.connects);
+    bridge.horizon = true;
+    expect(messages(raw)).toContainEqual(expect.stringContaining('cannot be a far landmark'));
+  });
+
+  it('accepts the real Morvath data: fixed blight look, denser fog, barriers and the Citadel landmark', () => {
+    const { data } = validateGameData(readAllData(), options);
+    const zone = data?.zones.zones.find((entry) => entry.id === 'morvath');
+    expect(zone?.lighting).toBe('fixed');
+    expect(zone?.look).toBe('blight');
+    expect(zone?.fogScale).toBeLessThan(1);
+    expect(zone?.terrain.features?.length).toBeGreaterThan(5);
+    const citadel = data?.zones.zones.find((entry) => entry.id === 'black_citadel');
+    expect(citadel?.structures?.some((s) => s.horizon)).toBe(true);
+  });
+});
+
 describe('Grimoire data foundation (G.1)', () => {
   const { data } = validateGameData(readAllData(), options);
   const item = (id: string) => data?.items.items.find((entry) => entry.id === id);

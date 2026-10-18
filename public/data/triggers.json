@@ -84,6 +84,10 @@
         }
       ],
       "note": "The last Entrance Exam of your own teacher (fase 3.8); only one of the three can ever be yours."
+    },
+    "canEnterMorvath": {
+      "type": "always",
+      "note": "The pass into Morvath (Morvath World Prototype V1). Make it e.g. { type: level, min: 40 } once Bo/Lucas decide how the endgame region is gated."
     }
   },
   "triggers": [
@@ -316,6 +320,116 @@
         "radius": 18
       },
       "firstVisitText": "place.mournfen_monastery"
+    },
+    {
+      "id": "morvath_pass",
+      "zone": "morvath",
+      "kind": "gate",
+      "shape": {
+        "type": "rect",
+        "minX": 1214,
+        "minZ": -45,
+        "maxX": 1222,
+        "maxZ": 45
+      },
+      "condition": "canEnterMorvath",
+      "blockedText": "place.morvath_pass_blocked"
+    },
+    {
+      "id": "morvath_threshold",
+      "zone": "morvath",
+      "kind": "place",
+      "shape": {
+        "type": "circle",
+        "x": 1240,
+        "z": 0,
+        "radius": 22
+      },
+      "firstVisitText": "place.morvath_threshold"
+    },
+    {
+      "id": "fallen_chapel",
+      "zone": "morvath",
+      "kind": "place",
+      "shape": {
+        "type": "circle",
+        "x": 1335,
+        "z": -60,
+        "radius": 16
+      },
+      "firstVisitText": "place.fallen_chapel"
+    },
+    {
+      "id": "blight_crossing",
+      "zone": "morvath",
+      "kind": "place",
+      "shape": {
+        "type": "circle",
+        "x": 1465,
+        "z": 30,
+        "radius": 22
+      },
+      "firstVisitText": "place.blight_crossing"
+    },
+    {
+      "id": "hollow_rise",
+      "zone": "morvath",
+      "kind": "place",
+      "shape": {
+        "type": "circle",
+        "x": 1515,
+        "z": -140,
+        "radius": 18
+      },
+      "firstVisitText": "place.hollow_rise"
+    },
+    {
+      "id": "blightborn_hollow",
+      "zone": "morvath",
+      "kind": "place",
+      "shape": {
+        "type": "circle",
+        "x": 1600,
+        "z": -140,
+        "radius": 24
+      },
+      "firstVisitText": "place.blightborn_hollow"
+    },
+    {
+      "id": "morvath_cache_north",
+      "zone": "morvath",
+      "kind": "place",
+      "shape": {
+        "type": "circle",
+        "x": 1650,
+        "z": -150,
+        "radius": 6
+      },
+      "firstVisitText": "place.morvath_cache_north"
+    },
+    {
+      "id": "shadow_cove",
+      "zone": "morvath",
+      "kind": "place",
+      "shape": {
+        "type": "circle",
+        "x": 1605,
+        "z": 150,
+        "radius": 18
+      },
+      "firstVisitText": "place.shadow_cove"
+    },
+    {
+      "id": "citadel_gate",
+      "zone": "black_citadel",
+      "kind": "place",
+      "shape": {
+        "type": "circle",
+        "x": 1764,
+        "z": 0,
+        "radius": 18
+      },
+      "firstVisitText": "place.citadel_gate"
     }
   ]
 }
