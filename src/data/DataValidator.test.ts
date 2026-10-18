@@ -763,11 +763,12 @@ describe('Grimoire data foundation (G.1)', () => {
     expect(messages(raw)).toContainEqual(expect.stringContaining('weapon.grip'));
   });
 
-  it('changes nothing in play yet: no Neutral spell, start kit as before, nothing hands it out', () => {
+  it('has no Neutral spell; only the start kit hands the Grimoire out (G.3), nothing else does', () => {
     expect(data?.spells.spells.some((spell) => spell.element === 'neutral')).toBe(false);
     expect(data?.player.start.items).toEqual([
       { item: 'old_sword', count: 1 },
       { item: 'travel_mantle', count: 1 },
+      { item: 'rookie_grimoire', count: 1 },
     ]);
     expect(data?.player.start.equipment).toEqual({ weapon: 'old_sword', mantle: 'travel_mantle' });
     const raw = readAllData();
@@ -794,9 +795,10 @@ describe('Grimoire data foundation (G.1)', () => {
     delete grimoire.grimoire;
     delete raw.items.items.find((i: { id: string }) => i.id === 'mage_staff').legacy;
     delete raw.items.items.find((i: { id: string }) => i.id === 'goblin_cleaver').weapon.grip;
+    const push = raw.spells.incantations[0];
     raw.spells.incantations.push(
-      { id: 'fireball', name: 'Fireball Too', element: 'fire', manaCost: 1 },
-      { id: 'spark', name: 'Spark', element: 'lightning', manaCost: 1 },
+      { ...push, id: 'fireball', name: 'Fireball Too', element: 'fire', manaCost: 1 },
+      { ...push, id: 'spark', name: 'Spark', element: 'lightning', manaCost: 1 },
     );
     const found = messages(raw);
     expect(found).toContainEqual(expect.stringContaining('required for) grimoires'));
@@ -817,6 +819,39 @@ describe('Grimoire data foundation (G.1)', () => {
     expect(found).toContainEqual(expect.stringContaining('incantations[0].manaCost'));
     expect(found).toContainEqual(expect.stringContaining('grimoire.incantationSlots'));
     expect(found).toContainEqual(expect.stringContaining('prepared.mainWeapons'));
+  });
+
+  it('G.3: Push has its cast timing, stamina and a push effect; the start kit has one Grimoire', () => {
+    const push = data?.spells.incantations.find((entry) => entry.id === 'push');
+    expect(push?.cast.windupSeconds).toBeGreaterThan(0);
+    expect(push?.cast.cancelLockoutSeconds).toBeLessThanOrEqual(push?.cast.cooldownSeconds ?? 0);
+    expect(push?.effect.kind).toBe('push');
+    expect(data?.controls.actions.find((action) => action.id === 'cast')?.keys).toEqual(['KeyV']);
+    const raw = freshData();
+    raw.spells.incantations[0].cast.cancelLockoutSeconds =
+      raw.spells.incantations[0].cast.cooldownSeconds + 0.1;
+    raw.spells.incantations[0].effect.knockbackSeconds = 0;
+    raw.player.start.items.push({ item: 'rookie_grimoire', count: 1 });
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('longer than the cooldown'));
+    expect(found).toContainEqual(expect.stringContaining('needs a time'));
+    expect(found).toContainEqual(expect.stringContaining('exactly one grimoire expected, found 2'));
+    const schema = freshData();
+    schema.monsters.monsters[1].knockbackResistance = 2;
+    expect(messages(schema)).toContainEqual(expect.stringContaining('knockbackResistance'));
+  });
+
+  it('G.3: bosses and the dummy never carry a knockback resistance they would not use', () => {
+    for (const monster of data?.monsters.monsters ?? []) {
+      const r = monster.knockbackResistance;
+      if (r === undefined) continue;
+      expect({ id: monster.id, ok: !monster.boss && monster.behavior !== 'static' }).toEqual({
+        id: monster.id,
+        ok: true,
+      });
+      expect(r).toBeGreaterThanOrEqual(0);
+      expect(r).toBeLessThanOrEqual(1);
+    }
   });
 
   it('reports an element that only an incantation would need once that incantation is gone', () => {

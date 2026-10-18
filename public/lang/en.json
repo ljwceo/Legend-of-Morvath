@@ -314,6 +314,7 @@
       "item": "Quick item"
     },
     "noSpell": "No spell to choose.",
+    "noGrimoire": "You have no Grimoire to cast from.",
     "noOffhand": "Nothing to hold in your off hand yet.",
     "oneWeapon": "You carry no other weapon.",
     "noItem": "Nothing to use from the quick slot."
@@ -952,6 +953,7 @@
       "heavy": "Heavy hit / spell",
       "dash": "Dash",
       "block": "Block / parry",
+      "cast": "Cast (Grimoire)",
       "interact": "Talk and use",
       "potion": "Use quick item",
       "bag": "Bag",
@@ -1161,7 +1163,8 @@
       "quest": "Quest items",
       "recipe": "Recipes",
       "resource": "Materials",
-      "currency": "Money"
+      "currency": "Money",
+      "grimoire": "Grimoires"
     },
     "padInCombat": "During a fight the bag cannot be opened with a controller yet.",
     "liveFight": "The fight goes on while the bag is open. Only potions can be used now."

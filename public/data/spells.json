@@ -318,7 +318,23 @@
       "id": "push",
       "name": "Push",
       "element": "neutral",
-      "manaCost": 0
+      "manaCost": 0,
+      "cast": {
+        "windupSeconds": 0.35,
+        "recoverySeconds": 0.3,
+        "cooldownSeconds": 1.2,
+        "cancelLockoutSeconds": 0.4,
+        "energyCost": 8
+      },
+      "effect": {
+        "kind": "push",
+        "range": 2.5,
+        "arcDegrees": 90,
+        "damage": 6,
+        "poiseDamage": 12,
+        "knockbackMeters": 1.5,
+        "knockbackSeconds": 0.2
+      }
     }
   ]
 }
