@@ -1366,13 +1366,19 @@ export class WorldState implements GameState, InstanceHost {
       // No sword this step: the world ticks the fight clock (stepSword does it with a sword).
       tickCombatClock(c, dt);
     } else {
-      const input = this.swordInput;
+      // Push being prepared: the sword waits (no swing, no heavy wind-up, no remembered press),
+      // just as Push waits for a swing (`incantationFree`). After Push the recovery holds the
+      // sword for a moment (`attackCooldown`), then it is free again.
+      const pushing = state.pending === 'incantation';
+      if (pushing) {
+        c.bufferedFast = 0;
+        c.bufferedHeavy = 0;
+      }
+      const input = held || pushing ? NO_SWORD_INPUT : this.swordInput;
       const wants = input.fast || input.heavy || c.bufferedFast > 0 || c.bufferedHeavy > 0;
       const starting = wants && c.attackCooldown <= 0 && c.heavyWindup <= 0;
       if (starting && !held) this.aim(sword.aimRange, sword.aimHalfArc);
-      const result = held
-        ? stepSword(c, s, NO_SWORD_INPUT, sword, dt, this.swordResult)
-        : stepSword(c, s, input, sword, dt, this.swordResult);
+      const result = stepSword(c, s, input, sword, dt, this.swordResult);
       if (result.landed !== 'none' && enemies) this.landHit(result);
     }
 

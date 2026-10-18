@@ -221,3 +221,99 @@ describe('knockback (Push, G.3)', () => {
     expect(a.e.knockLeft).toBe(0);
   });
 });
+
+describe('knockback ends when blocked (fix 2, review of PR #116)', () => {
+  const stepsForFullShove = Math.round(SECONDS / DT);
+
+  function wallWorld(minX: number): CollisionWorld {
+    const hash = new SpatialHash();
+    hash.insert(boxCollider(minX, -5, minX + 1, 5));
+    return new CollisionWorld(hash, null);
+  }
+
+  it('a hard wall ends the shove at once: no waiting out the time, and the goblin walks again', () => {
+    const a = arena('goblin', wallWorld(1));
+    a.target.x = -20;
+    engage(a.e);
+    a.run(1);
+    const hp = a.e.hp;
+    a.enemies.push(a.e, 1, 0, METERS, SECONDS);
+    const stepsToWall = Math.ceil((1 - a.e.radius - a.e.x) / (METERS / SECONDS) / DT);
+    let steps = 0;
+    while (a.e.knockedBack && steps < stepsForFullShove + 5) {
+      a.run(1);
+      steps++;
+    }
+    expect(a.e.knockedBack).toBe(false);
+    expect(steps).toBeLessThanOrEqual(stepsToWall + 1);
+    expect(steps).toBeLessThan(stepsForFullShove);
+    // It never passed the wall, and in the very step the shove ended it walked back already.
+    expect(a.e.x).toBeLessThanOrEqual(1 - a.e.radius + 1e-6);
+    expect(a.e.hp).toBe(hp);
+    // Free again: it walks back towards the player on the next steps.
+    const atWall = a.e.x;
+    a.run(10);
+    expect(a.e.x).toBeLessThan(atWall - 0.1);
+    expect(a.e.stuckTime).toBe(0);
+  });
+
+  it('sliding along a wall still counts as being shoved: the shove lasts and the slide covers the rest', () => {
+    const a = arena('green_slime', wallWorld(0.1));
+    const d = Math.SQRT1_2;
+    a.enemies.push(a.e, d, d, METERS, SECONDS);
+    let steps = 0;
+    while (a.e.knockedBack && steps < stepsForFullShove + 5) {
+      a.run(1);
+      steps++;
+    }
+    expect(steps).toBe(stepsForFullShove);
+    expect(a.e.x).toBeCloseTo(0.1 - a.e.radius, 6);
+    // Along the wall it travelled the z-share of the full shove.
+    expect(a.e.z).toBeCloseTo(METERS * d, 6);
+  });
+
+  it('in the free field nothing changes: the full distance over the full time', () => {
+    const a = arena('green_slime');
+    a.enemies.push(a.e, 1, 0, METERS, SECONDS);
+    let steps = 0;
+    while (a.e.knockedBack && steps < stepsForFullShove + 5) {
+      a.run(1);
+      steps++;
+    }
+    expect(steps).toBe(stepsForFullShove);
+    expect(a.e.x).toBeCloseTo(METERS, 9);
+  });
+
+  it('a wall ends the shove at the same moment at 60 and 120 Hz, to within one fine step', () => {
+    const ends: number[] = [];
+    for (const dt of [DT, DT / 2]) {
+      const a = arena('green_slime', wallWorld(1));
+      a.enemies.push(a.e, 1, 0, METERS, SECONDS);
+      let t = 0;
+      while (a.e.knockedBack && t < SECONDS + 0.1) {
+        a.run(1, dt);
+        t += dt;
+      }
+      ends.push(t);
+      expect(a.e.x).toBeCloseTo(1 - a.e.radius, 6);
+    }
+    // Each rate needs one step of "no movement" to see the block: at most one 60 Hz step apart.
+    expect(Math.abs((ends[0] as number) - (ends[1] as number))).toBeLessThanOrEqual(DT + 1e-9);
+  });
+
+  it('an attack under way goes on through a blocked shove; only poise interrupts it', () => {
+    const a = arena('goblin');
+    a.target.x = 1.2;
+    engage(a.e);
+    for (let i = 0; i < 600 && a.e.mode !== 'windup'; i++) a.run(1);
+    expect(a.e.mode).toBe('windup');
+    const timer = a.e.timer;
+    // A wall right behind it: the shove is blocked after one step.
+    a.world.mover = wallWorld(a.e.x + a.e.radius + 0.05);
+    a.enemies.push(a.e, 1, 0, METERS, SECONDS);
+    a.run(3);
+    expect(a.e.knockedBack).toBe(false);
+    expect(a.e.mode).toBe('windup');
+    expect(a.e.timer).toBeCloseTo(timer - 3 * DT, 9);
+  });
+});

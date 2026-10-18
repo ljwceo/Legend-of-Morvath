@@ -3,7 +3,21 @@ import { FixedStep } from '../core/Time';
 import { playerFileSchema, spellsFileSchema } from '../data/schemas';
 import type { PlayerConfig, SpellsFile } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
-import { applyStats, CombatState } from './Combat';
+import {
+  applyStats,
+  CombatState,
+  stepSword,
+  swordConfig,
+  type SwordInput,
+  type SwordResult,
+} from './Combat';
+import {
+  dashStartsThisStep,
+  type Mover,
+  movementConfig,
+  MoverState,
+  stepMovement,
+} from './Movement';
 import { MIN_SHOWN_COOLDOWN } from './Readiness';
 import type { EnergyPool } from './Stamina';
 import { weaponFreeForGuard } from './Guard';
@@ -1015,5 +1029,189 @@ describe('G.3: a valid roll cuts Push short (U-1, P-4)', () => {
     expect(made.state.pending).toBe('none');
     expect(made.state.castLockout).toBe(0);
     expect(made.state.incantationCooldown).toBe(0);
+  });
+});
+
+describe('G.3: the sword and Push never run at once (fix 1, review of PR #116)', () => {
+  const push = cfg.incantations.get('push') as IncantationConfig;
+  const sword = swordConfig(player);
+  const moveCfg = movementConfig(player);
+  const free: Mover = {
+    moveCircle(p, _r, dx, dz) {
+      p.x += dx;
+      p.z += dz;
+    },
+  };
+  const NO_SWORD: SwordInput = { fast: false, heavy: false, critRoll: 1 };
+  const NO_CAST: CastInput = { shard: false, spell: false, cast: false, critRoll: 1 };
+  const grimoire = (): CastSources => ({ staff: false, spell: null, power: 1, incantation: push });
+
+  interface Held {
+    fast?: boolean;
+    heavy?: boolean;
+    cast?: boolean;
+    dash?: boolean;
+  }
+  interface Trace {
+    landed: 'none' | 'fast' | 'heavy';
+    effect: 'none' | 'shot' | 'push';
+    pending: string;
+    swinging: boolean;
+    windingUp: boolean;
+    dashed: boolean;
+  }
+
+  function fighter() {
+    const c = new CombatState();
+    applyStats(c, player, 1);
+    c.hp = c.maxHp;
+    c.mana = c.maxMana;
+    const s = new MoverState();
+    s.energy = player.base.energy;
+    s.sinceEnergySpent = 10;
+    return { c, s, st: new CastState() };
+  }
+
+  /**
+   * One fixed step in the order `WorldState.stepWeaponAndMove` runs it with a sword in hand:
+   * the sword (silenced while Push is prepared), the roll decision and the cancel, the cast
+   * step, then walking (no roll out of a heavy wind-up).
+   */
+  function worldStep(f: ReturnType<typeof fighter>, held: Held, dt: number): Trace {
+    const { c, s, st } = f;
+    const inAir = s.dashTime > 0 || s.airborne;
+    const pushing = st.pending === 'incantation';
+    if (pushing) {
+      c.bufferedFast = 0;
+      c.bufferedHeavy = 0;
+    }
+    const swordIn: SwordInput =
+      inAir || pushing ? NO_SWORD : { fast: !!held.fast, heavy: !!held.heavy, critRoll: 1 };
+    const swordOut: SwordResult = {
+      landed: 'none',
+      damage: 0,
+      poiseDamage: 0,
+      combo: false,
+      crit: false,
+    };
+    const landed = stepSword(c, s, swordIn, sword, dt, swordOut).landed;
+    const cmd = { x: 0, z: 1, dash: !!held.dash };
+    const rolling = !inAir && dashStartsThisStep(s, cmd, moveCfg, dt);
+    if (rolling) cancelCast(st);
+    const castIn: CastInput =
+      inAir || rolling ? NO_CAST : { shard: false, spell: false, cast: !!held.cast, critRoll: 1 };
+    const r = stepCast(st, c, s, castIn, cfg, grimoire(), dt, out());
+    if (c.heavyWindup > 0) cmd.dash = false;
+    stepMovement(s, cmd, moveCfg, dt, free);
+    return {
+      landed,
+      effect: r.effect,
+      pending: st.pending,
+      swinging: c.swingTime > 0,
+      windingUp: c.heavyWindup > 0,
+      dashed: s.dashTime > 0,
+    };
+  }
+
+  it('holding attack and heavy while Push is prepared: no swing, no wind-up, until Push went off', () => {
+    const f = fighter();
+    expect(worldStep(f, { cast: true }, DT).pending).toBe('incantation');
+    let pushed = -1;
+    for (let i = 0; i < 120 && pushed < 0; i++) {
+      const t = worldStep(f, { fast: true, heavy: true }, DT);
+      if (t.effect === 'push') pushed = i;
+      if (t.pending === 'incantation' || t.effect === 'push') {
+        expect(t.landed).toBe('none');
+        expect(t.swinging).toBe(false);
+        expect(t.windingUp).toBe(false);
+      }
+    }
+    expect(pushed).toBeGreaterThanOrEqual(0);
+    expect(f.c.bufferedFast).toBe(0);
+    expect(f.c.bufferedHeavy).toBe(0);
+    // The sword is not switched off for good: after the recovery a held attack lands again.
+    let landedAt = -1;
+    for (let i = 0; i < 120 && landedAt < 0; i++) {
+      if (worldStep(f, { fast: true }, DT).landed === 'fast') landedAt = i;
+    }
+    expect(landedAt).toBeGreaterThanOrEqual(0);
+    expect((landedAt + 1) * DT).toBeLessThanOrEqual(push.recoverySeconds + 2 * DT + 1e-9);
+    // And a heavy hit winds up again too.
+    const g = fighter();
+    worldStep(g, { cast: true }, DT);
+    for (let i = 0; i < 120 && g.st.pending === 'incantation'; i++)
+      worldStep(g, { heavy: true }, DT);
+    let wound = false;
+    for (let i = 0; i < 120 && !wound; i++) wound = worldStep(g, { heavy: true }, DT).windingUp;
+    expect(wound).toBe(true);
+  });
+
+  it('a swing or a heavy wind-up under way keeps Push from starting; the press waits', () => {
+    const f = fighter();
+    expect(worldStep(f, { fast: true, cast: true }, DT).landed).toBe('fast');
+    expect(f.st.pending).toBe('none');
+    let started = -1;
+    for (let i = 0; i < 60 && started < 0; i++) {
+      const t = worldStep(f, {}, DT);
+      if (t.pending === 'incantation') started = i;
+      if (t.pending === 'incantation') expect(t.swinging).toBe(false);
+    }
+    expect(started).toBeGreaterThanOrEqual(0);
+    const g = fighter();
+    expect(worldStep(g, { heavy: true }, DT).windingUp).toBe(true);
+    for (let i = 0; i < 30; i++) {
+      const t = worldStep(g, { cast: true }, DT);
+      if (t.windingUp || t.swinging) expect(t.pending).toBe('none');
+    }
+  });
+
+  it('a valid roll in the final wind-up step cancels Push with the sword in hand; nothing goes off', () => {
+    const f = fighter();
+    worldStep(f, { cast: true }, DT);
+    while (f.st.windup > DT + 1e-9) worldStep(f, { fast: true }, DT);
+    expect(f.st.pending).toBe('incantation');
+    const energyBefore = f.s.energy;
+    const t = worldStep(f, { fast: true, dash: true }, DT);
+    expect(t.effect).toBe('none');
+    expect(t.pending).toBe('none');
+    expect(t.dashed).toBe(true);
+    expect(t.landed).toBe('none');
+    // The lockout was set before this step's cast step ticked it once.
+    expect(f.st.castLockout).toBeCloseTo(push.cancelLockoutSeconds - DT, 9);
+    // Push's stamina was already gone; the roll pays its own on top.
+    expect(energyBefore).toBe(player.base.energy - push.energyCost);
+    expect(f.s.energy).toBeCloseTo(energyBefore - player.dash.energyCost, 9);
+  });
+
+  it('a scripted fight never overlaps a swing and a Push, and plays the same at 60 and 120 fps', () => {
+    const script = (step: number): Held => ({
+      fast: step % 40 < 25,
+      heavy: step % 90 === 50,
+      cast: step % 30 === 5,
+      dash: step % 70 === 60,
+    });
+    const run = (fps: number) => {
+      const f = fighter();
+      const time = new FixedStep();
+      const log: string[] = [];
+      let step = 0;
+      for (let frame = 0; frame < fps * 4; frame++) {
+        const n = time.advance(1 / fps);
+        for (let i = 0; i < n; i++, step++) {
+          const t = worldStep(f, script(step), time.dt);
+          const pushing = t.pending === 'incantation' || t.effect === 'push';
+          expect(pushing && (t.swinging || t.windingUp || t.landed !== 'none')).toBe(false);
+          if (t.landed !== 'none' || t.effect !== 'none' || t.dashed) {
+            log.push(`${step} ${t.landed} ${t.effect} ${t.dashed ? 'roll' : ''}`);
+          }
+        }
+      }
+      return { log, energy: f.s.energy, hp: f.c.hp };
+    };
+    const a = run(60);
+    const b = run(120);
+    expect(a.log.some((line) => line.includes('push'))).toBe(true);
+    expect(a.log.some((line) => line.includes('fast'))).toBe(true);
+    expect(b).toEqual(a);
   });
 });

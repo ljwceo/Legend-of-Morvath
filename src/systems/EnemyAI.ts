@@ -80,10 +80,17 @@ type Attack = NonNullable<Enemy['def']['attacks']>[number];
 export function stepKnockback(e: Enemy, mover: Mover, dt: number): boolean {
   if (e.knockTime <= 0) return false;
   const step = Math.min(e.knockLeft, e.knockSpeed * dt);
+  const fromX = e.x;
+  const fromZ = e.z;
   if (step > 0) mover.moveCircle(e, e.radius, e.knockDirX * step, e.knockDirZ * step);
   e.knockLeft = Math.max(0, e.knockLeft - step);
   e.knockTime -= dt;
-  if (e.knockTime <= KNOCK_EPSILON || e.knockLeft <= 0) {
+  // Blocked (a wall, a cliff, deep water): the shove is over at once, so the monster is not
+  // held still for the rest of the time. Sliding along a wall still counts as being shoved;
+  // the same share of the asked step that counts as stuck for a walker (STUCK_PROGRESS).
+  const moved = Math.hypot(e.x - fromX, e.z - fromZ);
+  const blocked = step > 0 && moved < step * STUCK_PROGRESS;
+  if (blocked || e.knockTime <= KNOCK_EPSILON || e.knockLeft <= 0) {
     e.knockTime = 0;
     e.knockLeft = 0;
     return false;
