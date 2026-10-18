@@ -38,8 +38,11 @@ describe('what a build gives you (the creator and status window preview)', () =>
     expect(p.swordCombo).toBe(16);
     expect(p.carryKg).toBeGreaterThan(player.load.baseKg);
     expect(p.hpRegenPerSecond).toBeGreaterThan(player.regen.hpPerSecondOutOfCombat);
-    // A sword fighter gets no mana back from Regen.
-    expect(p.manaRegenPerSecond).toBe(player.regen.manaPerSecond);
+    // Fase G.2: Regen gives every build the same mana back, the sword fighter too.
+    const regenPoints = presetPoints(stats, 'sword_fighter').regen ?? 0;
+    expect(regenPoints).toBeGreaterThan(0);
+    expect(p.manaRegenPerSecond).toBeCloseTo(player.regen.manaPerSecond + 0.03 * regenPoints, 9);
+    expect(p.maxMana).toBe(player.base.mana);
   });
 
   it('the suggested light mage build lands on the mana from the concept', () => {

@@ -54,6 +54,19 @@ export class GuardState {
 }
 
 /**
+ * Whether the weapon in hand leaves room for the guard. Every build can guard (fase G.2), with a
+ * sword or with a staff: not halfway a swing or a heavy wind-up, and not while the staff gathers
+ * a shot (a charging spell counts as gathering). Both parts are checked whatever is in hand; the
+ * one that is put away is idle (a weapon switch waits until the other is done).
+ */
+export function weaponFreeForGuard(
+  sword: { readonly swingTime: number; readonly heavyWindup: number },
+  staff: { readonly casting: boolean },
+): boolean {
+  return sword.swingTime <= 0 && sword.heavyWindup <= 0 && !staff.casting;
+}
+
+/**
  * One fixed step. The guard goes up on the step `hold` begins when `free` (not swinging, rolling,
  * staggered, ...) and the energy allows it, and costs `raiseEnergyCost`. It stays up while `hold`
  * stays true and `free` holds, and drops otherwise. Returns true while it is up.

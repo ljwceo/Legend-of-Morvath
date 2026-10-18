@@ -48,10 +48,9 @@ export function statPreview(
   skills?: SkillsFile,
 ): StatPreview {
   const effects = computeStatEffects(file, points, path, emptyStatEffects());
-  const bonus = skills ? applyPath(player, skills, file, path, effects) : null;
+  if (skills) applyPath(player, skills, file, path, effects);
   const c = new CombatState();
   applyStatsToCombat(file, effects, c);
-  if (bonus) c.hasMana = bonus.hasMana;
   applyStats(c, player, level);
   const sword = swordConfig(player);
   const shard = player.staff.shard.damage;
