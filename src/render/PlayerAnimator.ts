@@ -141,10 +141,10 @@ export function fillPlayerAnimInput(
   out.sinceHurt = sinceAt(lag, c.sinceHurt);
   out.sinceInteract = sinceAt(lag, src.sinceInteract);
   out.airTime = s.airTime;
-  out.rising = false;
+  out.rising = !s.grounded && s.vy > 0;
   out.sinceLanded = sinceAt(lag, s.sinceLanded);
   out.lastAirTime = s.lastAirTime;
-  out.sprinting = false;
+  out.sprinting = s.sprinting;
   return out;
 }
 

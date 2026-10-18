@@ -413,6 +413,8 @@ export class WorldState implements GameState, InstanceHost {
   private collision: CollisionWorld | null = null;
   /** Walls and ground for walking: GroundedMover (open world) or the SceneZone. */
   private mover: Mover | null = null;
+  /** The open world's mover (also in `mover`), for the player's height; null in a scene zone. */
+  private groundedMover: GroundedMover | null = null;
   /** A Blender-built zone being played (zones.json `scene`), or null in the open world. */
   private sceneZone: SceneZone | null = null;
   private sceneZoneDef: Zone | null = null;
@@ -632,7 +634,8 @@ export class WorldState implements GameState, InstanceHost {
   // Reused every step / frame (no allocations in the game loop).
   private readonly moveInput = { x: 0, y: 0 };
   private readonly moveWorld = { x: 0, z: 0 };
-  private readonly command: MoveCommand = { x: 0, z: 0, dash: false };
+  /** `jump` and `sprint` stay false until their buttons exist (step A.5c). */
+  private readonly command: MoveCommand = { x: 0, z: 0, dash: false, jump: false, sprint: false };
   private readonly swordInput: SwordInput = { fast: false, heavy: false, critRoll: 1 };
   private readonly guardResult = makeGuardResult();
   private readonly swordResult: SwordResult = {
@@ -1192,11 +1195,13 @@ export class WorldState implements GameState, InstanceHost {
       if (arena) keepInArena(s, arena, movement.radius);
       this.checkGate(fromX, fromZ);
       if (sceneZone) {
-        // Stairs, ledges and falling; under the water or off the map: back to the spawn.
-        const settled = sceneZone.settle(s, dt);
+        // Stairs, ledges, jumping and falling; under the water or off the map: back to the spawn.
+        const settled = sceneZone.settle(s, movement, dt);
         if (settled === 'lost') this.respawnInScene();
         stepAirTime(s, settled === 'falling', dt);
         sceneZone.setReferenceHeight(s.y);
+      } else if (this.groundedMover) {
+        stepAirTime(s, this.groundedMover.settle(s, movement, dt), dt);
       } else if (streamer) {
         s.y = streamer.heightAt(s.x, s.z);
       }
@@ -1324,16 +1329,21 @@ export class WorldState implements GameState, InstanceHost {
     const input = this.swordInput;
     const wants = input.fast || input.heavy || c.bufferedFast > 0 || c.bufferedHeavy > 0;
     const starting = wants && c.attackCooldown <= 0 && c.heavyWindup <= 0;
-    if (starting && s.dashTime <= 0) this.aim(sword.aimRange, sword.aimHalfArc);
-    // A dash in progress finishes first; attacks wait for it.
-    const result =
-      s.dashTime > 0
-        ? stepSword(c, s, NO_SWORD_INPUT, sword, dt, this.swordResult)
-        : stepSword(c, s, input, sword, dt, this.swordResult);
+    // A dash in progress finishes first and nobody attacks in the air (A.5a); attacks wait.
+    const held = s.dashTime > 0 || s.airborne;
+    if (starting && !held) this.aim(sword.aimRange, sword.aimHalfArc);
+    const result = held
+      ? stepSword(c, s, NO_SWORD_INPUT, sword, dt, this.swordResult)
+      : stepSword(c, s, input, sword, dt, this.swordResult);
     if (result.landed !== 'none' && enemies) this.landHit(result);
 
     const windingUp = c.heavyWindup > 0;
     if (windingUp) this.command.dash = false;
+    // No jumping out of a swing or a wind-up, and no sprinting while it lasts.
+    if (windingUp || c.swingTime > 0 || c.guard.up) {
+      this.command.jump = false;
+      this.command.sprint = false;
+    }
     movement.walkSpeed =
       this.baseWalkSpeed *
       this.cheats.speed *
@@ -1356,12 +1366,13 @@ export class WorldState implements GameState, InstanceHost {
     if (!player || !movement || !mover || !staff || !data) return;
     const s = player.state;
     const c = player.combat;
-    // A dash in progress finishes first; shots wait for it.
-    const input = s.dashTime > 0 ? NO_STAFF_INPUT : this.staffInput;
+    // A dash in progress finishes first and nobody casts in the air (A.5a); shots wait.
+    const held = s.dashTime > 0 || s.airborne;
+    const input = held ? NO_STAFF_INPUT : this.staffInput;
     const state = this.staffState;
     const wants = input.shard || input.spell || state.bufferedShard > 0 || state.bufferedSpell > 0;
     const aiming = state.casting || (wants && state.cooldown <= 0);
-    if (aiming && s.dashTime <= 0) this.aim(staff.aimRange, staff.aimHalfArc);
+    if (aiming && !held) this.aim(staff.aimRange, staff.aimHalfArc);
     const result = stepStaff(
       state,
       c,
@@ -1380,7 +1391,11 @@ export class WorldState implements GameState, InstanceHost {
     const casting = state.casting;
     // Charging counts as fighting, so you can see your mana while it drains.
     if (casting) c.sinceCombat = 0;
-    if (casting) this.command.dash = false;
+    if (casting) {
+      this.command.dash = false;
+      this.command.jump = false;
+      this.command.sprint = false;
+    }
     movement.walkSpeed =
       this.baseWalkSpeed *
       this.cheats.speed *
@@ -5178,10 +5193,11 @@ export class WorldState implements GameState, InstanceHost {
         new Worker(new URL('../workers/terrain.worker.ts', import.meta.url), { type: 'module' }),
       listener: this.structures,
     });
-    this.mover = new GroundedMover(this.collision, this.streamer, {
+    this.groundedMover = new GroundedMover(this.collision, this.streamer, {
       maxRise: Math.tan(data.player.movement.slopeLimitDegrees * DEG),
       minHeight: world.terrain.seaLevel - world.terrain.deepWater,
     });
+    this.mover = this.groundedMover;
 
     const water = new Mesh(
       new PlaneGeometry(1, 1),
@@ -5227,6 +5243,7 @@ export class WorldState implements GameState, InstanceHost {
     lighting.uniforms.windowCol.value.setHex(resolveColorToken(def.windowColor));
     this.sceneZone = zone;
     this.mover = zone;
+    this.groundedMover = null;
     // The doors this build has (an instance may lack some), in the order `setDoorAngle` uses.
     this.doors =
       zone.doors.length > 0
@@ -5487,6 +5504,7 @@ export class WorldState implements GameState, InstanceHost {
     this.rig = null;
     this.collision = null;
     this.mover = null;
+    this.groundedMover = null;
     this.origin = null;
     this.zones = null;
     this.preset = null;
