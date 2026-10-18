@@ -24,6 +24,12 @@
       "id": "dark",
       "name": "Dark",
       "color": "schemerviolet"
+    },
+    {
+      "id": "neutral",
+      "name": "Neutral",
+      "color": "steengrijs",
+      "alwaysUnlocked": true
     }
   ],
   "powerCurves": {
@@ -88,6 +94,7 @@
       "manaCost": 10,
       "cooldownSeconds": 1.5,
       "damage": 20,
+      "poiseDamage": 10,
       "range": 15,
       "usesPerLevel": 50,
       "windupSeconds": 0.45,
@@ -109,6 +116,7 @@
       "manaCost": 8,
       "cooldownSeconds": 1.2,
       "damage": 16,
+      "poiseDamage": 8,
       "range": 18,
       "usesPerLevel": 50,
       "windupSeconds": 0.35,
@@ -130,6 +138,7 @@
       "manaCost": 7,
       "cooldownSeconds": 1.0,
       "damage": 14,
+      "poiseDamage": 7,
       "range": 14,
       "usesPerLevel": 50,
       "windupSeconds": 0.3,
@@ -151,6 +160,7 @@
       "manaCost": 6,
       "cooldownSeconds": 0.8,
       "damage": 12,
+      "poiseDamage": 6,
       "range": 20,
       "usesPerLevel": 50,
       "windupSeconds": 0.25,
@@ -172,6 +182,7 @@
       "manaCost": 12,
       "cooldownSeconds": 1.6,
       "damage": 22,
+      "poiseDamage": 11,
       "range": 16,
       "usesPerLevel": 50,
       "windupSeconds": 0.5,
@@ -193,6 +204,7 @@
       "manaCost": 11,
       "cooldownSeconds": 1.72,
       "damage": 28,
+      "poiseDamage": 14,
       "range": 15,
       "usesPerLevel": 50,
       "windupSeconds": 0.45,
@@ -215,6 +227,7 @@
       "manaCost": 9,
       "cooldownSeconds": 1.38,
       "damage": 22,
+      "poiseDamage": 11,
       "range": 18,
       "usesPerLevel": 50,
       "windupSeconds": 0.35,
@@ -237,6 +250,7 @@
       "manaCost": 8,
       "cooldownSeconds": 1.15,
       "damage": 20,
+      "poiseDamage": 10,
       "range": 14,
       "usesPerLevel": 50,
       "windupSeconds": 0.3,
@@ -259,6 +273,7 @@
       "manaCost": 7,
       "cooldownSeconds": 0.92,
       "damage": 17,
+      "poiseDamage": 8,
       "range": 20,
       "usesPerLevel": 50,
       "windupSeconds": 0.25,
@@ -281,6 +296,7 @@
       "manaCost": 13,
       "cooldownSeconds": 1.84,
       "damage": 31,
+      "poiseDamage": 16,
       "range": 16,
       "usesPerLevel": 50,
       "windupSeconds": 0.5,
@@ -295,6 +311,14 @@
         "speedFactor": 1.25
       },
       "learnLevel": 5
+    }
+  ],
+  "incantations": [
+    {
+      "id": "push",
+      "name": "Push",
+      "element": "neutral",
+      "manaCost": 0
     }
   ]
 }

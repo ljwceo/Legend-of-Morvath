@@ -70,6 +70,8 @@ export interface HudBars {
   gold: HudVisibility;
   /** The row of ability chips (which abilities are ready again). */
   abilities: HudVisibility;
+  /** The small cross with the current spell, weapon, off hand and quick item. */
+  loadout: HudVisibility;
 }
 
 /**
@@ -81,6 +83,8 @@ export interface HudBars {
  * - Energy (phase 1 test): shows while it refills after a dash, then fades out.
  * - The ability chips (Bo, 2026-10-15) while fighting or while one cools, then they linger
  *   like the bars; a dialogue window on top of them hides them at once.
+ * - The loadout cross (spell, weapon, off hand, quick item; 2026-10-17) during a fight and for
+ *   a moment after a switch, then it lingers and fades like the bars.
  */
 export class HudRules {
   constructor(
@@ -90,15 +94,16 @@ export class HudRules {
   ) {}
 
   setCombat(fighting: boolean): void {
-    const { hp, mana, energy } = this.bars;
+    const { hp, mana, energy, loadout } = this.bars;
     if (fighting) {
       hp.show('combat');
       mana.show('combat');
       energy.show('combat');
+      loadout.show('combat');
       return;
     }
     // Fight over: the bars linger a moment (longer when an XP bar is running).
-    for (const bar of [hp, mana, energy]) {
+    for (const bar of [hp, mana, energy, loadout]) {
       bar.hide('combat');
       bar.show('afterCombat', this.cfg.barLingerSeconds);
     }
@@ -112,6 +117,11 @@ export class HudRules {
     hp.show('xp', seconds);
     mana.show('xp', seconds);
     energy.show('xp', seconds);
+  }
+
+  /** A quick switch was pressed: the loadout cross shows what you have now, for a moment. */
+  loadoutChanged(): void {
+    this.bars.loadout.show('changed', this.cfg.barLingerSeconds);
   }
 
   /** A potion was drunk: HP and mana show for a moment (you see them go up). */

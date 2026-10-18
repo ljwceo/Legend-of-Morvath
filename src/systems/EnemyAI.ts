@@ -1,6 +1,7 @@
 import type { Enemy } from '../entities/Enemy';
 import type { MonstersFile } from '../data/types';
 import { angleDelta, type Mover } from './Movement';
+import type { PoiseConfig } from './Poise';
 import { turnTowards, walkTowards } from './NpcBehavior';
 
 const DEG = Math.PI / 180;
@@ -31,6 +32,8 @@ export interface EnemyAiConfig {
   /** Half of the strike arc, in radians. */
   hitHalfArc: number;
   calmDownSeconds: number;
+  /** Monster poise (fase S.6): regeneration and the length of a stagger. */
+  poise: PoiseConfig;
 }
 
 export function enemyAiConfig(file: MonstersFile): EnemyAiConfig {
@@ -44,6 +47,7 @@ export function enemyAiConfig(file: MonstersFile): EnemyAiConfig {
     hitGrace: s.hitGraceMeters,
     hitHalfArc: (s.hitArcDegrees / 2) * DEG,
     calmDownSeconds: s.calmDownSeconds,
+    poise: s.poise,
   };
 }
 
@@ -107,7 +111,7 @@ function rollDamage(e: Enemy): number {
 /**
  * One fixed step of a monster that walks and fights (not a dummy). Calm monsters wander
  * around home; within `aggroRadius` they notice the player (neutral ones only fight back), chase
- * and attack: a windup you can see (and dodge), the hit, a recovery. Too far from home, when
+ * and attack: three phases from data (announcement, hit window, recovery): damage only falls in the hit window. Too far from home, when
  * the player is down, or (Treewardens) calm again or inside their safe area: walk home and heal.
  * `speed` is the monster's walking speed (m/s). Allocation-free; the same at 60 and 120 Hz.
  */
@@ -127,6 +131,8 @@ export function stepEnemyAi(
     return;
   }
   e.cooldown = Math.max(0, e.cooldown - dt);
+  // Staggered (poise broke): it cannot walk or attack until the stagger is over.
+  if (e.poise.staggered) return;
   const dx = target.x - e.x;
   const dz = target.z - e.z;
   const distance = Math.sqrt(dx * dx + dz * dz);
@@ -158,14 +164,14 @@ export function stepEnemyAi(
       chase(e, speed, cfg, target, world, dx, dz, gap, dt);
       break;
     case 'windup':
-      windup(e, cfg, target, world, dx, dz, distance, gap, dt);
+      windup(e, cfg, target, world, dx, dz, distance, dt);
       break;
     case 'strike':
-      lunge(e, target, world, gap, dt);
+      hitWindow(e, cfg, target, world, dx, dz, distance, gap, dt);
       break;
     case 'recover':
       e.timer -= dt;
-      if (e.timer <= 0) e.mode = 'chase';
+      if (e.timer <= PHASE_EPSILON) e.mode = 'chase';
       break;
     case 'return':
       walkHome(e, speed, cfg, world.mover, dt);
@@ -268,6 +274,12 @@ function chase(
   e.timer = windupSeconds(e);
 }
 
+/**
+ * Phases count whole fixed steps: a timer that float rounding leaves a hair above zero (0.25 s at
+ * 60 Hz is 15 steps, but 0.25 - 15 * dt can be 1e-17) must not buy one extra step.
+ */
+const PHASE_EPSILON = 1e-9;
+
 function windup(
   e: Enemy,
   cfg: EnemyAiConfig,
@@ -276,7 +288,6 @@ function windup(
   dx: number,
   dz: number,
   distance: number,
-  gap: number,
   dt: number,
 ): void {
   const ai = e.def.ai;
@@ -286,7 +297,7 @@ function windup(
   // Aiming follows you while winding up; an area attack does not need to.
   if (!special) e.heading = turnTowards(e.heading, Math.atan2(dx, dz), cfg.turnSpeed * dt);
   e.timer -= dt;
-  if (e.timer > 0) return;
+  if (e.timer > PHASE_EPSILON) return;
 
   e.cooldown = attack.cooldownSeconds;
   e.mode = 'recover';
@@ -297,33 +308,70 @@ function windup(
     if (target.hostile && distance <= area + target.radius) world.hitPlayer(e, special.damage);
     return;
   }
+  // Phase 2 starts: the hit window (`hitSeconds`). Nothing hurts before it or after it.
+  e.mode = 'strike';
+  e.timer = attack.hitSeconds;
+  e.struck = false;
+}
+
+/**
+ * The hit window of a normal attack: it can hurt only now, once. A strike checks the arc and
+ * reach, a lunge moves forward and hits on contact, a shot leaves at the start. When the window
+ * ends the recovery (phase 3) begins. The hit goes through `world.hitPlayer`, so a roll's
+ * invulnerable frames still make it miss.
+ */
+function hitWindow(
+  e: Enemy,
+  cfg: EnemyAiConfig,
+  target: EnemyTarget,
+  world: EnemyWorld,
+  dx: number,
+  dz: number,
+  distance: number,
+  gap: number,
+  dt: number,
+): void {
+  const attack = e.def.ai?.attack;
+  if (!attack) return;
   switch (attack.style) {
     case 'strike': {
+      if (e.struck || !target.hostile) break;
       const delta = Math.abs(angleDelta(e.heading, Math.atan2(dx, dz)));
       const widen = distance > 1e-6 ? Math.asin(Math.min(1, target.radius / distance)) : Math.PI;
-      if (target.hostile && gap <= attack.range + cfg.hitGrace && delta <= cfg.hitHalfArc + widen) {
+      if (gap <= attack.range + cfg.hitGrace && delta <= cfg.hitHalfArc + widen) {
+        e.struck = true;
         world.hitPlayer(e, rollDamage(e));
       }
       break;
     }
     case 'lunge':
-      e.mode = 'strike';
-      e.timer = attack.strikeSeconds ?? 0.25;
-      e.struck = false;
+      lunge(e, attack, target, world, gap, dt);
       break;
     case 'shoot':
-      if (target.hostile) {
-        world.shoot(e, target.x, target.z, attack.projectileSpeed ?? 15, rollDamage(e));
+      if (!e.struck) {
+        e.struck = true;
+        if (target.hostile) {
+          world.shoot(e, target.x, target.z, attack.projectileSpeed ?? 15, rollDamage(e));
+        }
       }
       break;
   }
+  e.timer -= dt;
+  if (e.timer > PHASE_EPSILON) return;
+  e.mode = 'recover';
+  e.timer = attack.recoverySeconds;
 }
 
-/** A slime's jump forward: hits once on contact. */
-function lunge(e: Enemy, target: EnemyTarget, world: EnemyWorld, gap: number, dt: number): void {
-  const attack = e.def.ai?.attack;
-  if (!attack) return;
-  const seconds = attack.strikeSeconds ?? 0.25;
+/** A slime's jump forward during its hit window: hits once on contact. */
+function lunge(
+  e: Enemy,
+  attack: NonNullable<Enemy['def']['ai']>['attack'],
+  target: EnemyTarget,
+  world: EnemyWorld,
+  gap: number,
+  dt: number,
+): void {
+  const seconds = attack.hitSeconds;
   const step = Math.min(dt, Math.max(0, e.timer));
   const distance = ((attack.lungeDistance ?? 2) / seconds) * step;
   if (gap > LUNGE_CONTACT) {
@@ -341,10 +389,6 @@ function lunge(e: Enemy, target: EnemyTarget, world: EnemyWorld, gap: number, dt
       world.hitPlayer(e, rollDamage(e));
     }
   }
-  e.timer -= dt;
-  if (e.timer > 0) return;
-  e.mode = 'recover';
-  e.timer = attack.recoverySeconds;
 }
 
 /**

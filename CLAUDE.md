@@ -11,10 +11,17 @@ De volledige oude master prompt staat in `docs/archive/CLAUDE-master-prompt-2026
 ## 1. Wat we bouwen
 
 **Legend of Morvath** is een co-op progressie-RPG in de browser, gemaakt door Bo en Lucas. Je bent een
-rondtrekkende mage of zwaardvechter op het continent Eryndor; twee demi-god necromancers, Lucael en
+rondtrekkende strijder met een melee-wapen en een Grimoire op het continent Eryndor; je build kan meer
+richting melee of meer richting magie gaan, en je keuze van leraar is een eerste specialisatie, geen
+vaste klasse (`PLAN.md` → Fase G). Twee demi-god necromancers, Lucael en
 Baelor, verspreiden corruptie en hoe verder je naar het oosten trekt, hoe sterker het kwaad. De wereld
 speel je solo, samen vechten alleen in raids (later, via PeerJS en een kamercode). De wereld is volledig
 3D (Three.js) met de camera over de schouder, zoals Genshin Impact.
+
+Het gevecht wordt **souls-like** (stamina, rol met onkwetsbare frames, aankondiging per aanval, parry en
+poise; de besluiten staan in `PLAN.md` → Fase S). Het spel is gemaakt voor **pc en console (controller)**:
+de telefoon wordt niet meer ondersteund. Magie staat centraal en spelen met veel magie is lastiger te
+beheersen dan brute force; een build die vooral op melee leunt is de toegankelijke keuze.
 
 Het volledige spelconcept staat in Google Docs: "Legend of Morvath – spelconcept"
 (id `10Yi8_lYVsLEa_WpR76Exs0ecsY9mXxTk5a6SC4sSKUk`). Lees het via de Google Drive-connector, en alleen
@@ -22,7 +29,7 @@ de delen die je voor je taak nodig hebt. Lukt dat niet, vraag Bo of Lucas om de 
 
 ## 2. Harde eisen (gelden altijd, in elke fase)
 
-1. **Altijd vloeiend:** minimaal 60 fps, 120 fps op schermen die dat kunnen (pc Chrome, iPhone Safari).
+1. **Altijd vloeiend:** minimaal 60 fps, 120 fps op schermen die dat kunnen (pc Chrome; de telefoon wordt niet meer ondersteund, besluit S-5).
 2. **Fps-onafhankelijke logica:** spellogica op een **vaste tijdstap** (60 Hz) met accumulator, rendering
    interpoleert. Nooit snelheden per frame, altijd per seconde.
 3. **Gameplay is op elke grafische stand gelijk:** Low, Mid en High verschillen alleen in uiterlijk,
@@ -100,7 +107,7 @@ Bo en Lucas werken samen in deze repo, dus niets komt direct in `main`.
 
 - Per stap een eigen branch, daar werken en committen.
 - Klaar? Branch pushen en een pull request openen, in gewoon Nederlands: wat er veranderd is, waarom, en
-  hoe je het test op pc en iPhone.
+  hoe je het test op pc (toetsenbord en controller).
 - Claude mag de pull request zelf samenvoegen in `main` als de stap af is en de game zonder fouten start
   (afgesproken 2026-10-09). Bo of Lucas kan een pull request altijd bekijken of tegenhouden.
 - Verandert er iets aan het concept, de stijlgids of een eerdere beslissing? Zet dat bovenaan in de

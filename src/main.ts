@@ -1,6 +1,7 @@
 import { Bindings } from './core/Bindings';
 import { createEventBus } from './core/events';
 import type { GameContext } from './core/GameContext';
+import { PadHub } from './core/gamepad';
 import { GameLoop } from './core/GameLoop';
 import { LazyState } from './core/LazyState';
 import { StateMachine } from './core/StateMachine';
@@ -42,7 +43,9 @@ let debug: DebugOverlay | null = null;
 let quality: QualityManager | null = null;
 const perf = new PerfProbe();
 let perfLine = '';
+const pads = new PadHub();
 const loop = new GameLoop({
+  frame: (frameSeconds) => pads.beginFrame(frameSeconds),
   update: (dt) => states.update(dt),
   render: (alpha, frameSeconds) => {
     const start = performance.now();
@@ -98,13 +101,14 @@ const ctx: GameContext = {
   i18n,
   saves,
   bindings,
+  pads,
   debug: debugOverlay,
   quality: qualityManager,
   perf,
   perfText: () =>
     perf.running ? `measuring… ${Math.ceil(perf.remaining)} s` : perfLine || 'not measured yet',
   ui,
-  overlays: new Overlays(ui, events, i18n, bindings),
+  overlays: new Overlays(ui, events, i18n, bindings, pads),
   params,
   data: null,
   seasons: null,

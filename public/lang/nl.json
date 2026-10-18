@@ -273,7 +273,11 @@
       "attack": "{keyAttack}",
       "heavy": "{keyHeavy}",
       "potion": "{keyPotion}",
-      "lock": "{keyLock}"
+      "lock": "{keyLock}",
+      "spellNext": "{keySpellNext}",
+      "weaponNext": "{keyWeaponNext}",
+      "offhandNext": "{keyOffhandNext}",
+      "itemNext": "{keyItemNext}"
     },
     "checkpointSet": "Checkpoint ingesteld",
     "rested": "Je rust uit in je bed. Je HP en mana zijn weer vol.",
@@ -295,12 +299,24 @@
     "packTooHeavy": "{name} kan niet zoveel dragen.",
     "packWorn": "Doe het eerst uit.",
     "noMana": "Niet genoeg mana.",
+    "poise": "Balans",
+    "staggered": "Wankelen!",
     "statPoint": "Je hebt een statpunt. Open je statusvenster met {keyStatus}.",
     "statPoints": "Je hebt {n} statpunten. Open je statusvenster met {keyStatus}.",
     "statsReturned": "Levels groeien niet meer vanzelf: je {n} punten mag je zelf verdelen ({keyStatus}).",
     "eggFound": "Je hebt de {name} gevonden. Sultan ruilt een ei voor een nieuwe build.",
     "statsReset": "Je {n} punten zijn weer vrij. Verdeel ze zoals je wilt.",
-    "drillLeft": "Je verliet het veld, dus de drill begint opnieuw. Stap er weer op zodra je klaar bent."
+    "drillLeft": "Je verliet het veld, dus de drill begint opnieuw. Stap er weer op zodra je klaar bent.",
+    "loadout": {
+      "spell": "Spell",
+      "weapon": "Wapen",
+      "offhand": "Andere hand",
+      "item": "Snel item"
+    },
+    "noSpell": "Geen spell om te kiezen.",
+    "noOffhand": "Je hebt nog niets voor je andere hand.",
+    "oneWeapon": "Je draagt geen ander wapen.",
+    "noItem": "Niets om snel te gebruiken."
   },
   "dialog": {
     "next": "Verder",
@@ -470,6 +486,9 @@
     },
     "dark_crystal": {
       "desc": "Een kristal van duistere magie."
+    },
+    "rookie_grimoire": {
+      "desc": "Een klein, eenvoudig spreukenboek. Er past één voorbereide incantation in."
     },
     "slime_gel": {
       "desc": "Kleverige gel die een slime achterlaat."
@@ -907,6 +926,9 @@
   },
   "controls": {
     "dash": "Dash",
+    "parried": "Pareren!",
+    "blocked": "Geblokt",
+    "guardBroken": "Blok gebroken!",
     "clickToLook": "Klik om rond te kijken · Esc voor het menu",
     "attack": "Slaan",
     "heavy": "Zwaar",
@@ -915,7 +937,7 @@
     "spell": "Spreuk",
     "lock": "Lock-on",
     "title": "Besturing",
-    "help": "Klik op een toets om hem te veranderen. Druk dan een toets of muisknop; Esc annuleert, Backspace maakt hem leeg. De knoppen op het scherm van een telefoon blijven zoals ze zijn.",
+    "help": "Klik op een toets om hem te veranderen. Druk dan op een toets of muisknop, of draai aan het wiel; Esc annuleert, Backspace maakt hem leeg. Ctrl + wiel zoomt altijd de camera. De knoppen op het scherm van een telefoon blijven zoals ze zijn.",
     "pressAKey": "druk…",
     "reset": "Terug naar standaard",
     "takenFrom": "{key} is weggehaald bij “{action}”.",
@@ -929,16 +951,25 @@
       "attack": "Slaan (fast hit / Shard)",
       "heavy": "Zware slag / spreuk",
       "dash": "Dash",
+      "block": "Blokkeren / parry",
       "interact": "Praten en gebruiken",
-      "potion": "Drankje drinken",
+      "potion": "Snel item gebruiken",
       "bag": "Tas",
       "lock": "Lock-on",
       "lockSwitch": "Volgend doel",
       "confirm": "Bevestigen",
       "down": "Omlaag vliegen (debug)",
       "status": "Statusvenster",
-      "close": "Venster sluiten"
-    }
+      "close": "Venster sluiten",
+      "spellNext": "Volgende spell",
+      "spellPrev": "Vorige spell",
+      "weaponNext": "Volgend wapen",
+      "offhandNext": "Volgende voor je andere hand",
+      "itemNext": "Volgend snel item"
+    },
+    "controller": "Controller",
+    "pressAButton": "druk een knop…",
+    "padHelp": "Controller: de linkerstick loopt, de rechterstick draait de camera en Start opent het menu. Klik op een controllervak en druk een knop om hem te koppelen."
   },
   "touch": {
     "title": "Knoppen op het scherm",
@@ -989,7 +1020,9 @@
     "End": "End",
     "PageUp": "Page Up",
     "PageDown": "Page Down",
-    "Delete": "Delete"
+    "Delete": "Delete",
+    "WheelUp": "Wiel ↑",
+    "WheelDown": "Wiel ↓"
   },
   "cheats": {
     "debugView": "Debugvenster",
@@ -1128,7 +1161,9 @@
       "recipe": "Recepten",
       "resource": "Materialen",
       "currency": "Geld"
-    }
+    },
+    "padInCombat": "Tijdens een gevecht kun je de tas nog niet met een controller openen.",
+    "liveFight": "Het gevecht gaat door terwijl de tas open is. Je kunt nu alleen drankjes gebruiken."
   },
   "load": {
     "light": "Licht",
@@ -1143,8 +1178,9 @@
   },
   "death": {
     "title": "Je bent verslagen",
-    "goldLost": "Je bent {amount} {gold} kwijt. Je wordt wakker bij je checkpoint.",
-    "wakeUp": "Je wordt wakker bij je checkpoint."
+    "goldLost": "Je bent {amount} {gold} kwijt. Je wordt wakker bij je checkpoint. Het ligt waar je viel.",
+    "wakeUp": "Je wordt wakker bij je checkpoint.",
+    "goldRecovered": "Je hebt je {gold} teruggevonden: {amount}."
   },
   "forge": {
     "title": "Smidse",
@@ -1260,7 +1296,26 @@
     "noStaff": "Draag een staf om het spellboek te gebruiken.",
     "noSpells": "Je kent nog geen spells.",
     "noSlots": "Deze staf heeft geen spellplekken.",
-    "hint": "De eerste gevulde plek is de spell die je cast-knop afvuurt. Spells wissel je alleen buiten een gevecht.",
+    "hint": "Je cast-knop vuurt de gekozen plek af; met {keySpellNext} kies je de volgende, ook in een gevecht. Welke spells in de plekken zitten, verander je alleen buiten een gevecht.",
     "inCombat": "Niet terwijl je vecht."
+  },
+  "pad": {
+    "0": "A",
+    "1": "B",
+    "2": "X",
+    "3": "Y",
+    "4": "LB",
+    "5": "RB",
+    "6": "LT",
+    "7": "RT",
+    "8": "Back",
+    "9": "Start",
+    "10": "L3",
+    "11": "R3",
+    "12": "D-pad ↑",
+    "13": "D-pad ↓",
+    "14": "D-pad ←",
+    "15": "D-pad →",
+    "16": "Home"
   }
 }

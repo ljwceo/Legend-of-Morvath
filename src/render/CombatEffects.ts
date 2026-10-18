@@ -21,7 +21,7 @@ import {
 import type { Enemy } from '../entities/Enemy';
 import { colored } from '../entities/StructureFactory';
 import type { Arena } from '../systems/BossAI';
-import { currentSpecial } from '../systems/EnemyAI';
+import { attackCueFor, newAttackCue, CUE_LINE_WIDTH } from '../systems/AttackCue';
 import type { Projectile } from '../systems/Projectiles';
 import type { Shot } from '../systems/Shots';
 import { palette, uiColors } from './palette';
@@ -212,6 +212,10 @@ export class WarningRenderer {
   /** Boss charge lines: the whole line faint, and a stronger part that fills up. */
   private readonly lines: GroundStrip;
   private readonly lineFills: GroundStrip;
+  /** Cues of normal attacks (lunge and shot lines): pooled, one pair per warning slot. */
+  private readonly cueLines: GroundStrip[] = [];
+  private readonly cueLineFills: GroundStrip[] = [];
+  private readonly cue = newAttackCue();
   /** The boss arena ring (gold), shown during a boss fight. */
   private readonly arenaMaterial: MeshBasicMaterial;
   private arenaRing: GroundDisc | null;
@@ -239,6 +243,10 @@ export class WarningRenderer {
       this.outlines.push(new GroundDisc(1 - OUTLINE_WIDTH, this.outlineMaterial, root));
       this.fills.push(new GroundDisc(0, this.fillMaterial, root));
     }
+    for (let i = 0; i < MAX_WARNINGS; i++) {
+      this.cueLines.push(new GroundStrip(this.fillMaterial, root));
+      this.cueLineFills.push(new GroundStrip(this.outlineMaterial, root));
+    }
     this.lines = new GroundStrip(this.fillMaterial, root);
     this.lineFills = new GroundStrip(this.outlineMaterial, root);
     this.arenaMaterial = material(0.55);
@@ -264,22 +272,53 @@ export class WarningRenderer {
 
   update(enemies: readonly Enemy[], alpha: number): void {
     let count = 0;
-    for (let i = 0; i < enemies.length && count < MAX_WARNINGS; i++) {
+    let lineCount = 0;
+    const cue = this.cue;
+    for (let i = 0; i < enemies.length; i++) {
+      if (count >= MAX_WARNINGS && lineCount >= MAX_WARNINGS) break;
       const e = enemies[i] as Enemy;
-      if (!e.alive || e.mode !== 'windup') continue;
-      const special = currentSpecial(e);
-      if (!special?.areaRadius) continue;
-      const progress = 1 - Math.max(0, e.timer) / Math.max(1e-3, special.warningSeconds);
-      const r = special.areaRadius;
+      attackCueFor(e, cue);
+      if (cue.shape === 'none') continue;
       const x = e.drawX(alpha);
       const z = e.drawZ(alpha);
-      (this.outlines[count] as GroundDisc).place(x, z, r, this.heightAt);
-      (this.fills[count] as GroundDisc).place(x, z, r * Math.min(1, progress), this.heightAt);
-      count++;
+      if (cue.shape === 'line') {
+        if (lineCount >= MAX_WARNINGS) continue;
+        const h = e.drawHeading(alpha);
+        const bx = x + Math.sin(h) * cue.length;
+        const bz = z + Math.cos(h) * cue.length;
+        (this.cueLines[lineCount] as GroundStrip).place(
+          x,
+          z,
+          bx,
+          bz,
+          CUE_LINE_WIDTH,
+          1,
+          this.heightAt,
+        );
+        (this.cueLineFills[lineCount] as GroundStrip).place(
+          x,
+          z,
+          bx,
+          bz,
+          CUE_LINE_WIDTH,
+          cue.progress,
+          this.heightAt,
+        );
+        lineCount++;
+      } else {
+        if (count >= MAX_WARNINGS) continue;
+        (this.outlines[count] as GroundDisc).place(x, z, cue.radius, this.heightAt);
+        (this.fills[count] as GroundDisc).place(x, z, cue.radius * cue.progress, this.heightAt);
+        count++;
+      }
     }
     for (let i = count; i < MAX_WARNINGS; i++) {
       (this.outlines[i] as GroundDisc).mesh.visible = false;
       (this.fills[i] as GroundDisc).mesh.visible = false;
+    }
+    for (let i = lineCount; i < MAX_WARNINGS; i++) {
+      (this.cueLines[i] as GroundStrip).mesh.visible = false;
+      (this.cueLineFills[i] as GroundStrip).mesh.visible = false;
     }
     this.updateChargeLine(enemies);
   }
@@ -315,6 +354,8 @@ export class WarningRenderer {
   dispose(): void {
     for (const disc of this.outlines) disc.dispose();
     for (const disc of this.fills) disc.dispose();
+    for (const strip of this.cueLines) strip.dispose();
+    for (const strip of this.cueLineFills) strip.dispose();
     this.lines.dispose();
     this.lineFills.dispose();
     this.arenaRing?.dispose();

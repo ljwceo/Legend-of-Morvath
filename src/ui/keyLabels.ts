@@ -1,4 +1,5 @@
 import { type Bindings, isMouseCode } from '../core/Bindings';
+import { padIndex } from '../core/gamepad';
 import type { I18n, TextParams } from '../i18n/I18n';
 
 /**
@@ -8,6 +9,8 @@ import type { I18n, TextParams } from '../i18n/I18n';
  */
 export function keyLabel(code: string, t: I18n['t']): string {
   if (code === '') return '—';
+  const pad = padIndex(code);
+  if (pad >= 0) return t(`pad.${pad}`);
   if (isMouseCode(code)) return t(`key.${code.toLowerCase()}`);
   const letter = /^Key([A-Z])$/.exec(code);
   if (letter) return letter[1] as string;
@@ -47,7 +50,10 @@ export function keyParams(bindings: Bindings, i18n: I18n): TextParams {
   for (const action of bindings.actions) {
     const codes = bindings.codesFor(action);
     const name = `key${action.charAt(0).toUpperCase()}${action.slice(1)}`;
-    params[name] = codes.length === 0 ? '—' : label(codes[0] as string);
+    // After the last input came from a controller, texts name its button (A, RB, ...).
+    const pad = bindings.padHints ? bindings.padCodesFor(action)[0] : undefined;
+    const first = pad ?? codes[0];
+    params[name] = first === undefined ? '—' : label(first);
   }
   cache = { bindings, version: bindings.version, language: i18n.language, params };
   return params;

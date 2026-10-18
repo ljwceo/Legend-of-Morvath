@@ -62,13 +62,17 @@ describe('XP and levels (concept: 100, 150, 220, 300, 400, 520, 660)', () => {
   });
 });
 
-describe('dying costs gold (concept: 10%)', () => {
-  it('takes 10%, rounded down', () => {
+describe('dying costs gold (decision S.4b: 100%)', () => {
+  it('takes everything you carry', () => {
     const fraction = player.death.goldLossFraction;
-    expect(fraction).toBe(0.1);
-    expect(deathGoldLoss(100, fraction)).toBe(10);
-    expect(deathGoldLoss(57, fraction)).toBe(5);
-    expect(deathGoldLoss(9, fraction)).toBe(0);
+    expect(fraction).toBe(1);
+    expect(deathGoldLoss(100, fraction)).toBe(100);
+    expect(deathGoldLoss(57, fraction)).toBe(57);
     expect(deathGoldLoss(0, fraction)).toBe(0);
+  });
+
+  it('still rounds down for partial fractions', () => {
+    expect(deathGoldLoss(57, 0.1)).toBe(5);
+    expect(deathGoldLoss(9, 0.1)).toBe(0);
   });
 });

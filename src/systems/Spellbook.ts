@@ -1,7 +1,8 @@
 /**
  * The spellbook (step 4.3): which of the spells you know sit in the slots of your staff.
  * A staff has `spellSlots` slots (items.json); you fill them from the spells you know, outside
- * a fight. The first filled slot is the spell the right button casts. Pure rules, no DOM.
+ * a fight. The wheel / D-pad up picks which filled slot the cast button fires, also in a fight
+ * (see Loadout). Pure rules, no DOM.
  */
 
 /** An empty slot in the stored loadout. */
@@ -55,7 +56,7 @@ export function setSlot(
   return next;
 }
 
-/** The spell the cast button fires: the first filled slot, or null. */
+/** The first filled slot, or null (the cast button's spell when no slot was picked). */
 export function activeSpell(loadout: readonly string[]): string | null {
   return loadout.find((id) => id !== EMPTY_SLOT) ?? null;
 }

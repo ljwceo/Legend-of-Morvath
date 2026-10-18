@@ -12,6 +12,7 @@ import type { SeasonService } from '../services/SeasonService';
 import type { Overlays } from '../ui/Overlays';
 import type { Bindings } from './Bindings';
 import type { GameEventBus } from './events';
+import type { PadHub } from './gamepad';
 import type { GameLoop } from './GameLoop';
 
 /**
@@ -26,6 +27,8 @@ export interface GameContext {
   readonly saves: SaveManager;
   /** Which key or mouse button does what (Settings -> Controls); filled by the Boot scene. */
   readonly bindings: Bindings;
+  /** Gamepads, read once per frame; Input, Overlays and the controls panel listen to it. */
+  readonly pads: PadHub;
   readonly debug: DebugOverlay;
   /** Graphics preset (Low / Mid / High): benchmark, auto-downgrade, renderer settings. */
   readonly quality: QualityManager;
