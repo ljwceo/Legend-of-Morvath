@@ -1103,7 +1103,11 @@
     "bossEndingStaff": "Ending: mage",
     "animation": "Animation",
     "animationAuto": "Auto",
-    "animationNote": "Plays one clip on its own, over and over, while you keep walking. Auto follows the game again."
+    "animationNote": "Plays one clip on its own, over and over, while you keep walking. Auto follows the game again.",
+    "cape": "Cape",
+    "capeStiffness": "Stiffness (× animations.json)",
+    "capeGravity": "Gravity (× animations.json)",
+    "capeNote": "Spring bones of the cape. Off = the cape hangs as modelled; back on = it starts over, hanging still."
   },
   "bag": {
     "title": "Bag",

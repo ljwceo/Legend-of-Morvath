@@ -91,6 +91,10 @@ Door de mistdeur van het kasteel van Morvath een kamer in waar tijd en werkelijk
 
 **Klaar (2026-10-16):** elke clip is gesplitst in een benen-laag (`Hips` en lager) en een bovenlijf-laag (`Spine` en hoger, `animations.json → upperBody`); tijdens lopen spelen de snelle slagen, `Cast_Gather`/`Cast_Release` én `Hit` alleen op het bovenlijf terwijl de benen `Walk`/`Run` doen (de zware slag blijft heel lijf: één regel in de data als dat anders moet). Een slag of schot maakt zich nu ook af terwijl je doorloopt. Leunen op `Spine` uit de versnelling (`lean`: in een bocht opzij, achterover bij remmen, max 6°/2°/4°). F3-regel `anim` (state, clips, leunen), cheatmenu-sectie Animatie (elke clip los, Auto = terug). Gemeten in Greyhaven: High 120 fps (8,3 ms, cpu 1,3–1,6 ms), Low 60 (cap), draw calls 133–135 (gelijk aan A.3c); Mid gaf in het browserpaneel 1–6 fps, maar dat was het paneel zelf (ook de kale `requestAnimationFrame` liep daar op 2–3 Hz met het spel gepauzeerd), nog op de pc nakijken.
 
+### A.4a Spring bones
+
+**Klaar (2026-10-16):** `src/render/SpringBones.ts` (Verlet-staartpunt per cape-bot, eigen substap van 120 Hz in hele stappen, anker per substap geinterpoleerd, getekend = mix van de laatste twee substappen, simuleert in de ruimte van `worldRoot`), getallen in `animations.json -> player.cape` (schema + DataValidator), cheatmenu-sectie Cape en F3-regel `cape`. Tests: dezelfde staartposities op 30/60/120/144 fps (< 1e-6 m recht, < 1 mm in een bocht), maximale hoek nooit overschreden, in rust recht en stil, pauze = niets verandert, substappen exact geteld, geen garbage collections. Afgesteld in Greyhaven (rust recht, rennen waait hem ca. 0,3 m achter je aan); fps 118-120 en draw calls gelijk op Low/Mid/High, cpu gelijk met cape aan en uit, heap vlak. Botsing en teleport blijven A.4b.
+
 ## Fase 4 – Forge, markt, spellboek, kristallen, skill tree
 
 ### 4.1 De echte Forge

@@ -75,6 +75,21 @@ describe('player clips and weapons (animations.json)', () => {
     );
   });
 
+  it('every cape chain exists in player.glb, bone under bone, all hanging from one anchor', () => {
+    const parents = new Map<number, number>();
+    glb.nodes.forEach((node, i) => (node.children ?? []).forEach((child) => parents.set(child, i)));
+    const index = (name: string): number => glb.nodes.findIndex((node) => node.name === name);
+    const anchors = new Set<number | undefined>();
+    for (const chain of anim.cape.chains) {
+      chain.forEach((name, j) => {
+        expect(index(name), name).toBeGreaterThanOrEqual(0);
+        if (j > 0) expect(parents.get(index(name)), name).toBe(index(chain[j - 1] ?? ''));
+      });
+      anchors.add(parents.get(index(chain[0] ?? '')));
+    }
+    expect(anchors.size).toBe(1);
+  });
+
   it('weaponOf picks the weapon by the start of the name', () => {
     expect(weaponOf('Sword_Blade', anim.weapons)).toBe('sword');
     expect(weaponOf('Staff_Crystal_1', anim.weapons)).toBe('staff');

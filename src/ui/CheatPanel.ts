@@ -59,7 +59,20 @@ export interface CheatPanelHandlers {
   clip(): PlayerClipRole | null;
   /** Plays that clip on its own, over and over, or (null) follows the simulation again. */
   setClip(role: PlayerClipRole | null): void;
+  /** The cape's spring bones (step A.4a): on or off and the cheat multipliers, null = no cape. */
+  cape(): CapeCheats | null;
+  setCape(change: Partial<CapeCheats>): void;
 }
+
+/** What the cheat menu can set on the cape: on/off, and multipliers on stiffness and gravity. */
+export interface CapeCheats {
+  enabled: boolean;
+  stiffness: number;
+  gravity: number;
+}
+
+const CAPE_STIFFNESS_SCALES = [0.5, 1, 2] as const;
+const CAPE_GRAVITY_SCALES = [0, 1, 2] as const;
 
 type SaveTool = 'none' | 'export' | 'import';
 
@@ -414,6 +427,7 @@ export class CheatPanel {
       this.seasonSection(chip, section),
       this.dayNightSection(chip, section),
       this.animationSection(chip, section),
+      this.capeSection(chip, section),
       section(
         t('cheats.quality'),
         el('p', { className: 'ui-note', text: this.ctx.quality.debugLine() }),
@@ -576,6 +590,49 @@ export class CheatPanel {
         ...clips.map(({ role, name }) => chip(name, current === role, () => set(role))),
       ),
       el('p', { className: 'ui-note', text: t('cheats.animationNote') }),
+    );
+  }
+
+  /**
+   * The cape's spring bones (step A.4a): off (hangs as modelled) or on, and the stiffness and
+   * gravity as multipliers on the numbers in animations.json. Only with the animated character.
+   */
+  private capeSection(
+    chip: (label: string, active: boolean, onClick: () => void) => HTMLButtonElement,
+    section: (label: string, ...content: (HTMLElement | null)[]) => HTMLElement,
+  ): HTMLElement | null {
+    const cape = this.handlers.cape();
+    if (!cape) return null;
+    const t = this.ctx.i18n.t.bind(this.ctx.i18n);
+    const set = (change: Partial<CapeCheats>): void => {
+      this.handlers.setCape(change);
+      this.rebuild();
+    };
+    return section(
+      t('cheats.cape'),
+      el(
+        'div',
+        { className: 'ui-chips' },
+        chip(t('cheats.on'), cape.enabled, () => set({ enabled: true })),
+        chip(t('cheats.off'), !cape.enabled, () => set({ enabled: false })),
+      ),
+      el('p', { className: 'ui-label', text: t('cheats.capeStiffness') }),
+      el(
+        'div',
+        { className: 'ui-chips' },
+        ...CAPE_STIFFNESS_SCALES.map((scale) =>
+          chip(`${scale}×`, cape.stiffness === scale, () => set({ stiffness: scale })),
+        ),
+      ),
+      el('p', { className: 'ui-label', text: t('cheats.capeGravity') }),
+      el(
+        'div',
+        { className: 'ui-chips' },
+        ...CAPE_GRAVITY_SCALES.map((scale) =>
+          chip(`${scale}×`, cape.gravity === scale, () => set({ gravity: scale })),
+        ),
+      ),
+      el('p', { className: 'ui-note', text: t('cheats.capeNote') }),
     );
   }
 

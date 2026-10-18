@@ -858,6 +858,22 @@ export class WorldState implements GameState, InstanceHost {
         setClip: (role) => {
           if (this.playerAnimator) this.playerAnimator.preview = role;
         },
+        cape: () => {
+          const cape = this.playerAnimator?.cape;
+          if (!cape) return null;
+          return {
+            enabled: cape.enabled,
+            stiffness: cape.stiffnessScale,
+            gravity: cape.gravityScale,
+          };
+        },
+        setCape: (change) => {
+          const cape = this.playerAnimator?.cape;
+          if (!cape) return;
+          cape.enabled = change.enabled ?? cape.enabled;
+          cape.stiffnessScale = change.stiffness ?? cape.stiffnessScale;
+          cape.gravityScale = change.gravity ?? cape.gravityScale;
+        },
       },
     );
     // Next to the UI layer (not inside it), so it can sit above the debug overlay.
@@ -2137,6 +2153,9 @@ export class WorldState implements GameState, InstanceHost {
       player.model.root.rotation.y,
       seconds,
     );
+    // The cape last: it hangs from a bone the clips have just moved. Simulated in the world
+    // root's own coordinates, so a shift of the floating origin does not whip it.
+    animator.cape?.update(seconds, this.worldRoot);
   }
 
   /** The screen during dying (drawn every frame from the simulation's death timer). */
@@ -5542,6 +5561,7 @@ export class WorldState implements GameState, InstanceHost {
     );
     debug.lines.set('daynight', this.dayNightLine());
     debug.lines.set('anim', this.playerAnimator?.debugLine() ?? 'placeholder');
+    debug.lines.set('cape', this.playerAnimator?.cape?.debugLine() ?? '-');
     debug.lines.set(
       'cheats',
       `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'} · F6 = cheat menu`,

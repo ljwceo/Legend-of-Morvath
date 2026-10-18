@@ -72,6 +72,20 @@
       "maxForwardDeg": 2,
       "maxBackDeg": 4,
       "smoothingSeconds": 0.15
+    },
+    "cape": {
+      "substepHz": 120,
+      "maxSubsteps": 8,
+      "chains": [
+        ["Cape_L1", "Cape_L2", "Cape_L3"],
+        ["Cape_M1", "Cape_M2", "Cape_M3"],
+        ["Cape_R1", "Cape_R2", "Cape_R3"]
+      ],
+      "places": [
+        { "stiffness": 60, "damping": 13, "gravity": 60, "maxAngleDeg": 22 },
+        { "stiffness": 40, "damping": 11, "gravity": 60, "maxAngleDeg": 30 },
+        { "stiffness": 25, "damping": 9, "gravity": 60, "maxAngleDeg": 38 }
+      ]
     }
   }
 }
