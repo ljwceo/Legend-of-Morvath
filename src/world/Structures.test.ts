@@ -4,7 +4,7 @@ import type { Zone } from '../data/types';
 import { hasStructureModel, structureShape } from '../entities/StructureFactory';
 import { colorTokens } from '../render/palette';
 import { readPublicJson } from '../test/loadPublic';
-import { pushOutOf } from './Colliders';
+import { type Collider, pushOutOf } from './Colliders';
 import { riverProfile } from './RiverWater';
 import { placeStructures, segmentEntersBox } from './StructurePlacement';
 import { buildWorldGenConfig } from './terrainConfig';
@@ -102,6 +102,38 @@ describe('structures in zones.json', () => {
 describe('placeStructures', () => {
   const flat = () => 2;
   const shape = structureShape;
+
+  it('gives a barrier colliders but no camera box, and a wall both', () => {
+    const zone = zoneWith([
+      {
+        id: 'barrier',
+        model: 'placeholder:barrier',
+        x: 0,
+        z: 0,
+        size: [100, 1, 20],
+        collider: 'box',
+      },
+      { id: 'wall', model: 'placeholder:wall', x: 0, z: 50, size: [100, 9, 3], collider: 'box' },
+    ]);
+    const [barrier, wall] = placeStructures([zone], flat, shape, 64, 1);
+    expect(barrier?.colliders).toHaveLength(1);
+    expect(barrier?.solid).toBeNull();
+    expect(wall?.colliders).toHaveLength(1);
+    expect(wall?.solid).not.toBeNull();
+    // The barrier still blocks walking exactly like a wall.
+    const p = { x: 0, z: 0 };
+    expect(pushOutOf(p, 0.4, barrier?.colliders[0] as Collider)).toBe(true);
+    expect(Math.abs(p.z)).toBeGreaterThanOrEqual(10.4 - 1e-6);
+  });
+
+  it('every barrier in zones.json has a collider and no camera box', () => {
+    const barriers = placed.filter((s) => s.def.model === 'placeholder:barrier');
+    expect(barriers.length).toBeGreaterThan(0);
+    for (const s of barriers) {
+      expect(s.colliders.length, s.def.id).toBeGreaterThan(0);
+      expect(s.solid, s.def.id).toBeNull();
+    }
+  });
 
   it('lifts elevated structures and spans bridges between tops', () => {
     const zone = zoneWith([

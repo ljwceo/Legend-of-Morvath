@@ -13,9 +13,13 @@ export interface HorizonProjection {
   distance: number;
 }
 
-/** How much of the silhouette color shows at the edge of the fog, and far away (2 km). */
-const VISIBILITY_NEAR = 0.55;
-const VISIBILITY_FAR = 0.22;
+/**
+ * Far away (FAR_DISTANCE and beyond) the silhouette shows this much more of its dark color than
+ * the fog would leave of the real building at the drawing radius, so a landmark stays readable
+ * from the other end of a region. At the radius itself it shows exactly what the fog leaves
+ * (see `horizonVisibility`), so the handoff to the real geometry is continuous.
+ */
+const FAR_BOOST = 0.12;
 const FAR_DISTANCE = 2000;
 
 /**
@@ -52,10 +56,29 @@ export function projectToHorizon(
   return true;
 }
 
-/** How visible a silhouette is (0–1) at `distance`: clearer at the edge of the fog than far off. */
-export function horizonVisibility(distance: number, radius: number): number {
+/**
+ * How much of the real building's color the scene's linear fog leaves at `distance` (Three.js
+ * `Fog`: nothing beyond `fogFar`, everything before `fogNear`).
+ */
+export function fogRemainder(distance: number, fogNear: number, fogFar: number): number {
+  if (fogFar <= fogNear) return 0;
+  return 1 - Math.min(1, Math.max(0, (distance - fogNear) / (fogFar - fogNear)));
+}
+
+/**
+ * How visible a silhouette is (0–1) at `distance`: at the drawing `radius` exactly what the fog
+ * leaves of the real building there (so swapping one for the other changes nothing), and
+ * towards FAR_DISTANCE up to FAR_BOOST more, so a far landmark stays readable.
+ */
+export function horizonVisibility(
+  distance: number,
+  radius: number,
+  fogNear: number,
+  fogFar: number,
+): number {
+  const handoff = fogRemainder(radius, fogNear, fogFar);
   const t = Math.min(1, Math.max(0, (distance - radius) / (FAR_DISTANCE - radius)));
-  return VISIBILITY_NEAR + (VISIBILITY_FAR - VISIBILITY_NEAR) * t;
+  return handoff + FAR_BOOST * t;
 }
 
 interface Landmark {
@@ -111,9 +134,17 @@ export class HorizonLandmarks {
 
   /**
    * Call every frame with the camera's world position, the radius to draw at (just inside the
-   * fog's far distance) and the fog color of this frame.
+   * fog's far distance), the fog's near and far distances and its color of this frame.
    */
-  update(cameraX: number, cameraY: number, cameraZ: number, radius: number, fog: Color): void {
+  update(
+    cameraX: number,
+    cameraY: number,
+    cameraZ: number,
+    radius: number,
+    fogNear: number,
+    fogFar: number,
+    fog: Color,
+  ): void {
     const p = this.projection;
     for (let i = 0; i < this.landmarks.length; i++) {
       const { placed, mesh, material } = this.landmarks[i] as Landmark;
@@ -131,7 +162,9 @@ export class HorizonLandmarks {
       if (!far) continue;
       mesh.position.set(p.x, p.y, p.z);
       mesh.scale.set(placed.scaleX * p.scale, placed.scaleY * p.scale, placed.scaleZ * p.scale);
-      material.color.copy(fog).lerp(this.dark, horizonVisibility(p.distance, radius));
+      material.color
+        .copy(fog)
+        .lerp(this.dark, horizonVisibility(p.distance, radius, fogNear, fogFar));
     }
   }
 

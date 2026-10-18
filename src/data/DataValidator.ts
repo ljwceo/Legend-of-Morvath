@@ -2,7 +2,7 @@ import type { z } from 'zod/mini';
 import { boxContains, emptyBox, pointInShape, shapeBounds } from '../world/Shapes';
 import { DEFAULT_CAMERA_SENSITIVITY } from '../save/SaveData';
 import { shotWallSeconds } from '../render/cinematic/CinematicTimeline';
-import { BARRIER_MODEL } from '../entities/StructureFactory';
+import { BARRIER_MODEL } from '../world/StructurePlacement';
 import {
   CONTROL_ACTIONS,
   dataFileNames,

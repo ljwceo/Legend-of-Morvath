@@ -10,7 +10,7 @@ import {
 } from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { palette, terrainColors } from '../render/palette';
-import type { StructureShape } from '../world/StructurePlacement';
+import { BARRIER_MODEL, type StructureShape } from '../world/StructurePlacement';
 
 /**
  * Placeholder models for buildings and landmarks (zones.json `structures[].model`). Every model
@@ -24,13 +24,6 @@ import type { StructureShape } from '../world/StructurePlacement';
  */
 
 export type Part = [geometry: BufferGeometry, color: number, x: number, y: number, z: number];
-
-/**
- * An invisible wall: collision only, nothing is drawn (StructureLayer skips it). Buried in a
- * cliff or ridge it makes a natural boundary really hold: the mover's slope rule is per movement
- * direction, so any slope can be inched up at a grazing angle, a collider cannot.
- */
-export const BARRIER_MODEL = 'placeholder:barrier';
 
 export interface StructureModel extends StructureShape {
   geometry: BufferGeometry;
@@ -275,7 +268,7 @@ const MODELS: Readonly<Record<string, ModelDef>> = {
       return colored(parts);
     },
   },
-  // Invisible wall (see BARRIER_MODEL): no geometry at all.
+  // Invisible wall (BARRIER_MODEL in StructurePlacement): no geometry at all.
   [BARRIER_MODEL]: {
     tinted: false,
     build: () => new BufferGeometry(),

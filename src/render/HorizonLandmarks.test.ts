@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { type HorizonProjection, horizonVisibility, projectToHorizon } from './HorizonLandmarks';
+import {
+  fogRemainder,
+  type HorizonProjection,
+  horizonVisibility,
+  projectToHorizon,
+} from './HorizonLandmarks';
 
 describe('projectToHorizon', () => {
   const out: HorizonProjection = { x: 0, y: 0, z: 0, scale: 0, distance: 0 };
@@ -35,11 +40,33 @@ describe('projectToHorizon', () => {
 });
 
 describe('horizonVisibility', () => {
-  it('is clearest at the edge of the fog and fades with distance, never to nothing', () => {
-    expect(horizonVisibility(150, 150)).toBeCloseTo(0.55);
-    expect(horizonVisibility(2000, 150)).toBeCloseTo(0.22);
-    expect(horizonVisibility(5000, 150)).toBeCloseTo(0.22);
-    expect(horizonVisibility(800, 150)).toBeGreaterThan(0.22);
-    expect(horizonVisibility(800, 150)).toBeLessThan(0.55);
+  // The open world's fog: near = 0.35 × far, the silhouette at 0.9 × far (WorldState).
+  const far = 260 * 0.7;
+  const near = far * 0.35;
+  const radius = far * 0.9;
+
+  it('hands over to the real building without a jump: at the radius it shows what the fog leaves', () => {
+    const left = fogRemainder(radius, near, far);
+    expect(left).toBeCloseTo(1 - (0.9 - 0.35) / 0.65, 5);
+    expect(horizonVisibility(radius, radius, near, far)).toBeCloseTo(left, 6);
+    // Just beyond the radius the silhouette is as dark as the real building just inside it.
+    expect(horizonVisibility(radius + 0.01, radius, near, far)).toBeCloseTo(left, 3);
+  });
+
+  it('grows a little with distance so a far landmark stays readable, and never beyond 1', () => {
+    const atRadius = horizonVisibility(radius, radius, near, far);
+    const far1km = horizonVisibility(1000, radius, near, far);
+    const far5km = horizonVisibility(5000, radius, near, far);
+    expect(far1km).toBeGreaterThan(atRadius);
+    expect(far5km).toBeGreaterThan(far1km);
+    expect(far5km).toBeLessThanOrEqual(1);
+    expect(far5km).toBeCloseTo(horizonVisibility(2000, radius, near, far), 6);
+  });
+
+  it('fogRemainder follows Three.js linear fog', () => {
+    expect(fogRemainder(0, 10, 100)).toBe(1);
+    expect(fogRemainder(55, 10, 100)).toBeCloseTo(0.5);
+    expect(fogRemainder(100, 10, 100)).toBe(0);
+    expect(fogRemainder(50, 100, 100)).toBe(0);
   });
 });

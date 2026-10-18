@@ -4075,6 +4075,8 @@ export class WorldState implements GameState, InstanceHost {
           cam.y,
           cam.z + this.origin.z,
           fog.far * HORIZON_FRACTION,
+          fog.near,
+          fog.far,
           fog.color,
         );
       }

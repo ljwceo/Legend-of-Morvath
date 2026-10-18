@@ -1,6 +1,6 @@
 import type { ZonesFile } from '../data/types';
-import { BARRIER_MODEL } from '../entities/StructureFactory';
 import { emptyBox, shapeBounds } from './Shapes';
+import { BARRIER_MODEL } from './StructurePlacement';
 import type { TerrainConfig, TerrainFeature } from './TerrainField';
 
 /** Extra room (m) kept free of props around a building. */

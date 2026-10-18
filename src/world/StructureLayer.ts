@@ -9,13 +9,9 @@ import {
   Quaternion,
   Vector3,
 } from 'three';
-import {
-  BARRIER_MODEL,
-  buildStructureModel,
-  type StructureModel,
-} from '../entities/StructureFactory';
+import { buildStructureModel, type StructureModel } from '../entities/StructureFactory';
 import { chunkKey } from './ChunkPlanner';
-import { type PlacedStructure, segmentEntersBox } from './StructurePlacement';
+import { BARRIER_MODEL, type PlacedStructure, segmentEntersBox } from './StructurePlacement';
 import type { SpatialHash } from './SpatialHash';
 
 /** Something that can shorten the camera's line of sight (CameraRig). */

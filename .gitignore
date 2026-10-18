@@ -11,3 +11,4 @@ mem-check/
 # Morning test bench output (tools/testbank/README.md)
 tools/testbank/out/
 tools/testbank/dist/
+morvath-check/
