@@ -4,7 +4,7 @@ import { colorTokens } from '../render/palette';
 import { computeStatEffects, emptyStatEffects, presetPoints } from '../systems/Stats';
 import { readAllData, readPublicJson } from '../test/loadPublic';
 import { formatIssue, validateGameData } from './DataValidator';
-import type { DataFileName } from './schemas';
+import { WEAPON_GRIPS, type DataFileName } from './schemas';
 
 const textKeys = new Set(flattenStrings(readPublicJson('lang/en.json')).keys());
 const options = { textKeys, colorTokens };
@@ -144,6 +144,12 @@ describe('validateGameData catches broken data', () => {
     const role2 = raw2.npcs.roles.find((entry: any) => entry.animated);
     role2.animated.runAbove = role2.animated.runSpeed + 1;
     expect(messages(raw2).some((m) => m.includes('runAbove'))).toBe(true);
+  });
+
+  it('rejects an exhausted recovery level above the maximum energy', () => {
+    const raw = freshData();
+    raw.player.regen.exhaustedRecoverEnergy = raw.player.base.energy + 1;
+    expect(messages(raw).join('\n')).toContain('exhaustedRecoverEnergy');
   });
 
   it('rejects unknown (misspelled) fields', () => {
@@ -326,6 +332,13 @@ describe('validateGameData catches broken data', () => {
     const found = messages(raw);
     expect(found).toContainEqual(expect.stringContaining('action "dash" is missing'));
     expect(found).toContainEqual(expect.stringContaining('also bound to'));
+  });
+
+  it('binds each controller button to one action only', () => {
+    const raw = freshData();
+    const spell = raw.controls.actions.find((action: { id: string }) => action.id === 'spellNext');
+    spell.pad = ['Pad5'];
+    expect(messages(raw)).toContainEqual(expect.stringContaining('"Pad5" is also bound to'));
   });
 
   it('reports an element without a spell (a crystal of it would be useless)', () => {
@@ -615,5 +628,140 @@ describe('validateGameData catches broken data', () => {
     const sultan = raw.monsters.monsters.find((m: { id: string }) => m.id === 'sultan');
     sultan.boss.victory.title = 'boss.sultan.victory.nope';
     expect(messages(raw)).toContainEqual(expect.stringContaining('"boss.sultan.victory.nope"'));
+  });
+});
+
+/**
+ * Fase G, step G.1: only the data contracts for the Grimoire. Nothing in the game reads them
+ * yet, so these tests also check that no content hands any of it out before G.3.
+ */
+describe('Grimoire data foundation (G.1)', () => {
+  const { data } = validateGameData(readAllData(), options);
+  const item = (id: string) => data?.items.items.find((entry) => entry.id === id);
+
+  it('has the Rookie Grimoire with exactly one prepared incantation slot', () => {
+    expect(item('rookie_grimoire')?.type).toBe('grimoire');
+    expect(item('rookie_grimoire')?.grimoire?.incantationSlots).toBe(1);
+  });
+
+  it('starts the prepared main weapons at two', () => {
+    expect(data?.player.prepared.mainWeapons).toBe(2);
+  });
+
+  it('has Push as a Neutral incantation that costs no mana', () => {
+    const push = data?.spells.incantations.find((entry) => entry.id === 'push');
+    expect(push?.element).toBe('neutral');
+    expect(push?.manaCost).toBe(0);
+  });
+
+  it('makes only Neutral an element every character has from the start', () => {
+    const always = data?.spells.elements.filter((element) => element.alwaysUnlocked);
+    expect(always?.map((element) => element.id)).toEqual(['neutral']);
+  });
+
+  it('keeps every legacy id: the old sword, the staves, the crystals and the eggs', () => {
+    expect(item('old_sword')?.weapon?.kind).toBe('sword');
+    expect(item('old_sword')?.legacy).toBeUndefined();
+    for (const id of ['mage_staff', 'adept_staff']) {
+      expect(item(id)?.weapon?.kind).toBe('staff');
+      expect(item(id)?.legacy).toBe(true);
+    }
+    for (const id of ['wizard_crystal', 'dark_crystal']) expect(item(id)?.type).toBe('crystal');
+    // New eggs may be added; the existing ones may never be renamed or removed.
+    const eggs = data?.items.items.filter((entry) => entry.type === 'egg').map((e) => e.id);
+    const existingEggs = [
+      'mossback_egg',
+      'rootgnarl_egg',
+      'fenstalker_egg',
+      'bogmaw_egg',
+      'hoarfrost_egg',
+      'whisperer_egg',
+      'sentinel_egg',
+      'stonejaw_egg',
+      'windlash_egg',
+      'blightborn_egg',
+      'sultan_egg',
+    ];
+    expect(eggs).toEqual(expect.arrayContaining(existingEggs));
+  });
+
+  // Grips are provisional (G.6 decides the hand usage): only check that they are valid.
+  it('gives every active weapon a valid grip', () => {
+    for (const entry of data?.items.items ?? []) {
+      if (!entry.weapon || entry.legacy) continue;
+      const grip = entry.weapon.grip;
+      expect({ id: entry.id, valid: grip !== undefined && WEAPON_GRIPS.includes(grip) }).toEqual({
+        id: entry.id,
+        valid: true,
+      });
+    }
+    const raw = freshData();
+    raw.items.items.find((i: { id: string }) => i.id === 'goblin_cleaver').weapon.grip =
+      'threeHanded';
+    expect(messages(raw)).toContainEqual(expect.stringContaining('weapon.grip'));
+  });
+
+  it('changes nothing in play yet: no Neutral spell, start kit as before, nothing hands it out', () => {
+    expect(data?.spells.spells.some((spell) => spell.element === 'neutral')).toBe(false);
+    expect(data?.player.start.items).toEqual([
+      { item: 'old_sword', count: 1 },
+      { item: 'travel_mantle', count: 1 },
+    ]);
+    expect(data?.player.start.equipment).toEqual({ weapon: 'old_sword', mantle: 'travel_mantle' });
+    const raw = readAllData();
+    for (const file of ['npcs', 'quests', 'monsters', 'zones', 'cutscenes', 'triggers'] as const) {
+      const text = JSON.stringify(raw[file]);
+      expect({ file, grimoire: text.includes('"rookie_grimoire"') }).toEqual({
+        file,
+        grimoire: false,
+      });
+      expect({ file, push: text.includes('"push"') }).toEqual({ file, push: false });
+    }
+  });
+
+  it('accepts a two-handed weapon', () => {
+    const raw = freshData();
+    raw.items.items.find((i: { id: string }) => i.id === 'chiefs_greatblade').weapon.grip =
+      'twoHanded';
+    expect(messages(raw)).toEqual([]);
+  });
+
+  it('catches broken Grimoire data', () => {
+    const raw = freshData();
+    const grimoire = raw.items.items.find((i: { id: string }) => i.id === 'rookie_grimoire');
+    delete grimoire.grimoire;
+    delete raw.items.items.find((i: { id: string }) => i.id === 'mage_staff').legacy;
+    delete raw.items.items.find((i: { id: string }) => i.id === 'goblin_cleaver').weapon.grip;
+    raw.spells.incantations.push(
+      { id: 'fireball', name: 'Fireball Too', element: 'fire', manaCost: 1 },
+      { id: 'spark', name: 'Spark', element: 'lightning', manaCost: 1 },
+    );
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('required for) grimoires'));
+    expect(found).toContainEqual(expect.stringContaining('a staff is legacy'));
+    expect(found).toContainEqual(expect.stringContaining('a weapon needs a grip'));
+    expect(found).toContainEqual(expect.stringContaining('"fireball" is also a spell id'));
+    expect(found).toContainEqual(expect.stringContaining('unknown element "lightning"'));
+  });
+
+  it('rejects a mana cost below zero and a Grimoire without slots', () => {
+    const raw = freshData();
+    raw.spells.incantations[0].manaCost = -1;
+    raw.items.items.find((i: { id: string }) => i.id === 'rookie_grimoire').grimoire = {
+      incantationSlots: 0,
+    };
+    raw.player.prepared.mainWeapons = 0;
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('incantations[0].manaCost'));
+    expect(found).toContainEqual(expect.stringContaining('grimoire.incantationSlots'));
+    expect(found).toContainEqual(expect.stringContaining('prepared.mainWeapons'));
+  });
+
+  it('reports an element that only an incantation would need once that incantation is gone', () => {
+    const raw = freshData();
+    raw.spells.incantations = [];
+    expect(messages(raw)).toContainEqual(
+      expect.stringContaining('no spell uses element "neutral" (no incantation either)'),
+    );
   });
 });

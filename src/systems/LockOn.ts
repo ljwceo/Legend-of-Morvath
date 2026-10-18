@@ -9,7 +9,8 @@ export interface LockTarget {
   readonly z: number;
   readonly hittable: boolean;
   /**
-   * Worth locking on to. A training dummy is hittable but never a target: it stands in the
+   * Worth locking on to. Alive and in the open, hittable or not (a guarded boss is a target
+   * too). A training dummy is hittable but never a target: it stands in the
    * middle of the Academy field where the second Entrance Exam is fought, and locking on to
    * straw while slimes jump at you is no fun.
    */
@@ -44,7 +45,7 @@ export function lockOnConfig(player: PlayerConfig): LockOnConfig {
 
 /**
  * The target to lock on to: the one nearest to the middle of the screen, with distance as a
- * tie-breaker (so a monster right in front of you wins from one far behind it). Only hittable
+ * tie-breaker (so a monster right in front of you wins from one far behind it). Only lockable
  * targets within `range` and the pick arc around where the camera looks count, and only ones
  * `canSee` accepts (like Elden Ring: no lock on an enemy behind a wall). Allocation-free.
  * `skip` is left out, which is how switching to the next target works.
@@ -62,7 +63,7 @@ export function pickLockTarget<T extends LockTarget>(
   let bestScore = Infinity;
   for (let i = 0; i < targets.length; i++) {
     const target = targets[i] as T;
-    if (!target.hittable || !target.lockable || target === skip) continue;
+    if (!target.lockable || target === skip) continue;
     const dx = target.x - px;
     const dz = target.z - pz;
     const distance = Math.sqrt(dx * dx + dz * dz);
@@ -81,7 +82,7 @@ export function pickLockTarget<T extends LockTarget>(
 }
 
 /**
- * Should the lock break? It does when the target cannot be hit any more (defeated, gone, safe
+ * Should the lock break? It does when the target is not lockable any more (defeated, gone, safe
  * in the elven city), when it is further away than `breakRange`, or when you look too far away
  * from it (concept: looking away means missing).
  */
@@ -92,7 +93,7 @@ export function lockBroken(
   viewYaw: number,
   cfg: LockOnConfig,
 ): boolean {
-  if (!target.hittable) return true;
+  if (!target.lockable) return true;
   const dx = target.x - px;
   const dz = target.z - pz;
   if (dx * dx + dz * dz > cfg.breakRange * cfg.breakRange) return true;

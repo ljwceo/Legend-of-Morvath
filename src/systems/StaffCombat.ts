@@ -16,6 +16,8 @@ export interface ShotConfig {
   /** Element id from spells.json (empty for the Arcane Shard, which has no element). */
   element: string;
   damage: number;
+  /** Poise damage to a monster (before charge and critical hits). */
+  poiseDamage: number;
   manaCost: number;
   /** The staff gathers the shot this long before it leaves. */
   windupSeconds: number;
@@ -89,6 +91,7 @@ function shotFromSpell(spell: SpellsFile['spells'][number]): ShotConfig {
     id: spell.id,
     element: spell.element,
     damage: spell.damage,
+    poiseDamage: spell.poiseDamage,
     manaCost: spell.manaCost,
     windupSeconds: spell.windupSeconds,
     cooldownSeconds: spell.cooldownSeconds,
@@ -96,7 +99,7 @@ function shotFromSpell(spell: SpellsFile['spells'][number]): ShotConfig {
     range: spell.range,
     radius: spell.radius,
     homingRadians: spell.homingDegreesPerSecond * DEG,
-    charge: { ...spell.charge },
+    charge: spell.charge ? { ...spell.charge } : null,
   };
 }
 
@@ -110,6 +113,7 @@ export function staffConfig(player: PlayerConfig, spells: SpellsFile): StaffConf
       id: SHARD_ID,
       element: '',
       damage: shard.damage,
+      poiseDamage: shard.poiseDamage,
       manaCost: shard.manaCost,
       windupSeconds: shard.windupSeconds,
       // maxPerSecond counts the whole cycle, so the wind-up is part of it.
@@ -184,6 +188,11 @@ export class StaffState {
   windupTotal = 0;
   /** What the current wind-up will fire. */
   pending: StaffAction = 'none';
+  /**
+   * The spell being gathered or charged, fixed when the cast starts: picking another spell
+   * meanwhile never changes the shot (or its mana cost) that is on its way out.
+   */
+  castSpell: ShotConfig | null = null;
   /** Seconds until the spell may be cast again (the Shard is not affected). */
   spellCooldown = 0;
   /** What `spellCooldown` started from after the last spell. */
@@ -223,6 +232,7 @@ export class StaffState {
     this.holding = false;
     this.chargeFraction = 0;
     this.pending = 'none';
+    this.castSpell = null;
     this.spellCooldown = 0;
     this.spellCooldownTotal = 0;
     this.bufferedShard = 0;
@@ -230,6 +240,19 @@ export class StaffState {
     this.noMana = false;
     this.sinceFired = Infinity;
   }
+}
+
+/**
+ * Clears what the staff is doing (a gathering, a charge, buffered presses) but keeps its
+ * cooldowns, so putting the staff away and back (a weapon switch) never readies a spell sooner.
+ */
+export function resetKeepingCooldowns(state: StaffState): void {
+  const { cooldown, cooldownTotal, spellCooldown, spellCooldownTotal } = state;
+  state.reset();
+  state.cooldown = cooldown;
+  state.cooldownTotal = cooldownTotal;
+  state.spellCooldown = spellCooldown;
+  state.spellCooldownTotal = spellCooldownTotal;
 }
 
 /**
@@ -277,10 +300,11 @@ function release(
   out: StaffResult,
 ): StaffResult {
   const kind = state.pending;
-  const shot = kind === 'spell' ? spell : cfg.shard;
+  const shot = kind === 'spell' ? (state.castSpell ?? spell) : cfg.shard;
   const held = state.charge;
   state.windup = 0;
   state.pending = 'none';
+  state.castSpell = null;
   state.charge = 0;
   state.holding = false;
   state.chargeFraction = 0;
@@ -314,8 +338,11 @@ function release(
 /**
  * One fixed step of the staff. The Arcane Shard (left) costs no mana and fires at its own rate;
  * the spell (right) costs mana, has a longer wind-up and its own cooldown, and does nothing
- * without enough mana (`noMana`). Mana is paid when the gathering starts, the shot leaves when
- * the wind-up is over. The caller fires the shot it returns (see Shots).
+ * without enough mana (`noMana`). Holding the button charges only a spell with `charge` in
+ * spells.json; one without fires as soon as its wind-up is over. `spell` is the selected
+ * spell; a cast that already started keeps its own (`castSpell`). Mana (from spells.json, more
+ * for a charged spell) is paid when the shot leaves at the end of the wind-up. The caller fires
+ * the shot it returns (see Shots).
  */
 export function stepStaff(
   state: StaffState,
@@ -347,9 +374,10 @@ export function stepStaff(
 
   if (state.pending !== 'none') {
     state.windup = Math.max(0, state.windup - dt);
-    const charging = state.pending === 'spell' && spell?.charge;
-    if (charging) {
-      const max = chargeSeconds(spell as ShotConfig, speed);
+    // The spell that started this cast, whatever is selected now.
+    const casting = state.castSpell ?? spell;
+    if (state.pending === 'spell' && casting?.charge) {
+      const max = chargeSeconds(casting, speed);
       // Keep charging while the button stays down; letting go (or a full charge) fires it.
       if (state.holding && input.spell) state.charge = Math.min(max, state.charge + dt);
       else state.holding = false;
@@ -374,6 +402,7 @@ export function stepStaff(
         // Mana is paid when the shot leaves, because charging makes it cost more.
         state.bufferedShard = 0;
         state.pending = 'spell';
+        state.castSpell = spell;
         state.windup = state.windupTotal = spell.windupSeconds / speed;
         state.charge = 0;
         state.chargeFraction = 0;

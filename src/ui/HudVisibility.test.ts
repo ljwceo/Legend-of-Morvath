@@ -13,6 +13,7 @@ function bars(): HudBars {
     xp: new HudVisibility(),
     gold: new HudVisibility(),
     abilities: new HudVisibility(),
+    loadout: new HudVisibility(),
   };
 }
 
@@ -137,5 +138,29 @@ describe('HudRules (concept)', () => {
     rules.setAbilities(false, false, true);
     rules.setAbilities(false, false, false);
     expect(b.abilities.visible).toBe(false);
+  });
+});
+
+describe('the loadout cross (2026-10-17)', () => {
+  it('shows during a fight and lingers like the bars after it', () => {
+    const all = bars();
+    const rules = new HudRules(all, player.hud, player.lowHpThreshold);
+    expect(all.loadout.visible).toBe(false);
+    rules.setCombat(true);
+    run(10, all);
+    expect(all.loadout.visible).toBe(true);
+    rules.setCombat(false);
+    expect(all.loadout.visible).toBe(true);
+    run(player.hud.barLingerSeconds + 0.2, all);
+    expect(all.loadout.visible).toBe(false);
+  });
+
+  it('shows for a moment after a switch, also out of a fight', () => {
+    const all = bars();
+    const rules = new HudRules(all, player.hud, player.lowHpThreshold);
+    rules.loadoutChanged();
+    expect(all.loadout.visible).toBe(true);
+    run(player.hud.barLingerSeconds + 0.2, all);
+    expect(all.loadout.visible).toBe(false);
   });
 });

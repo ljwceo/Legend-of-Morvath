@@ -115,19 +115,38 @@ describe('dash', () => {
     expect(dashes).toBe(3);
   });
 
-  it('needs enough energy, which refills only after a pause', () => {
+  it('does not dash at 0 energy or when exhausted', () => {
+    const s = fresh();
+    s.energy = 0;
+    s.sinceEnergySpent = 0;
+    stepMovement(s, { x: 0, z: 0, dash: true }, cfg, DT, open);
+    expect(s.dashing).toBe(false);
+    const t = fresh();
+    t.exhausted = true;
+    t.energy = 5;
+    t.sinceEnergySpent = 0;
+    stepMovement(t, { x: 0, z: 0, dash: true }, cfg, DT, open);
+    expect(t.dashing).toBe(false);
+  });
+
+  it('dashes with too little energy, which empties the bar and exhausts', () => {
     const s = fresh();
     s.energy = cfg.dashEnergyCost - 1;
     s.sinceEnergySpent = 0;
     stepMovement(s, { x: 0, z: 0, dash: true }, cfg, DT, open);
-    expect(s.dashing).toBe(false);
-    // Within the delay nothing refills.
-    run(s, { x: 0, z: 0, dash: false }, cfg.energyDelaySeconds * 0.9);
-    expect(s.energy).toBe(cfg.dashEnergyCost - 1);
-    run(s, { x: 0, z: 0, dash: false }, 1);
-    expect(s.energy).toBeGreaterThan(cfg.dashEnergyCost);
-    stepMovement(s, { x: 0, z: 0, dash: true }, cfg, DT, open);
     expect(s.dashing).toBe(true);
+    expect(s.energy).toBe(0);
+    expect(s.exhausted).toBe(true);
+  });
+
+  it('refills energy only after a pause', () => {
+    const s = fresh();
+    s.energy = 10;
+    s.sinceEnergySpent = 0;
+    run(s, { x: 0, z: 0, dash: false }, cfg.energyDelaySeconds * 0.9);
+    expect(s.energy).toBe(10);
+    run(s, { x: 0, z: 0, dash: false }, 1);
+    expect(s.energy).toBeGreaterThan(10);
   });
 
   it('dashes where the character faces when standing still', () => {

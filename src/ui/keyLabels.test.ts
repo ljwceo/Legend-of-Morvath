@@ -63,3 +63,31 @@ describe('key parameters for texts', () => {
     expect(params.keyPotion).toBe('—');
   });
 });
+
+describe('controller button labels', () => {
+  it('has a label in both languages for every button the player can see or bind', () => {
+    for (const language of ['en', 'nl'] as const) {
+      const { i18n } = setup(language);
+      const t = (key: string): string => i18n.plain(key);
+      for (let i = 0; i < 17; i++) {
+        const label = keyLabel(`Pad${i}`, t);
+        expect(label, `${language} Pad${i}`).not.toBe('');
+        expect(label, `${language} Pad${i}`).not.toBe(`pad.${i}`);
+        expect(label, `${language} Pad${i}`).not.toBe(`Pad${i}`);
+      }
+    }
+  });
+
+  it('names the controller button in {keyDash} once the last input was a controller', () => {
+    const { bindings, i18n } = setup();
+    expect(keyParams(bindings, i18n).keyDash).toBe('Space');
+    bindings.setPadHints(true);
+    expect(keyParams(bindings, i18n).keyDash).toBe('A');
+    // The D-pad picks the spell (the left stick walks), so walking keeps its key.
+    expect(keyParams(bindings, i18n).keySpellNext).toBe('D-pad ↑');
+    expect(keyParams(bindings, i18n).keyMoveForward).toBe('W');
+    bindings.setPadHints(false);
+    expect(keyParams(bindings, i18n).keyDash).toBe('Space');
+    expect(keyParams(bindings, i18n).keySpellNext).toBe('Wheel ↑');
+  });
+});

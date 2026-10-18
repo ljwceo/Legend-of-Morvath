@@ -3,6 +3,8 @@ import {
   type Camera,
   CircleGeometry,
   Color,
+  ConeGeometry,
+  CylinderGeometry,
   Vector3,
   DirectionalLight,
   Fog,
@@ -36,7 +38,7 @@ import { barrelGeometry } from '../render/cinematic/CinematicStage';
 import { resolveCutscene, shouldPlayCutscene } from '../render/cinematic/CinematicTimeline';
 import { pointInShape } from '../world/Shapes';
 import { Random } from '../core/Random';
-import { Input, type LookDelta } from '../core/Input';
+import { type Action, Input, type LookDelta } from '../core/Input';
 import type { GameState } from '../core/StateMachine';
 import type {
   GameData,
@@ -75,6 +77,7 @@ import {
   assistedHeading,
   type CombatState,
   damageTaken,
+  holdCombat,
   inSwingArc,
   regenMana,
   regenOutOfCombat,
@@ -97,17 +100,21 @@ import {
 } from '../systems/LockOn';
 import { type Shot, type ShotWorld, Shots } from '../systems/Shots';
 import {
+  chargeScale,
   powerFactor,
   SHARD_ID,
   type ShotConfig,
   type StaffConfig,
   staffConfig,
   type StaffInput,
+  resetKeepingCooldowns,
   staffReadiness,
   type StaffResult,
   StaffState,
   stepStaff,
 } from '../systems/StaffCombat';
+import { guardHit, makeGuardResult, stepGuard } from '../systems/Guard';
+import { backstabPoiseDamage, damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
   carriedWeight,
   dropMissingEquipment,
@@ -144,6 +151,7 @@ import {
 } from '../systems/StatusEffects';
 import { WaveFight, type WaveResetReason } from '../systems/WaveFight';
 import { addXp, deathGoldLoss, xpFraction, xpToNext } from '../systems/Progression';
+import { canPickUpMarker, markerAfterDeath } from '../systems/GoldMarker';
 import type { EnemyTarget } from '../systems/EnemyAI';
 import { keepInArena } from '../systems/BossAI';
 import { BossEncounter, type KillingBlow } from './BossEncounter';
@@ -157,8 +165,10 @@ import {
   WarningRenderer,
 } from '../render/CombatEffects';
 import { DamageNumbers } from '../ui/DamageNumbers';
+import { EnemyPoiseBars } from '../ui/EnemyPoiseBars';
 import { type Bounds, CollisionWorld } from '../systems/Collision';
 import {
+  angleDelta,
   type MoveCommand,
   loadedMovement,
   type MovementConfig,
@@ -205,13 +215,17 @@ import {
   unspentPoints,
 } from '../systems/Stats';
 import { redistributePanel } from '../ui/menus/RedistributePanel';
+import { normalizeLoadout, setSlot, spellsToLearn, usableSpells } from '../systems/Spellbook';
 import {
-  activeSpell,
-  normalizeLoadout,
-  setSlot,
-  spellsToLearn,
-  usableSpells,
-} from '../systems/Spellbook';
+  canModifyLoadout,
+  canSwitchPrepared,
+  cycle,
+  cycleSpellSlot,
+  preparedConsumables,
+  preparedWeapons,
+  selectedConsumable,
+  selectedSpell,
+} from '../systems/Loadout';
 import { spellbookPanel } from '../ui/menus/SpellbookPanel';
 import { statusPanel } from '../ui/menus/StatusPanel';
 import type { Panel } from '../ui/Overlays';
@@ -254,6 +268,7 @@ const CINEMATIC_CLASS = 'ui-cinematic-playing';
 const CHOICE_PUSH = 0.5;
 /** Debug overlay lines this scene owns (removed again on exit). */
 const DEBUG_KEYS = [
+  'loadout',
   'pos',
   'zone',
   'chunks',
@@ -290,6 +305,26 @@ const NO_SWORD_INPUT: SwordInput = { fast: false, heavy: false, critRoll: 1 };
 const NO_STAFF_INPUT: StaffInput = { shard: false, spell: false, critRoll: 1 };
 /** No ability chips on the HUD (a sword, or a touch screen whose buttons show it). */
 const NO_CHIPS: readonly AbilityChip[] = [];
+const NO_SPELLS: readonly string[] = [];
+/** Presses that do nothing while the bag is open in a fight (see `liveMenu`). */
+const LIVE_MENU_IGNORED: readonly Action[] = [
+  'attack',
+  'heavy',
+  'dash',
+  'interact',
+  'potion',
+  'bag',
+  'status',
+  'lock',
+  'lockSwitch',
+  'spellNext',
+  'spellPrev',
+  'weaponNext',
+  'offhandNext',
+  'itemNext',
+  'confirm',
+  'close',
+];
 /**
  * Line of sight for lock-on in the open world: this many samples of the terrain along the line,
  * and a hill only blocks when it rises this far (m) above it (so a bumpy field is no wall).
@@ -450,6 +485,8 @@ export class WorldState implements GameState, InstanceHost {
   private deathTimer = NOT_DYING;
   /** Gold lost by this death (taken from the save at once, shown when you wake up). */
   private deathGoldLost = 0;
+  /** The glowing heap that marks the gold you left where you fell (one mesh, reused). */
+  private goldMarkerMesh: Group | null = null;
   /** Where you wake up after dying. */
   private readonly respawn = { x: 0, z: 0 };
   private deathTitle = '';
@@ -489,14 +526,25 @@ export class WorldState implements GameState, InstanceHost {
   /** Seconds since the world was entered (drawing only: pulsing warnings). */
   private time = 0;
   private damageNumbers: DamageNumbers | null = null;
+  private poiseBars: EnemyPoiseBars | null = null;
   private sword: SwordConfig | null = null;
   /** Staff numbers (Arcane Shard and the spells), null until the world is built. */
   private staff: StaffConfig | null = null;
   private lockCfg: LockOnConfig | null = null;
   /** What the equipped weapon is: a sword swings, a staff shoots. */
   private weaponKind: 'sword' | 'staff' = 'sword';
-  /** The spell the right button casts (the first one you know), or null without one. */
+  /** The spell the right button casts (the selected slot of the staff), or null without one. */
   private spell: ShotConfig | null = null;
+  /** The staff slot the wheel / D-pad up picked (see Loadout); its spell is `spell`. */
+  private spellSlot = 0;
+  /** The quick item Q / X uses (a potion id), picked with 3 / D-pad down; null = the default. */
+  private quickItem: string | null = null;
+  /** A weapon switch that waits until the current attack, roll, parry or cast is over. */
+  private pendingWeapon: string | null = null;
+  /** The keys version the loadout cross was drawn with (other keys, or keyboard ↔ controller). */
+  private loadoutKeys = -1;
+  /** What the player is doing, for `canSwitchPrepared` (reused every step). */
+  private readonly action = { rolling: false, casting: false };
   /** Spell slots of the equipped staff (0 for a sword), for the spellbook. */
   private staffSlots = 0;
   /** The power curve factor of your path at your level (light grows, dark shrinks). */
@@ -568,6 +616,11 @@ export class WorldState implements GameState, InstanceHost {
   private loadTierId = '';
   private preset: QualityPreset | null = null;
   private paused = false;
+  /**
+   * True while the bag is open during a fight: the fight goes on (no pause, no safety), the
+   * mouse is free for the panel and the player stands still and does nothing else.
+   */
+  private liveMenu = false;
   /** Set after importing a save: leaving the world must not write the old state over it. */
   private keepSessionOnExit = false;
   private debugTimer = 0;
@@ -578,9 +631,11 @@ export class WorldState implements GameState, InstanceHost {
   private readonly moveWorld = { x: 0, z: 0 };
   private readonly command: MoveCommand = { x: 0, z: 0, dash: false };
   private readonly swordInput: SwordInput = { fast: false, heavy: false, critRoll: 1 };
+  private readonly guardResult = makeGuardResult();
   private readonly swordResult: SwordResult = {
     landed: 'none',
     damage: 0,
+    poiseDamage: 0,
     combo: false,
     crit: false,
   };
@@ -664,8 +719,16 @@ export class WorldState implements GameState, InstanceHost {
         zoomStepPerWheelNotch: camera.zoomStepPerWheelNotch,
       },
       this.ctx.bindings,
+      this.ctx.pads,
     );
     this.input.attach();
+    // Start on a controller is the same as Escape (a pause menu you can always reach).
+    this.input.onPausePressed = () => {
+      if (this.cutscenePlaying) return;
+      if (this.dialog?.isOpen) this.dialog.close();
+      else if (this.cheatPanel?.isOpen) this.cheatPanel.toggle();
+      else this.pause();
+    };
     // Escape releases the mouse (the browser does that itself); treat it like pausing.
     // While talking, Escape just ends the conversation.
     this.input.onPointerLockLost = () => {
@@ -695,10 +758,15 @@ export class WorldState implements GameState, InstanceHost {
     if (zone?.scene) this.loadSceneZone(data, zone);
     else this.buildScene(data, null);
     this.paused = false;
+    this.liveMenu = false;
+    this.pendingWeapon = null;
+    this.spellSlot = 0;
+    this.quickItem = null;
     this.gateBlocked = false;
     if (this.labels) ctx.ui.append(this.labels.root);
     this.hud = new HUD(data.player.hud, data.player.lowHpThreshold, () => this.interact());
     this.hud.setInteractKey(this.interactKeyLabel());
+    this.hud.setPoiseTexts(ctx.i18n.t('hud.poise'), ctx.i18n.t('hud.staggered'));
     // The scene set the maxima before the HUD existed: a sword fighter has no mana bar.
     this.hud.setBarUsed('mana', this.player?.combat.hasMana ?? true);
     ctx.ui.append(this.hud.root);
@@ -706,6 +774,8 @@ export class WorldState implements GameState, InstanceHost {
     ctx.ui.append(this.dialog.root);
     this.damageNumbers = new DamageNumbers();
     ctx.ui.append(this.damageNumbers.root);
+    this.poiseBars = new EnemyPoiseBars();
+    ctx.ui.append(this.poiseBars.root);
     this.hudInCombat = false;
     this.abilitiesTouch = false;
     this.knockedOut = false;
@@ -823,7 +893,9 @@ export class WorldState implements GameState, InstanceHost {
         this.cheatPanel?.updateTexts();
         this.dialog?.updateTexts();
         this.hud?.setInteractKey(this.interactKeyLabel());
+        this.hud?.setPoiseTexts(ctx.i18n.t('hud.poise'), ctx.i18n.t('hud.staggered'));
         this.refreshAbilities();
+        this.refreshLoadout();
         this.iconLabelFor = null;
       }),
       // Other keys (Settings -> Controls): the icon above an NPC and the ability chips show
@@ -918,10 +990,13 @@ export class WorldState implements GameState, InstanceHost {
     this.lookHint = null;
     this.hud?.dispose();
     this.hud = null;
+    this.goldMarkerMesh = null;
     this.dialog?.dispose();
     this.dialog = null;
     this.damageNumbers?.dispose();
     this.damageNumbers = null;
+    this.poiseBars?.dispose();
+    this.poiseBars = null;
     this.talkingTo = null;
     this.targetNpc = null;
     this.encounter?.dispose();
@@ -940,6 +1015,17 @@ export class WorldState implements GameState, InstanceHost {
 
   update(dt: number): void {
     const { player, input, mover, movement, rig, streamer, sceneZone } = this;
+    // The bag open in a fight shuts when the fight is taken over: travelling, a cutscene,
+    // dying or a conversation.
+    if (
+      this.liveMenu &&
+      (this.travelling ||
+        this.cutscenePlaying ||
+        this.deathTimer !== NOT_DYING ||
+        this.dialog?.isOpen)
+    ) {
+      this.closeLiveMenu();
+    }
     // A cinematic plays on the fixed step too (the same on 60 and 120 fps); the world waits.
     if (this.cinematic && !this.paused) this.cinematic.step(dt);
     if (this.paused || this.travelling || this.cutscenePlaying) return;
@@ -973,6 +1059,8 @@ export class WorldState implements GameState, InstanceHost {
       input.consumePressed('status');
       input.consumePressed('lock');
       input.consumePressed('lockSwitch');
+      input.consumePressed('weaponNext');
+      input.consumePressed('offhandNext');
       // The close key shuts the dialogue window, like the ✕ on a panel.
       if (input.consumePressed('close')) {
         this.dialog.close();
@@ -980,10 +1068,20 @@ export class WorldState implements GameState, InstanceHost {
       }
       if (input.consumePressed('confirm') || next || dash) this.dialog.advance();
       // Answers ("Yes" / "No"): W/S, A/D, arrows or the joystick move the highlight, one step
-      // per push.
+      // per push; so do the D-pad up / down and the wheel (the spell and item buttons).
       const axis = this.choiceAxisNow();
       if (axis !== 0 && axis !== this.choiceAxis) this.dialog.moveSelection(axis);
       this.choiceAxis = axis;
+      if (input.consumePressed('spellNext')) this.dialog.moveSelection(-1);
+      const down = input.consumePressed('spellPrev');
+      if (input.consumePressed('itemNext') || down) this.dialog.moveSelection(1);
+      this.clearAttackInput();
+    } else if (this.liveMenu) {
+      // The bag is open in a fight: the world goes on, you stand still and do nothing else
+      // (the bag's own buttons still work: drinking costs you the time it takes).
+      this.command.x = 0;
+      this.command.z = 0;
+      for (const action of LIVE_MENU_IGNORED) input.consumePressed(action);
       this.clearAttackInput();
     } else {
       input.consumePressed('confirm');
@@ -1001,10 +1099,17 @@ export class WorldState implements GameState, InstanceHost {
       this.swordInput.heavy = right;
       this.staffInput.shard = left;
       this.staffInput.spell = right;
-      if (input.consumePressed('potion')) this.drink(null);
+      // Quick switching (Elden Ring-style): wheel / D-pad up the spell, 1 / D-pad left the
+      // weapon, 2 / D-pad right the off hand, 3 / D-pad down the quick item that Q / X uses.
+      if (input.consumePressed('spellNext')) this.cycleSpell(1);
+      if (input.consumePressed('spellPrev')) this.cycleSpell(-1);
+      if (input.consumePressed('weaponNext')) this.cycleWeapon();
+      if (input.consumePressed('offhandNext')) this.cycleOffhand();
+      if (input.consumePressed('itemNext')) this.cycleQuickItem();
+      if (input.consumePressed('potion')) this.useQuickItem();
       if (input.consumePressed('bag')) {
-        this.openBag();
-        return;
+        this.openBag(input.pressedByPad('bag'));
+        if (this.paused) return;
       }
       if (input.consumePressed('status')) {
         this.openStatus();
@@ -1070,6 +1175,7 @@ export class WorldState implements GameState, InstanceHost {
         s.y = streamer.heightAt(s.x, s.z);
       }
     }
+    this.stepGoldMarker();
     if (doors) {
       // Where the player stands now counts too: standing in a doorway keeps the door open.
       doors.add(s.x, s.z);
@@ -1099,6 +1205,8 @@ export class WorldState implements GameState, InstanceHost {
     this.updateCombatHud();
     this.hud?.rules.setEnergyFraction(s.energy / movement.maxEnergy);
     this.hud?.setBar('energy', s.energy / movement.maxEnergy);
+    const poise = this.player?.combat.poise;
+    if (poise) this.hud?.setPoise(poise.max > 0 ? poise.poise / poise.max : 1, poise.staggered);
   }
 
   /** Debug: every swinging door's angle in degrees (and the cheat, when it holds them). */
@@ -1126,12 +1234,54 @@ export class WorldState implements GameState, InstanceHost {
 
   /** Fighting and walking for one step: with a sword you swing, with a staff you shoot. */
   private stepAttackAndMove(dt: number): void {
+    const poiseCfg = this.ctx.data?.player.poise;
+    const poise = this.player?.combat.poise;
+    if (poiseCfg && poise) {
+      stepPoise(poise, poiseCfg, dt);
+      if (poise.staggered) {
+        // Staggered: no walking, dashing or attacking until it wears off.
+        this.command.x = 0;
+        this.command.z = 0;
+        this.command.dash = false;
+        this.clearAttackInput();
+      }
+    }
+    // A weapon switch asked for during an attack, roll, parry or cast happens now if free.
+    if (this.pendingWeapon !== null) this.trySwitchWeapon();
+    this.stepPlayerGuard(dt);
     // One fresh roll per step decides whether a hit that lands is critical (Luck).
     const roll = this.critRng.next();
     this.swordInput.critRoll = roll;
     this.staffInput.critRoll = roll;
     if (this.weaponKind === 'staff') this.stepStaffAndMove(dt);
     else this.stepSwordAndMove(dt);
+  }
+
+  /**
+   * The guard for one step (fase S.7, sword only): it goes up while the block button is held and
+   * you are free (not swinging, rolling or staggered). While it is up you cannot attack.
+   */
+  private stepPlayerGuard(dt: number): void {
+    const player = this.player;
+    const cfg = this.ctx.data?.player.guard;
+    if (!player || !cfg) return;
+    const c = player.combat;
+    const s = player.state;
+    const free =
+      this.weaponKind !== 'staff' &&
+      !this.cheats.fly &&
+      !this.knockedOut &&
+      this.deathTimer === NOT_DYING &&
+      !c.poise.staggered &&
+      !this.command.dash &&
+      s.dashTime <= 0 &&
+      c.swingTime <= 0 &&
+      c.heavyWindup <= 0;
+    const up = stepGuard(c.guard, s, cfg, this.input?.isPressed('block') ?? false, free, dt);
+    if (!up) return;
+    this.clearAttackInput();
+    c.bufferedFast = 0;
+    c.bufferedHeavy = 0;
   }
 
   /**
@@ -1162,6 +1312,7 @@ export class WorldState implements GameState, InstanceHost {
       this.baseWalkSpeed *
       this.cheats.speed *
       (windingUp ? sword.heavyMoveFactor : 1) *
+      (c.guard.up ? (data.player.guard?.moveFactor ?? 1) : 1) *
       slowFactor(this.statusTotals.slowPercent);
     stepMovement(s, this.command, movement, dt, mover);
     this.stepRegen(c, dt);
@@ -1235,7 +1386,7 @@ export class WorldState implements GameState, InstanceHost {
     const s = this.player?.state;
     if (!s) return;
     const locked = this.locked;
-    if (locked?.hittable) {
+    if (locked?.lockable) {
       s.heading = headingTo(s.x, s.z, locked.x, locked.z, s.heading);
       return;
     }
@@ -1258,14 +1409,22 @@ export class WorldState implements GameState, InstanceHost {
       s.z,
       s.heading,
       damage,
-      locked?.hittable ? locked : null,
+      locked?.lockable ? locked : null,
       charge,
       crit,
+      this.shotPoiseDamage(shot, charge, crit),
     );
     // Debug: the cheat menu can make shots curve harder or not at all.
     fired.homingRadians = shot.homingRadians * this.cheats.homing;
     // Shooting counts as fighting, so the bars show (HUD rules from the concept).
     player.combat.sinceCombat = 0;
+  }
+
+  /** Poise damage of a shot: charged spells do more, critical hits multiply it (fase S.6). */
+  private shotPoiseDamage(shot: ShotConfig, charge: number, crit: boolean): number {
+    const factor = shot.charge ? chargeScale(shot.charge.damageFactor, charge) : 1;
+    const critFactor = crit ? (this.ctx.data?.player.poise.critFactor ?? 1) : 1;
+    return shot.poiseDamage * factor * critFactor;
   }
 
   /** "Not enough mana." (not more often than every few seconds). */
@@ -1436,7 +1595,7 @@ export class WorldState implements GameState, InstanceHost {
     const { enemies, enemyRenderer, player } = this;
     const e = target as Enemy;
     if (!enemies || !player || !e.hittable) return;
-    const defeated = enemies.hit(e, shot.damage);
+    const defeated = enemies.hit(e, shot.damage, shot.poiseDamage);
     // A mage practises with a charged spell, so how far it was charged counts.
     this.recordTraining(e, shot.id === SHARD_ID ? 0 : shot.charge);
     const top = e.y + (enemyRenderer?.heightOf(e) ?? 1.5);
@@ -1486,7 +1645,18 @@ export class WorldState implements GameState, InstanceHost {
         else this.showProtected(e);
         continue;
       }
-      const defeated = enemies.hit(e, damage);
+      const bs = enemies.poiseSettings;
+      const poiseDamage = backstabPoiseDamage(
+        result.poiseDamage,
+        e.x,
+        e.z,
+        e.heading,
+        s.x,
+        s.z,
+        bs.backstabAngleDegrees,
+        bs.backstabFactor,
+      );
+      const defeated = enemies.hit(e, damage, poiseDamage);
       hitAny = true;
       // Practising at the training field (the Entrance Exams, fase 3.8).
       this.recordTraining(e);
@@ -1531,6 +1701,8 @@ export class WorldState implements GameState, InstanceHost {
     t.radius = movement.radius;
     t.hostile = this.cheats.monsters && !this.cheats.fly && this.deathTimer === NOT_DYING;
     enemies.step(dt, t, enemiesWorld);
+    // A monster fighting you, or a boss fight, keeps you in the fight (and the loadout locked).
+    holdCombat(player.combat, enemies.anyEngaged || (this.encounter?.fighting ?? false));
     if (projectiles && projectileWorld) projectiles.step(dt, t, projectileWorld, this.hurtPlayer);
     this.protectedMessageTimer = Math.max(0, this.protectedMessageTimer - dt);
     if (this.knockedOut) this.startDying();
@@ -1542,21 +1714,65 @@ export class WorldState implements GameState, InstanceHost {
    * status effects on you, and a leeching monster (the Nature slime) heals from the damage it
    * really dealt.
    */
-  private readonly hurtPlayer = (damage: number, from?: Enemy): void => {
+  private readonly hurtPlayer = (damage: number, from?: Enemy, guardable = true): void => {
     const player = this.player;
     if (!player || damage <= 0) return;
     const c = player.combat;
     const s = player.state;
     if (this.knockedOut || this.deathTimer !== NOT_DYING) return;
-    const taken = damageTaken(c, damage);
+    // Rolling through it: the hit (or arrow, or burn tick) misses.
+    if (s.invulnerable) return;
+    // The guard (fase S.7) looks at it first: a parry catches it, a block softens it.
+    const guardCfg = this.ctx.data?.player.guard;
+    const verdict =
+      guardable && guardCfg ? guardHit(c.guard, s, guardCfg, damage, this.guardResult) : null;
+    if (verdict && verdict.outcome === 'parry') {
+      this.damageNumbers?.spawnText(
+        s.x,
+        s.y + 2,
+        s.z,
+        this.ctx.i18n.t('controls.parried'),
+        'dodged',
+      );
+      if (from) this.enemies?.parried(from);
+      return;
+    }
+    const factor = verdict ? verdict.damageFactor : 1;
+    const taken = damageTaken(c, damage * factor);
+    if (verdict && verdict.outcome !== 'none') {
+      const key = verdict.outcome === 'block' ? 'controls.blocked' : 'controls.guardBroken';
+      this.damageNumbers?.spawnText(s.x, s.y + 2.4, s.z, this.ctx.i18n.t(key), 'dodged');
+    }
     c.hp = Math.max(0, c.hp - taken);
     c.sinceCombat = 0;
     c.sinceHurt = 0;
     this.damageNumbers?.spawn(s.x, s.y + 2, s.z, taken, 'player');
     this.hud?.hurt();
+    if (from && from.def.poiseDamage) {
+      this.breakPlayerPoise(from.def.poiseDamage * (verdict ? verdict.poiseFactor : 1));
+    }
     if (from) this.applyOnHit(from, taken);
     if (c.hp <= 0) this.knockedOut = true;
   };
+
+  /**
+   * A monster's hit drains your poise (fase S.6). When it breaks you stagger: a swing or cast
+   * in progress is cut short and you can do nothing until the stagger is over (see
+   * `stepAttackAndMove`).
+   */
+  private breakPlayerPoise(amount: number): void {
+    const player = this.player;
+    const poise = this.ctx.data?.player.poise;
+    if (!player || !poise) return;
+    const c = player.combat;
+    if (!damagePoise(c.poise, amount, poise)) return;
+    c.heavyWindup = 0;
+    c.swingTime = 0;
+    c.swing = 'none';
+    c.bufferedFast = 0;
+    c.bufferedHeavy = 0;
+    this.staffState.reset();
+  }
 
   /** What a monster's hit leaves behind: its status effects, and leech for itself. */
   private applyOnHit(e: Enemy, taken: number): void {
@@ -1592,7 +1808,7 @@ export class WorldState implements GameState, InstanceHost {
     const totals = status.step(dt);
     this.statusTotals = totals;
     this.statusDamageFactor = weakenFactor(totals.weakenPercent);
-    if (totals.damage > 0) this.hurtPlayer(totals.damage);
+    if (totals.damage > 0) this.hurtPlayer(totals.damage, undefined, false);
   }
 
   /**
@@ -1738,6 +1954,14 @@ export class WorldState implements GameState, InstanceHost {
       data.player.death.goldLossFraction,
     );
     if (session.character) session.character.gold -= this.deathGoldLost;
+    // The lost gold stays where you fell; an older marker (its gold) is gone for good.
+    session.goldMarker = markerAfterDeath(
+      player.state.x,
+      player.state.y,
+      player.state.z,
+      session.world.instance,
+      this.deathGoldLost,
+    );
     // From now on the save holds where you will wake up (syncSave waits until then).
     const checkpoint = this.checkpoints?.byId(session.world.checkpoint);
     const zone = data.zones.zones.find((entry) => entry.id === data.player.start.zone);
@@ -1758,6 +1982,76 @@ export class WorldState implements GameState, InstanceHost {
         ? t.t('death.goldLost', { amount: this.deathGoldLost, gold: this.goldName() })
         : t.t('death.wakeUp');
     this.dialog?.close();
+  }
+
+  /** The glowing heap of gold: a flat disc, a small cone and a ring, in the palette's gold. */
+  private buildGoldMarker(): Group {
+    const group = new Group();
+    group.name = 'goldMarker';
+    const gold = new MeshBasicMaterial({ color: palette.zonlicht });
+    const ring = new MeshBasicMaterial({
+      color: palette.ornamentgoud,
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false,
+    });
+    const heap = new Mesh(new ConeGeometry(0.45, 0.5, 7), gold);
+    heap.position.y = 0.25;
+    const disc = new Mesh(new CylinderGeometry(0.6, 0.65, 0.12, 12), gold);
+    disc.position.y = 0.06;
+    const halo = new Mesh(new CircleGeometry(1.1, 24), ring);
+    halo.rotation.x = -Math.PI / 2;
+    halo.position.y = 0.04;
+    group.add(heap, disc, halo);
+    group.visible = false;
+    return group;
+  }
+
+  /** Shows the marker where the save says it lies (bobbing a little); hides it when none. */
+  private updateGoldMarker(): void {
+    const mesh = this.goldMarkerMesh;
+    if (!mesh) return;
+    const session = this.ctx.session;
+    const marker = session?.goldMarker ?? null;
+    const show = marker !== null && marker.instance === (session?.world.instance ?? null);
+    mesh.visible = show;
+    if (!show || !marker) return;
+    mesh.position.set(marker.x, marker.y + Math.sin(this.time * 2) * 0.05, marker.z);
+    mesh.rotation.y = this.time * 0.8;
+  }
+
+  /** Walking onto the gold you left behind gives it back (fixed step, no allocations). */
+  private stepGoldMarker(): void {
+    const session = this.ctx.session;
+    const data = this.ctx.data;
+    const player = this.player;
+    const marker = session?.goldMarker;
+    if (!session || !data || !player || !marker || this.deathTimer !== NOT_DYING) return;
+    const s = player.state;
+    if (
+      !canPickUpMarker(
+        marker,
+        s.x,
+        s.z,
+        session.world.instance,
+        data.player.death.markerPickupRadius,
+      )
+    ) {
+      return;
+    }
+    const amount = marker.amount;
+    session.goldMarker = null;
+    if (session.character) {
+      session.character.gold += amount;
+      this.hud?.setGold(session.character.gold);
+      this.hud?.rules.goldChanged();
+    }
+    this.hud?.showMessage(
+      this.ctx.i18n.t('death.goldRecovered', { amount, gold: this.goldName() }),
+    );
+    this.ctx.events.emit('itemsGained', { itemId: GOLD_ITEM, count: amount });
+    this.syncSave();
+    this.ctx.persist();
   }
 
   /** One step of dying: fade out, (black) wake up at the checkpoint, fade back in. */
@@ -1786,12 +2080,14 @@ export class WorldState implements GameState, InstanceHost {
     const c = player.combat;
     c.hp = c.maxHp;
     c.mana = c.maxMana;
+    c.poise.reset(c.poise.max);
     c.sinceCombat = Infinity;
     c.sinceHurt = Infinity;
     c.sinceSwing = Infinity;
     c.heavyWindup = 0;
     c.swing = 'none';
     player.state.energy = data.player.base.energy;
+    player.state.exhausted = false;
     const lost = this.deathGoldLost;
     if (session.character && lost > 0) {
       this.hud?.setGold(session.character.gold);
@@ -2021,6 +2317,7 @@ export class WorldState implements GameState, InstanceHost {
 
   /** The number on the drink button: potions the drink key would use. */
   private refreshPotions(): void {
+    this.refreshLoadout();
     const data = this.ctx.data;
     const bag = this.ctx.session?.character?.inventory;
     if (!data || !bag || !this.touch) return;
@@ -2061,6 +2358,9 @@ export class WorldState implements GameState, InstanceHost {
     // The dialogue window opens where the ability chips sit (talking to an NPC right after a
     // fight, or while a spell still cools): the chips hide until it is closed.
     hud.setAbilitiesCovered(this.dialog?.isOpen ?? false);
+    // The loadout cross hides under a dialogue too, and on a touch screen (its corner).
+    hud.setLoadoutCovered((this.dialog?.isOpen ?? false) || this.abilitiesTouch);
+    if (this.ctx.bindings.version !== this.loadoutKeys) this.refreshLoadout();
     hud.setBar('hp', c.maxHp > 0 ? c.hp / c.maxHp : 0);
     hud.setBar('mana', c.maxMana > 0 ? c.mana / c.maxMana : 0);
     hud.rules.setHpFraction(c.maxHp > 0 ? c.hp / c.maxHp : 1);
@@ -2142,6 +2442,7 @@ export class WorldState implements GameState, InstanceHost {
     s.x = fromX;
     s.z = fromZ;
     s.dashTime = 0;
+    s.invulnerable = false;
     if (!this.gateBlocked && gate.blockedText) {
       this.hud?.showMessage(this.ctx.i18n.t(gate.blockedText));
     }
@@ -2316,7 +2617,9 @@ export class WorldState implements GameState, InstanceHost {
    * checkpoint (full HP and mana, and a save).
    */
   private interact(): void {
-    if (this.paused || this.dialog?.isOpen || this.deathTimer !== NOT_DYING) return;
+    if (this.paused || this.liveMenu || this.dialog?.isOpen || this.deathTimer !== NOT_DYING) {
+      return;
+    }
     const npc = this.targetNpc;
     if (npc) {
       this.interactWith(npc);
@@ -3007,7 +3310,11 @@ export class WorldState implements GameState, InstanceHost {
       placePlayer: (x, z, heading) => this.placePlayer(x, z, heading),
       playCutscene: (cutscene, onDone) => this.startCutscene(cutscene, undefined, onDone),
       canStart: () =>
-        !this.paused && this.deathTimer === NOT_DYING && !this.dialog?.isOpen && !this.cheats.fly,
+        !this.paused &&
+        !this.liveMenu &&
+        this.deathTimer === NOT_DYING &&
+        !this.dialog?.isOpen &&
+        !this.cheats.fly,
       floatText: (x, y, z, text) => this.damageNumbers?.spawnText(x, y, z, text, 'dodged'),
       usesTouch: () => (this.input?.usedTouch ?? false) || this.coarsePointer,
       questStarted: (questId) => this.questStarted(questId),
@@ -3070,6 +3377,9 @@ export class WorldState implements GameState, InstanceHost {
     this.applyStatEffects(c);
     applyStats(c, data.player, c.level);
     this.carriedKg = carriedWeight(character.inventory, this.items);
+    // Heavier equipment stands firmer (fase S.6).
+    const pc = data.player.poise;
+    c.poise.setMax(playerMaxPoise(pc.baseMax, pc.perKg, this.carriedKg));
     this.maxLoadKg = maxLoad(data.player.load, c.level, this.statEffects.carryKg);
     const tier = loadTier(data.player.load, this.carriedKg, this.maxLoadKg);
     loadedMovement(
@@ -3103,7 +3413,9 @@ export class WorldState implements GameState, InstanceHost {
     if (kind !== this.weaponKind) {
       this.weaponKind = kind;
       this.scenePlayer?.showWeapon(kind);
-      this.staffState.reset();
+      // Nothing is being cast (a switch waits for that), but the cooldowns keep running:
+      // switching to a sword and back must not make a spell ready again.
+      resetKeepingCooldowns(this.staffState);
       this.clearAttackInput();
       this.touch?.setLabels(this.touchLabels());
     }
@@ -3116,12 +3428,155 @@ export class WorldState implements GameState, InstanceHost {
       character.spellLoadout = normalizeLoadout(character.spellLoadout, known, slots);
     }
     this.staffSlots = slots;
-    const carried = character && slots > 0 ? activeSpell(character.spellLoadout) : null;
-    this.spell = (carried && this.staff?.spells.get(carried)) || null;
+    this.pickSpell();
     this.spellPower = data
       ? powerFactor(data.spells.powerCurves, session?.path ?? null, this.conditionContext.level)
       : 1;
     this.refreshAbilities();
+    this.refreshLoadout();
+  }
+
+  /**
+   * The spell the cast button fires: the selected slot of the staff (wheel / D-pad up), or the
+   * first filled slot when that one is empty. A cast already under way keeps its own spell.
+   */
+  private pickSpell(): void {
+    const character = this.ctx.session?.character;
+    const loadout = character && this.staffSlots > 0 ? character.spellLoadout : NO_SPELLS;
+    const id = selectedSpell(loadout, this.spellSlot);
+    if (id !== null) this.spellSlot = loadout.indexOf(id);
+    this.spell = (id && this.staff?.spells.get(id)) || null;
+  }
+
+  /** Wheel / D-pad up: the next (or previous) spell in the staff's slots. */
+  private cycleSpell(step: 1 | -1): void {
+    if (this.deathTimer !== NOT_DYING) return;
+    const character = this.ctx.session?.character;
+    const loadout = character && this.staffSlots > 0 ? character.spellLoadout : NO_SPELLS;
+    const slot = cycleSpellSlot(loadout, this.spellSlot, step);
+    this.hud?.rules.loadoutChanged();
+    if (slot < 0) {
+      this.hud?.showMessage(this.ctx.i18n.t('hud.noSpell'));
+      return;
+    }
+    if (slot === this.spellSlot && this.spell) return;
+    this.spellSlot = slot;
+    this.pickSpell();
+    this.refreshAbilities();
+    this.refreshLoadout();
+  }
+
+  /**
+   * 1 / D-pad left: the next weapon you carry (Loadout). In a fight too: switching weapons you
+   * have prepared is allowed, other gear stays locked (`changeGear`). The switch waits until
+   * the attack, roll, parry or cast you are in is over, so no animation is cut off.
+   */
+  private cycleWeapon(): void {
+    const character = this.ctx.session?.character;
+    if (!character || this.deathTimer !== NOT_DYING) return;
+    this.hud?.rules.loadoutChanged();
+    const worn = character.equipment.weapon ?? null;
+    const list = preparedWeapons(character.inventory, this.items);
+    const next = cycle(list, this.pendingWeapon ?? worn, 1);
+    if (next === null || list.length < 2) {
+      this.hud?.showMessage(this.ctx.i18n.t('hud.oneWeapon'));
+      return;
+    }
+    // Round the whole list again: nothing changes after all.
+    this.pendingWeapon = next === worn ? null : next;
+    if (this.pendingWeapon !== null) this.trySwitchWeapon();
+    this.refreshLoadout();
+  }
+
+  /** Puts the waiting weapon in your hands once you are free (see `canSwitchPrepared`). */
+  private trySwitchWeapon(): void {
+    const id = this.pendingWeapon;
+    const character = this.ctx.session?.character;
+    const player = this.player;
+    if (id === null || !character || !player) return;
+    if (countItem(character.inventory, id) === 0) {
+      // Sold or stored meanwhile: nothing to switch to.
+      this.pendingWeapon = null;
+      this.refreshLoadout();
+      return;
+    }
+    const s = player.state;
+    this.action.rolling = this.command.dash || s.dashTime > 0 || s.recoverTime > 0;
+    this.action.casting = this.staffState.casting;
+    if (!canSwitchPrepared(player.combat, this.action)) return;
+    this.pendingWeapon = null;
+    character.equipment.weapon = id;
+    this.applyGear(false);
+    this.updatePlayerGear();
+  }
+
+  /** 2 / D-pad right: there is nothing for the off hand yet (no off-hand items in the data). */
+  private cycleOffhand(): void {
+    if (this.deathTimer !== NOT_DYING) return;
+    this.hud?.rules.loadoutChanged();
+    this.hud?.showMessage(this.ctx.i18n.t('hud.noOffhand'));
+  }
+
+  /** 3 / D-pad down: the next potion you carry becomes the quick item Q / X uses. */
+  private cycleQuickItem(): void {
+    const character = this.ctx.session?.character;
+    const data = this.ctx.data;
+    if (!character || !data || this.deathTimer !== NOT_DYING) return;
+    this.hud?.rules.loadoutChanged();
+    const list = preparedConsumables(character.inventory, this.items);
+    const current = selectedConsumable(list, this.quickItem, data.player.potions.quickOrder);
+    const next = cycle(list, current, 1);
+    if (next === null) {
+      this.hud?.showMessage(this.ctx.i18n.t('hud.noItem'));
+      return;
+    }
+    this.quickItem = next;
+    this.refreshLoadout();
+  }
+
+  /** Q / X: uses the quick item (the default order from player.json until you pick one). */
+  private useQuickItem(): void {
+    const character = this.ctx.session?.character;
+    const data = this.ctx.data;
+    if (!character || !data) return;
+    const list = preparedConsumables(character.inventory, this.items);
+    const id = selectedConsumable(list, this.quickItem, data.player.potions.quickOrder);
+    this.drink(id);
+  }
+
+  /**
+   * The loadout cross in the HUD: the spell, the weapon (or the one waiting to be switched to),
+   * the off hand and the quick item with how many you have, each with its switch key. Called
+   * on a change only (a switch, other gear, a potion used, other keys or language).
+   */
+  private refreshLoadout(): void {
+    const hud = this.hud;
+    const data = this.ctx.data;
+    const character = this.ctx.session?.character;
+    if (!hud || !data || !character) return;
+    const t = this.ctx.i18n;
+    this.loadoutKeys = this.ctx.bindings.version;
+    const cell = (slot: string, key: string, name: string | null, pending = false) => ({
+      text: name ?? t.t(`hud.loadout.${slot}`),
+      keyText: t.t(`hud.key.${key}`),
+      empty: name === null,
+      pending,
+    });
+    const spell = this.spell
+      ? (data.spells.spells.find((entry) => entry.id === this.spell?.id)?.name ?? this.spell.id)
+      : null;
+    const weaponId = this.pendingWeapon ?? character.equipment.weapon ?? null;
+    const weapon = weaponId ? (this.items.get(weaponId)?.name ?? weaponId) : null;
+    const list = preparedConsumables(character.inventory, this.items);
+    const itemId = selectedConsumable(list, this.quickItem, data.player.potions.quickOrder);
+    const count = itemId ? countItem(character.inventory, itemId) : 0;
+    const itemName = itemId ? (this.items.get(itemId)?.name ?? itemId) : null;
+    hud.setLoadout({
+      spell: cell('spell', 'spellNext', spell),
+      weapon: cell('weapon', 'weaponNext', weapon, this.pendingWeapon !== null),
+      offhand: cell('offhand', 'offhandNext', null),
+      item: cell('item', 'itemNext', itemName && count > 1 ? `${itemName} ×${count}` : itemName),
+    });
   }
 
   /** The known spells that fit the element of your crystal (the spellbook offers only these). */
@@ -3213,7 +3668,7 @@ export class WorldState implements GameState, InstanceHost {
   private upgradeItem(itemId: string): UpgradeResult | 'inCombat' {
     const character = this.ctx.session?.character;
     if (!character) return 'notUpgradable';
-    if (this.player?.combat.inCombat) return 'inCombat';
+    if (this.player && !canModifyLoadout(this.player.combat)) return 'inCombat';
     const result = applyUpgrade(this.items.get(itemId), character);
     if (result !== 'upgraded') return result;
     this.hud?.setGold(character.gold);
@@ -3232,7 +3687,7 @@ export class WorldState implements GameState, InstanceHost {
     const pack = npc.def.pack;
     const c = this.player?.combat;
     if (!pack || !c) return;
-    if (c.inCombat) {
+    if (!canModifyLoadout(c)) {
       this.hud?.showMessage(this.ctx.i18n.t('hud.packInCombat'));
       return;
     }
@@ -3367,6 +3822,7 @@ export class WorldState implements GameState, InstanceHost {
     this.npcRenderer?.update(a, hopSeconds);
     this.animatedNpcs?.update(a, waiting ? 0 : frameSeconds, hopSeconds);
     this.npcRenderer?.updateMarkers(a, this.time);
+    this.updateGoldMarker();
     if (!waiting) this.time += frameSeconds;
     this.enemyRenderer?.update(a, this.time);
     if (this.enemies) this.warningRenderer?.update(this.enemies.shown, a);
@@ -3376,6 +3832,13 @@ export class WorldState implements GameState, InstanceHost {
     this.updateChargeOrb(a);
     input.consumeLook(this.look);
     const look = this.look;
+    // The right stick keeps turning while a menu is open; the camera must not move behind it
+    // (also not behind the bag in a fight, where the world goes on).
+    if (this.paused || this.liveMenu) {
+      look.yaw = 0;
+      look.pitch = 0;
+      look.zoom = 1;
+    }
     const turning = input.turningCamera || look.yaw !== 0 || look.pitch !== 0;
     const root = player.model.root;
     rig.orbit.update(
@@ -3418,6 +3881,19 @@ export class WorldState implements GameState, InstanceHost {
     );
     this.updateBlackout();
     this.hud?.update(frameSeconds);
+    if (this.enemies && this.poiseBars) {
+      this.poiseBars.update(
+        this.enemies.shown,
+        this.enemies.poiseSettings,
+        this.enemyRenderer,
+        a,
+        rig.camera,
+        origin.x,
+        origin.z,
+        window.innerWidth,
+        window.innerHeight,
+      );
+    }
     this.damageNumbers?.update(
       waiting ? 0 : frameSeconds,
       rig.camera,
@@ -3433,7 +3909,8 @@ export class WorldState implements GameState, InstanceHost {
   private updateChargeOrb(alpha: number): void {
     const { player, staff, chargeOrb } = this;
     const state = this.staffState;
-    const spell = this.spell;
+    // The spell being cast, also after the player picked another one meanwhile.
+    const spell = state.castSpell ?? this.spell;
     if (!chargeOrb) return;
     if (!player || !staff || !spell || state.pending !== 'spell') {
       chargeOrb.hide();
@@ -3597,7 +4074,7 @@ export class WorldState implements GameState, InstanceHost {
     const near = npc ? null : this.checkpoints?.near;
     const data = this.ctx.data;
     if (!hud) return;
-    if ((!npc && !near) || !data || this.paused || this.dialog?.isOpen) {
+    if ((!npc && !near) || !data || this.paused || this.liveMenu || this.dialog?.isOpen) {
       hud.setInteraction(null, 0, 0, false);
       return;
     }
@@ -3808,6 +4285,7 @@ export class WorldState implements GameState, InstanceHost {
     const show =
       !this.paused &&
       !input.usedTouch &&
+      !input.usingPad &&
       !input.pointerLocked &&
       !this.coarsePointer &&
       !this.dialog?.isOpen;
@@ -3842,6 +4320,8 @@ export class WorldState implements GameState, InstanceHost {
   private pause(): void {
     // A cutscene already waits (and has its own Skip); the pause menu comes after it.
     if (this.cutscenePlaying) return;
+    // The bag open in a fight makes way (leaving the tab must really pause the fight).
+    this.closeLiveMenu();
     this.openMenu((resume) =>
       pausePanel(
         this.ctx,
@@ -3852,10 +4332,22 @@ export class WorldState implements GameState, InstanceHost {
     );
   }
 
-  /** The bag (I / B or the bag button); the game waits while it is open. */
-  private openBag(): void {
+  /**
+   * The bag (I / B, Back on a controller, or the bag button). Out of a fight the game waits
+   * while it is open; in a fight it does not (see `openLiveMenu`), and a controller cannot
+   * open it then, because it cannot steer the panel yet (it could only close it again).
+   */
+  private openBag(fromPad = false): void {
     if (this.dialog?.isOpen || this.deathTimer !== NOT_DYING) return;
-    this.openMenu((resume) =>
+    const fighting = this.player ? !canModifyLoadout(this.player.combat) : false;
+    if (fighting && fromPad) {
+      this.hud?.showMessage(this.ctx.i18n.t('bag.padInCombat'));
+      return;
+    }
+    const open = fighting
+      ? (make: (resume: () => void) => Panel) => this.openLiveMenu(make)
+      : (make: (resume: () => void) => Panel) => this.openMenu(make);
+    open((resume) =>
       bagPanel(
         this.ctx,
         (itemId) => {
@@ -3870,6 +4362,7 @@ export class WorldState implements GameState, InstanceHost {
           equip: (itemId) => this.changeGear(() => this.equipItem(itemId)),
           unequip: (slot) => this.changeGear(() => this.unequipSlot(slot)),
           load: () => this.loadSummary(),
+          fighting: () => this.liveMenu,
         },
         resume,
       ),
@@ -3906,7 +4399,7 @@ export class WorldState implements GameState, InstanceHost {
         {
           slots: () => this.staffSlots,
           usable: () => this.usableKnown(),
-          locked: () => this.player?.combat.inCombat ?? false,
+          locked: () => (this.player ? !canModifyLoadout(this.player.combat) : false),
           choose: (slot, spellId) => this.chooseSpell(slot, spellId),
         },
         resume,
@@ -3924,7 +4417,7 @@ export class WorldState implements GameState, InstanceHost {
       spellId,
       this.usableKnown(),
       this.staffSlots,
-      this.player?.combat.inCombat ?? false,
+      this.player ? !canModifyLoadout(this.player.combat) : false,
     );
     if (!next) {
       this.hud?.showMessage(this.ctx.i18n.t('spellbook.inCombat'));
@@ -3985,13 +4478,14 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /**
-   * Gear changes only outside a fight (concept: "wisselen alleen buiten gevechten"). After a
+   * Gear changes only outside a fight (concept: "wisselen alleen buiten gevechten"; a boss
+   * fight lasts until it is won or lost, see `canModifyLoadout`). After a
    * change the stats and load are recomputed and the bag is rebuilt.
    */
   private changeGear(change: () => boolean): void {
     const c = this.player?.combat;
     if (!c) return;
-    if (c.inCombat) {
+    if (!canModifyLoadout(c)) {
       this.hud?.showMessage(this.ctx.i18n.t('hud.gearInCombat'));
       return;
     }
@@ -4034,9 +4528,42 @@ export class WorldState implements GameState, InstanceHost {
     return unequip(character.equipment, slot) === 'unequipped';
   }
 
+  /**
+   * A menu panel during a fight (the bag): nothing pauses and nobody turns safe, the enemies
+   * keep attacking. The mouse is let go so the cursor can use the panel, and the camera stays
+   * where it is (no mouse turning; `render` also drops the right stick). Closing the panel
+   * captures the mouse again, so turning and attacking work at once.
+   */
+  private openLiveMenu(makePanel: (resume: () => void) => Panel): void {
+    if (this.paused || this.liveMenu) return;
+    this.liveMenu = true;
+    this.input?.releasePointerLock();
+    this.input?.releaseAll();
+    this.clearAttackInput();
+    this.hud?.setInteraction(null, 0, 0, false);
+    this.ctx.overlays.open(
+      makePanel(() => {
+        this.liveMenu = false;
+        // Keys and buttons held in the panel must not act once you fight again.
+        this.input?.releaseAll();
+        this.clearAttackInput();
+        const taken = this.travelling || this.cutscenePlaying || this.deathTimer !== NOT_DYING;
+        // A click on ✕ or the bag key is a user gesture, so the mouse is captured at once;
+        // otherwise the next click captures it (that click never attacks).
+        if (this.input && !this.input.usedTouch && !taken) this.input.requestPointerLock();
+      }),
+    );
+  }
+
+  /** Shuts the bag that is open in a fight (it is always the top panel then). */
+  private closeLiveMenu(): void {
+    if (this.liveMenu && this.ctx.overlays.isOpen) this.ctx.overlays.close();
+    this.liveMenu = false;
+  }
+
   /** Pauses the game behind a menu panel; closing the panel resumes. */
   private openMenu(makePanel: (resume: () => void) => Panel): void {
-    if (this.paused) return;
+    if (this.paused || this.liveMenu) return;
     this.paused = true;
     this.ctx.quality.setMeasuring(false);
     this.input?.releasePointerLock();
@@ -4118,6 +4645,7 @@ export class WorldState implements GameState, InstanceHost {
     rig.orbit.snap(player.state.x, player.state.y, player.state.z, heading ?? rig.orbit.yaw);
     this.dialog?.close();
     this.damageNumbers?.clear();
+    this.poiseBars?.clear();
     // Shots in flight and your locked target belong to where you came from.
     this.shots?.clear();
     this.staffState.reset();
@@ -4425,6 +4953,7 @@ export class WorldState implements GameState, InstanceHost {
       );
     }
     player.state.energy = data.player.base.energy;
+    player.state.exhausted = false;
     player.state.sinceEnergySpent = data.player.regen.energyDelaySeconds;
     this.sword = swordConfig(data.player);
     this.staff = staffConfig(data.player, data.spells);
@@ -4484,6 +5013,8 @@ export class WorldState implements GameState, InstanceHost {
       });
     }
     worldRoot.add(player.model.root);
+    this.goldMarkerMesh = this.buildGoldMarker();
+    worldRoot.add(this.goldMarkerMesh);
     this.player = player;
 
     this.npcWorld = {
@@ -4703,8 +5234,10 @@ export class WorldState implements GameState, InstanceHost {
     const s = player.state;
     player.place(s.x, s.y, s.z, s.heading);
     s.dashTime = 0;
+    s.invulnerable = false;
     rig.orbit.snap(s.x, s.y, s.z, s.heading);
     this.damageNumbers?.clear();
+    this.poiseBars?.clear();
     if (npcWorld) this.npcs?.snapCompanions(s.x, s.z, s.heading, npcWorld);
   }
 
@@ -4979,7 +5512,17 @@ export class WorldState implements GameState, InstanceHost {
       'load',
       `${this.carriedKg.toFixed(1)}/${this.maxLoadKg} kg ${this.loadTierId} · walk ` +
         `${m?.walkSpeed.toFixed(2) ?? '-'} m/s · dash ${m?.canDash ? `${m.dashDistance.toFixed(1)} m, ${m.dashEnergyCost} en` : 'no'}` +
-        `${s.recoverTime > 0 ? ' · getting up' : ''} · dmg ×${c.damageFactor.toFixed(2)} taken ×${c.damageTakenFactor.toFixed(2)}`,
+        `${s.recoverTime > 0 ? ' · getting up' : ''}${c.poise.staggered ? ' · staggered' : ''} · poise ${Math.round(c.poise.poise)}/${Math.round(c.poise.max)} · dmg ×${c.damageFactor.toFixed(2)} taken ×${c.damageTakenFactor.toFixed(2)}`,
+    );
+    const weapon = this.ctx.session?.character?.equipment.weapon ?? '-';
+    debug.lines.set(
+      'loadout',
+      `spell ${this.spell?.id ?? '-'} (slot ${this.spellSlot})` +
+        `${this.staffState.castSpell ? ` casting ${this.staffState.castSpell.id}` : ''} · ` +
+        `weapon ${weapon}${this.pendingWeapon ? ` → ${this.pendingWeapon}` : ''} · ` +
+        `item ${this.quickItem ?? 'default'} · ` +
+        `menu ${this.liveMenu ? 'open, fight goes on' : this.paused ? 'paused' : 'closed'} · ` +
+        `mouse ${this.input?.pointerLocked ? 'captured' : 'free'}`,
     );
     debug.lines.set('enemies', this.enemyDebugLine(s.x, s.z));
     debug.lines.set('effects', this.effectsDebugLine());
@@ -5089,21 +5632,28 @@ export class WorldState implements GameState, InstanceHost {
       // Nothing locked: say what is within range, and how much of it is out of sight.
       let inRange = 0;
       let hidden = 0;
+      let inView = 0;
+      const yaw = this.rig?.orbit.yaw ?? 0;
       const enemies = this.enemies?.shown ?? [];
       for (const enemy of enemies) {
-        if (!enemy.hittable) continue;
+        if (!enemy.lockable) continue;
         if (Math.hypot(enemy.x - px, enemy.z - pz) > (cfg?.range ?? 0)) continue;
         inRange++;
         if (!this.canSeeFromCamera(enemy)) hidden++;
+        const off = Math.abs(angleDelta(yaw, Math.atan2(enemy.x - px, enemy.z - pz)));
+        if (cfg && off <= cfg.pickHalfArc) inView++;
       }
-      return `none · in range ${inRange} (${hidden} hidden) · range ${cfg ? cfg.range.toFixed(0) : '-'} m`;
+      return `none · in range ${inRange} (${hidden} hidden, ${inView} in view) · range ${cfg ? cfg.range.toFixed(0) : '-'} m`;
     }
     const distance = Math.hypot(locked.x - px, locked.z - pz);
+    const off = Math.abs(
+      angleDelta(this.rig?.orbit.yaw ?? 0, Math.atan2(locked.x - px, locked.z - pz)),
+    );
     const seen = this.canSeeFromCamera(locked);
     const marker = this.ctx.data?.player.lockOn.marker;
     const size = marker ? marker.dotPixels : 0;
     return (
-      `${locked.def.id} ${distance.toFixed(1)} m · ${seen ? 'in sight' : 'hidden'} ` +
+      `${locked.def.id} ${distance.toFixed(1)} m · off ${Math.round((off * 180) / Math.PI)}° · ${seen ? 'in sight' : 'hidden'} ` +
       `(${this.lockBlindSeconds.toFixed(2)}/${cfg.loseSightSeconds.toFixed(2)} s) · dot ${size} px`
     );
   }

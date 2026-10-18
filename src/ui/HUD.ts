@@ -1,6 +1,7 @@
 import { AbilityBar, type AbilityChip } from './AbilityBar';
 import { el } from './dom';
 import { type HudBars, type HudConfig, HudRules, HudVisibility } from './HudVisibility';
+import { LoadoutCross, type LoadoutView } from './LoadoutCross';
 
 type BarId = 'hp' | 'mana' | 'energy' | 'xp';
 const BAR_IDS: readonly BarId[] = ['hp', 'mana', 'energy', 'xp'];
@@ -28,7 +29,8 @@ class HudPart {
  * - messages: first-visit texts, checkpoint, blocked gate, ... (one at a time, queued),
  * - HP / mana / energy / XP bars (top left) and gold (top right), following the HUD rules,
  * - the interaction icon above the nearest object you can use (tap it on a phone),
- * - the ability chips (which abilities are ready again), bottom centre, only on a computer.
+ * - the ability chips (which abilities are ready again), bottom centre, only on a computer,
+ * - the loadout cross (spell, weapon, off hand, quick item), bottom left, only on a computer.
  * Everything else sits at the top of the screen, so it never covers the joystick or the
  * buttons (their safe zones are the lower corners); the chips are left off a touch screen,
  * where the buttons draw the readiness themselves. Times come from player.json `hud`.
@@ -56,6 +58,17 @@ export class HUD {
   private messageGap = 0;
   private interactX = Number.NaN;
   private interactY = Number.NaN;
+  /** Poise (stability) bar under the other bars: only there once damaged or staggered. */
+  private readonly poise: HTMLElement;
+  private readonly poiseFill: HTMLElement;
+  private readonly poiseLabel: HTMLElement;
+  private poiseValue = 1;
+  private poiseShown = false;
+  private poiseBroken = false;
+  private poiseText = '';
+  private staggerText = '';
+  /** White glow at the screen edges while the player is staggered. */
+  private readonly staggerGlow: HTMLElement;
   /** Red glow at the screen edges when the player is hit. */
   private readonly hurtGlow: HTMLElement;
   private hurtTime = 0;
@@ -111,6 +124,10 @@ export class HUD {
   private readonly abilities: HudPart;
   private abilitiesInCombat = false;
   private abilitiesCovered = false;
+  /** Spell, weapon, off hand and quick item (2026-10-17), bottom left. */
+  private readonly loadoutCross = new LoadoutCross();
+  private readonly loadout: HudPart;
+  private loadoutCovered = false;
 
   constructor(
     private readonly cfg: HudConfig,
@@ -187,8 +204,19 @@ export class HUD {
 
     this.abilityBar.root.classList.add('ui-hud-part');
     this.abilities = new HudPart(this.abilityBar.root);
+    this.loadoutCross.root.classList.add('ui-hud-part');
+    this.loadout = new HudPart(this.loadoutCross.root);
 
     this.hurtGlow = el('div', { className: 'ui-hud-hurt' });
+    this.staggerGlow = el('div', { className: 'ui-hud-stagger' });
+    this.poiseFill = el('div', { className: 'ui-hud-poise-fill' });
+    this.poiseLabel = el('span', { className: 'ui-hud-poise-label' });
+    this.poise = el(
+      'div',
+      { className: 'ui-hud-poise' },
+      this.poiseLabel,
+      el('div', { className: 'ui-hud-poise-bar' }, this.poiseFill),
+    );
     this.blackoutTitle = el('p', { className: 'ui-hud-blackout-title' });
     this.blackoutText = el('p', { className: 'ui-hud-blackout-text' });
     this.blackout = el(
@@ -201,6 +229,8 @@ export class HUD {
       'div',
       { className: 'ui-hud', attrs: { 'aria-live': 'polite' } },
       this.hurtGlow,
+      this.staggerGlow,
+      this.poise,
       this.banner.element,
       this.message.element,
       barStack,
@@ -212,6 +242,7 @@ export class HUD {
       this.victory,
       this.item,
       this.abilities.element,
+      this.loadout.element,
       this.blackout,
     );
     this.root.style.setProperty('--hud-fade', `${cfg.fadeSeconds}s`);
@@ -223,6 +254,7 @@ export class HUD {
       xp: bars.xp.visibility,
       gold: this.gold.visibility,
       abilities: this.abilities.visibility,
+      loadout: this.loadout.visibility,
     };
     this.rules = new HudRules(visibility, cfg, lowHpFraction);
   }
@@ -381,6 +413,37 @@ export class HUD {
     return this.victoryLeft > 0 || this.itemLeft > 0 || this.pendingItem !== null;
   }
 
+  /** The poise texts (from the language files), set once and after a language change. */
+  setPoiseTexts(poise: string, staggered: string): void {
+    this.poiseText = poise;
+    this.staggerText = staggered;
+    this.poiseLabel.textContent = this.poiseBroken ? staggered : poise;
+  }
+
+  /**
+   * Poise 0–1 and whether the player is staggered. Only touches the DOM when something
+   * changed: the bar shows while poise is below full or you stagger, and a white glow at the
+   * screen edges marks the stagger.
+   */
+  setPoise(fraction: number, staggered: boolean, used = true): void {
+    const value = Math.min(1, Math.max(0, fraction));
+    if (Math.abs(value - this.poiseValue) >= 0.005) {
+      this.poiseValue = value;
+      this.poiseFill.style.transform = `scaleX(${value})`;
+    }
+    const show = used && (value < 0.999 || staggered);
+    if (show !== this.poiseShown) {
+      this.poiseShown = show;
+      this.poise.classList.toggle('ui-hud-poise-on', show);
+    }
+    if (staggered !== this.poiseBroken) {
+      this.poiseBroken = staggered;
+      this.poiseLabel.textContent = staggered ? this.staggerText : this.poiseText;
+      this.poise.classList.toggle('ui-hud-poise-broken', staggered);
+      this.staggerGlow.classList.toggle('ui-hud-stagger-on', staggered);
+    }
+  }
+
   /** A short red glow at the screen edges: the player was hit. */
   hurt(): void {
     this.hurtTime = HURT_SECONDS;
@@ -403,6 +466,21 @@ export class HUD {
   /** In a fight the ability chips stay; out of it they linger while one still cools. */
   setAbilitiesInCombat(fighting: boolean): void {
     this.abilitiesInCombat = fighting;
+  }
+
+  /** What the loadout cross shows (only the cells that changed are written). */
+  setLoadout(view: LoadoutView): void {
+    this.loadoutCross.set(view);
+  }
+
+  /**
+   * Hides the loadout cross whatever the rules say: under a dialogue window, or on a touch
+   * screen (its buttons sit in the same corner).
+   */
+  setLoadoutCovered(covered: boolean): void {
+    if (covered === this.loadoutCovered) return;
+    this.loadoutCovered = covered;
+    this.loadout.element.classList.toggle('ui-hud-covered', covered);
   }
 
   /** A dialogue window is open on the chips' spot: they hide until it is closed. */
@@ -441,12 +519,14 @@ export class HUD {
     this.gold.update(seconds);
     for (let i = 0; i < BAR_IDS.length; i++) this.bars[BAR_IDS[i] as BarId].update(seconds);
     this.updateAbilities(seconds);
+    this.loadout.update(seconds);
   }
 
   dispose(): void {
     this.root.remove();
     this.queue.length = 0;
     this.abilityBar.dispose();
+    this.loadoutCross.dispose();
   }
 
   /** The chips' reasons come from the HUD rules: fighting or cooling, a linger, a dialogue. */

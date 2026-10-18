@@ -371,6 +371,7 @@ class CrossChecker {
     this.unique('waveFight', 'quests', 'waveFights', d.quests.waveFights);
     this.unique('element', 'spells', 'elements', d.spells.elements);
     this.unique('spell', 'spells', 'spells', d.spells.spells);
+    this.unique('incantation', 'spells', 'incantations', d.spells.incantations);
     this.unique('branch', 'skills', 'branches', d.skills.branches);
     this.unique('skill', 'skills', 'skills', d.skills.skills);
     this.unique('perk', 'skills', 'perks', d.skills.perks);
@@ -728,6 +729,13 @@ class CrossChecker {
     if (player.dash.energyCost > player.base.energy) {
       this.issue(f, 'dash.energyCost', 'dash costs more energy than the maximum');
     }
+    if (player.regen.exhaustedRecoverEnergy > player.base.energy) {
+      this.issue(
+        f,
+        'regen.exhaustedRecoverEnergy',
+        'exhausted recovery level is higher than the maximum energy',
+      );
+    }
     const cam = player.camera;
     const between = (path: string, value: number, min: number, max: number): void => {
       if (min > max) this.issue(f, path, `min ${min} is larger than max ${max}`);
@@ -875,8 +883,8 @@ class CrossChecker {
       const ai = monster.ai;
       if (ai) {
         const attack = ai.attack;
-        if (attack.style === 'lunge' && (!attack.lungeDistance || !attack.strikeSeconds)) {
-          this.issue(f, `${p}.ai.attack`, 'a lunge needs lungeDistance and strikeSeconds');
+        if (attack.style === 'lunge' && (!attack.lungeDistance || !attack.hitSeconds)) {
+          this.issue(f, `${p}.ai.attack`, 'a lunge needs lungeDistance and hitSeconds');
         }
         if (attack.style === 'shoot' && !attack.projectileSpeed) {
           this.issue(f, `${p}.ai.attack.projectileSpeed`, 'a shooting attack needs a speed');
@@ -1141,6 +1149,20 @@ class CrossChecker {
       }
       if ((item.type === 'crystal') !== (item.crystal !== undefined)) {
         this.issue(f, `${p}.crystal`, 'crystal settings belong to (and are required for) crystals');
+      }
+      if ((item.type === 'grimoire') !== (item.grimoire !== undefined)) {
+        this.issue(
+          f,
+          `${p}.grimoire`,
+          'grimoire settings belong to (and are required for) grimoires',
+        );
+      }
+      // Fase G: staves leave the active game, and every weapon that stays says how it is held.
+      if (item.weapon?.kind === 'staff' && !item.legacy) {
+        this.issue(f, `${p}.legacy`, 'a staff is legacy (Fase G): set "legacy": true');
+      }
+      if (item.weapon && !item.legacy && item.weapon.grip === undefined) {
+        this.issue(f, `${p}.weapon.grip`, 'a weapon needs a grip (oneHanded or twoHanded)');
       }
       if ((item.type === 'potion') !== (item.potion !== undefined)) {
         this.issue(f, `${p}.potion`, 'potion settings belong to (and are required for) potions');
@@ -1486,6 +1508,14 @@ class CrossChecker {
     this.data.spells.spells.forEach((spell, i) =>
       this.ref('element', f, `spells[${i}].element`, spell.element),
     );
+    // Incantations (Fase G): an id may not also be a spell id, so a learned id means one thing.
+    const spellIds = new Set(this.data.spells.spells.map((spell) => spell.id));
+    this.data.spells.incantations.forEach((incantation, i) => {
+      this.ref('element', f, `incantations[${i}].element`, incantation.element);
+      if (spellIds.has(incantation.id)) {
+        this.issue(f, `incantations[${i}].id`, `"${incantation.id}" is also a spell id`);
+      }
+    });
     // A staff cannot have more slots than the spellbook allows (step 4.3).
     this.data.items.items.forEach((item, i) => {
       const slots = item.weapon?.spellSlots;
@@ -1497,10 +1527,18 @@ class CrossChecker {
         );
       }
     });
-    // Every element needs a spell: a mage's crystal decides his element (Crystal Ceremony).
+    // Every element needs a spell or an incantation: a mage's crystal decides his element
+    // (Crystal Ceremony), and Neutral is there for Push (Fase G).
+    const used = (id: string): boolean =>
+      this.data.spells.spells.some((spell) => spell.element === id) ||
+      this.data.spells.incantations.some((incantation) => incantation.element === id);
     this.data.spells.elements.forEach((element, i) => {
-      if (!this.data.spells.spells.some((spell) => spell.element === element.id)) {
-        this.issue(f, `elements[${i}].id`, `no spell uses element "${element.id}"`);
+      if (!used(element.id)) {
+        this.issue(
+          f,
+          `elements[${i}].id`,
+          `no spell uses element "${element.id}" (no incantation either)`,
+        );
       }
     });
   }
@@ -1528,7 +1566,8 @@ class CrossChecker {
 
   /**
    * controls.json: every action exactly once (otherwise it cannot be bound in Settings), no
-   * code bound twice (a key does one thing), and a name in the language files.
+   * code bound twice (a key or controller button does one thing), and a name in the language
+   * files.
    */
   private checkControls(): void {
     const f = 'controls';
@@ -1543,6 +1582,13 @@ class CrossChecker {
         const other = codes.get(code);
         if (other !== undefined) {
           this.issue(f, `${p}.keys[${k}]`, `"${code}" is also bound to "${other}"`);
+        }
+        codes.set(code, action.id);
+      });
+      (action.pad ?? []).forEach((code, k) => {
+        const other = codes.get(code);
+        if (other !== undefined) {
+          this.issue(f, `${p}.pad[${k}]`, `"${code}" is also bound to "${other}"`);
         }
         codes.set(code, action.id);
       });

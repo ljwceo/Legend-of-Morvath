@@ -12,6 +12,7 @@ import type {
 import type { PointXZ } from '../world/Colliders';
 import { emptyBox, pointInShape, shapeBounds } from '../world/Shapes';
 import { type BossWorld, BossState, startBoss, stepBoss } from './BossAI';
+import { damagePoise, stepPoise } from './Poise';
 import {
   defeat,
   type EnemyAiConfig,
@@ -147,6 +148,8 @@ export class Enemies {
   /** The enemies shown this step (a reused array). */
   readonly shown: Enemy[] = [];
   readonly ai: EnemyAiConfig;
+  /** Monster poise settings from data: backstab cone and factor, poise bar look. */
+  readonly poiseSettings: MonstersFile['settings']['poise'];
   /** Bosses (monsters with `boss`): one slot each, only in the world during their fight. */
   readonly bosses: Enemy[] = [];
   private readonly packs: Pack[] = [];
@@ -173,6 +176,7 @@ export class Enemies {
     waveFights: readonly WaveFightDef[] = [],
   ) {
     this.ai = enemyAiConfig(monsters);
+    this.poiseSettings = monsters.settings.poise;
     this.speeds = monsters.speedClasses;
     this.simulateRadius = monsters.settings.simulateRadius;
     this.respawnDistance = monsters.settings.respawnMinPlayerDistance;
@@ -344,6 +348,18 @@ export class Enemies {
     return n;
   }
 
+  /**
+   * True while a monster near the player is fighting them (chasing or attacking). Bosses are
+   * left out: their fight lasts as long as the encounter (`BossEncounter.fighting`).
+   */
+  get anyEngaged(): boolean {
+    for (let i = 0; i < this.shown.length; i++) {
+      const e = this.shown[i] as Enemy;
+      if (e.engaged && !e.boss) return true;
+    }
+    return false;
+  }
+
   /** The nearest living monster that is shown, or null (debug). */
   nearest(x: number, z: number): Enemy | null {
     let best: Enemy | null = null;
@@ -404,6 +420,7 @@ export class Enemies {
       if (e.flash > 0) e.flash = Math.max(0, e.flash - dt);
       if (e.wobble > 0) e.wobble = Math.max(0, e.wobble - dt);
       e.safe = this.inSafeArea(e);
+      stepPoise(e.poise, this.ai.poise, dt);
       if (e.def.behavior === 'static') {
         this.stepDummy(e, dt);
       } else if (e.boss) {
@@ -477,9 +494,10 @@ export class Enemies {
 
   /**
    * Deals damage to an enemy. Returns true when this hit defeated it. A hit monster fights
-   * back (with its pack); a defeated Big Slime splits.
+   * back (with its pack); a defeated Big Slime splits. `poiseDamage` drains its poise (fase
+   * S.6): when that breaks, the monster staggers and an attack in progress is interrupted.
    */
-  hit(e: Enemy, damage: number): boolean {
+  hit(e: Enemy, damage: number, poiseDamage = 0): boolean {
     if (!e.alive) return false;
     e.hp = Math.max(0, e.hp - damage);
     e.sinceHit = 0;
@@ -491,7 +509,13 @@ export class Enemies {
       return true;
     }
     if (e.boss) {
-      if (e.hp > 0) return false;
+      if (e.hp > 0) {
+        // A boss breaks poise only while it can be hit (its opening): it staggers, so the
+        // opening lasts one stagger longer (it cannot start its next attack).
+        if (damagePoise(e.poise, poiseDamage, this.ai.poise))
+          e.boss.duration += this.ai.poise.staggerSeconds;
+        return false;
+      }
       e.guarded = false;
       defeat(e, this.ai);
       return true;
@@ -500,11 +524,31 @@ export class Enemies {
       if (e.mode === 'return') e.mode = 'chase';
       engage(e);
       this.alert(e);
+      if (damagePoise(e.poise, poiseDamage, this.ai.poise)) this.stagger(e);
       return false;
     }
     defeat(e, this.ai);
     this.split(e);
     return true;
+  }
+
+  /**
+   * The player parried this monster's attack (fase S.7): its attack is cut short and it staggers
+   * for the usual stagger time. A monster without poise (a boss) only loses the attack.
+   */
+  parried(e: Enemy): void {
+    if (!e.alive) return;
+    if (e.poise.max > 0) e.poise.staggerTime = this.ai.poise.staggerSeconds;
+    this.stagger(e);
+  }
+
+  /** Poise broke: whatever the monster was doing is cut short (it is back to chasing after). */
+  private stagger(e: Enemy): void {
+    if (e.attacking) {
+      e.mode = 'chase';
+      e.struck = true;
+    }
+    e.wobble = WOBBLE_SECONDS;
   }
 
   /** `e` noticed the player: its pack mates nearby join in. */

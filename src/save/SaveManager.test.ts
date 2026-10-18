@@ -314,6 +314,60 @@ describe('migrate', () => {
     expect(result.save.settings.volume).toBe(0.3);
   });
 
+  it('upgrades a version 18 save: no gold lies on the ground', () => {
+    const v18: Record<string, unknown> = { ...sampleSave(), version: 18 };
+    delete v18.goldMarker;
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v18));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.goldMarker).toBeNull();
+  });
+
+  it('upgrades a version 19 save: controller buttons on the old defaults make way', () => {
+    const v19: Record<string, unknown> = { ...sampleSave(), version: 19 };
+    const settings = v19.settings as Record<string, unknown>;
+    v19.settings = {
+      ...settings,
+      keybindings: {
+        moveForward: ['KeyW', 'ArrowUp'],
+        'pad:moveForward': ['Pad12'],
+        'pad:moveBack': ['Pad13'],
+        'pad:moveLeft': ['Pad14'],
+        'pad:moveRight': ['Pad15'],
+        'pad:interact': ['Pad2'],
+        'pad:potion': ['Pad3'],
+        // Chosen by the player: stays.
+        'pad:dash': ['Pad1'],
+        'pad:lock': ['Pad12'],
+      },
+    };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(v19));
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.version).toBe(SAVE_VERSION);
+    expect(result.save.settings.keybindings).toEqual({
+      moveForward: ['KeyW', 'ArrowUp'],
+      'pad:dash': ['Pad1'],
+      'pad:lock': ['Pad12'],
+    });
+  });
+
+  it('keeps the gold marker after saving and loading again', () => {
+    const save = sampleSave();
+    save.goldMarker = { x: 4, y: 1, z: -9, instance: null, amount: 12 };
+    const storage = new MemoryStorage();
+    new SaveManager(storage).write(save);
+    const result = new SaveManager(storage).load();
+    expect(result.status).toBe('ok');
+    if (result.status !== 'ok') return;
+    expect(result.save.goldMarker).toEqual({ x: 4, y: 1, z: -9, instance: null, amount: 12 });
+  });
+
   it('upgrades a version 16 save: every shop starts full', () => {
     const v16: Record<string, unknown> = { ...sampleSave(), version: 16 };
     delete v16.shopStock;

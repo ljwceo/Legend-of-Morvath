@@ -273,7 +273,11 @@
       "attack": "{keyAttack}",
       "heavy": "{keyHeavy}",
       "potion": "{keyPotion}",
-      "lock": "{keyLock}"
+      "lock": "{keyLock}",
+      "spellNext": "{keySpellNext}",
+      "weaponNext": "{keyWeaponNext}",
+      "offhandNext": "{keyOffhandNext}",
+      "itemNext": "{keyItemNext}"
     },
     "checkpointSet": "Checkpoint set",
     "rested": "You rest in your bed. HP and mana are full again.",
@@ -295,12 +299,24 @@
     "packTooHeavy": "{name} can't carry that much.",
     "packWorn": "Take it off first.",
     "noMana": "Not enough mana.",
+    "poise": "Poise",
+    "staggered": "Staggered!",
     "statPoint": "You have a stat point. Open your status window with {keyStatus}.",
     "statPoints": "You have {n} stat points. Open your status window with {keyStatus}.",
     "statsReturned": "Levels no longer grow by themselves: your {n} points are yours to spend ({keyStatus}).",
     "eggFound": "You found the {name}. Sultan trades an egg for a new build.",
     "statsReset": "Your {n} points are free again. Spread them as you like.",
-    "drillLeft": "You left the field, so the drill starts again. Step back onto it when you are ready."
+    "drillLeft": "You left the field, so the drill starts again. Step back onto it when you are ready.",
+    "loadout": {
+      "spell": "Spell",
+      "weapon": "Weapon",
+      "offhand": "Off hand",
+      "item": "Quick item"
+    },
+    "noSpell": "No spell to choose.",
+    "noOffhand": "Nothing to hold in your off hand yet.",
+    "oneWeapon": "You carry no other weapon.",
+    "noItem": "Nothing to use from the quick slot."
   },
   "dialog": {
     "next": "Continue",
@@ -470,6 +486,9 @@
     },
     "dark_crystal": {
       "desc": "A crystal of dark magic."
+    },
+    "rookie_grimoire": {
+      "desc": "A small, plain spellbook. It holds one prepared incantation."
     },
     "slime_gel": {
       "desc": "Sticky gel left behind by a slime."
@@ -907,6 +926,9 @@
   },
   "controls": {
     "dash": "Dash",
+    "parried": "Parried!",
+    "blocked": "Blocked",
+    "guardBroken": "Guard broken!",
     "clickToLook": "Click to look around · Esc for the menu",
     "attack": "Attack",
     "heavy": "Heavy",
@@ -915,7 +937,7 @@
     "spell": "Spell",
     "lock": "Lock-on",
     "title": "Controls",
-    "help": "Click a key to change it. Then press a key or mouse button; Esc cancels, Backspace clears it. The on-screen buttons on a phone stay as they are.",
+    "help": "Click a key to change it. Then press a key or mouse button, or turn the wheel; Esc cancels, Backspace clears it. Ctrl + wheel always zooms the camera. The on-screen buttons on a phone stay as they are.",
     "pressAKey": "press…",
     "reset": "Back to default",
     "takenFrom": "{key} was taken from “{action}”.",
@@ -929,16 +951,25 @@
       "attack": "Attack (fast hit / Shard)",
       "heavy": "Heavy hit / spell",
       "dash": "Dash",
+      "block": "Block / parry",
       "interact": "Talk and use",
-      "potion": "Drink potion",
+      "potion": "Use quick item",
       "bag": "Bag",
       "lock": "Lock-on",
       "lockSwitch": "Next target",
       "confirm": "Confirm",
       "down": "Fly down (debug)",
       "status": "Status window",
-      "close": "Close a window"
-    }
+      "close": "Close a window",
+      "spellNext": "Next spell",
+      "spellPrev": "Previous spell",
+      "weaponNext": "Next weapon",
+      "offhandNext": "Next off-hand item",
+      "itemNext": "Next quick item"
+    },
+    "controller": "Controller",
+    "pressAButton": "press a button…",
+    "padHelp": "Controller: the left stick walks, the right stick turns the camera and Start opens the menu. Click a controller slot and press a button to bind it."
   },
   "touch": {
     "title": "Buttons on the screen",
@@ -989,7 +1020,9 @@
     "End": "End",
     "PageUp": "Page Up",
     "PageDown": "Page Down",
-    "Delete": "Delete"
+    "Delete": "Delete",
+    "WheelUp": "Wheel ↑",
+    "WheelDown": "Wheel ↓"
   },
   "cheats": {
     "debugView": "Debug overlay",
@@ -1124,7 +1157,9 @@
       "recipe": "Recipes",
       "resource": "Materials",
       "currency": "Money"
-    }
+    },
+    "padInCombat": "During a fight the bag cannot be opened with a controller yet.",
+    "liveFight": "The fight goes on while the bag is open. Only potions can be used now."
   },
   "load": {
     "light": "Light",
@@ -1139,8 +1174,9 @@
   },
   "death": {
     "title": "You were defeated",
-    "goldLost": "You lost {amount} {gold}. You wake up at your checkpoint.",
-    "wakeUp": "You wake up at your checkpoint."
+    "goldLost": "You lost {amount} {gold}. You wake up at your checkpoint. It lies where you fell.",
+    "wakeUp": "You wake up at your checkpoint.",
+    "goldRecovered": "You found your {gold} again: {amount}."
   },
   "forge": {
     "title": "Forge",
@@ -1256,7 +1292,26 @@
     "noStaff": "Equip a staff to use the spellbook.",
     "noSpells": "You do not know any spells yet.",
     "noSlots": "This staff has no spell slots.",
-    "hint": "The first filled slot is the spell your cast button fires. Spells can only be changed outside a fight.",
+    "hint": "Your cast button fires the selected slot; {keySpellNext} picks the next one, also in a fight. Which spells sit in the slots can only be changed outside a fight.",
     "inCombat": "Not while you are fighting."
+  },
+  "pad": {
+    "0": "A",
+    "1": "B",
+    "2": "X",
+    "3": "Y",
+    "4": "LB",
+    "5": "RB",
+    "6": "LT",
+    "7": "RT",
+    "8": "Back",
+    "9": "Start",
+    "10": "L3",
+    "11": "R3",
+    "12": "D-pad ↑",
+    "13": "D-pad ↓",
+    "14": "D-pad ←",
+    "15": "D-pad →",
+    "16": "Home"
   }
 }

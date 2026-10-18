@@ -1,5 +1,6 @@
 import type { Action, Bindings } from '../core/Bindings';
 import type { GameEventBus } from '../core/events';
+import { closingButtons, type PadFrame, type PadHub } from '../core/gamepad';
 import type { I18n } from '../i18n/I18n';
 import { el } from './dom';
 import { readScroll, restoreScroll } from './scroll';
@@ -40,6 +41,8 @@ export class Overlays {
     private readonly i18n?: I18n,
     /** The player's own keys, so the close key (and the key that opened a panel) works here. */
     private readonly bindings?: Bindings,
+    /** Controllers: Start, B (close) and the button that opened a panel close it again. */
+    pads?: PadHub,
   ) {
     this.closeButton = el('button', {
       className: 'ui-overlay-close',
@@ -53,6 +56,9 @@ export class Overlays {
       this.rebuildAll();
     });
     window.addEventListener('keydown', this.onKeyDown);
+    // Subscribed first (Overlays are made at start-up), so a press that closes a panel is taken
+    // before the game's Input sees it.
+    pads?.subscribe(this.onPad);
   }
 
   get isOpen(): boolean {
@@ -116,6 +122,15 @@ export class Overlays {
   private closeLabel(): string {
     return this.i18n?.t('common.close') ?? 'Close';
   }
+
+  private readonly onPad = (frame: PadFrame): void => {
+    const top = this.stack[this.stack.length - 1];
+    if (!top || !this.bindings || frame.risen === 0) return;
+    const bit = closingButtons(frame.risen, this.bindings, top.panel.closeActions);
+    if (bit === 0) return;
+    frame.take(bit);
+    this.close();
+  };
 
   private readonly onKeyDown = (event: KeyboardEvent): void => {
     const top = this.stack[this.stack.length - 1];
