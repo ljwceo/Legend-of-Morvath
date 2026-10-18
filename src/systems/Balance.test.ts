@@ -52,6 +52,7 @@ import {
   type SwordResult,
   stepSword,
   swordConfig,
+  tickCombatClock,
 } from './Combat';
 import { Enemies, type EnemiesWorld } from './Enemies';
 import type { EnemyTarget } from './EnemyAI';
@@ -886,6 +887,8 @@ function runFight(bot: SimBot, scene: Scene, maxSeconds = 240): FightOutcome {
       if ((staffInput.shard || staffInput.spell || staffState.casting) && near && s.dashTime <= 0) {
         s.heading = headingTo(s.x, s.z, near.x, near.z, s.heading);
       }
+      // With a staff the world ticks the fight clock itself (a sword does it in stepSword).
+      tickCombatClock(c, DT);
       castSources.spell = spell;
       castSources.power = fighter.power;
       stepCast(

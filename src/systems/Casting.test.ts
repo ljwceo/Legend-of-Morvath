@@ -614,3 +614,37 @@ describe('fps independence', () => {
     expect(fastCount).toBe(slowCount);
   });
 });
+
+describe('G.3: the fight clock is ticked once per step, never by casting', () => {
+  it('stepCast leaves sinceCombat and sinceHurt alone, with and without a staff in hand', () => {
+    for (const inHand of [true, false]) {
+      const made = fresh();
+      made.combat.sinceCombat = 1;
+      made.combat.sinceHurt = 2;
+      const src = staff();
+      src.staff = inHand;
+      for (let i = 0; i < 60; i++) {
+        stepCast(made.state, made.combat, pool(), press(true, true), cfg, src, DT, out());
+      }
+      expect(made.combat.sinceCombat).toBe(1);
+      expect(made.combat.sinceHurt).toBe(2);
+    }
+  });
+
+  it('without a staff in hand the staff timers stand still and no shot ever starts', () => {
+    const made = fresh();
+    // One Shard leaves (0.2 s wind-up) and the staff is then in its cooldown.
+    run(made, 0.25, press(true));
+    const cooldownBefore = made.state.cooldown;
+    expect(cooldownBefore).toBeGreaterThan(0);
+    const src = staff();
+    src.staff = false;
+    for (let i = 0; i < 120; i++) {
+      const r = stepCast(made.state, made.combat, pool(), press(true, true), cfg, src, DT, out());
+      expect(r.fired).toBe('none');
+    }
+    expect(made.state.cooldown).toBe(cooldownBefore);
+    expect(made.state.casting).toBe(false);
+    expect(made.state.bufferedShard).toBe(0);
+  });
+});

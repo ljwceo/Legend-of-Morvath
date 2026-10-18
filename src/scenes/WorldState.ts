@@ -88,6 +88,7 @@ import {
   type SwordResult,
   stepSword,
   swordConfig,
+  tickCombatClock,
 } from '../systems/Combat';
 import { Enemies, type EnemiesWorld } from '../systems/Enemies';
 import {
@@ -1285,8 +1286,7 @@ export class WorldState implements GameState, InstanceHost {
     const roll = this.critRng.next();
     this.swordInput.critRoll = roll;
     this.castInput.critRoll = roll;
-    if (this.weaponKind === 'staff') this.stepStaffAndMove(dt);
-    else this.stepSwordAndMove(dt);
+    this.stepWeaponAndMove(dt);
   }
 
   /**
@@ -1318,65 +1318,49 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /**
-   * The sword and walking for one step. While a heavy hit winds up you walk slowly and cannot
-   * dash. Starting an attack turns you towards the nearest enemy in front (aim assist), or
-   * towards your locked target. A hit that lands damages every enemy in the swing arc.
+   * The weapon in hand, the Grimoire and walking for one step. With a sword: starting an attack
+   * turns you towards the nearest enemy in front (aim assist) or your locked target, and a hit
+   * that lands damages every enemy in the swing arc; while a heavy hit winds up you walk slowly
+   * and cannot dash. With a staff (a legacy mage): the Arcane Shard (left) costs no mana, a spell
+   * (right) costs mana and has its own cooldown, and the shot leaves towards your locked target
+   * or the nearest enemy in front and then flies on its own (see Shots), so it can miss. Casting
+   * runs every step whatever is in hand (`stepCast`), so the Grimoire can join in (G.3); while
+   * anything is being cast you walk slowly and cannot dash.
    */
-  private stepSwordAndMove(dt: number): void {
-    const { player, movement, mover, sword, enemies } = this;
+  private stepWeaponAndMove(dt: number): void {
+    const { player, movement, mover, sword, staff, enemies } = this;
     const data = this.ctx.data;
-    if (!player || !movement || !mover || !sword || !data) return;
+    if (!player || !movement || !mover || !sword || !staff || !data) return;
     const s = player.state;
     const c = player.combat;
-    const input = this.swordInput;
-    const wants = input.fast || input.heavy || c.bufferedFast > 0 || c.bufferedHeavy > 0;
-    const starting = wants && c.attackCooldown <= 0 && c.heavyWindup <= 0;
-    // A dash in progress finishes first and nobody attacks in the air (A.5a); attacks wait.
-    const held = s.dashTime > 0 || s.airborne;
-    if (starting && !held) this.aim(sword.aimRange, sword.aimHalfArc);
-    const result = held
-      ? stepSword(c, s, NO_SWORD_INPUT, sword, dt, this.swordResult)
-      : stepSword(c, s, input, sword, dt, this.swordResult);
-    if (result.landed !== 'none' && enemies) this.landHit(result);
-
-    const windingUp = c.heavyWindup > 0;
-    if (windingUp) this.command.dash = false;
-    // No jumping out of a swing or a wind-up, and no sprinting while it lasts.
-    if (windingUp || c.swingTime > 0 || c.guard.up) {
-      this.command.jump = false;
-      this.command.sprint = false;
-    }
-    movement.walkSpeed =
-      this.baseWalkSpeed *
-      this.cheats.speed *
-      (windingUp ? sword.heavyMoveFactor : 1) *
-      (c.guard.up ? (data.player.guard?.moveFactor ?? 1) : 1) *
-      slowFactor(this.statusTotals.slowPercent);
-    stepMovement(s, this.command, movement, dt, mover);
-    this.stepRegen(c, dt);
-  }
-
-  /**
-   * The staff and walking for one step (a mage). The Arcane Shard (left) costs no mana, a spell
-   * (right) costs mana and has its own cooldown; while the staff gathers a shot you walk slowly
-   * and cannot dash. The shot leaves towards your locked target, or towards the nearest enemy
-   * in front (aim assist), and then flies on its own (see Shots), so it can miss.
-   */
-  private stepStaffAndMove(dt: number): void {
-    const { player, movement, mover, staff } = this;
-    const data = this.ctx.data;
-    if (!player || !movement || !mover || !staff || !data) return;
-    const s = player.state;
-    const c = player.combat;
-    // A dash in progress finishes first and nobody casts in the air (A.5a); shots wait.
-    const held = s.dashTime > 0 || s.airborne;
-    const input = held ? NO_CAST_INPUT : this.castInput;
     const state = this.castState;
-    const wants = input.shard || input.spell || state.bufferedShard > 0 || state.bufferedSpell > 0;
-    const aiming = state.casting || (wants && state.cooldown <= 0);
-    if (aiming && !held) this.aim(staff.aimRange, staff.aimHalfArc);
+    const staffInHand = this.weaponKind === 'staff';
+    // A dash in progress finishes first and nobody attacks or casts in the air (A.5a); they wait.
+    const held = s.dashTime > 0 || s.airborne;
+
+    if (staffInHand) {
+      // No sword this step: the world ticks the fight clock (stepSword does it with a sword).
+      tickCombatClock(c, dt);
+    } else {
+      const input = this.swordInput;
+      const wants = input.fast || input.heavy || c.bufferedFast > 0 || c.bufferedHeavy > 0;
+      const starting = wants && c.attackCooldown <= 0 && c.heavyWindup <= 0;
+      if (starting && !held) this.aim(sword.aimRange, sword.aimHalfArc);
+      const result = held
+        ? stepSword(c, s, NO_SWORD_INPUT, sword, dt, this.swordResult)
+        : stepSword(c, s, input, sword, dt, this.swordResult);
+      if (result.landed !== 'none' && enemies) this.landHit(result);
+    }
+
+    const input = held ? NO_CAST_INPUT : this.castInput;
+    if (staffInHand) {
+      const wants =
+        input.shard || input.spell || state.bufferedShard > 0 || state.bufferedSpell > 0;
+      const aiming = state.casting || (wants && state.cooldown <= 0);
+      if (aiming && !held) this.aim(staff.aimRange, staff.aimHalfArc);
+    }
     const sources = this.castSources;
-    sources.staff = true;
+    sources.staff = staffInHand;
     sources.spell = this.spell;
     sources.power = this.spellPower;
     const result = stepCast(state, c, s, input, staff, sources, dt, this.castResult);
@@ -1386,17 +1370,20 @@ export class WorldState implements GameState, InstanceHost {
     if (state.noMana) this.sayNoMana();
 
     const casting = state.casting;
-    // Charging counts as fighting, so you can see your mana while it drains.
+    const windingUp = c.heavyWindup > 0;
+    // Gathering or charging counts as fighting, so you can see your mana while it drains.
     if (casting) c.sinceCombat = 0;
-    if (casting) this.command.dash = false;
-    // No jumping or sprinting while a shot gathers or the guard is up (with a staff since G.2).
-    if (casting || c.guard.up) {
+    if (casting || windingUp) this.command.dash = false;
+    // No jumping out of a swing, a wind-up or a cast, no sprinting while it lasts, and neither
+    // with the guard up (with a staff since G.2).
+    if (casting || windingUp || c.swingTime > 0 || c.guard.up) {
       this.command.jump = false;
       this.command.sprint = false;
     }
     movement.walkSpeed =
       this.baseWalkSpeed *
       this.cheats.speed *
+      (windingUp ? sword.heavyMoveFactor : 1) *
       (casting ? staff.castMoveFactor : 1) *
       (c.guard.up ? (data.player.guard?.moveFactor ?? 1) : 1) *
       slowFactor(this.statusTotals.slowPercent);

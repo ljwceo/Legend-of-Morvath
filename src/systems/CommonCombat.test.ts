@@ -18,6 +18,7 @@ import {
   stepSword,
   swordConfig,
   type SwordResult,
+  tickCombatClock,
 } from './Combat';
 import { guardHit, makeGuardResult, stepGuard, weaponFreeForGuard } from './Guard';
 import { MoverState } from './Movement';
@@ -265,8 +266,10 @@ describe('G.2: guard and parry for every build', () => {
     const out = makeGuardResult();
     const dt = 1 / 60;
     for (let step = 0; step < 600; step++) {
-      if (weapon === 'staff') stepCast(st, c, pool, NO_STAFF, staff, inHand(), dt, staffOut());
-      else stepSword(c, pool, { fast: false, heavy: false, critRoll: 1 }, sword, dt, swordOut());
+      if (weapon === 'staff') {
+        tickCombatClock(c, dt);
+        stepCast(st, c, pool, NO_STAFF, staff, inHand(), dt, staffOut());
+      } else stepSword(c, pool, { fast: false, heavy: false, critRoll: 1 }, sword, dt, swordOut());
       stepGuard(c.guard, pool, guardCfg, true, weaponFreeForGuard(c, st), dt);
       if (step * dt >= hitAt - 1e-9) {
         guardHit(c.guard, pool, guardCfg, 10, out);
@@ -371,6 +374,8 @@ function playerStep(
   let fired: StepTrace['fired'];
   if (weapon === 'staff') {
     const input = { shard: light, spell: heavy, cast: false, critRoll: 1 };
+    // With a staff the world ticks the fight clock itself (a sword does it in stepSword).
+    tickCombatClock(c, dt);
     fired = stepCast(st, c, pool, input, staff, inHand(spell), dt, staffOut()).fired;
   } else {
     fired = stepSword(c, pool, { fast: light, heavy, critRoll: 1 }, sword, dt, swordOut()).landed;

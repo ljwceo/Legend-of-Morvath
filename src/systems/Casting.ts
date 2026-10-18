@@ -390,8 +390,8 @@ export function stepCast(
     state.cooldown = Math.max(0, state.cooldown - dt);
     state.spellCooldown = Math.max(0, state.spellCooldown - dt);
   }
-  combat.sinceCombat += dt;
-  combat.sinceHurt += dt;
+  // The fight clock is the weapon's (or the world's) to tick, never casting's: a sword and
+  // the Grimoire run in the same step since G.3 (see `tickCombatClock`).
   state.sinceFired += dt;
   if (staff && input.shard) state.bufferedShard = cfg.inputBufferSeconds + dt;
   if (staff && input.spell) state.bufferedSpell = cfg.inputBufferSeconds + dt;
