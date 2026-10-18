@@ -2,6 +2,7 @@ import type { z } from 'zod/mini';
 import { boxContains, emptyBox, pointInShape, shapeBounds } from '../world/Shapes';
 import { DEFAULT_CAMERA_SENSITIVITY } from '../save/SaveData';
 import { shotWallSeconds } from '../render/cinematic/CinematicTimeline';
+import { BARRIER_MODEL } from '../entities/StructureFactory';
 import {
   CONTROL_ACTIONS,
   dataFileNames,
@@ -214,7 +215,7 @@ class CrossChecker {
     const d = this.data.daynight;
     const f = 'daynight';
     this.unique('phase', f, 'phases', d.phases);
-    this.unique('look', f, 'looks', d.looks);
+    // Look ids are collected in collectIds (zones refer to them).
     d.phases.forEach((phase, i) => {
       this.text(f, `phases[${i}].label`, phase.label);
       if (!d.looks.some((look) => look.id === phase.id)) {
@@ -411,6 +412,7 @@ class CrossChecker {
     this.unique('mantleColor', 'appearance', 'mantleColors', d.appearance.mantleColors);
     this.unique('quality', 'quality', 'presets', d.quality.presets);
     this.unique('season', 'seasons', 'seasons', d.seasons.seasons);
+    this.unique('look', 'daynight', 'looks', d.daynight.looks);
     this.unique('trigger', 'triggers', 'triggers', d.triggers.triggers);
     this.unique('quest', 'quests', 'quests', d.quests.quests);
     this.unique('waveFight', 'quests', 'waveFights', d.quests.waveFights);
@@ -453,6 +455,26 @@ class CrossChecker {
       this.color(f, `${p}.terrainColor`, zone.terrainColor);
       this.color(f, `${p}.fogColor`, zone.fogColor);
       this.ref('season', f, `${p}.season`, zone.season);
+      // A fixed look needs a look from daynight.json; a look without `fixed` would never show.
+      if (zone.lighting === 'fixed' && zone.look === undefined) {
+        this.issue(f, `${p}.look`, 'lighting "fixed" needs a look (daynight.json)');
+      }
+      if (zone.look !== undefined) {
+        this.ref('look', f, `${p}.look`, zone.look);
+        if (zone.lighting !== 'fixed') {
+          this.issue(f, `${p}.look`, 'a look only shows with lighting "fixed"');
+        }
+      }
+      this.unique(`feature:${zone.id}`, f, `${p}.terrain.features`, zone.terrain.features ?? []);
+      zone.terrain.features?.forEach((feature, n) => {
+        const fp = `${p}.terrain.features[${n}]`;
+        if (feature.color) this.color(f, `${fp}.color`, feature.color);
+        feature.points.forEach((point, k) => {
+          if (!pointInShape(zone.bounds, point[0], point[1])) {
+            this.issue(f, `${fp}.points[${k}]`, 'feature point lies outside the zone');
+          }
+        });
+      });
       if (!shapeInside(world.bounds, zone.bounds)) {
         this.issue(f, `${p}.bounds`, 'zone reaches outside the world bounds');
       }
@@ -556,6 +578,9 @@ class CrossChecker {
         if (structure.x !== undefined || structure.z !== undefined) {
           this.issue(f, sp, 'a structure with connects takes its position from them (no x / z)');
         }
+        if (structure.horizon) {
+          this.issue(f, `${sp}.horizon`, 'a bridge cannot be a far landmark (it has no x / z)');
+        }
         structure.connects.forEach((other, c) => {
           if (!own.has(other)) {
             this.issue(f, `${sp}.connects[${c}]`, `no structure "${other}" in this zone`);
@@ -569,6 +594,12 @@ class CrossChecker {
         this.issue(f, sp, 'needs x and z (or connects)');
       } else if (!pointInShape(zone.bounds, structure.x, structure.z)) {
         this.issue(f, sp, 'structure lies outside the zone');
+      }
+      if (structure.horizon && structure.model === BARRIER_MODEL) {
+        this.issue(f, `${sp}.horizon`, 'an invisible barrier cannot be a far landmark');
+      }
+      if (structure.model === BARRIER_MODEL && structure.collider === 'none') {
+        this.issue(f, `${sp}.collider`, 'a barrier without a collider does nothing');
       }
       if (structure.size[2] <= 0) this.issue(f, `${sp}.size`, 'depth must be larger than 0');
     });

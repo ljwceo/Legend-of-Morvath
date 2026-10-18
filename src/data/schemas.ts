@@ -106,6 +106,32 @@ const structureSchema = z.strictObject({
   /** box = the footprint, circle = round footprint, posts = four corner posts, none = walk through. */
   collider: z.enum(['box', 'circle', 'posts', 'none']),
   connects: optional(z.tuple([id, id])),
+  /**
+   * A landmark seen from far away (the Black Citadel): while its chunks are not loaded, a dark
+   * silhouette of it is drawn at the edge of the fog, exactly where and how big it would appear
+   * (HorizonLandmarks). Needs x and z.
+   */
+  horizon: optional(z.boolean()),
+});
+
+/**
+ * A shape pressed into the streamed terrain (zones.json `terrain.features`): a ridge, a gorge, a
+ * sunken road, a plateau or a crater. `points` is a line of [x, z, height] (one point = a round
+ * hill or hole); the height is interpolated along the line. Within `half` meters of the line the
+ * feature is at full strength, then it fades out over `falloff` meters. `mode` offset adds the
+ * height to the ground; level pulls the ground towards that absolute height (flat roads and
+ * arenas). `color` tints the ground where the feature is. `noScatter` keeps props off it.
+ */
+const terrainFeatureSchema = z.strictObject({
+  id,
+  mode: z.enum(['offset', 'level']),
+  half: max(nonNegative, 500),
+  falloff: range(0.5, 500),
+  points: atLeast(z.array(z.tuple([coord, coord, range(-200, 500)]))),
+  color: optional(colorToken),
+  /** How much of `color` shows at full strength (0–1). */
+  colorStrength: optional(fraction),
+  noScatter: optional(z.boolean()),
 });
 
 /** A river: a line of points (from the source to the mouth) carved into the terrain. */
@@ -262,13 +288,24 @@ const zoneSchema = z.strictObject({
   bounds: shapeSchema,
   terrainColor: colorToken,
   fogColor: colorToken,
-  /** `cycle` follows day and night; `goldenHour` always looks like the golden hour. */
-  lighting: z.enum(['cycle', 'goldenHour']),
+  /**
+   * `cycle` follows day and night; `goldenHour` always looks like the golden hour; `fixed` always
+   * uses the look `look` from daynight.json (Morvath: magical darkness, whatever the hour).
+   */
+  lighting: z.enum(['cycle', 'goldenHour', 'fixed']),
+  look: optional(id),
+  /**
+   * Fog distance as a fraction of the graphics preset's (1 = the preset as it is). Looks only:
+   * the fog is already different per preset, and nothing about gameplay reads it.
+   */
+  fogScale: optional(range(0.2, 1)),
   /** Built in Blender (loaded with a loading screen) instead of streamed terrain. */
   scene: optional(sceneSchema),
   terrain: z.strictObject({
     baseHeight: range(-100, 500),
     amplitude: max(nonNegative, 500),
+    /** Ridges, gorges, roads, plateaus and craters pressed into this zone's ground. */
+    features: optional(z.array(terrainFeatureSchema)),
   }),
   neighbors: z.array(id),
   /**

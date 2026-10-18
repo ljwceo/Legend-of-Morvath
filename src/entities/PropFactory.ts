@@ -67,6 +67,13 @@ const MODELS: Readonly<Record<string, () => BufferGeometry>> = {
     colored([
       [new DodecahedronGeometry(0.9, 0).scale(1, 0.6, 0.8), palette.steengrijs, 0, 0.35, 0],
     ]),
+  // Cluster of dead violet crystal shards (Morvath): three tilted spikes.
+  'placeholder:blight_crystal': () =>
+    colored([
+      [new ConeGeometry(0.45, 2.6, 5).rotateZ(0.18), palette.schemerviolet, 0, 1.2, 0],
+      [new ConeGeometry(0.3, 1.8, 5).rotateZ(-0.5), palette.spreukviolet, 0.55, 0.8, 0.1],
+      [new ConeGeometry(0.22, 1.3, 5).rotateX(0.55), palette.schemerviolet, -0.3, 0.55, -0.35],
+    ]),
   // Tuft of reeds (no collider).
   'placeholder:reed': () =>
     colored([

@@ -24,6 +24,7 @@ import {
 import type { GameContext } from '../core/GameContext';
 import { assetUrl, publicUrl } from '../data/DataLoader';
 import { DayNightLighting, type ZoneLighting } from '../render/DayNightLighting';
+import { HorizonLandmarks } from '../render/HorizonLandmarks';
 import { createSkyDome } from '../render/toon/SkyDome';
 import { MAX_LAMPS } from '../render/toon/ToonMaterial';
 import type { SpawnWorld } from '../systems/Enemies';
@@ -336,6 +337,8 @@ const SIGHT_GROUND_MARGIN = 0.35;
 const ORB_AHEAD = 0.55;
 /** Seconds over which fog and sky change color after entering another zone. */
 const FOG_SHARPNESS = 1.5;
+/** Far landmarks are drawn at this fraction of the fog's far distance (inside the sky dome). */
+const HORIZON_FRACTION = 0.9;
 
 /** The text on the interaction icon per kind of NPC ("Talk to Marco", "Pet Pringle"). */
 const INTERACTION_LABELS: Readonly<Record<NpcDef['interaction'], string>> = {
@@ -432,6 +435,11 @@ export class WorldState implements GameState, InstanceHost {
   /** Day and night: shared light uniforms, Three.js lights, fog and sky follow it. */
   private lighting: DayNightLighting | null = null;
   private lightingMode: ZoneLighting = 'cycle';
+  /** Far landmarks drawn as silhouettes at the edge of the fog (open world). */
+  private horizon: HorizonLandmarks | null = null;
+  /** Fog distance of the zone you are in, as a fraction of the preset's (drifts to the target). */
+  private fogScale = 1;
+  private fogScaleTarget = 1;
   private hemi: HemisphereLight | null = null;
   private sky: Mesh | null = null;
   private loadingScreen: HTMLElement | null = null;
@@ -3829,6 +3837,15 @@ export class WorldState implements GameState, InstanceHost {
     if (!zone) return;
     this.hud?.showZone(zone.name);
     this.fogTarget.set(resolveColorToken(zone.fogColor));
+    this.fogScaleTarget = zone.fogScale ?? 1;
+    this.lightingMode = zone.lighting;
+    this.lighting?.setMode(zone.lighting, zone.look ?? null, false);
+  }
+
+  /** Fog distance and the zone's fixed look at once instead of fading (after a teleport). */
+  private snapAtmosphere(): void {
+    this.fogScale = this.fogScaleTarget;
+    this.lighting?.snap();
   }
 
   render(alpha: number, frameSeconds: number): void {
@@ -4045,6 +4062,22 @@ export class WorldState implements GameState, InstanceHost {
         fog.color.lerp(lighting.fog, lighting.worldFogMix);
         lighting.uniforms.skyHorizon.value.copy(fog.color);
       }
+      // A zone with denser fog (Morvath): the fog distance drifts to its fraction of the preset.
+      this.fogScale += (this.fogScaleTarget - this.fogScale) * amount;
+      if (this.preset) {
+        fog.far = this.preset.fogFar * this.fogScale;
+        fog.near = fog.far * 0.35;
+      }
+      if (this.horizon && this.rig && this.origin) {
+        const cam = this.rig.camera.position;
+        this.horizon.update(
+          cam.x + this.origin.x,
+          cam.y,
+          cam.z + this.origin.z,
+          fog.far * HORIZON_FRACTION,
+          fog.color,
+        );
+      }
     }
     (scene.background as Color).copy(fog.color);
   }
@@ -4057,7 +4090,7 @@ export class WorldState implements GameState, InstanceHost {
     const { lighting, hemi, sun } = this;
     const clock = this.ctx.dayNight;
     if (!lighting || !clock) return;
-    lighting.update(clock, this.lightingMode, seconds);
+    lighting.update(clock, seconds);
     if (hemi) {
       hemi.color.copy(lighting.shadow);
       hemi.intensity = (HEMI_INTENSITY * lighting.shadowStrength) / lighting.refShadowStrength;
@@ -4704,6 +4737,7 @@ export class WorldState implements GameState, InstanceHost {
     }
     this.syncSave();
     this.checkZone();
+    this.snapAtmosphere();
   }
 
   /** Debug: the save (with the current position) as a text code. */
@@ -4928,15 +4962,18 @@ export class WorldState implements GameState, InstanceHost {
     this.zoneFog.set(fogColor);
     const def = sceneZone?.scene ?? null;
     this.sceneZoneDef = sceneZone;
-    this.lightingMode = (sceneZone ?? zone)?.lighting ?? 'cycle';
+    const litZone = sceneZone ?? zone;
+    this.lightingMode = litZone?.lighting ?? 'cycle';
+    this.fogScale = this.fogScaleTarget = zone?.fogScale ?? 1;
 
     const scene = new Scene();
     scene.background = new Color(fogColor);
     scene.fog = def
       ? new Fog(fogColor, def.fogNear, def.fogFar)
-      : new Fog(fogColor, preset.fogFar * 0.35, preset.fogFar);
+      : new Fog(fogColor, preset.fogFar * this.fogScale * 0.35, preset.fogFar * this.fogScale);
     // Day and night drive these lights, the fog, the sky and the toon materials.
     this.lighting = new DayNightLighting(data.daynight, resolveColorToken);
+    this.lighting.setMode(this.lightingMode, litZone?.look ?? null, true);
     const hemi = new HemisphereLight(palette.mistpaars, palette.schemerviolet, HEMI_INTENSITY);
     scene.add(hemi);
     this.hemi = hemi;
@@ -5181,6 +5218,7 @@ export class WorldState implements GameState, InstanceHost {
     );
     this.structures = new StructureLayer(placed, worldRoot, hash, resolveColorToken);
     this.labels = new StructureLabels(this.structures);
+    this.horizon = new HorizonLandmarks(placed, worldRoot, palette.nachtinkt);
     this.streamer = new WorldStreamer({
       config: genConfig,
       field,
@@ -5365,8 +5403,8 @@ export class WorldState implements GameState, InstanceHost {
     // there the preset changes resolution, antialiasing and the lantern lights.
     if (this.streamer) {
       const fog = this.scene.fog as Fog;
-      fog.near = preset.fogFar * 0.35;
-      fog.far = preset.fogFar;
+      fog.far = preset.fogFar * this.fogScale;
+      fog.near = fog.far * 0.35;
       this.rig.camera.far = preset.fogFar + 20;
       this.rig.camera.updateProjectionMatrix();
       this.sky?.scale.setScalar(1);
@@ -5468,6 +5506,8 @@ export class WorldState implements GameState, InstanceHost {
     this.streamer = null;
     this.structures?.dispose();
     this.structures = null;
+    this.horizon?.dispose();
+    this.horizon = null;
     this.props?.dispose();
     this.props = null;
     // A Blender-built zone: its meshes, materials, textures and BVH.

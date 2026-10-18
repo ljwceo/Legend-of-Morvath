@@ -114,6 +114,24 @@
       "stars": 0,
       "glow": 1,
       "windowGlow": 0.4
+    },
+    {
+      "id": "blight",
+      "skyTop": "nachtinkt",
+      "skyHorizon": "verdorven",
+      "sun": "spreukviolet",
+      "sunStrength": 0.65,
+      "shadow": "schemerviolet",
+      "shadowStrength": 3.2,
+      "fog": "verdorven",
+      "worldFogMix": 0.6,
+      "lightElevationDegrees": 35,
+      "lightAzimuthDegrees": 90,
+      "sunDisk": 0,
+      "moonDisk": 0,
+      "stars": 0.35,
+      "glow": 1.4,
+      "windowGlow": 1
     }
   ],
   "lanternLights": {

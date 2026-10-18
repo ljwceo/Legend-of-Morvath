@@ -42,6 +42,28 @@ export interface TerrainRiver {
   maxZ: number;
 }
 
+/**
+ * A shape pressed into the ground (zones.json `terrain.features`): a ridge, a gorge, a sunken
+ * road, a plateau or a crater. Plain numbers for the worker. `points` is x, z, height triples;
+ * within `half` meters of the line the feature is at full strength, fading out over `falloff`
+ * meters. `level` true pulls the ground towards the (interpolated) absolute height, false adds it.
+ */
+export interface TerrainFeature {
+  id: string;
+  level: boolean;
+  half: number;
+  falloff: number;
+  points: number[];
+  /** Ground tint where the feature is, 0xRRGGBB (-1 = none), and how much of it shows (0–1). */
+  color: number;
+  colorStrength: number;
+  /** Bounding box including the falloff (quick rejection). */
+  minX: number;
+  minZ: number;
+  maxX: number;
+  maxZ: number;
+}
+
 export interface TerrainConfig {
   seed: number;
   /** World rectangle; outside it is sea. */
@@ -64,6 +86,18 @@ export interface TerrainConfig {
   rivers: TerrainRiver[];
   /** Color of a river bed, 0xRRGGBB. */
   riverColor: number;
+  /** Ridges, gorges, roads, plateaus and craters, applied after the zone hills. */
+  features: TerrainFeature[];
+}
+
+/** Result of `nearestOnLine` (reused; no allocation). */
+export interface LineHit {
+  /** Distance (m) from the point to the line. */
+  distance: number;
+  /** Fraction along the nearest segment (0 at its first point, 1 at its last). */
+  t: number;
+  /** Index (into the x, z pairs or x, z, h triples) of the nearest segment's first point. */
+  segment: number;
 }
 
 /** Result of `TerrainField.sample` (reused; no allocation). */
@@ -94,6 +128,7 @@ export class TerrainField {
   private readonly riverG: number;
   private readonly riverB: number;
   private readonly scratch: TerrainSample = { height: 0, r: 0, g: 0, b: 0 };
+  private readonly lineHit: LineHit = { distance: 0, t: 0, segment: 0 };
 
   constructor(readonly config: TerrainConfig) {
     this.zones = [...config.zones].sort((a, b) => a.priority - b.priority);
@@ -204,6 +239,28 @@ export class TerrainField {
     const hills = fbm2(cfg.seed, x, z, cfg.wavelength, cfg.octaves) * 0.5 + 0.5;
     let height = base + amplitude * hills;
 
+    // Features: ridges, gorges, roads and craters pressed into the hills (level design).
+    const features = cfg.features;
+    for (let i = 0; i < features.length; i++) {
+      const feature = features[i] as TerrainFeature;
+      if (x < feature.minX || x > feature.maxX || z < feature.minZ || z > feature.maxZ) continue;
+      const hit = nearestOnLine(feature.points, 3, x, z, this.lineHit);
+      const reach = feature.half + feature.falloff;
+      if (hit.distance >= reach) continue;
+      const profile =
+        hit.distance <= feature.half ? 1 : 1 - smoothstep(feature.half, reach, hit.distance);
+      const h0 = feature.points[hit.segment + 2] as number;
+      const h1 = feature.points[hit.segment + 5] ?? h0;
+      const target = h0 + (h1 - h0) * hit.t;
+      height += (feature.level ? target - height : target) * profile;
+      if (feature.color >= 0) {
+        const wet = profile * feature.colorStrength;
+        r += (((feature.color >> 16) & 255) / 255 - r) * wet;
+        g += (((feature.color >> 8) & 255) / 255 - g) * wet;
+        b += ((feature.color & 255) / 255 - b) * wet;
+      }
+    }
+
     // Coast: the land sinks to the sea floor towards the world edge.
     const toEdge = Math.min(x - cfg.minX, cfg.maxX - x, z - cfg.minZ, cfg.maxZ - z);
     const land = smoothstep(0, cfg.coastWidth, toEdge);
@@ -232,6 +289,47 @@ export class TerrainField {
     out.b = Math.min(1, b * shade);
     return out;
   }
+}
+
+/**
+ * Nearest point of a polyline to (x, z): the line's points are x, z (`stride` 2) or x, z, h
+ * (`stride` 3) tuples. A line of one point is that point. Writes into `out`; allocation-free.
+ */
+export function nearestOnLine(
+  points: readonly number[],
+  stride: number,
+  x: number,
+  z: number,
+  out: LineHit,
+): LineHit {
+  let best = Infinity;
+  out.t = 0;
+  out.segment = 0;
+  if (points.length <= stride) {
+    const dx = x - (points[0] ?? 0);
+    const dz = z - (points[1] ?? 0);
+    out.distance = Math.sqrt(dx * dx + dz * dz);
+    return out;
+  }
+  for (let i = 0; i + stride + 1 < points.length; i += stride) {
+    const ax = points[i] as number;
+    const az = points[i + 1] as number;
+    const dx = (points[i + stride] as number) - ax;
+    const dz = (points[i + stride + 1] as number) - az;
+    const lengthSq = dx * dx + dz * dz;
+    let t = lengthSq > 0 ? ((x - ax) * dx + (z - az) * dz) / lengthSq : 0;
+    t = t < 0 ? 0 : t > 1 ? 1 : t;
+    const px = x - (ax + dx * t);
+    const pz = z - (az + dz * t);
+    const d = px * px + pz * pz;
+    if (d < best) {
+      best = d;
+      out.t = t;
+      out.segment = i;
+    }
+  }
+  out.distance = Math.sqrt(best);
+  return out;
 }
 
 /** Distance from (x, z) to a polyline given as x, z pairs. Allocation-free. */

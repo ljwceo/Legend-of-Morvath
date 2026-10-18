@@ -9,7 +9,11 @@ import {
   Quaternion,
   Vector3,
 } from 'three';
-import { buildStructureModel, type StructureModel } from '../entities/StructureFactory';
+import {
+  BARRIER_MODEL,
+  buildStructureModel,
+  type StructureModel,
+} from '../entities/StructureFactory';
 import { chunkKey } from './ChunkPlanner';
 import { type PlacedStructure, segmentEntersBox } from './StructurePlacement';
 import type { SpatialHash } from './SpatialHash';
@@ -46,7 +50,8 @@ export class StructureLayer implements ChunkListener, CameraOccluder {
   /** Indices of structures that are shown right now (for the camera and debug labels). */
   readonly active: number[] = [];
   private readonly batches = new Map<string, ModelBatch>();
-  private readonly batchOf: ModelBatch[];
+  /** Batch per structure; null for a barrier (collision only, nothing drawn). */
+  private readonly batchOf: (ModelBatch | null)[];
   private readonly matrices: Matrix4[];
   private readonly colors: Color[];
   private readonly refs: Uint16Array;
@@ -64,7 +69,9 @@ export class StructureLayer implements ChunkListener, CameraOccluder {
   ) {
     const count = new Map<string, number>();
     for (const s of structures) count.set(s.def.model, (count.get(s.def.model) ?? 0) + 1);
+    // Barriers (BARRIER_MODEL) only add colliders: no mesh, no draw call.
     for (const [name, total] of count) {
+      if (name === BARRIER_MODEL) continue;
       const model = buildStructureModel(name);
       const mesh = new InstancedMesh(model.geometry, this.material, total);
       mesh.instanceMatrix.setUsage(DynamicDrawUsage);
@@ -84,7 +91,7 @@ export class StructureLayer implements ChunkListener, CameraOccluder {
     const euler = new Euler(0, 0, 0, 'YXZ');
     const scale = new Vector3();
     const white = new Color(1, 1, 1);
-    this.batchOf = structures.map((s) => this.batches.get(s.def.model) as ModelBatch);
+    this.batchOf = structures.map((s) => this.batches.get(s.def.model) ?? null);
     this.matrices = structures.map((s) =>
       new Matrix4().compose(
         position.set(s.x, s.y, s.z),
@@ -172,36 +179,40 @@ export class StructureLayer implements ChunkListener, CameraOccluder {
   }
 
   private show(i: number): void {
-    const batch = this.batchOf[i] as ModelBatch;
-    const mesh = batch.mesh;
-    const slot = mesh.count++;
-    mesh.setMatrixAt(slot, this.matrices[i] as Matrix4);
-    mesh.setColorAt(slot, this.colors[i] as Color);
-    batch.owners[slot] = i;
-    this.slotOf[i] = slot;
-    batch.dirty = true;
-    this.anyDirty = true;
+    const batch = this.batchOf[i];
+    if (batch) {
+      const mesh = batch.mesh;
+      const slot = mesh.count++;
+      mesh.setMatrixAt(slot, this.matrices[i] as Matrix4);
+      mesh.setColorAt(slot, this.colors[i] as Color);
+      batch.owners[slot] = i;
+      this.slotOf[i] = slot;
+      batch.dirty = true;
+      this.anyDirty = true;
+    }
     for (const collider of this.structures[i]?.colliders ?? []) this.hash.insert(collider);
     this.activeSlot[i] = this.active.length;
     this.active.push(i);
   }
 
   private hide(i: number): void {
-    const batch = this.batchOf[i] as ModelBatch;
-    const mesh = batch.mesh;
-    const slot = this.slotOf[i] as number;
-    const last = --mesh.count;
-    if (slot !== last) {
-      // Move the last instance into the freed slot.
-      const moved = batch.owners[last] as number;
-      mesh.setMatrixAt(slot, this.matrices[moved] as Matrix4);
-      mesh.setColorAt(slot, this.colors[moved] as Color);
-      batch.owners[slot] = moved;
-      this.slotOf[moved] = slot;
+    const batch = this.batchOf[i];
+    if (batch) {
+      const mesh = batch.mesh;
+      const slot = this.slotOf[i] as number;
+      const last = --mesh.count;
+      if (slot !== last) {
+        // Move the last instance into the freed slot.
+        const moved = batch.owners[last] as number;
+        mesh.setMatrixAt(slot, this.matrices[moved] as Matrix4);
+        mesh.setColorAt(slot, this.colors[moved] as Color);
+        batch.owners[slot] = moved;
+        this.slotOf[moved] = slot;
+      }
+      this.slotOf[i] = -1;
+      batch.dirty = true;
+      this.anyDirty = true;
     }
-    this.slotOf[i] = -1;
-    batch.dirty = true;
-    this.anyDirty = true;
     for (const collider of this.structures[i]?.colliders ?? []) this.hash.remove(collider);
     // Swap-remove from the active list.
     const at = this.activeSlot[i] as number;
