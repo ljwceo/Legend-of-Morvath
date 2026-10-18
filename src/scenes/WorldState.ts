@@ -81,6 +81,7 @@ import {
   inSwingArc,
   regenMana,
   regenOutOfCombat,
+  restoreMana,
   type SwordConfig,
   type SwordInput,
   type SwordResult,
@@ -113,7 +114,7 @@ import {
   StaffState,
   stepStaff,
 } from '../systems/StaffCombat';
-import { guardHit, makeGuardResult, stepGuard } from '../systems/Guard';
+import { guardHit, makeGuardResult, stepGuard, weaponFreeForGuard } from '../systems/Guard';
 import { backstabPoiseDamage, damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
   carriedWeight,
@@ -767,8 +768,6 @@ export class WorldState implements GameState, InstanceHost {
     this.hud = new HUD(data.player.hud, data.player.lowHpThreshold, () => this.interact());
     this.hud.setInteractKey(this.interactKeyLabel());
     this.hud.setPoiseTexts(ctx.i18n.t('hud.poise'), ctx.i18n.t('hud.staggered'));
-    // The scene set the maxima before the HUD existed: a sword fighter has no mana bar.
-    this.hud.setBarUsed('mana', this.player?.combat.hasMana ?? true);
     ctx.ui.append(this.hud.root);
     this.dialog = new Dialog((key) => ctx.i18n.t(key));
     ctx.ui.append(this.dialog.root);
@@ -1258,8 +1257,9 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /**
-   * The guard for one step (fase S.7, sword only): it goes up while the block button is held and
-   * you are free (not swinging, rolling or staggered). While it is up you cannot attack.
+   * The guard for one step (fase S.7; every build since G.2, with a sword or a staff): it goes up
+   * while the block button is held and you are free (not swinging, gathering a shot, rolling or
+   * staggered). While it is up you cannot attack or shoot.
    */
   private stepPlayerGuard(dt: number): void {
     const player = this.player;
@@ -1268,20 +1268,20 @@ export class WorldState implements GameState, InstanceHost {
     const c = player.combat;
     const s = player.state;
     const free =
-      this.weaponKind !== 'staff' &&
       !this.cheats.fly &&
       !this.knockedOut &&
       this.deathTimer === NOT_DYING &&
       !c.poise.staggered &&
       !this.command.dash &&
       s.dashTime <= 0 &&
-      c.swingTime <= 0 &&
-      c.heavyWindup <= 0;
+      weaponFreeForGuard(c, this.staffState);
     const up = stepGuard(c.guard, s, cfg, this.input?.isPressed('block') ?? false, free, dt);
     if (!up) return;
     this.clearAttackInput();
     c.bufferedFast = 0;
     c.bufferedHeavy = 0;
+    this.staffState.bufferedShard = 0;
+    this.staffState.bufferedSpell = 0;
   }
 
   /**
@@ -1359,6 +1359,7 @@ export class WorldState implements GameState, InstanceHost {
       this.baseWalkSpeed *
       this.cheats.speed *
       (casting ? staff.castMoveFactor : 1) *
+      (c.guard.up ? (data.player.guard?.moveFactor ?? 1) : 1) *
       slowFactor(this.statusTotals.slowPercent);
     stepMovement(s, this.command, movement, dt, mover);
     this.stepRegen(c, dt);
@@ -1366,8 +1367,8 @@ export class WorldState implements GameState, InstanceHost {
 
   /**
    * HP, mana and energy coming back for one step. The base numbers are in player.json; the
-   * Regen stat adds to them, and what it adds depends on your path (a mage gets mana, a sword
-   * fighter health). Energy regen is in the movement config (see `applyGear`).
+   * Regen stat adds to them: the same mana for every build (fase G.2), health only for a sword
+   * fighter. Energy regen is in the movement config (see `applyGear`).
    */
   private stepRegen(c: CombatState, dt: number): void {
     const regen = this.ctx.data?.player.regen;
@@ -3338,11 +3339,8 @@ export class WorldState implements GameState, InstanceHost {
     const path = session?.path ?? null;
     computeStatEffects(data.stats, points, path, this.statEffects);
     // Your path and its perks come on top of your points (fase 3.8).
-    const bonus = applyPath(data.player, data.skills, data.stats, path, this.statEffects);
+    applyPath(data.player, data.skills, data.stats, path, this.statEffects);
     applyStatsToCombat(data.stats, this.statEffects, c, this.gearStatsOut.damageReductionPercent);
-    c.hasMana = bonus.hasMana;
-    // A sword fighter never sees a mana bar.
-    this.hud?.setBarUsed('mana', bonus.hasMana);
   }
 
   /** Worn gear → extra max HP / mana and damage factors (no level or load changes). */
@@ -4971,7 +4969,7 @@ export class WorldState implements GameState, InstanceHost {
     this.applyStatEffects(combat);
     applyStats(combat, data.player, level);
     combat.hp = Math.min(combat.maxHp, progress?.hp ?? combat.maxHp);
-    combat.mana = Math.min(combat.maxMana, progress?.mana ?? combat.maxMana);
+    restoreMana(combat, progress?.mana ?? null);
     // Waking up with 0 HP would be dying again at once.
     if (combat.hp <= 0) combat.hp = combat.maxHp;
     this.conditionContext.level = level;

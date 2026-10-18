@@ -272,16 +272,6 @@ export class HUD {
     this.queue.push(text);
   }
 
-  /**
-   * A sword fighter has no mana at all (his path, fase 3.8), so his bar is simply not there.
-   * Called whenever the path, gear or level changes.
-   */
-  setBarUsed(id: BarId, used: boolean): void {
-    const element = this.bars[id].element;
-    if (element.hidden === !used) return;
-    element.hidden = !used;
-  }
-
   /** Bar fill 0–1 (only touches the DOM when the value really changed). */
   setBar(id: BarId, fraction: number): void {
     const value = Math.min(1, Math.max(0, fraction));

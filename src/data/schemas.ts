@@ -645,8 +645,6 @@ const pathBonusSchema = z.strictObject({
   normalAttackPercent: range(-50, 100),
   /** Extra percent on spells (0 for now; light and dark use their power curve). */
   spellPercent: optional(range(-50, 100)),
-  /** True for the sword fighter: no mana, so no mana bar either. */
-  noMana: z.boolean(),
   perks: z.array(id),
   /** The crystal the Crystal Ceremony gives (items.json), or null for a path without one. */
   crystal: z.nullable(id),

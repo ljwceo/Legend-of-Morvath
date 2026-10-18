@@ -268,21 +268,18 @@
   "paths": {
     "sword": {
       "normalAttackPercent": 15,
-      "noMana": true,
       "perks": ["iron_body", "battle_hardened", "swift_blade"],
       "crystal": null,
       "ceremony": null
     },
     "light": {
       "normalAttackPercent": 0,
-      "noMana": false,
       "perks": [],
       "crystal": "wizard_crystal",
       "ceremony": "crystal_ceremony_light"
     },
     "dark": {
       "normalAttackPercent": 0,
-      "noMana": false,
       "perks": [],
       "crystal": "dark_crystal",
       "ceremony": "crystal_ceremony_dark"

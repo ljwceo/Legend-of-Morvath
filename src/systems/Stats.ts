@@ -92,7 +92,8 @@ export function effectValue(
 
 /**
  * Adds up every stat into `out` (reused, so the game loop allocates nothing) and returns it.
- * `path` decides the Regen split (mage: mana, sword fighter: health).
+ * `path` decides the Regen health (only a sword fighter gets it; mana is the same for every
+ * path since fase G.2).
  */
 export function computeStatEffects(
   file: StatsFile,

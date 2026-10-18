@@ -110,7 +110,7 @@
       "power": "Your normal attacks hit harder, with a sword and with a staff.",
       "mana": "More maximum mana.",
       "magic_power": "Spells hit harder, and your staff’s normal attack a little.",
-      "regen": "Energy comes back faster. A mage also gets mana back, a sword fighter health.",
+      "regen": "Energy and mana come back faster. A sword fighter also gets health back.",
       "dexterity": "You swing, cast and charge faster.",
       "faith": "Potions heal you more.",
       "luck": "A bigger chance of a critical hit."

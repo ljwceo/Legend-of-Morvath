@@ -3,8 +3,8 @@ import { clampStatEffects, type StatEffects } from './Stats';
 
 /**
  * What your path gives you (fase 3.8). Your pad is chosen in *Your Resolve* and from then on
- * it is simply part of you: a sword fighter hits harder, has no mana at all and carries the
- * three perks of his path; a mage keeps his mana and his power curve (spells.json).
+ * it is simply part of you: a sword fighter hits harder and carries the three perks of his path;
+ * a mage keeps his power curve (spells.json). Every path has mana (fase G.2).
  *
  * Everything is data: `player.json` → `paths` says what a path does and which perks from
  * `skills.json` come with it. Pure logic (no DOM, no Three.js), so the world and the balance
@@ -13,8 +13,6 @@ import { clampStatEffects, type StatEffects } from './Stats';
 
 /** What a path does beyond the stats; `perks` are the perk definitions it hands you. */
 export interface PathBonus {
-  /** False for the sword fighter: no mana, so no mana bar. */
-  hasMana: boolean;
   perks: readonly PerkDef[];
 }
 
@@ -75,5 +73,5 @@ export function applyPath(
     }
   }
   clampStatEffects(stats, out);
-  return { hasMana: bonus?.noMana !== true, perks };
+  return { perks };
 }

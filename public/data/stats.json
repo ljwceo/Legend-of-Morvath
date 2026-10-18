@@ -54,7 +54,7 @@
       "name": "Regen",
       "effects": {
         "energyRegenPercent": 4,
-        "manaRegenPerSecond": { "none": 0.015, "sword": 0, "light": 0.03, "dark": 0.03 },
+        "manaRegenPerSecond": 0.03,
         "hpRegenPerSecond": { "none": 0.025, "sword": 0.05, "light": 0, "dark": 0 }
       },
       "softCaps": [
@@ -62,7 +62,7 @@
           "fromPoints": 20,
           "effects": {
             "energyRegenPercent": 2,
-            "manaRegenPerSecond": { "none": 0.008, "sword": 0, "light": 0.015, "dark": 0.015 },
+            "manaRegenPerSecond": 0.015,
             "hpRegenPerSecond": { "none": 0.012, "sword": 0.025, "light": 0, "dark": 0 }
           }
         }

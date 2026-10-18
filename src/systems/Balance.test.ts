@@ -520,7 +520,7 @@ function makeFighter(bot: SimBot): Fighter {
   const c = new CombatState();
   const effects = emptyStatEffects();
   computeStatEffects(stats, bot.points, bot.path, effects);
-  const pathBonus = applyPath(player, skills, stats, bot.path, effects);
+  applyPath(player, skills, stats, bot.path, effects);
   const weapon = itemsById.get(WEAPONS[bot.path]);
   const gear = gearStats({ weapon: weapon?.id ?? '' }, itemsById, emptyGearStats());
   c.weaponBonus = weapon?.weapon?.damageBonus ?? 0;
@@ -528,7 +528,6 @@ function makeFighter(bot: SimBot): Fighter {
   c.gearMana = gear.mana;
   c.damageFactor = 1 + gear.damagePercent / 100;
   applyStatsToCombat(stats, effects, c, gear.damageReductionPercent);
-  c.hasMana = pathBonus.hasMana;
   applyStats(c, player, bot.level);
   c.hp = c.maxHp;
   c.mana = c.maxMana;

@@ -24,10 +24,9 @@ function effectsFor(path: 'sword' | 'light' | 'dark' | null, points: StatPoints 
 
 /** A level-1 character with these points, walking this path. */
 function combatFor(path: 'sword' | 'light' | 'dark' | null, points: StatPoints = {}): CombatState {
-  const { out, bonus } = effectsFor(path, points);
+  const { out } = effectsFor(path, points);
   const c = new CombatState();
   applyStatsToCombat(stats, out, c);
-  c.hasMana = bonus.hasMana;
   applyStats(c, player, 1);
   return c;
 }
@@ -36,7 +35,6 @@ describe('what your path gives you (fase 3.8)', () => {
   it('gives nothing before you choose', () => {
     const { out, bonus } = effectsFor(null);
     expect(out).toEqual(emptyStatEffects());
-    expect(bonus.hasMana).toBe(true);
     expect(bonus.perks).toEqual([]);
   });
 
@@ -46,21 +44,21 @@ describe('what your path gives you (fase 3.8)', () => {
     expect(pathPerks(player, skills, 'light')).toEqual([]);
   });
 
-  it('sword fighter: 115% power, tougher, faster and no mana', () => {
-    const { out, bonus } = effectsFor('sword');
+  it('sword fighter: 115% power, tougher and faster', () => {
+    const { out } = effectsFor('sword');
     expect(out.normalAttackPercent).toBe(15);
     // Iron Body +30% HP, Battle Hardened -15% damage taken, Swift Blade +20% attack speed.
     expect(out.maxHpPercent).toBe(30);
     expect(out.damageTakenPercent).toBe(-15);
     expect(out.attackSpeedPercent).toBe(20);
-    expect(bonus.hasMana).toBe(false);
   });
 
   it('the perks really change the numbers you fight with', () => {
     const plain = combatFor(null);
     const fighter = combatFor('sword');
     expect(fighter.maxHp).toBe(Math.round(plain.maxHp * 1.3));
-    expect(fighter.maxMana).toBe(0);
+    // Every build has mana since fase G.2: the path no longer takes it away.
+    expect(fighter.maxMana).toBe(plain.maxMana);
     expect(fighter.normalFactor).toBeCloseTo(1.15, 5);
     expect(fighter.attackSpeedFactor).toBeCloseTo(1.2, 5);
     expect(fighter.damageTakenFactor).toBeCloseTo(0.85, 5);
