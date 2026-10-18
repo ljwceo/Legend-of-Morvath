@@ -109,6 +109,7 @@ import {
   type ShotConfig,
   type CastConfig,
   type CastSources,
+  cancelCast,
   type IncantationConfig,
   pushTargets,
   castConfig,
@@ -183,6 +184,7 @@ import {
   screenToWorld,
   stepAirTime,
   stepMovement,
+  dashStartsThisStep,
 } from '../systems/Movement';
 import { type NpcWorld, Npcs } from '../systems/Npcs';
 import { CheatPanel } from '../ui/CheatPanel';
@@ -1336,6 +1338,7 @@ export class WorldState implements GameState, InstanceHost {
     c.bufferedHeavy = 0;
     this.castState.bufferedShard = 0;
     this.castState.bufferedSpell = 0;
+    this.castState.bufferedCast = 0;
   }
 
   /**
@@ -1373,7 +1376,13 @@ export class WorldState implements GameState, InstanceHost {
       if (result.landed !== 'none' && enemies) this.landHit(result);
     }
 
-    const input = held ? NO_CAST_INPUT : this.castInput;
+    // A staff shot cannot be rolled out of (as before); Push can (U-1): a roll that will start
+    // this step cuts it short now, before the cast step could let it go off, and no new cast
+    // starts in the step a roll starts.
+    const staffCasting = state.pending === 'shard' || state.pending === 'spell';
+    const rolling = !held && !staffCasting && dashStartsThisStep(s, this.command, movement, dt);
+    if (rolling) cancelCast(state);
+    const input = held || rolling ? NO_CAST_INPUT : this.castInput;
     if (staffInHand) {
       const wants =
         input.shard || input.spell || state.bufferedShard > 0 || state.bufferedSpell > 0;
@@ -1402,7 +1411,8 @@ export class WorldState implements GameState, InstanceHost {
     const windingUp = c.heavyWindup > 0;
     // Gathering or charging counts as fighting, so you can see your mana while it drains.
     if (casting) c.sinceCombat = 0;
-    if (casting || windingUp) this.command.dash = false;
+    // No roll out of a staff shot or a heavy wind-up; out of Push you may (it was cut above).
+    if (staffCasting || windingUp) this.command.dash = false;
     // No jumping out of a swing, a wind-up or a cast, no sprinting while it lasts, and neither
     // with the guard up (with a staff since G.2).
     if (casting || windingUp || c.swingTime > 0 || c.guard.up) {

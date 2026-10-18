@@ -6,8 +6,10 @@ import { readPublicJson } from '../test/loadPublic';
 import { applyStats, CombatState } from './Combat';
 import { MIN_SHOWN_COOLDOWN } from './Readiness';
 import type { EnergyPool } from './Stamina';
+import { weaponFreeForGuard } from './Guard';
 import {
   affordableCharge,
+  cancelCast,
   type CastSources,
   type IncantationConfig,
   incantationFree,
@@ -936,5 +938,82 @@ describe('G.3: Push from the Grimoire', () => {
         1 / 120 + 1e-9,
       );
     }
+  });
+});
+
+describe('G.3: a valid roll cuts Push short (U-1, P-4)', () => {
+  const push = cfg.incantations.get('push') as IncantationConfig;
+  const grimoire = (): CastSources => ({ staff: false, spell: null, power: 1, incantation: push });
+  const cast = (): CastInput => ({ shard: false, spell: false, cast: true, critRoll: 1 });
+  const idle = (): CastInput => ({ shard: false, spell: false, cast: false, critRoll: 1 });
+
+  it('the cast is gone, the stamina stays paid and a short lockout follows, not the cooldown', () => {
+    const made = fresh();
+    const energy = pool();
+    stepCast(made.state, made.combat, energy, cast(), cfg, grimoire(), DT, out());
+    stepCast(made.state, made.combat, energy, cast(), cfg, grimoire(), DT, out());
+    expect(made.state.pending).toBe('incantation');
+    expect(cancelCast(made.state)).toBe(true);
+    expect(made.state.pending).toBe('none');
+    expect(made.state.casting).toBe(false);
+    expect(made.state.cancelled).toBe(true);
+    expect(made.state.bufferedCast).toBe(0);
+    expect(energy.energy).toBe(100 - push.energyCost);
+    expect(made.state.castLockout).toBeCloseTo(push.cancelLockoutSeconds, 9);
+    expect(made.state.incantationCooldown).toBe(0);
+    // Holding V: the next Push starts right after the lockout, sooner than a cooldown would.
+    let startedAt = -1;
+    for (let i = 0; i < 600 && startedAt < 0; i++) {
+      stepCast(made.state, made.combat, energy, cast(), cfg, grimoire(), DT, out());
+      if (made.state.pending === 'incantation') startedAt = i;
+    }
+    // The lockout counts whole steps: the Grimoire is free on the step it reaches 0.
+    expect(startedAt).toBe(Math.round(push.cancelLockoutSeconds / DT) - 1);
+    expect(startedAt * DT).toBeLessThan(push.cooldownSeconds);
+  });
+
+  it('nothing is cut when nothing is prepared, and a staff shot is never cut by it', () => {
+    const made = fresh();
+    expect(cancelCast(made.state)).toBe(false);
+    expect(made.state.castLockout).toBe(0);
+    const staffed = fresh();
+    stepCast(staffed.state, staffed.combat, pool(), press(true), cfg, staff(), DT, out());
+    expect(staffed.state.pending).toBe('shard');
+    expect(cancelCast(staffed.state)).toBe(false);
+    expect(staffed.state.pending).toBe('shard');
+  });
+
+  it('decided before the cast step: a roll in the step Push would go off wins, and nothing goes off', () => {
+    const made = fresh();
+    const energy = pool();
+    stepCast(made.state, made.combat, energy, cast(), cfg, grimoire(), DT, out());
+    // Run to the last step of the wind-up: the next cast step would release.
+    while (made.state.windup > DT + 1e-9) {
+      stepCast(made.state, made.combat, energy, idle(), cfg, grimoire(), DT, out());
+    }
+    expect(made.state.pending).toBe('incantation');
+    // The world cancels first (the roll is valid), then runs the cast step with no input.
+    cancelCast(made.state);
+    const r = stepCast(made.state, made.combat, energy, idle(), cfg, grimoire(), DT, out());
+    expect(r.effect).toBe('none');
+    expect(r.fired).toBe('none');
+    expect(made.state.pending).toBe('none');
+  });
+
+  it('the guard cannot go up while Push is prepared (G.2 rule, extended)', () => {
+    const made = fresh();
+    stepCast(made.state, made.combat, pool(), cast(), cfg, grimoire(), DT, out());
+    expect(weaponFreeForGuard(made.combat, made.state)).toBe(false);
+    cancelCast(made.state);
+    expect(weaponFreeForGuard(made.combat, made.state)).toBe(true);
+  });
+
+  it('a stagger (a full reset) drops the cast and, as with the staff, its cooldowns', () => {
+    const made = fresh();
+    stepCast(made.state, made.combat, pool(), cast(), cfg, grimoire(), DT, out());
+    made.state.reset();
+    expect(made.state.pending).toBe('none');
+    expect(made.state.castLockout).toBe(0);
+    expect(made.state.incantationCooldown).toBe(0);
   });
 });
