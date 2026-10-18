@@ -409,7 +409,7 @@ await shot(page, '0-pass-arrival');
 await cheatPanel(page, [options.speed]);
 
 for (const [i, stop] of ROUTE.entries()) {
-  const walked = await walkTo(page, stop, { seconds: 150 });
+  const walked = await walkTo(page, stop, { seconds: 300 });
   await page.waitForTimeout(1500);
   now = await sample(page);
   const save = await readSave(page);

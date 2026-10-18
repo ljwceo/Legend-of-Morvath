@@ -2162,7 +2162,7 @@
           "x": 1212,
           "z": -47,
           "size": [44, 22, 46],
-          "color": "nachtinkt",
+          "color": "verdorven",
           "collider": "box"
         },
         {
@@ -2171,7 +2171,7 @@
           "x": 1212,
           "z": 47,
           "size": [44, 22, 46],
-          "color": "nachtinkt",
+          "color": "verdorven",
           "collider": "box"
         },
         {
@@ -2475,7 +2475,7 @@
           "x": 1760,
           "z": -107,
           "size": [4, 14, 186],
-          "color": "nachtinkt",
+          "color": "verdorven",
           "collider": "box"
         },
         {
@@ -2484,7 +2484,7 @@
           "x": 1760,
           "z": 107,
           "size": [4, 14, 186],
-          "color": "nachtinkt",
+          "color": "verdorven",
           "collider": "box"
         },
         {
@@ -2493,7 +2493,7 @@
           "x": 1760,
           "z": -17,
           "size": [9, 24, 9],
-          "color": "nachtinkt",
+          "color": "verdorven",
           "collider": "circle"
         },
         {
@@ -2502,7 +2502,7 @@
           "x": 1760,
           "z": 17,
           "size": [9, 24, 9],
-          "color": "nachtinkt",
+          "color": "verdorven",
           "collider": "circle"
         },
         {
@@ -2512,7 +2512,7 @@
           "x": 1868,
           "z": 0,
           "size": [84, 110, 84],
-          "color": "nachtinkt",
+          "color": "verdorven",
           "collider": "box",
           "horizon": true
         },
