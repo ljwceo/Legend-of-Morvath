@@ -774,6 +774,12 @@ class CrossChecker {
     if (player.dash.energyCost > player.base.energy) {
       this.issue(f, 'dash.energyCost', 'dash costs more energy than the maximum');
     }
+    if (player.jump.energyCost > player.base.energy) {
+      this.issue(f, 'jump.energyCost', 'a jump costs more energy than the maximum');
+    }
+    if (player.sprint.speed <= player.movement.walkSpeed) {
+      this.issue(f, 'sprint.speed', 'sprinting must be faster than walking');
+    }
     if (player.regen.exhaustedRecoverEnergy > player.base.energy) {
       this.issue(
         f,

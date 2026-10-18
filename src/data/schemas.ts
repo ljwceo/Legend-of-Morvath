@@ -698,6 +698,25 @@ export const playerFileSchema = z.strictObject({
         path: ['iFrames', 'endSeconds'],
       }),
     ),
+  /** Sprinting: holding the dash button after the roll (decision A.5a). */
+  sprint: z.strictObject({
+    /** m/s on foot; faster than `movement.walkSpeed` (DataValidator). */
+    speed: max(positive, 30),
+    energyPerSecond: max(nonNegative, 1000),
+  }),
+  /** Jumping (decision S-8: no roll, attack or cast in the air). */
+  jump: z.strictObject({
+    heightMeters: max(positive, 10),
+    /** m/s²; also the fall speed off ledges. */
+    gravity: range(1, 100),
+    energyCost: nonNegative,
+    /** A jump still works this long after walking off a ledge. */
+    coyoteSeconds: range(0, 0.25),
+    /** A jump pressed this long before landing goes off on landing. */
+    bufferSeconds: range(0, 0.25),
+    /** 0 = the take-off speed carries you, 1 = steer freely in the air. */
+    airControl: range(0, 1),
+  }),
   /**
    * Equip load (like Elden Ring): the weight of the weapons and gear you carry (worn or spare in
    * the bag; resources, potions and quest items weigh nothing) as a share of what you can carry.
