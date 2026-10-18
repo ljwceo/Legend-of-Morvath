@@ -225,6 +225,9 @@
     "cooldownSeconds": 1,
     "quickOrder": ["health_potion", "greater_health_potion"]
   },
+  "prepared": {
+    "mainWeapons": 2
+  },
   "death": {
     "goldLossFraction": 1,
     "markerPickupRadius": 1.6,
