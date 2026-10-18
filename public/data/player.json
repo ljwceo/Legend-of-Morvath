@@ -28,6 +28,18 @@
     "recoverySeconds": 0.05,
     "iFrames": { "startSeconds": 0.03, "endSeconds": 0.15 }
   },
+  "sprint": {
+    "speed": 6.5,
+    "energyPerSecond": 15
+  },
+  "jump": {
+    "heightMeters": 1.1,
+    "gravity": 22,
+    "energyCost": 10,
+    "coyoteSeconds": 0.1,
+    "bufferSeconds": 0.12,
+    "airControl": 0.5
+  },
   "load": {
     "baseKg": 30,
     "perLevelKg": 0,

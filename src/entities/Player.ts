@@ -36,8 +36,7 @@ export class Player {
     s.y = this.prevY = y;
     s.z = this.prevZ = z;
     s.heading = this.prevHeading = heading;
-    s.airTime = 0;
-    s.sinceLanded = Infinity;
+    s.resetVertical();
   }
 
   /** Call before each simulation step: remembers where the step started. */

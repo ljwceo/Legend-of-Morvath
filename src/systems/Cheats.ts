@@ -99,4 +99,7 @@ export function stepFlying(
   s.moving = length > 1e-4 || vertical !== 0;
   if (length > 1e-4) s.heading = Math.atan2(cmd.x, cmd.z);
   s.dashTime = 0;
+  // Flying holds you still in the air: switched off, you drop from rest.
+  s.vy = 0;
+  s.jumpBuffer = 0;
 }

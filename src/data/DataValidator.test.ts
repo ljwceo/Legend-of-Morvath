@@ -193,6 +193,27 @@ describe('validateGameData catches broken data', () => {
     expect(messages(raw).join('\n')).toContain('exhaustedRecoverEnergy');
   });
 
+  it('rejects a sprint slower than walking and a jump dearer than all energy', () => {
+    const raw = freshData();
+    raw.player.sprint.speed = raw.player.movement.walkSpeed;
+    raw.player.jump.energyCost = raw.player.base.energy + 1;
+    const found = messages(raw).join('\n');
+    expect(found).toContain('sprint.speed');
+    expect(found).toContain('jump.energyCost');
+    const real = messages(freshData()).join('\n');
+    expect(real).not.toContain('sprint.');
+    expect(real).not.toContain('jump.');
+  });
+
+  it('keeps coyote time and the jump buffer short', () => {
+    const raw = freshData();
+    raw.player.jump.coyoteSeconds = 0.5;
+    raw.player.jump.bufferSeconds = -0.1;
+    const found = messages(raw).join('\n');
+    expect(found).toContain('coyoteSeconds');
+    expect(found).toContain('bufferSeconds');
+  });
+
   it('rejects unknown (misspelled) fields', () => {
     const raw = freshData();
     raw.npcs.npcs[0].dialouge = [];
