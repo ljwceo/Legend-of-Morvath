@@ -849,14 +849,24 @@ export class WorldState implements GameState, InstanceHost {
       // deterministically, and kept: the weapon in hand and then the bag; Push. From then on the
       // slots are the player's and never reorder by themselves.
       const prepared = session.character.prepared;
+      let filled = false;
       if (prepared.weapons.length === 0) {
         const weapons = this.preparedWeapons();
-        if (preparedIds(weapons).length > 0) prepared.weapons = weapons;
+        if (preparedIds(weapons).length > 0) {
+          prepared.weapons = weapons;
+          filled = true;
+        }
       }
       if (prepared.incantations.length === 0) {
         const incantations = this.preparedIncantations();
-        if (preparedIds(incantations).length > 0) prepared.incantations = incantations;
+        if (preparedIds(incantations).length > 0) {
+          prepared.incantations = incantations;
+          filled = true;
+        }
       }
+      // Written at once, so the save and the game never disagree about the slots (a migrated
+      // save was just stored by Boot without them).
+      if (filled) ctx.persist();
     }
     this.lootRng = new Random((Date.now() >>> 0) ^ 0x5eed);
     this.critRng = new Random((Date.now() >>> 0) ^ 0xc817);

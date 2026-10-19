@@ -3,15 +3,15 @@
  * Flasks and prepared loadout check (fase G.5): the real game in a headless browser. It plays
  * a new game, skips the intro, and then checks:
  *
- *   1. a new game saves version 22 with 2 Flask charges (1 Health / 1 Mana, full) and nothing
- *      prepared yet, while Push is the prepared incantation in the HUD;
+ *   1. a new game saves version 22 with 2 Flask charges (1 Health / 1 Mana, full); entering
+ *      the world fills the never-chosen prepared sets once (the Old Sword, Push) and keeps them;
  *   2. with HP down, Q drinks the Health Flask: one charge gone, written to the save at once;
  *      a reload keeps the empty Flask (loading never refills);
  *   3. E at the checkpoint (the bed) rests: HP and the Flask are full again, the rest panel
  *      opens, and moving a charge to the Mana Flask gives 0 / 2 that persists after closing;
  *   4. the bag outside a fight has no Drink button and marks an old potion as legacy;
- *   5. a second weapon in the bag: 1 cycles between the two prepared main weapons (the weapon
- *      in hand first, then the bag), V casts Push from the prepared slot;
+ *   5. a second weapon prepared in slot 2: 1 cycles between the two prepared main weapons, V
+ *      casts Push from the prepared slot;
  *   6. a save of version 21 with 7 Health Potions and 3 Mana Potions migrates to version 22
  *      with the potions exactly as they were, the Flasks full once, and the original kept
  *      under `<save key>.backup.v21`; a second load changes nothing more.
@@ -69,6 +69,15 @@ const problems = [];
 const watch = (page) => page.on('pageerror', (e) => problems.push(e.message));
 const click = (page, name) =>
   page.getByRole('button', { name, exact: true }).first().click({ timeout: 120_000 });
+/**
+ * A button in a panel over the world, pressed through the DOM: the pointer lock the world
+ * held a moment ago makes Playwright's own hit test unreliable right after a panel opens.
+ */
+const press = (page, name) =>
+  page
+    .getByRole('button', { name, exact: true })
+    .first()
+    .evaluate((button) => button.click());
 
 async function lines(page) {
   const text = await page.evaluate(
@@ -157,10 +166,11 @@ try {
   const fresh = JSON.parse(await stored(page, SAVE_KEY));
   check('a new game saves version 22', fresh.version === 22, `version ${fresh.version}`);
   check(
-    'a new character has 2 Flask charges, 1 Health / 1 Mana, both full; nothing prepared yet',
+    'a new character has 2 Flask charges, 1 Health / 1 Mana, both full; the world filled the sets once',
     flasksOf(fresh) ===
       '{"capacity":2,"health":1,"mana":1,"healthLeft":1,"manaLeft":1,"discoveries":[]}' &&
-      JSON.stringify(fresh.character.prepared) === '{"weapons":[],"incantations":[]}' &&
+      JSON.stringify(fresh.character.prepared) ===
+        '{"weapons":["old_sword",""],"incantations":["push"]}' &&
       JSON.stringify(fresh.character.slotUpgrades) === '{"weaponHarness":[],"grimoirePages":[]}',
     `${flasksOf(fresh)} prepared ${JSON.stringify(fresh.character.prepared)}`,
   );
@@ -217,6 +227,7 @@ try {
   await page.keyboard.press('KeyE');
   const restPanel = page.getByRole('dialog', { name: 'Resting' });
   await restPanel.waitFor({ state: 'attached', timeout: 10_000 }).catch(() => {});
+  await page.waitForTimeout(800);
   check(
     'E at the checkpoint opens the rest panel',
     (await restPanel.count()) > 0,
@@ -231,7 +242,7 @@ try {
       rested.progress.hp >= 50,
     `${flasksOf(rested)} hp ${rested.progress.hp}`,
   );
-  await page.getByRole('button', { name: 'One Mana Flask charge more' }).click();
+  await press(page, 'One Mana Flask charge more');
   await page.waitForTimeout(300);
   const split = page.locator('.ui-rest-count');
   const counts = await split.allTextContents();
@@ -240,7 +251,7 @@ try {
     counts.join('|') === '0 / 0|2 / 2',
     counts.join('|'),
   );
-  await click(page, 'Close');
+  await press(page, 'Close');
   await page.waitForTimeout(500);
   const afterRest = JSON.parse(await stored(page, SAVE_KEY));
   check(
@@ -259,6 +270,9 @@ try {
         { item: 'health_potion', count: 2 },
         { item: 'goblin_cleaver', count: 1 },
       ],
+      // Prepared in slot 2 (the Loadout panel does this in play; a found weapon never
+      // prepares itself once the set is the player's).
+      prepared: { weapons: ['old_sword', 'goblin_cleaver'], incantations: ['push'] },
     },
   });
   await click(page, 'Continue');
@@ -283,11 +297,7 @@ try {
     (l) => /weapon goblin_cleaver/.test(l.get('loadout') ?? ''),
     10,
   );
-  check(
-    '1 switches to the second prepared weapon (the bag fills slot 2)',
-    !!cleaver,
-    cleaver?.get('loadout') ?? '?',
-  );
+  check('1 switches to the second prepared weapon', !!cleaver, cleaver?.get('loadout') ?? '?');
   await page.keyboard.press('Digit1');
   const back = await waitFor(page, (l) => /weapon old_sword/.test(l.get('loadout') ?? ''), 10);
   check(
@@ -347,11 +357,13 @@ try {
     `${JSON.stringify(migrated.character.inventory)} pack ${JSON.stringify(migrated.character.pack)}`,
   );
   check(
-    'the Flasks arrive full once (2, 1 / 1), nothing prepared or upgraded',
+    'the Flasks arrive full once (2, 1 / 1); the world filled the sets deterministically',
     flasksOf(migrated) ===
       '{"capacity":2,"health":1,"mana":1,"healthLeft":1,"manaLeft":1,"discoveries":[]}' &&
-      JSON.stringify(migrated.character.prepared) === '{"weapons":[],"incantations":[]}',
-    flasksOf(migrated),
+      JSON.stringify(migrated.character.prepared) ===
+        '{"weapons":["old_sword",""],"incantations":["push"]}' &&
+      JSON.stringify(migrated.character.slotUpgrades) === '{"weaponHarness":[],"grimoirePages":[]}',
+    `${flasksOf(migrated)} prepared ${JSON.stringify(migrated.character.prepared)}`,
   );
   const backup = await stored(page, BACKUP_KEY);
   const backupSave = backup ? JSON.parse(backup) : null;
