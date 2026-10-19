@@ -237,9 +237,9 @@
   },
   "levelUpRefill": true,
   "flasks": {
-    "startCapacity": 2,
+    "startCapacity": 1,
     "startHealth": 1,
-    "startMana": 1,
+    "startMana": 0,
     "health": { "hpPercent": 50 },
     "mana": { "manaPercent": 30 },
     "drinkSeconds": 0.6,

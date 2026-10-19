@@ -3,8 +3,8 @@
  * Flasks and prepared loadout check (fase G.5): the real game in a headless browser. It plays
  * a new game, skips the intro, and then checks:
  *
- *   1. a new game saves version 22 with 2 Flask charges (1 Health / 1 Mana, full); entering
- *      the world fills the never-chosen prepared sets once (the Old Sword, Push) and keeps them;
+ *   1. a new game saves version 22 with 1 Flask charge (the Health Flask, full); entering the
+ *      world fills the never-chosen prepared sets once (the Old Sword, Push) and keeps them;
  *   2. with HP down, Q drinks the Health Flask: one charge gone, written to the save at once;
  *      a reload keeps the empty Flask (loading never refills);
  *   3. E at the checkpoint (the bed) rests: HP and the Flask are full again, the rest panel
@@ -166,9 +166,9 @@ try {
   const fresh = JSON.parse(await stored(page, SAVE_KEY));
   check('a new game saves version 22', fresh.version === 22, `version ${fresh.version}`);
   check(
-    'a new character has 2 Flask charges, 1 Health / 1 Mana, both full; the world filled the sets once',
+    'a new character has 1 Flask charge (Health), full; the world filled the sets once',
     flasksOf(fresh) ===
-      '{"capacity":2,"health":1,"mana":1,"healthLeft":1,"manaLeft":1,"discoveries":[]}' &&
+      '{"capacity":1,"health":1,"mana":0,"healthLeft":1,"manaLeft":0,"discoveries":[]}' &&
       JSON.stringify(fresh.character.prepared) ===
         '{"weapons":["old_sword",""],"incantations":["push"]}' &&
       JSON.stringify(fresh.character.slotUpgrades) === '{"weaponHarness":[],"grimoirePages":[]}',
@@ -181,7 +181,7 @@ try {
   );
   check(
     'Push is the prepared incantation, the Health Flask the quick item',
-    !!loadoutLine && /flask health H 1\/1 M 1\/1/.test(loadoutLine.get('loadout') ?? ''),
+    !!loadoutLine && /flask health H 1\/1 M 0\/0/.test(loadoutLine.get('loadout') ?? ''),
     loadoutLine?.get('loadout') ?? 'no loadout line',
   );
 
@@ -235,11 +235,10 @@ try {
   );
   const rested = JSON.parse(await stored(page, SAVE_KEY));
   check(
-    'resting refills every charge (1 / 1) and HP',
-    (rested.character.flasks.healthLeft === 1 &&
-      rested.character.flasks.manaLeft === 1 &&
-      rested.progress.hp === null) ||
-      rested.progress.hp >= 50,
+    'resting refills the charge (1 / 0) and HP',
+    rested.character.flasks.healthLeft === 1 &&
+      rested.character.flasks.manaLeft === 0 &&
+      (rested.progress.hp === null || rested.progress.hp >= 50),
     `${flasksOf(rested)} hp ${rested.progress.hp}`,
   );
   await press(page, 'One Mana Flask charge more');
@@ -247,17 +246,17 @@ try {
   const split = page.locator('.ui-rest-count');
   const counts = await split.allTextContents();
   check(
-    'moving a charge to the Mana Flask gives 0 / 0 and 2 / 2 while resting',
-    counts.join('|') === '0 / 0|2 / 2',
+    'moving the charge to the Mana Flask gives 0 / 0 and 1 / 1 while resting',
+    counts.join('|') === '0 / 0|1 / 1',
     counts.join('|'),
   );
   await press(page, 'Close');
   await page.waitForTimeout(500);
   const afterRest = JSON.parse(await stored(page, SAVE_KEY));
   check(
-    'the new split (0 Health / 2 Mana, full) is saved when the panel closes',
+    'the new split (0 Health / 1 Mana, full) is saved when the panel closes',
     flasksOf(afterRest) ===
-      '{"capacity":2,"health":0,"mana":2,"healthLeft":0,"manaLeft":2,"discoveries":[]}',
+      '{"capacity":1,"health":0,"mana":1,"healthLeft":0,"manaLeft":1,"discoveries":[]}',
     flasksOf(afterRest),
   );
 
@@ -357,9 +356,9 @@ try {
     `${JSON.stringify(migrated.character.inventory)} pack ${JSON.stringify(migrated.character.pack)}`,
   );
   check(
-    'the Flasks arrive full once (2, 1 / 1); the world filled the sets deterministically',
+    'the Flasks arrive full once (1, Health); the world filled the sets deterministically',
     flasksOf(migrated) ===
-      '{"capacity":2,"health":1,"mana":1,"healthLeft":1,"manaLeft":1,"discoveries":[]}' &&
+      '{"capacity":1,"health":1,"mana":0,"healthLeft":1,"manaLeft":0,"discoveries":[]}' &&
       JSON.stringify(migrated.character.prepared) ===
         '{"weapons":["old_sword",""],"incantations":["push"]}' &&
       JSON.stringify(migrated.character.slotUpgrades) === '{"weaponHarness":[],"grimoirePages":[]}',
@@ -385,6 +384,36 @@ try {
     flasksOf(again),
   );
   check('the backup is untouched', (await stored(page, BACKUP_KEY)) === backup, BACKUP_KEY);
+
+  // 7. The three Greenwood quests finished before the reward existed: one charge each, once.
+  const QUESTS = ['blade_in_the_woods', 'sparks_in_the_greenwood', 'shadows_in_the_greenwood'];
+  page = await reopenWith(page, {
+    quests: { active: [], completed: [...again.quests.completed, ...QUESTS] },
+    character: { ...again.character, flasks: { ...again.character.flasks, healthLeft: 0 } },
+  });
+  await click(page, 'Continue');
+  await inWorld(page);
+  await page.waitForTimeout(1500);
+  const entitled = JSON.parse(await stored(page, SAVE_KEY));
+  check(
+    'quests finished earlier give 3 permanent charges on entering the world (4 in all), still empty',
+    entitled.character.flasks.capacity === 4 &&
+      entitled.character.flasks.health === 4 &&
+      entitled.character.flasks.healthLeft === 0 &&
+      JSON.stringify(entitled.character.flasks.discoveries) ===
+        JSON.stringify(QUESTS.map((id) => `quest:${id}`)),
+    flasksOf(entitled),
+  );
+  page = await reopenWith(page, {});
+  await click(page, 'Continue');
+  await inWorld(page);
+  await page.waitForTimeout(1500);
+  const entitledAgain = JSON.parse(await stored(page, SAVE_KEY));
+  check(
+    'entering the world again grants nothing more (still 4, the same three discoveries)',
+    flasksOf(entitledAgain) === flasksOf(entitled),
+    flasksOf(entitledAgain),
+  );
 } finally {
   await browser.close();
   server?.stop();

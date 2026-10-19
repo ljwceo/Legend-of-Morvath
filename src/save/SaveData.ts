@@ -288,11 +288,14 @@ export const CRYSTAL_ELEMENT_IDS: readonly string[] = ['water', 'fire', 'nature'
 
 /**
  * The Flasks an existing save receives in the migration to version 22 (G.5; decided by Lucas on
- * 2026-10-19): 2 charges, 1 Health and 1 Mana, both full once. This is the historical baseline
- * of that one migration and stays as it is; a new character reads player.json `flasks` (a test
- * keeps the two equal for now). Nothing about consumed potions or achievements is inferred.
+ * 2026-10-19, corrected the same day from 2 charges to 1): one charge, the Health Flask, full
+ * once. A new character reads player.json `flasks` (a test keeps the two equal). A save that
+ * already carries Flasks (a v22 save made with the earlier 2-charge baseline) keeps them: the
+ * baseline is only for saves that have none yet. Nothing about consumed potions or
+ * achievements is inferred; the three Greenwood quests add capacity through their own
+ * discovery ids when the world is entered (`WorldState`, `questFlaskDiscoveryId`).
  */
-export const FLASK_START_V22 = { capacity: 2, health: 1, mana: 1 } as const;
+export const FLASK_START_V22 = { capacity: 1, health: 1, mana: 0 } as const;
 
 /**
  * The ordinary potions of the old model (items.json `legacy: true` since G.5), replaced by the

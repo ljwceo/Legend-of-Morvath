@@ -147,7 +147,10 @@ import {
   type FlaskKind,
   FlaskUse,
   grantFlaskCapacity,
+  nextQuickFlask,
   normalizeFlasks,
+  questFlaskDiscoveryId,
+  questFlaskGrants,
   restFlasks,
   useFlask,
 } from '../systems/Flasks';
@@ -861,6 +864,14 @@ export class WorldState implements GameState, InstanceHost {
         const incantations = this.preparedIncantations();
         if (preparedIds(incantations).length > 0) {
           prepared.incantations = incantations;
+          filled = true;
+        }
+      }
+      // Quests that reward permanent Flask capacity and were finished before that reward
+      // existed (or in an older save): their charge arrives now, under the same discovery id a
+      // fresh completion uses, so it can never count twice (G.5 correction, 2026-10-19).
+      for (const questId of questFlaskGrants(session.quests.completed, data.quests.quests)) {
+        if (grantFlaskCapacity(session.character.flasks, questFlaskDiscoveryId(questId))) {
           filled = true;
         }
       }
@@ -2266,6 +2277,15 @@ export class WorldState implements GameState, InstanceHost {
     const c = player.combat;
     c.hp = c.maxHp;
     c.mana = c.maxMana;
+    // Waking up at the checkpoint refills the Flasks according to the split as it is (Lucas,
+    // 2026-10-19): no capacity, no new split, no discovery; the one respawn hook that does it.
+    const flasks = session.character?.flasks;
+    if (flasks) {
+      const rested = restFlasks(flasks);
+      if (rested && session.character) session.character.flasks = rested;
+      this.flaskCooldown = 0;
+      this.refreshFlasks();
+    }
     c.poise.reset(c.poise.max);
     c.sinceCombat = Infinity;
     c.sinceHurt = Infinity;
@@ -3479,6 +3499,14 @@ export class WorldState implements GameState, InstanceHost {
     for (const unlock of r.unlocks ?? []) {
       if (!session.unlocks.includes(unlock)) session.unlocks.push(unlock);
     }
+    // One permanent Flask charge (G.5), once: the discovery id is the quest's, so handing the
+    // quest in again (impossible), a reload or a migration can never give a second one. It is
+    // empty until the next checkpoint rest.
+    if (r.flaskCapacity && grantFlaskCapacity(character.flasks, questFlaskDiscoveryId(def.id))) {
+      this.damageNumbers?.spawnText(s.x, y, s.z, t.t('quest.ui.flaskCapacityShort'), 'loot');
+      this.hud?.showMessage(t.t('quest.ui.flaskCapacity'));
+      this.refreshFlasks();
+    }
     this.applyGear(true);
     this.updatePlayerGear();
     this.ctx.events.emit('questCompleted', { questId: def.id });
@@ -3884,7 +3912,7 @@ export class WorldState implements GameState, InstanceHost {
     this.hud?.showMessage(this.ctx.i18n.t('hud.noOffhand'));
   }
 
-  /** 3 / D-pad down: the other Flask becomes the one Q / X uses (G.5; Health ↔ Mana). */
+  /** 3 / D-pad down: the other allocated Flask becomes the one Q / X uses (G.5; Health ↔ Mana). */
   private cycleQuickFlask(): void {
     const character = this.ctx.session?.character;
     if (!character || this.deathTimer !== NOT_DYING) return;
@@ -3893,7 +3921,9 @@ export class WorldState implements GameState, InstanceHost {
       this.hud?.showMessage(this.ctx.i18n.t('hud.noItem'));
       return;
     }
-    this.quickFlask = this.quickFlask === 'health' ? 'mana' : 'health';
+    // A Flask with no capacity allocated is skipped without a word; with one kind allocated
+    // that kind stays selected (Lucas, 2026-10-19).
+    this.quickFlask = nextQuickFlask(this.quickFlask, character.flasks);
     this.refreshFlasks();
   }
 

@@ -165,6 +165,44 @@ export function flaskHelps(
  * nothing, when this discovery was counted before, so a pickup that fires twice, a reload or a
  * respec can never award it again.
  */
+/**
+ * The discovery id of a quest that rewards permanent Flask capacity (`rewards.flaskCapacity`):
+ * one stable id per quest, so completing it, a reload, a migration and the reconciliation of a
+ * save that finished it before this reward existed all count the same single charge.
+ */
+export function questFlaskDiscoveryId(questId: string): string {
+  return `quest:${questId}`;
+}
+
+/**
+ * The quests among `completed` that reward Flask capacity (quests.json `rewards.flaskCapacity`),
+ * in the order of the data. The world grants each of them once when it is entered
+ * (`grantFlaskCapacity` with `questFlaskDiscoveryId`), so a save that finished such a quest
+ * before the reward existed receives exactly what a fresh completion gives, and never twice.
+ */
+export function questFlaskGrants(
+  completed: readonly string[],
+  quests: readonly { id: string; rewards: { flaskCapacity?: boolean | undefined } }[],
+): string[] {
+  const out: string[] = [];
+  for (const quest of quests) {
+    if (quest.rewards.flaskCapacity === true && completed.includes(quest.id)) out.push(quest.id);
+  }
+  return out;
+}
+
+/**
+ * The Flask the quick switch (3 / D-pad down) moves to from `current` (Lucas, 2026-10-19): a
+ * Flask with no capacity allocated is skipped without a word; one with capacity but no charge
+ * left can be chosen (using it says it is empty). With only one kind allocated, that kind
+ * stays; with nothing allocated the current one stays.
+ */
+export function nextQuickFlask(current: FlaskKind, state: FlaskState): FlaskKind {
+  const other: FlaskKind = current === 'health' ? 'mana' : 'health';
+  if (allocation(state, other) > 0) return other;
+  return allocation(state, current) > 0 ? current : current;
+}
+
 export function grantFlaskCapacity(state: FlaskState, discoveryId: string): boolean {
   if (discoveryId === '' || state.discoveries.includes(discoveryId)) return false;
   state.discoveries.push(discoveryId);

@@ -700,6 +700,8 @@
       "started": "New quest: {name}",
       "ready": "{name}: go back to {giver}",
       "completed": "Quest complete: {name}",
+      "flaskCapacity": "Your Flask capacity grew by one. Rest at a checkpoint to fill it.",
+      "flaskCapacityShort": "+1 Flask capacity",
       "progress": "{name} · {objective}",
       "upgraded": "{from} is now {to}",
       "objective": {

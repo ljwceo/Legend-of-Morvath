@@ -1704,6 +1704,13 @@ export const questsFileSchema = z.strictObject({
         upgrades: optional(z.array(z.strictObject({ from: id, to: id }))),
         /** Things that are now yours, kept in the save (e.g. your plot in the Garden). */
         unlocks: optional(z.array(id)),
+        /**
+         * One permanent Flask charge (G.5), granted once through the Flask discovery mechanism
+         * under the id `quest:<quest id>` (`Flasks.questFlaskDiscoveryId`): completing the
+         * quest again, a reload or a save migration can never grant it twice. The new
+         * capacity is empty until the next checkpoint rest.
+         */
+        flaskCapacity: optional(z.boolean()),
       }),
     }),
   ),

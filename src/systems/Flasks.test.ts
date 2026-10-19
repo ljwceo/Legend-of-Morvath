@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { playerFileSchema } from '../data/schemas';
-import type { PlayerConfig } from '../data/types';
+import { playerFileSchema, questsFileSchema } from '../data/schemas';
+import type { PlayerConfig, QuestsFile } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
 import { CombatState } from './Combat';
 import {
@@ -12,12 +12,16 @@ import {
   flasksValid,
   type FlaskState,
   grantFlaskCapacity,
+  nextQuickFlask,
   normalizeFlasks,
+  questFlaskDiscoveryId,
+  questFlaskGrants,
   restFlasks,
   useFlask,
 } from './Flasks';
 
 const player = playerFileSchema.parse(readPublicJson('data/player.json')) as PlayerConfig;
+const questsFile = questsFileSchema.parse(readPublicJson('data/quests.json')) as QuestsFile;
 const cfg = player.flasks;
 const DT = 1 / 60;
 
@@ -37,10 +41,10 @@ function eight(): FlaskState {
 const restored = { kind: 'health' as const, amount: 0 };
 
 describe('Flasks (G.5): the approved start', () => {
-  it('player.json holds the approved start: 2 charges, 1 Health and 1 Mana, provisional values', () => {
-    expect(cfg.startCapacity).toBe(2);
+  it('player.json holds the approved start: 1 charge, the Health Flask, provisional values', () => {
+    expect(cfg.startCapacity).toBe(1);
     expect(cfg.startHealth).toBe(1);
-    expect(cfg.startMana).toBe(1);
+    expect(cfg.startMana).toBe(0);
     expect(cfg.health.hpPercent).toBe(50);
     expect(cfg.mana.manaPercent).toBe(30);
     expect(cfg.drinkSeconds).toBe(0.6);
@@ -49,11 +53,11 @@ describe('Flasks (G.5): the approved start', () => {
 
   it('a new character starts with every charge full and no discoveries', () => {
     expect(createFlasks(cfg)).toEqual({
-      capacity: 2,
+      capacity: 1,
       health: 1,
-      mana: 1,
+      mana: 0,
       healthLeft: 1,
-      manaLeft: 1,
+      manaLeft: 0,
       discoveries: [],
     });
     expect(flasksValid(createFlasks(cfg))).toBe(true);
@@ -93,13 +97,28 @@ describe('Flasks: allocation and rest', () => {
     expect(state.healthLeft).toBe(1);
   });
 
-  it('rest never grants capacity: a rest of an empty 2-capacity gives exactly 2 charges', () => {
+  it('rest never grants capacity: a rest of an empty start Flask gives exactly its one charge', () => {
     const state = createFlasks(cfg);
     state.healthLeft = 0;
-    state.manaLeft = 0;
     const rested = restFlasks(state) as FlaskState;
-    expect(rested.capacity).toBe(2);
-    expect(rested.healthLeft + rested.manaLeft).toBe(2);
+    expect(rested.capacity).toBe(1);
+    expect(rested.healthLeft + rested.manaLeft).toBe(1);
+  });
+
+  it('a respawn uses the same rest: charges back by the allocation, nothing else moves', () => {
+    const state: FlaskState = {
+      capacity: 4,
+      health: 3,
+      mana: 1,
+      healthLeft: 0,
+      manaLeft: 0,
+      discoveries: ['quest:blade_in_the_woods', 'cave_shrine', 'tower_top'],
+    };
+    const rested = restFlasks(state) as FlaskState;
+    expect(rested).toEqual({ ...state, healthLeft: 3, manaLeft: 1 });
+    expect(rested.discoveries).toBe(state.discoveries);
+    // Doing it again (a second respawn hook, a second rest) changes nothing more.
+    expect(restFlasks(rested)).toEqual(rested);
   });
 });
 
@@ -220,23 +239,60 @@ describe('Flasks: permanent capacity', () => {
     state.healthLeft = 0;
     expect(grantFlaskCapacity(state, 'cave_shrine')).toBe(true);
     expect(state).toEqual({
-      capacity: 3,
+      capacity: 2,
       health: 2,
-      mana: 1,
+      mana: 0,
       healthLeft: 0,
-      manaLeft: 1,
+      manaLeft: 0,
       discoveries: ['cave_shrine'],
     });
     // The same discovery again: nothing, however often it fires.
     expect(grantFlaskCapacity(state, 'cave_shrine')).toBe(false);
     expect(grantFlaskCapacity(state, 'cave_shrine')).toBe(false);
-    expect(state.capacity).toBe(3);
+    expect(state.capacity).toBe(2);
     expect(grantFlaskCapacity(state, '')).toBe(false);
     // Another one counts, and the new charge is there after the next rest only.
     expect(grantFlaskCapacity(state, 'tower_top')).toBe(true);
-    expect(state.capacity).toBe(4);
+    expect(state.capacity).toBe(3);
     expect(state.healthLeft).toBe(0);
-    expect(restFlasks(state)).toEqual({ ...state, healthLeft: 3, manaLeft: 1 });
+    expect(restFlasks(state)).toEqual({ ...state, healthLeft: 3, manaLeft: 0 });
+    expect(flasksValid(state)).toBe(true);
+  });
+
+  it('the three Greenwood quests: one charge each, 4 in all, never twice, same id as a fresh completion', () => {
+    const quests = questsFile.quests;
+    const rewarding = quests.filter((quest) => quest.rewards.flaskCapacity === true);
+    expect(rewarding.map((quest) => quest.id).sort()).toEqual(
+      ['blade_in_the_woods', 'shadows_in_the_greenwood', 'sparks_in_the_greenwood'].sort(),
+    );
+    expect(questFlaskDiscoveryId('blade_in_the_woods')).toBe('quest:blade_in_the_woods');
+    // Nothing completed: nothing to grant; one completed: that one; all: the three in data order.
+    expect(questFlaskGrants([], quests)).toEqual([]);
+    expect(questFlaskGrants(['your_resolve', 'sparks_in_the_greenwood'], quests)).toEqual([
+      'sparks_in_the_greenwood',
+    ]);
+    const completed = rewarding.map((quest) => quest.id);
+    expect(questFlaskGrants(completed, quests)).toEqual(completed);
+    // A fresh completion grants under the quest's id...
+    const state = createFlasks(cfg);
+    expect(grantFlaskCapacity(state, questFlaskDiscoveryId('blade_in_the_woods'))).toBe(true);
+    expect(state.capacity).toBe(2);
+    // ...and the reconciliation on entering the world grants the rest, once.
+    for (const id of questFlaskGrants(completed, quests)) {
+      grantFlaskCapacity(state, questFlaskDiscoveryId(id));
+    }
+    expect(state.capacity).toBe(4);
+    expect(state.discoveries).toEqual(completed.map(questFlaskDiscoveryId));
+    for (let round = 0; round < 3; round++) {
+      for (const id of questFlaskGrants(completed, quests)) {
+        expect(grantFlaskCapacity(state, questFlaskDiscoveryId(id))).toBe(false);
+      }
+    }
+    expect(state.capacity).toBe(4);
+    // No global maximum: a hidden discovery still counts; the new charges are empty until a rest.
+    expect(grantFlaskCapacity(state, 'cave_shrine')).toBe(true);
+    expect(state.capacity).toBe(5);
+    expect(state.healthLeft).toBe(1);
     expect(flasksValid(state)).toBe(true);
   });
 
@@ -245,7 +301,36 @@ describe('Flasks: permanent capacity', () => {
     grantFlaskCapacity(state, 'cave_shrine');
     const loaded = JSON.parse(JSON.stringify(state)) as FlaskState;
     expect(grantFlaskCapacity(loaded, 'cave_shrine')).toBe(false);
-    expect(loaded.capacity).toBe(3);
+    expect(loaded.capacity).toBe(2);
+  });
+});
+
+describe('Flasks: the quick switch (3 / D-pad down)', () => {
+  const at = (health: number, mana: number): FlaskState => ({
+    capacity: health + mana,
+    health,
+    mana,
+    healthLeft: 0,
+    manaLeft: 0,
+    discoveries: [],
+  });
+
+  it('skips a Flask with no capacity allocated and stays on the only allocated kind', () => {
+    expect(nextQuickFlask('health', at(1, 0))).toBe('health');
+    expect(nextQuickFlask('mana', at(1, 0))).toBe('health');
+    expect(nextQuickFlask('health', at(0, 2))).toBe('mana');
+    expect(nextQuickFlask('mana', at(0, 2))).toBe('mana');
+  });
+
+  it('toggles between two allocated kinds, also when a kind has no charge left', () => {
+    expect(nextQuickFlask('health', at(1, 1))).toBe('mana');
+    expect(nextQuickFlask('mana', at(1, 1))).toBe('health');
+    expect(nextQuickFlask('health', at(3, 1))).toBe('mana');
+  });
+
+  it('with nothing allocated the current kind stays', () => {
+    expect(nextQuickFlask('health', at(0, 0))).toBe('health');
+    expect(nextQuickFlask('mana', at(0, 0))).toBe('mana');
   });
 });
 

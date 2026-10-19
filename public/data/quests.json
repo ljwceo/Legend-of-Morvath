@@ -472,12 +472,9 @@
           {
             "item": "padded_mantle",
             "count": 1
-          },
-          {
-            "item": "greater_health_potion",
-            "count": 2
           }
-        ]
+        ],
+        "flaskCapacity": true
       }
     },
     {
@@ -614,12 +611,9 @@
           {
             "item": "swift_ring",
             "count": 1
-          },
-          {
-            "item": "greater_mana_potion",
-            "count": 2
           }
-        ]
+        ],
+        "flaskCapacity": true
       }
     },
     {
@@ -763,12 +757,9 @@
           {
             "item": "goblin_tooth_necklace",
             "count": 1
-          },
-          {
-            "item": "greater_mana_potion",
-            "count": 2
           }
-        ]
+        ],
+        "flaskCapacity": true
       }
     },
     {

@@ -1483,9 +1483,18 @@ class CrossChecker {
       quest.requires.items?.forEach((stack, r) =>
         this.ref('item', f, `${p}.requires.items[${r}].item`, stack.item),
       );
-      quest.rewards.items.forEach((stack, r) =>
-        this.ref('item', f, `${p}.rewards.items[${r}].item`, stack.item),
-      );
+      quest.rewards.items.forEach((stack, r) => {
+        this.ref('item', f, `${p}.rewards.items[${r}].item`, stack.item);
+        // A quest that rewards permanent Flask capacity (G.5) gives no legacy potion with it.
+        const rewarded = this.data.items.items.find((item) => item.id === stack.item);
+        if (quest.rewards.flaskCapacity && rewarded?.legacy && rewarded.type === 'potion') {
+          this.issue(
+            f,
+            `${p}.rewards.items[${r}].item`,
+            `"${stack.item}" is a legacy potion; a quest that rewards Flask capacity gives none`,
+          );
+        }
+      });
       this.checkQuestPath(f, p, quest);
       this.checkQuestGrants(f, p, quest);
     });

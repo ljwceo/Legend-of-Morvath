@@ -299,7 +299,7 @@ describe('validateGameData catches broken data', () => {
     marco.shop.items.push({ item: 'health_potion', price: 10 });
     const found = messages(raw);
     expect(found).toContainEqual(
-      expect.stringContaining('startHealth + startMana (3) must equal startCapacity (2)'),
+      expect.stringContaining('startHealth + startMana (2) must equal startCapacity (1)'),
     );
     expect(found).toContainEqual(
       expect.stringContaining('"health_potion" is a legacy potion and not for sale'),
@@ -909,10 +909,32 @@ describe('legacy potions (G.5)', () => {
       for (const stack of quest.grants?.items ?? []) expect(isLegacyPotion(stack.item)).toBe(false);
       if (quest.rewards.items.some((stack) => isLegacyPotion(stack.item))) rewarding.push(quest.id);
     }
-    // The three Greenwood side quests of before G.5 still reward one (a content decision for
-    // Bo/Lucas, not touched here); anything beyond these is a new, unintended reward.
-    expect(rewarding.sort()).toEqual(
+    // The three Greenwood side quests reward permanent Flask capacity instead (G.5 correction,
+    // Lucas 2026-10-19); no quest rewards a legacy potion any more.
+    expect(rewarding).toEqual([]);
+    const capacity = (data?.quests.quests ?? [])
+      .filter((quest) => quest.rewards.flaskCapacity === true)
+      .map((quest) => quest.id)
+      .sort();
+    expect(capacity).toEqual(
       ['blade_in_the_woods', 'shadows_in_the_greenwood', 'sparks_in_the_greenwood'].sort(),
+    );
+    // Their other rewards stayed (the mantle, the ring, the necklace; XP and gold).
+    for (const id of capacity) {
+      const quest = data?.quests.quests.find((entry) => entry.id === id);
+      expect(quest?.rewards.items.length).toBe(1);
+      expect(quest?.rewards.xp).toBe(150);
+      expect(quest?.rewards.gold).toBe(30);
+    }
+    // A capacity quest that also rewards a legacy potion is refused.
+    const raw = freshData();
+    raw.quests.quests
+      .find((quest: { id: string }) => quest.id === 'blade_in_the_woods')
+      .rewards.items.push({ item: 'greater_health_potion', count: 2 });
+    expect(messages(raw)).toContainEqual(
+      expect.stringContaining(
+        '"greater_health_potion" is a legacy potion; a quest that rewards Flask capacity gives none',
+      ),
     );
   });
 
