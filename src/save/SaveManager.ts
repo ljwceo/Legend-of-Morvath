@@ -46,6 +46,12 @@ export function browserStorage(): StorageLike | null {
  * Never throws on storage problems: methods report failure instead.
  */
 export class SaveManager {
+  /**
+   * The original of an older save whose backup could not be stored yet (storage full): the
+   * migrated form is not written over it until the backup is there (`write` tries again).
+   */
+  private pendingBackup: { key: string; text: string } | null = null;
+
   constructor(
     private readonly storage: StorageLike | null,
     private readonly key: string = SAVE_KEY,
@@ -55,6 +61,11 @@ export class SaveManager {
   /** False when nothing can be stored (the game still runs, without saving). */
   get available(): boolean {
     return this.storage !== null;
+  }
+
+  /** True while an older save waits for its backup; no write replaces it until then. */
+  get backupPending(): boolean {
+    return this.pendingBackup !== null;
   }
 
   load(): LoadResult {
@@ -72,7 +83,7 @@ export class SaveManager {
     // original once (G.4). A backup that is already there is never replaced, so a reload
     // before the first write, or a later migration, cannot lose the oldest copy.
     if (result.status === 'ok' && result.migratedFrom !== undefined) {
-      this.keepMigrationBackup(text, result.migratedFrom);
+      this.keepMigrationBackup({ key: migrationBackupKey(this.key, result.migratedFrom), text });
     }
     return result;
   }
@@ -80,6 +91,8 @@ export class SaveManager {
   /** Stores the save and stamps `updatedAt`. Returns false when storage failed (e.g. full). */
   write(save: SaveData, now: Date = new Date()): boolean {
     if (!this.storage) return false;
+    // Never over an older save that has no backup yet (G.4): the backup comes first.
+    if (this.pendingBackup && !this.keepMigrationBackup(this.pendingBackup)) return false;
     save.updatedAt = now.toISOString();
     try {
       this.storage.setItem(this.key, JSON.stringify(save));
@@ -91,6 +104,7 @@ export class SaveManager {
 
   /** Removes the save (Settings → delete, after confirming twice). The backups go too. */
   delete(): void {
+    this.pendingBackup = null;
     try {
       this.storage?.removeItem(this.key);
       this.storage?.removeItem(this.key + BACKUP_SUFFIX);
@@ -149,12 +163,15 @@ export class SaveManager {
       : { status: 'ok', save: checked.data };
   }
 
-  private keepMigrationBackup(text: string, from: number): void {
-    const key = migrationBackupKey(this.key, from);
+  /** Stores the backup unless one is there already; false (and remembered) when storage fails. */
+  private keepMigrationBackup(backup: { key: string; text: string }): boolean {
     try {
-      if (this.storage?.getItem(key) === null) this.storage.setItem(key, text);
+      if (this.storage?.getItem(backup.key) === null) this.storage.setItem(backup.key, backup.text);
+      this.pendingBackup = null;
+      return true;
     } catch {
-      // Storage full: the migrated save is still written over the original on the next save.
+      this.pendingBackup = backup;
+      return false;
     }
   }
 

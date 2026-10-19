@@ -242,7 +242,30 @@ export const LEGACY_STAFF_REPLACEMENTS: readonly string[] = ['honed_old_sword', 
 /** The Grimoire every character gets with G.4 (items.json type `grimoire`). */
 export const ROOKIE_GRIMOIRE_ID = 'rookie_grimoire';
 
+/**
+ * The elements a crystal could hold in the old model (items.json `crystal.elements` of every
+ * crystal; spells.json element ids that are not `alwaysUnlocked`). A migration cannot read the
+ * data, so the ids live here; a test checks they match. Only one of these becomes a permanent
+ * element; anything else in `character.crystal` is left alone and unlocks nothing.
+ */
+export const CRYSTAL_ELEMENT_IDS: readonly string[] = ['water', 'fire', 'nature', 'wind', 'dark'];
+
 type RawStack = { item?: unknown; count?: unknown };
+
+/**
+ * Takes one of an item out of a raw stack list (the first stack that has it; a stack that runs
+ * out goes). Returns false, and changes nothing, when there is none.
+ */
+function rawTakeOne(stacks: unknown[], item: string): boolean {
+  for (let i = 0; i < stacks.length; i++) {
+    const stack = stacks[i] as RawStack | null;
+    if (stack?.item !== item || typeof stack.count !== 'number' || stack.count <= 0) continue;
+    if (stack.count === 1) stacks.splice(i, 1);
+    else stacks[i] = { ...stack, count: stack.count - 1 };
+    return true;
+  }
+  return false;
+}
 
 /** How many of an item a raw stack list holds (tolerant: a malformed entry counts as nothing). */
 function rawCount(stacks: unknown, item: string): number {
@@ -257,23 +280,26 @@ function rawCount(stacks: unknown, item: string): number {
 
 /**
  * The Grimoire part of migration 20 → 21 on a raw character (exported for the tests). Adds the
- * permanent elements (the crystal's element, drawn in the Crystal Ceremony, is yours for good;
- * nothing else) and the learned incantations (none yet: Push comes with Neutral), puts the
- * Rookie Grimoire in the bag unless one is in the bag or on the pack animal already, and takes
- * a legacy staff out of your hands for a valid sword (see `LEGACY_STAFF_REPLACEMENTS`); the
- * staff stays in the bag. Everything else on the character is left exactly as it was.
+ * permanent elements (the crystal's element, drawn in the Crystal Ceremony, is yours for good
+ * when it is a real element; nothing else) and the learned incantations (none yet: Push comes
+ * with Neutral), makes sure the Rookie Grimoire is in your own bag (casting needs it there,
+ * P-5): one that lies on the pack animal moves over, otherwise one is given, never a second
+ * one. A legacy staff in your hands makes way for a valid sword (see
+ * `LEGACY_STAFF_REPLACEMENTS`); the staff stays in the bag. Everything else on the character
+ * is left exactly as it was.
  */
 export function migrateCharacterToGrimoire(
   character: Record<string, unknown>,
 ): Record<string, unknown> {
   const inventory = Array.isArray(character.inventory) ? [...character.inventory] : [];
+  const pack = Array.isArray(character.pack) ? [...character.pack] : [];
   const equipment = { ...((character.equipment ?? {}) as Record<string, unknown>) };
   const crystal = character.crystal;
-  const elements = typeof crystal === 'string' && crystal.length > 0 ? [crystal] : [];
-  if (
-    rawCount(inventory, ROOKIE_GRIMOIRE_ID) + rawCount(character.pack, ROOKIE_GRIMOIRE_ID) ===
-    0
-  ) {
+  const elements =
+    typeof crystal === 'string' && CRYSTAL_ELEMENT_IDS.includes(crystal) ? [crystal] : [];
+  if (rawCount(inventory, ROOKIE_GRIMOIRE_ID) === 0) {
+    // From the pack animal when it lies there (no duplicate), else a new one.
+    rawTakeOne(pack, ROOKIE_GRIMOIRE_ID);
     inventory.push({ item: ROOKIE_GRIMOIRE_ID, count: 1 });
   }
   const weapon = equipment.weapon;
@@ -283,7 +309,7 @@ export function migrateCharacterToGrimoire(
     if (owned === undefined) inventory.push({ item: fallback, count: 1 });
     equipment.weapon = owned ?? fallback;
   }
-  return { ...character, inventory, equipment, elements, incantations: [] };
+  return { ...character, inventory, pack, equipment, elements, incantations: [] };
 }
 
 /** Upgrades a raw save object from version `v` to `v + 1`. */

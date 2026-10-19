@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { itemsFileSchema, playerFileSchema, statsFileSchema } from '../data/schemas';
+import {
+  itemsFileSchema,
+  playerFileSchema,
+  spellsFileSchema,
+  statsFileSchema,
+} from '../data/schemas';
 import type { ItemDef } from '../data/types';
 import { createCharacter } from '../scenes/creator';
 import { handInEggs } from '../systems/Eggs';
@@ -10,6 +15,7 @@ import { countItem } from '../systems/Inventory';
 import { readPublicJson } from '../test/loadPublic';
 import {
   createNewSave,
+  CRYSTAL_ELEMENT_IDS,
   DEFAULT_CAMERA_SENSITIVITY,
   LEGACY_STAFF_IDS,
   LEGACY_STAFF_REPLACEMENTS,
@@ -620,6 +626,7 @@ describe('migrate', () => {
 const itemsFile = itemsFileSchema.parse(readPublicJson('data/items.json'));
 const playerFile = playerFileSchema.parse(readPublicJson('data/player.json'));
 const statsFile = statsFileSchema.parse(readPublicJson('data/stats.json'));
+const spellsFile = spellsFileSchema.parse(readPublicJson('data/spells.json'));
 const itemsById = new Map<string, ItemDef>(itemsFile.items.map((item) => [item.id, item]));
 
 type RawSave = Record<string, unknown>;
@@ -715,6 +722,39 @@ describe('G.4: migration to save version 21 (the Grimoire)', () => {
       expect(def?.legacy).toBeUndefined();
     }
     expect(playerFile.start.equipment.weapon).toBe(LEGACY_STAFF_REPLACEMENTS.at(-1));
+    // The elements a crystal could hold: every crystal's elements, all real and none Neutral.
+    const fromCrystals = new Set<string>();
+    for (const item of itemsFile.items)
+      for (const e of item.crystal?.elements ?? []) fromCrystals.add(e);
+    expect([...fromCrystals].sort()).toEqual([...CRYSTAL_ELEMENT_IDS].sort());
+    for (const id of CRYSTAL_ELEMENT_IDS) {
+      const element = spellsFile.elements.find((entry) => entry.id === id);
+      expect(element).toBeDefined();
+      expect(element?.alwaysUnlocked).toBeUndefined();
+    }
+  });
+
+  it('only a real element from the crystal becomes permanent; the crystal field itself stays', () => {
+    const fire = characterOf(
+      loadV20(v20Save('light', [OLD], 'old_sword', { crystal: 'fire' })).save,
+    );
+    expect(fire.elements).toEqual(['fire']);
+    expect(fire.crystal).toBe('fire');
+    // An old fixture stored the crystal item id here: nothing is unlocked, nothing is lost.
+    const itemId = characterOf(
+      loadV20(v20Save('light', [OLD, CRYSTAL], 'old_sword', { crystal: 'wizard_crystal' })).save,
+    );
+    expect(itemId.elements).toEqual([]);
+    expect(itemId.crystal).toBe('wizard_crystal');
+    expect(countItem(itemId.inventory, 'wizard_crystal')).toBe(1);
+    const neutral = migrateCharacterToGrimoire({ crystal: 'neutral' });
+    expect(neutral.elements).toEqual([]);
+    expect(migrateCharacterToGrimoire({ crystal: null }).elements).toEqual([]);
+    expect(migrateCharacterToGrimoire({ crystal: '' }).elements).toEqual([]);
+    expect(migrateCharacterToGrimoire({ crystal: 7 }).elements).toEqual([]);
+    const missing = migrateCharacterToGrimoire({});
+    expect(missing.elements).toEqual([]);
+    expect(missing).not.toHaveProperty('crystal');
   });
 
   it('a new character starts on version 21 with the Grimoire, no elements and no incantations', () => {
@@ -808,15 +848,31 @@ describe('G.4: migration to save version 21 (the Grimoire)', () => {
     expect(spare.inventory).toEqual([OLD, STAFF, { item: ROOKIE_GRIMOIRE_ID, count: 1 }]);
   });
 
-  it('a character that owns a Grimoire already (in the bag or on the pack animal) gets no second one', () => {
+  it('a character with the Grimoire in the bag already gets no second one', () => {
     const grimoire = { item: ROOKIE_GRIMOIRE_ID, count: 1 };
     const inBag = characterOf(loadV20(v20Save('sword', [OLD, grimoire], 'old_sword')).save);
     expect(countItem(inBag.inventory, ROOKIE_GRIMOIRE_ID)).toBe(1);
+    expect(inBag.pack).toEqual([{ item: 'slime_gel', count: 4 }]);
+  });
+
+  it('a Grimoire that lies on the pack animal only moves to the bag: casting needs it there', () => {
+    const grimoire = { item: ROOKIE_GRIMOIRE_ID, count: 1 };
     const onBiscuit = characterOf(
-      loadV20(v20Save('sword', [OLD], 'old_sword', { pack: [grimoire] })).save,
+      loadV20(
+        v20Save('sword', [OLD], 'old_sword', { pack: [{ item: 'slime_gel', count: 4 }, grimoire] }),
+      ).save,
     );
-    expect(countItem(onBiscuit.inventory, ROOKIE_GRIMOIRE_ID)).toBe(0);
-    expect(onBiscuit.pack).toEqual([grimoire]);
+    expect(countItem(onBiscuit.inventory, ROOKIE_GRIMOIRE_ID)).toBe(1);
+    expect(countItem(onBiscuit.pack, ROOKIE_GRIMOIRE_ID)).toBe(0);
+    expect(onBiscuit.pack).toEqual([{ item: 'slime_gel', count: 4 }]);
+    expect(ownsGrimoire(onBiscuit.inventory, itemsById)).toBe(true);
+    // Two on the pack animal: one comes over, the other stays; never a new one on top.
+    const two = migrateCharacterToGrimoire({
+      inventory: [OLD],
+      pack: [{ item: ROOKIE_GRIMOIRE_ID, count: 2 }],
+    });
+    expect(two.inventory).toEqual([OLD, { item: ROOKIE_GRIMOIRE_ID, count: 1 }]);
+    expect(two.pack).toEqual([{ item: ROOKIE_GRIMOIRE_ID, count: 1 }]);
   });
 
   it('an Academy quest that was under way stays under way, and the staff can go back in hand for it', () => {
@@ -896,13 +952,53 @@ describe('G.4: migration to save version 21 (the Grimoire)', () => {
     expect(storage.items.size).toBe(0);
   });
 
-  it('a full storage does not stop the migrated save from loading', () => {
+  it('a full storage: the save loads, but is never written over its original until the backup is there', () => {
     const storage = new MemoryStorage();
+    const text = JSON.stringify(v20Save('sword', [OLD], 'old_sword'));
+    storage.setItem(SAVE_KEY, text);
+    storage.failWrites = true;
+    const manager = new SaveManager(storage);
+    const loaded = manager.load();
+    expect(loaded.status).toBe('ok');
+    if (loaded.status !== 'ok') return;
+    expect(loaded.migratedFrom).toBe(20);
+    expect(storage.getItem(migrationBackupKey(SAVE_KEY, 20))).toBeNull();
+    expect(manager.backupPending).toBe(true);
+    // Writing is refused and the original stays exactly as it was.
+    expect(manager.write(loaded.save)).toBe(false);
+    expect(storage.getItem(SAVE_KEY)).toBe(text);
+    // Once there is room again the backup comes first, then the migrated save.
+    storage.failWrites = false;
+    expect(manager.write(loaded.save, new Date('2026-10-19T11:00:00Z'))).toBe(true);
+    expect(manager.backupPending).toBe(false);
+    expect(storage.getItem(migrationBackupKey(SAVE_KEY, 20))).toBe(text);
+    expect(JSON.parse(storage.getItem(SAVE_KEY) ?? '{}').version).toBe(21);
+    // A later write needs no backup any more.
+    storage.failWrites = true;
+    expect(manager.write(loaded.save)).toBe(false);
+    storage.failWrites = false;
+    expect(manager.write(loaded.save)).toBe(true);
+  });
+
+  it('a current save is written as before when storage fails and recovers; delete forgets a pending backup', () => {
+    const storage = new MemoryStorage();
+    const manager = new SaveManager(storage);
+    expect(manager.write(sampleSave())).toBe(true);
+    expect(manager.backupPending).toBe(false);
+    storage.failWrites = true;
+    expect(manager.write(sampleSave())).toBe(false);
+    storage.failWrites = false;
+    expect(manager.write(sampleSave())).toBe(true);
+    expect(storage.items.size).toBe(1);
+    // An old save whose backup failed, then deleted on purpose: nothing waits any more.
     storage.setItem(SAVE_KEY, JSON.stringify(v20Save('sword', [OLD], 'old_sword')));
     storage.failWrites = true;
-    const loaded = new SaveManager(storage).load();
-    expect(loaded.status).toBe('ok');
-    expect(storage.getItem(migrationBackupKey(SAVE_KEY, 20))).toBeNull();
+    const loaded = manager.load();
+    expect(loaded.status === 'ok' && manager.backupPending).toBe(true);
+    storage.failWrites = false;
+    manager.delete();
+    expect(manager.backupPending).toBe(false);
+    expect(storage.items.size).toBe(0);
   });
 
   it('an exported version 20 code imports as a migrated save, without touching the storage', () => {
