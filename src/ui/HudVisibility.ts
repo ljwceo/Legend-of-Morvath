@@ -72,6 +72,8 @@ export interface HudBars {
   abilities: HudVisibility;
   /** The small cross with the current spell, weapon, off hand and quick item. */
   loadout: HudVisibility;
+  /** The Flask charges under the bars (G.5); shown whenever the HP bar is. */
+  flasks: HudVisibility;
 }
 
 /**
@@ -94,16 +96,17 @@ export class HudRules {
   ) {}
 
   setCombat(fighting: boolean): void {
-    const { hp, mana, energy, loadout } = this.bars;
+    const { hp, mana, energy, loadout, flasks } = this.bars;
     if (fighting) {
       hp.show('combat');
       mana.show('combat');
       energy.show('combat');
       loadout.show('combat');
+      flasks.show('combat');
       return;
     }
     // Fight over: the bars linger a moment (longer when an XP bar is running).
-    for (const bar of [hp, mana, energy, loadout]) {
+    for (const bar of [hp, mana, energy, loadout, flasks]) {
       bar.hide('combat');
       bar.show('afterCombat', this.cfg.barLingerSeconds);
     }
@@ -112,11 +115,12 @@ export class HudRules {
   /** An enemy was defeated: the XP bar fills, then everything fades together. */
   xpGained(): void {
     const seconds = this.cfg.xpShowSeconds;
-    const { hp, mana, energy, xp } = this.bars;
+    const { hp, mana, energy, xp, flasks } = this.bars;
     xp.show('xp', seconds);
     hp.show('xp', seconds);
     mana.show('xp', seconds);
     energy.show('xp', seconds);
+    flasks.show('xp', seconds);
   }
 
   /** A quick switch was pressed: the loadout cross shows what you have now, for a moment. */
@@ -124,11 +128,12 @@ export class HudRules {
     this.bars.loadout.show('changed', this.cfg.barLingerSeconds);
   }
 
-  /** A potion was drunk: HP and mana show for a moment (you see them go up). */
+  /** A Flask was used: HP, mana and the charges show for a moment (you see them change). */
   healed(): void {
     const seconds = this.cfg.xpShowSeconds;
     this.bars.hp.show('healed', seconds);
     this.bars.mana.show('healed', seconds);
+    this.bars.flasks.show('healed', seconds);
   }
 
   setHpFraction(fraction: number): void {

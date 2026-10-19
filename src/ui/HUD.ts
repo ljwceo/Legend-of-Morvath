@@ -128,6 +128,10 @@ export class HUD {
   private readonly loadoutCross = new LoadoutCross();
   private readonly loadout: HudPart;
   private loadoutCovered = false;
+  /** The Flask charges (G.5) under the bars: "Health Flask 1/1 · Mana Flask 0/1". */
+  private readonly flasks: HudPart;
+  private readonly flaskHealth: HTMLElement;
+  private readonly flaskMana: HTMLElement;
 
   constructor(
     private readonly cfg: HudConfig,
@@ -167,6 +171,10 @@ export class HUD {
     this.fills = fills;
     this.bars = bars;
     for (const id of BAR_IDS) this.applyFill(id, this.fillValues[id]);
+    this.flaskHealth = el('span', { className: 'ui-hud-flask ui-hud-flask-health' });
+    this.flaskMana = el('span', { className: 'ui-hud-flask ui-hud-flask-mana' });
+    this.flasks = part('ui-hud-flasks', this.flaskHealth, this.flaskMana);
+    barStack.append(this.flasks.element);
 
     this.goldValue = el('span', { className: 'ui-hud-gold-value', text: '0' });
     this.gold = part('ui-hud-gold', el('span', { className: 'ui-hud-gold-coin' }), this.goldValue);
@@ -255,6 +263,7 @@ export class HUD {
       gold: this.gold.visibility,
       abilities: this.abilities.visibility,
       loadout: this.loadout.visibility,
+      flasks: this.flasks.visibility,
     };
     this.rules = new HudRules(visibility, cfg, lowHpFraction);
   }
@@ -463,6 +472,12 @@ export class HUD {
     this.loadoutCross.set(view);
   }
 
+  /** The Flask charges under the bars (G.5), as text per Flask; written on a change only. */
+  setFlasks(health: string, mana: string): void {
+    if (this.flaskHealth.textContent !== health) this.flaskHealth.textContent = health;
+    if (this.flaskMana.textContent !== mana) this.flaskMana.textContent = mana;
+  }
+
   /**
    * Hides the loadout cross whatever the rules say: under a dialogue window, or on a touch
    * screen (its buttons sit in the same corner).
@@ -510,6 +525,7 @@ export class HUD {
     for (let i = 0; i < BAR_IDS.length; i++) this.bars[BAR_IDS[i] as BarId].update(seconds);
     this.updateAbilities(seconds);
     this.loadout.update(seconds);
+    this.flasks.update(seconds);
   }
 
   dispose(): void {

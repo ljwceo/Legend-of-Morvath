@@ -33,7 +33,8 @@ export interface GameEvents {
   eggFound: { itemId: string; monsterId: string };
   /** Items (or gold, as item "gold") went into the bag: loot, rewards, purchases. */
   itemsGained: { itemId: string; count: number };
-  potionDrunk: { itemId: string };
+  /** A Flask charge was used (G.5): the effect and the charge committed together. */
+  flaskUsed: { kind: 'health' | 'mana' };
   /** Bought in a shop (`npcId` = the merchant). */
   itemBought: { itemId: string; count: number; npcId: string };
   questStarted: { questId: string };

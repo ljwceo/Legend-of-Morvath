@@ -2,7 +2,8 @@ import { effectiveDamageBonus } from '../../systems/Forge';
 import type { GameContext } from '../../core/GameContext';
 import type { ItemDef } from '../../data/types';
 import { EQUIPMENT_SLOTS, type EquipmentSlot, isGear, wornCount } from '../../systems/Gear';
-import { el } from '../dom';
+import type { FlaskKind } from '../../systems/Flasks';
+import { button, el } from '../dom';
 import type { QuestSummary } from '../questText';
 import type { Panel } from '../Overlays';
 import { bindT } from './ConfirmPanel';
@@ -35,6 +36,24 @@ export interface BagGear {
   fighting(): boolean;
 }
 
+/** One Flask as the bag shows it (G.5). */
+export interface BagFlask {
+  kind: FlaskKind;
+  /** The name (Health Flask, Mana Flask; English in both languages, like item names). */
+  name: string;
+  left: number;
+  max: number;
+}
+
+/** The reusable Flasks (G.5): the only thing the bag can use, in a fight as well. */
+export interface BagFlasks {
+  list(): readonly BagFlask[];
+  /** Starts a drink of that Flask (the world checks charges, cooldown and what you are doing). */
+  use(kind: FlaskKind): void;
+  /** Opens the loadout (prepared weapons and incantations); outside a fight only. */
+  prepare(): void;
+}
+
 /** Item stats in the order they are listed under a gear row. */
 export const STAT_KEYS = [
   'hp',
@@ -46,20 +65,21 @@ export const STAT_KEYS = [
 
 /**
  * The bag (I / B or the bag button), in two tabs: **Bag** (gold, level and XP, equip load, the
- * six worn slots and every item with its count and description) and **Quests** (the running
- * quests with what is still missing). Potions have a Drink button, gear a Wear button (and worn
- * gear Take off). Item names stay English in both languages (CLAUDE.md §2.6).
+ * Flasks with their charges, the six worn slots and every item with its count and description)
+ * and **Quests** (the running quests with what is still missing). Gear has a Wear button (and
+ * worn gear Take off); the ordinary potions are legacy since G.5 (kept, marked, no button).
+ * Item names stay English in both languages (CLAUDE.md §2.6).
  *
  * The ⤢ button next to the title makes the bag fill the whole playing field (remembered in the
  * save), and the lists scroll as one, so a long bag is never a tiny box inside a window
  * (Bo, 2026-10-13). Closing is the ✕ in the corner, Escape, your own close key, or the bag key
  * again — the panel has no Close button of its own. Out of a fight the game is paused while the
- * bag is open; in a fight it is not (2026-10-17) and it shows only your potions (decision
- * S-10), with a line at the top saying the fight goes on.
+ * bag is open; in a fight it is not (2026-10-17) and it shows only your Flasks (decision S-10,
+ * G.5), with a line at the top saying the fight goes on.
  */
 export function bagPanel(
   ctx: GameContext,
-  drink: (itemId: string) => void,
+  flasks: BagFlasks,
   xpLine: () => string,
   quests: () => readonly QuestSummary[],
   gear: BagGear,
@@ -92,10 +112,10 @@ export function bagPanel(
         }
         return parts.join(' · ');
       };
-      // In a fight the bag is only for potions (decision S-10): no gear, no quests.
+      // In a fight the bag is only for the Flasks (decision S-10, G.5): no items, no quests.
       const fighting = gear.fighting();
       const stacks = [...(character?.inventory ?? [])]
-        .filter((stack) => !fighting || items.get(stack.item)?.type === 'potion')
+        .filter(() => !fighting)
         .sort(
           (a, b) =>
             BAG_TYPE_ORDER.indexOf(items.get(a.item)?.type ?? 'resource') -
@@ -115,14 +135,14 @@ export function bagPanel(
             attrs: { type: 'button', 'aria-label': `${label}: ${name}` },
             onClick,
           });
-        const action =
-          def?.type === 'potion'
-            ? chip(t('bag.drink'), t('bag.drink'), () => drink(stack.item))
-            : canWearMore
-              ? chip(t('bag.equip'), t('bag.equip'), () => gear.equip(stack.item))
-              : worn > 0
-                ? el('span', { className: 'ui-bag-equipped', text: t('bag.equipped') })
-                : null;
+        // A legacy item (an old potion) is kept and shown, but has nothing to do any more.
+        const action = def?.legacy
+          ? el('span', { className: 'ui-bag-equipped ui-bag-legacy', text: t('bag.legacy') })
+          : canWearMore
+            ? chip(t('bag.equip'), t('bag.equip'), () => gear.equip(stack.item))
+            : worn > 0
+              ? el('span', { className: 'ui-bag-equipped', text: t('bag.equipped') })
+              : null;
         return el(
           'li',
           { className: 'ui-bag-row' },
@@ -141,6 +161,29 @@ export function bagPanel(
               : null,
           ),
           action,
+        );
+      });
+      const flaskRows = flasks.list().map((flask) => {
+        const use = el('button', {
+          className: 'ui-chip',
+          text: t('bag.use'),
+          attrs: { type: 'button', 'aria-label': `${t('bag.use')}: ${flask.name}` },
+          onClick: () => flasks.use(flask.kind),
+        });
+        use.disabled = flask.left <= 0;
+        return el(
+          'li',
+          { className: 'ui-bag-row' },
+          el(
+            'div',
+            { className: 'ui-bag-item' },
+            el('span', { className: 'ui-bag-name', text: flask.name }),
+            el('span', {
+              className: 'ui-bag-count',
+              text: t('bag.flaskCharges', { left: flask.left, max: flask.max }),
+            }),
+          ),
+          fighting ? use : null,
         );
       });
       const load = gear.load();
@@ -217,9 +260,8 @@ export function bagPanel(
               ? el(
                   'div',
                   { className: 'ui-bag-pane' },
-                  rows.length > 0
-                    ? el('ul', { className: 'ui-bag-list' }, ...rows)
-                    : el('p', { className: 'ui-note', text: t('hud.noPotion') }),
+                  el('ul', { className: 'ui-bag-list' }, ...flaskRows),
+                  el('p', { className: 'ui-note', text: t('bag.flaskRefill') }),
                 )
               : el(
                   'div',
@@ -245,6 +287,10 @@ export function bagPanel(
                       tier: t(load.tierLabel),
                     }),
                   ),
+                  el('h3', { className: 'ui-bag-subheading', text: t('bag.flasks') }),
+                  el('ul', { className: 'ui-bag-list' }, ...flaskRows),
+                  el('p', { className: 'ui-note', text: t('bag.flaskRefill') }),
+                  button(t('bag.prepare'), () => flasks.prepare()),
                   el('h3', { className: 'ui-bag-subheading', text: t('bag.equipment') }),
                   el('ul', { className: 'ui-bag-slots' }, ...slots),
                   el('h3', { className: 'ui-bag-subheading', text: t('bag.items') }),

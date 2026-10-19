@@ -50,9 +50,9 @@ describe('key parameters for texts', () => {
   it('follows a rebinding and the language, through I18n default parameters', () => {
     const { bindings, i18n } = setup('nl');
     i18n.defaultParams = () => keyParams(bindings, i18n);
-    expect(i18n.t('quest.just_for_you.complete.1')).toContain('Q');
+    expect(i18n.t('hud.key.potion')).toBe('Q');
     bindings.bind('potion', 0, 'KeyP');
-    expect(i18n.t('quest.just_for_you.complete.1')).toContain('P');
+    expect(i18n.t('hud.key.potion')).toBe('P');
     expect(i18n.t('cheats.flyHintKeys')).toContain('Spatie');
   });
 

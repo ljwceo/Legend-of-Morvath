@@ -38,7 +38,8 @@
     "resume": "Verder",
     "settings": "Instellingen",
     "toTitle": "Terug naar het titelscherm",
-    "spellbook": "Spellboek"
+    "spellbook": "Spellboek",
+    "loadout": "Loadout"
   },
   "settings": {
     "title": "Instellingen",
@@ -128,7 +129,7 @@
       "crit": "Kritiek {n}% ({factor}×)",
       "attackSpeed": "Aanvalssnelheid +{n}%",
       "regen": "Regen {hp} HP/s · {mana} mana/s · {energy} energie/s",
-      "potion": "Drankjes +{n}%"
+      "potion": "Flasks +{n}%"
     },
     "reset": {
       "title": "Bouw jezelf opnieuw",
@@ -280,7 +281,7 @@
       "itemNext": "{keyItemNext}"
     },
     "checkpointSet": "Checkpoint ingesteld",
-    "rested": "Je rust uit in je bed. Je HP en mana zijn weer vol.",
+    "rested": "Je rust uit. Je HP, mana en Flasks zijn weer vol.",
     "qualityLowered": "Graphics verlaagd naar {quality} zodat het spel vloeiend blijft.",
     "interact": "Gebruiken",
     "dash": "Dash",
@@ -290,8 +291,15 @@
     "qualityChosen": "Graphics ingesteld op {quality} voor dit apparaat. Je kunt het wijzigen in Instellingen.",
     "protected": "{name} wordt hier beschermd.",
     "levelUp": "Level omhoog! Je bent nu level {level}.",
-    "noPotion": "Je hebt geen drankjes.",
-    "alreadyFull": "Je HP is al vol.",
+    "flaskEmpty": "Je {flask} is leeg. Rust bij een checkpoint om hem te vullen.",
+    "alreadyFull": "Er is nu niets aan te vullen.",
+    "restInCombat": "Je kunt niet rusten tijdens een gevecht.",
+    "noIncantation": "Geen incantation voorbereid.",
+    "flaskCount": "{name} {left}/{max}",
+    "flask": {
+      "health": "Health Flask",
+      "mana": "Mana Flask"
+    },
     "loadChanged": "Draaglast: {tier}",
     "gearInCombat": "Je kunt geen spullen wisselen tijdens een gevecht.",
     "pack": "Open de tas van {name}",
@@ -317,7 +325,7 @@
     "noGrimoire": "Je hebt geen Grimoire om uit te casten.",
     "noOffhand": "Je hebt nog niets voor je andere hand.",
     "oneWeapon": "Je draagt geen ander wapen.",
-    "noItem": "Niets om snel te gebruiken."
+    "noItem": "Geen Flask om te gebruiken."
   },
   "dialog": {
     "next": "Verder",
@@ -495,16 +503,16 @@
       "desc": "Kleverige gel die een slime achterlaat."
     },
     "health_potion": {
-      "desc": "Vult 50% van je HP aan."
+      "desc": "Een oud drankje van vóór de Flasks. Bewaard, maar niet meer te drinken."
     },
     "greater_health_potion": {
-      "desc": "Vult je HP helemaal aan."
+      "desc": "Een oud drankje van vóór de Flasks. Bewaard, maar niet meer te drinken."
     },
     "mana_potion": {
-      "desc": "Vult 30% van je mana aan."
+      "desc": "Een oud drankje van vóór de Flasks. Bewaard, maar niet meer te drinken."
     },
     "greater_mana_potion": {
-      "desc": "Vult 60% van je mana aan."
+      "desc": "Een oud drankje van vóór de Flasks. Bewaard, maar niet meer te drinken."
     },
     "honed_old_sword": {
       "desc": "Je oude zwaard, geslepen door Hilda. Elke slag doet 3 schade meer."
@@ -933,7 +941,7 @@
     "clickToLook": "Klik om rond te kijken · Esc voor het menu",
     "attack": "Slaan",
     "heavy": "Zwaar",
-    "potion": "Drankje drinken",
+    "potion": "Flask gebruiken",
     "shard": "Shard",
     "spell": "Spreuk",
     "lock": "Lock-on",
@@ -1068,7 +1076,9 @@
     "grant": "Geven",
     "grantXp": "+100 XP",
     "grantGold": "+50 Gold",
-    "grantPotions": "+5 Health Potion",
+    "grantFlask": "+1 Flask-capaciteit",
+    "grantHarness": "+1 Weapon Harness",
+    "grantPage": "+1 Grimoire Page",
     "grantSlimeGel": "+3 Slime Gel",
     "boss": "Baasgevecht",
     "bossSultan": "Vecht tegen Sultan",
@@ -1114,7 +1124,12 @@
   },
   "bag": {
     "title": "Tas",
-    "drink": "Drinken",
+    "legacy": "Legacy",
+    "use": "Gebruiken",
+    "flasks": "Flasks",
+    "flaskCharges": "{left}/{max}",
+    "flaskRefill": "Ladingen vullen zich als je rust bij een checkpoint.",
+    "prepare": "Loadout voorbereiden",
     "equipped": "Gedragen",
     "empty": "Je tas is leeg.",
     "level": "Level {level} · {xp} / {need} XP",
@@ -1167,7 +1182,7 @@
       "grimoire": "Grimoires"
     },
     "padInCombat": "Tijdens een gevecht kun je de tas nog niet met een controller openen.",
-    "liveFight": "Het gevecht gaat door terwijl de tas open is. Je kunt nu alleen drankjes gebruiken."
+    "liveFight": "Het gevecht gaat door terwijl de tas open is. Je kunt nu alleen je Flasks gebruiken."
   },
   "load": {
     "light": "Licht",
@@ -1292,6 +1307,31 @@
       "title": "GODS HAVE FALLEN",
       "subtitle": "Zelfs aan goddelijkheid komt een eind."
     }
+  },
+  "loadout": {
+    "title": "Loadout",
+    "hint": "Wat je hier voorbereidt, is waartussen je in een gevecht wisselt: {keyWeaponNext} kiest het volgende voorbereide wapen, {keySpellNext} de volgende voorbereide incantation.",
+    "weapons": "Voorbereide hoofdwapens",
+    "incantations": "Voorbereide incantations",
+    "slot": "Slot {n}",
+    "empty": "Leeg",
+    "weaponCapacity": "{n} slots: {base} van je harnas + {upgrades} Weapon Harness Upgrades.",
+    "incantationCapacity": "{n} slots: {base} van je Grimoire + {upgrades} Grimoire Pages.",
+    "noGrimoire": "Geen Grimoire in je tas: niets om incantations in voor te bereiden.",
+    "noWeapons": "Geen wapen om voor te bereiden.",
+    "noIncantations": "Je kent nog geen incantations.",
+    "flasks": "Health Flask {healthLeft}/{health} · Mana Flask {manaLeft}/{mana} ({capacity} ladingen in totaal). De verdeling verander je als je rust bij een checkpoint.",
+    "inCombat": "Je kunt kijken, maar tijdens een gevecht niets veranderen."
+  },
+  "rest": {
+    "title": "Rusten",
+    "capacity": "{capacity} Flask-ladingen, allemaal weer vol.",
+    "charges": "{left} / {max}",
+    "hint": "Verdeel je ladingen over de twee Flasks. Hoe je ze ook verdeelt, ze blijven vol tot je ze gebruikt.",
+    "lessHealth": "Eén Health Flask-lading minder",
+    "moreHealth": "Eén Health Flask-lading meer",
+    "lessMana": "Eén Mana Flask-lading minder",
+    "moreMana": "Eén Mana Flask-lading meer"
   },
   "spellbook": {
     "title": "Spellboek",

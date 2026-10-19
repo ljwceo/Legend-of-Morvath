@@ -121,7 +121,7 @@ import {
   stepCast,
 } from '../systems/Casting';
 import { guardHit, makeGuardResult, stepGuard, weaponFreeForGuard } from '../systems/Guard';
-import { knownIncantations, ownsGrimoire, selectedIncantation } from '../systems/Grimoire';
+import { knownIncantations, ownsGrimoire } from '../systems/Grimoire';
 import { backstabPoiseDamage, damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
   carriedWeight,
@@ -138,13 +138,31 @@ import {
 import {
   addItem,
   countItem,
-  type DrinkResult,
-  drinkPotion,
   GOLD_ITEM,
   type ItemStack,
   removeItem,
   rollDrops,
 } from '../systems/Inventory';
+import {
+  type FlaskKind,
+  FlaskUse,
+  grantFlaskCapacity,
+  normalizeFlasks,
+  restFlasks,
+  useFlask,
+} from '../systems/Flasks';
+import {
+  eligibleWeapons,
+  grantSlotUpgrade,
+  grimoireSlots,
+  incantationCapacity,
+  normalizePrepared,
+  normalizeSlotUpgrades,
+  preparedAfterEquip,
+  preparedIds,
+  setPrepared,
+  weaponCapacity,
+} from '../systems/Prepared';
 import { moveFromPack, moveToPack } from '../systems/PackAnimal';
 import { choosePath, teacherOffer } from '../systems/PathChoice';
 import { eggOffer, eggReward, handInEggs } from '../systems/Eggs';
@@ -230,11 +248,11 @@ import {
   canSwitchPrepared,
   cycle,
   cycleSpellSlot,
-  preparedConsumables,
-  preparedWeapons,
-  selectedConsumable,
   selectedSpell,
 } from '../systems/Loadout';
+import { loadoutPanel, type PreparedView } from '../ui/menus/LoadoutPanel';
+import { restPanel } from '../ui/menus/RestPanel';
+import type { CheatGrant } from '../ui/CheatPanel';
 import { spellbookPanel } from '../ui/menus/SpellbookPanel';
 import { statusPanel } from '../ui/menus/StatusPanel';
 import type { Panel } from '../ui/Overlays';
@@ -315,6 +333,15 @@ const NO_CAST_INPUT: CastInput = { shard: false, spell: false, cast: false, crit
 /** No ability chips on the HUD (a sword, or a touch screen whose buttons show it). */
 const NO_CHIPS: readonly AbilityChip[] = [];
 const NO_SPELLS: readonly string[] = [];
+/** No Flasks at all (a loadout panel without a character; never reached in play). */
+const EMPTY_FLASKS = {
+  capacity: 0,
+  health: 0,
+  mana: 0,
+  healthLeft: 0,
+  manaLeft: 0,
+  discoveries: [],
+};
 /** Presses that do nothing while the bag is open in a fight (see `liveMenu`). */
 const LIVE_MENU_IGNORED: readonly Action[] = [
   'attack',
@@ -377,7 +404,6 @@ const ITEM_CARD_SECONDS = 5;
 /** What the cheat menu gives (debug only). */
 const CHEAT_XP = 100;
 const CHEAT_GOLD = 50;
-const CHEAT_POTIONS = 5;
 const CHEAT_SLIME_GEL = 3;
 /** Not dying (the death timer is off). */
 const NOT_DYING = -1;
@@ -505,8 +531,12 @@ export class WorldState implements GameState, InstanceHost {
   private readonly respawn = { x: 0, z: 0 };
   private deathTitle = '';
   private deathText = '';
-  /** Seconds until the next potion may be drunk. */
-  private potionCooldown = 0;
+  /** Seconds until the next Flask may be started (G.5, player.json `flasks.cooldownSeconds`). */
+  private flaskCooldown = 0;
+  /** A Flask drink under way: the charge and the effect commit together when it completes. */
+  private readonly flaskUse = new FlaskUse();
+  /** What the last Flask restored (reused; the damage number and the HUD read it). */
+  private readonly flaskRestored = { kind: 'health' as FlaskKind, amount: 0 };
   /** Rolls loot; a new seed every time the world is entered. */
   private lootRng = new Random(1);
   /** Rolls critical hits (Luck); a new seed every time the world is entered. */
@@ -551,8 +581,10 @@ export class WorldState implements GameState, InstanceHost {
   private spell: ShotConfig | null = null;
   /** The staff slot the wheel / D-pad up picked (see Loadout); its spell is `spell`. */
   private spellSlot = 0;
-  /** The quick item Q / X uses (a potion id), picked with 3 / D-pad down; null = the default. */
-  private quickItem: string | null = null;
+  /** The Flask Q / X uses (G.5), toggled with 3 / D-pad down: Health or Mana. */
+  private quickFlask: FlaskKind = 'health';
+  /** The prepared incantation slot the wheel / D-pad up picked (with a sword in hand). */
+  private incantationSlot = 0;
   /** A weapon switch that waits until the current attack, roll, parry or cast is over. */
   private pendingWeapon: string | null = null;
   /** The keys version the loadout cross was drawn with (other keys, or keyboard ↔ controller). */
@@ -662,8 +694,8 @@ export class WorldState implements GameState, InstanceHost {
     power: 1,
     incantation: null,
   };
-  /** The incantation the cast button fires (G.3: Push), null before the data is loaded. */
-  private pushIncantation: IncantationConfig | null = null;
+  /** The prepared incantation the cast button fires (G.5), null without one. */
+  private incantation: IncantationConfig | null = null;
   private readonly knownIncantationIds: string[] = [];
   /** Everything in Push's cone this step (a reused array). */
   private readonly pushHits: Enemy[] = [];
@@ -697,7 +729,6 @@ export class WorldState implements GameState, InstanceHost {
   };
   private readonly arrowProbe = { x: 0, z: 0 };
   private readonly drops: ItemStack[] = [];
-  private readonly healed = { item: '', hp: 0, mana: 0 };
   private readonly stats: StreamerStats = {
     near: 0,
     far: 0,
@@ -790,7 +821,9 @@ export class WorldState implements GameState, InstanceHost {
     this.liveMenu = false;
     this.pendingWeapon = null;
     this.spellSlot = 0;
-    this.quickItem = null;
+    this.incantationSlot = 0;
+    this.quickFlask = 'health';
+    this.flaskUse.cancel();
     this.gateBlocked = false;
     if (this.labels) ctx.ui.append(this.labels.root);
     this.hud = new HUD(data.player.hud, data.player.lowHpThreshold, () => this.interact());
@@ -807,7 +840,24 @@ export class WorldState implements GameState, InstanceHost {
     this.abilitiesTouch = false;
     this.knockedOut = false;
     this.deathTimer = NOT_DYING;
-    this.potionCooldown = 0;
+    this.flaskCooldown = 0;
+    // What a save holds is repaired, never refilled (G.5): a damaged block loses no progress.
+    if (session.character) {
+      session.character.flasks = normalizeFlasks(session.character.flasks);
+      session.character.slotUpgrades = normalizeSlotUpgrades(session.character.slotUpgrades);
+      // A prepared set that was never chosen (a new character, a migrated save) is filled once,
+      // deterministically, and kept: the weapon in hand and then the bag; Push. From then on the
+      // slots are the player's and never reorder by themselves.
+      const prepared = session.character.prepared;
+      if (prepared.weapons.length === 0) {
+        const weapons = this.preparedWeapons();
+        if (preparedIds(weapons).length > 0) prepared.weapons = weapons;
+      }
+      if (prepared.incantations.length === 0) {
+        const incantations = this.preparedIncantations();
+        if (preparedIds(incantations).length > 0) prepared.incantations = incantations;
+      }
+    }
     this.lootRng = new Random((Date.now() >>> 0) ^ 0x5eed);
     this.critRng = new Random((Date.now() >>> 0) ^ 0xc817);
     this.quests = new QuestBook(data.quests.quests, session.quests);
@@ -826,7 +876,7 @@ export class WorldState implements GameState, InstanceHost {
     this.refreshQuestMarkers();
     this.hud.setGold(session.character?.gold ?? 0);
     this.hud.setXp(xpFraction(data.player, session.progress), false);
-    this.refreshPotions();
+    this.refreshFlasks();
     this.time = 0;
     this.talkingTo = null;
     this.targetNpc = null;
@@ -1158,8 +1208,8 @@ export class WorldState implements GameState, InstanceHost {
       if (input.consumePressed('spellPrev')) this.cycleSpell(-1);
       if (input.consumePressed('weaponNext')) this.cycleWeapon();
       if (input.consumePressed('offhandNext')) this.cycleOffhand();
-      if (input.consumePressed('itemNext')) this.cycleQuickItem();
-      if (input.consumePressed('potion')) this.useQuickItem();
+      if (input.consumePressed('itemNext')) this.cycleQuickFlask();
+      if (input.consumePressed('potion')) this.startFlask(this.quickFlask);
       if (input.consumePressed('bag')) {
         this.openBag(input.pressedByPad('bag'));
         if (this.paused) return;
@@ -1169,7 +1219,7 @@ export class WorldState implements GameState, InstanceHost {
         return;
       }
     }
-    this.potionCooldown = Math.max(0, this.potionCooldown - dt);
+    this.flaskCooldown = Math.max(0, this.flaskCooldown - dt);
     if (this.deathTimer !== NOT_DYING) {
       // Dying: you can do nothing until you wake up at your checkpoint.
       this.command.x = 0;
@@ -1304,6 +1354,7 @@ export class WorldState implements GameState, InstanceHost {
     }
     // A weapon switch asked for during an attack, roll, parry or cast happens now if free.
     if (this.pendingWeapon !== null) this.trySwitchWeapon();
+    this.stepFlask(dt);
     this.stepPlayerGuard(dt);
     // One fresh roll per step decides whether a hit that lands is critical (Luck).
     const roll = this.critRng.next();
@@ -1401,7 +1452,7 @@ export class WorldState implements GameState, InstanceHost {
     sources.power = this.spellPower;
     // The Grimoire: owning one is enough (never equipped; an old save got one in G.4).
     const bag = this.ctx.session?.character?.inventory;
-    sources.incantation = bag && ownsGrimoire(bag, this.items) ? this.pushIncantation : null;
+    sources.incantation = bag && ownsGrimoire(bag, this.items) ? this.incantation : null;
     if (input.cast && !sources.incantation && !state.casting) this.sayNoGrimoire();
     // Push turns you towards your target or the nearest enemy in front while it is prepared.
     const preparing = state.pending === 'incantation' ? state.castIncantation : null;
@@ -2069,6 +2120,8 @@ export class WorldState implements GameState, InstanceHost {
     if (!session || !data || !player || this.deathTimer !== NOT_DYING) return;
     const t = this.ctx.i18n;
     this.deathTimer = 0;
+    // A drink that had not committed yet is lost without a charge spent (G.5).
+    this.flaskUse.cancel();
     this.encounter?.abort();
     this.runningDrill?.fight.knockedOut();
     this.status?.clear();
@@ -2402,56 +2455,135 @@ export class WorldState implements GameState, InstanceHost {
       this.hud?.rules.goldChanged();
     } else {
       addItem(character.inventory, itemId, count);
-      this.refreshPotions();
+      this.refreshLoadout();
     }
     this.ctx.events.emit('itemsGained', { itemId, count });
   }
 
   /**
-   * Drinks a potion: `itemId`, or with null the first one from player.json `potions.quickOrder`
-   * (Q / the drink button). Says why when it cannot.
+   * Q / X, the Use button in the bag or the touch button: starts a drink of that Flask (G.5).
+   * Nothing happens while dying, while another drink runs, with no charge left, with nothing to
+   * restore, during the cooldown, or in the middle of an action (a swing, a heavy wind-up, a
+   * raised guard, a stagger, a roll or a cast: the same freedom a weapon switch needs). The
+   * charge and the effect commit together when the drink completes (`stepFlask`), never here.
    */
-  private drink(itemId: string | null): DrinkResult {
+  private startFlask(kind: FlaskKind): void {
     const data = this.ctx.data;
     const character = this.ctx.session?.character;
     const player = this.player;
-    if (!data || !character || !player || this.deathTimer !== NOT_DYING) return 'none';
-    const order = itemId ? [itemId] : data.player.potions.quickOrder;
-    const result = drinkPotion(
-      character.inventory,
-      order,
-      this.items,
-      player.combat,
-      this.potionCooldown,
-      this.healed,
-      1 + this.statEffects.potionPercent / 100,
-    );
+    if (!data || !character || !player || this.deathTimer !== NOT_DYING || this.knockedOut) return;
+    const s = player.state;
+    this.action.rolling = this.command.dash || s.dashTime > 0 || s.recoverTime > 0;
+    this.action.casting = this.castState.casting;
+    if (!canSwitchPrepared(player.combat, this.action)) return;
+    const result = this.flaskUse.start(kind, character.flasks, player.combat, this.flaskCooldown);
     const t = this.ctx.i18n;
-    if (result === 'drunk') {
-      this.potionCooldown = data.player.potions.cooldownSeconds;
-      const s = player.state;
-      if (this.healed.hp > 0)
-        this.damageNumbers?.spawnText(s.x, s.y + 2, s.z, `+${Math.round(this.healed.hp)}`, 'heal');
-      this.hud?.rules.healed();
-      this.refreshPotions();
-      this.ctx.events.emit('potionDrunk', { itemId: this.healed.item });
-    } else if (result === 'none') {
-      this.hud?.showMessage(t.t('hud.noPotion'));
+    if (result === 'empty') {
+      this.hud?.showMessage(t.t('hud.flaskEmpty', { flask: t.t(`hud.flask.${kind}`) }));
     } else if (result === 'full') {
       this.hud?.showMessage(t.t('hud.alreadyFull'));
+    } else if (result === 'started') {
+      this.hud?.rules.loadoutChanged();
     }
-    return result;
   }
 
-  /** The number on the drink button: potions the drink key would use. */
-  private refreshPotions(): void {
-    this.refreshLoadout();
+  /**
+   * One fixed step of a drink under way (G.5). A stagger or a roll before the commit point
+   * interrupts it: no charge, no effect. While it runs you neither attack nor cast. In the step
+   * it completes, the charge and the effect commit in one call (`useFlask`), exactly once: the
+   * pending drink is cleared first, so no second input, callback or step can repeat it.
+   */
+  private stepFlask(dt: number): void {
+    const use = this.flaskUse;
+    if (!use.drinking) return;
     const data = this.ctx.data;
-    const bag = this.ctx.session?.character?.inventory;
-    if (!data || !bag || !this.touch) return;
-    let count = 0;
-    for (const id of data.player.potions.quickOrder) count += countItem(bag, id);
-    this.touch.setPotions(count);
+    const character = this.ctx.session?.character;
+    const player = this.player;
+    if (!data || !character || !player) {
+      use.cancel();
+      return;
+    }
+    const c = player.combat;
+    const s = player.state;
+    const interrupted =
+      c.poise.staggered ||
+      c.guard.up ||
+      this.command.dash ||
+      s.dashTime > 0 ||
+      this.deathTimer !== NOT_DYING;
+    if (interrupted) {
+      use.cancel();
+      this.refreshLoadout();
+      return;
+    }
+    this.clearAttackInput();
+    c.bufferedFast = 0;
+    c.bufferedHeavy = 0;
+    this.castState.bufferedCast = 0;
+    const kind = use.step(dt, data.player.flasks.drinkSeconds);
+    if (kind === null) return;
+    const result = useFlask(
+      character.flasks,
+      kind,
+      data.player.flasks,
+      c,
+      this.flaskRestored,
+      1 + this.statEffects.potionPercent / 100,
+    );
+    if (result !== 'used') {
+      // Full after all (regen caught up): the charge stays; nothing to show.
+      this.refreshLoadout();
+      return;
+    }
+    this.flaskCooldown = data.player.flasks.cooldownSeconds;
+    const gained = Math.round(this.flaskRestored.amount);
+    if (gained > 0) {
+      this.damageNumbers?.spawnText(s.x, s.y + 2, s.z, `+${gained}`, 'heal');
+    }
+    this.hud?.rules.healed();
+    this.refreshFlasks();
+    this.ctx.events.emit('flaskUsed', { kind });
+    // The spent charge is written at once: a reload can never hand it back.
+    this.syncSave();
+    this.ctx.persist();
+    if (this.liveMenu) this.ctx.overlays.refreshTop();
+  }
+
+  /** The Flask charges on the HUD, the touch button and the loadout cross (on a change only). */
+  private refreshFlasks(): void {
+    this.refreshLoadout();
+    const flasks = this.ctx.session?.character?.flasks;
+    if (!flasks) return;
+    const t = this.ctx.i18n;
+    this.hud?.setFlasks(
+      t.t('hud.flaskCount', {
+        name: t.t('hud.flask.health'),
+        left: flasks.healthLeft,
+        max: flasks.health,
+      }),
+      t.t('hud.flaskCount', {
+        name: t.t('hud.flask.mana'),
+        left: flasks.manaLeft,
+        max: flasks.mana,
+      }),
+    );
+    this.touch?.setPotions(this.quickFlask === 'health' ? flasks.healthLeft : flasks.manaLeft);
+  }
+
+  /** The Flasks as the bag shows them: both, with their charges. */
+  private bagFlasks(): { kind: FlaskKind; name: string; left: number; max: number }[] {
+    const flasks = this.ctx.session?.character?.flasks;
+    const t = this.ctx.i18n;
+    if (!flasks) return [];
+    return [
+      {
+        kind: 'health',
+        name: t.t('hud.flask.health'),
+        left: flasks.healthLeft,
+        max: flasks.health,
+      },
+      { kind: 'mana', name: t.t('hud.flask.mana'), left: flasks.manaLeft, max: flasks.mana },
+    ];
   }
 
   /** "Gold" is a temporary name: it comes from items.json, not from the code. */
@@ -2754,15 +2886,56 @@ export class WorldState implements GameState, InstanceHost {
       return;
     }
     const near = this.checkpoints?.near;
+    if (near) this.rest(near.id);
+  }
+
+  /**
+   * Resting at a checkpoint (G.5): one transaction. Out of a fight only (the Flasks would
+   * refill in a fight otherwise). HP and mana are full, every Flask charge is back according to
+   * the split, a drink under way is dropped, the rest event fires once (the quests listen), the
+   * save is written once, and the rest panel opens to change the split: each change there only
+   * refills to the new split in memory; the save follows once when the panel closes.
+   */
+  private rest(checkpointId: string): void {
     const c = this.player?.combat;
-    if (!near || !c || !this.player) return;
+    const character = this.ctx.session?.character;
+    if (!c || !this.player || !character) return;
+    if (!canModifyLoadout(c)) {
+      this.hud?.showMessage(this.ctx.i18n.t('hud.restInCombat'));
+      return;
+    }
     this.player.sinceInteract = 0;
+    this.flaskUse.cancel();
+    this.flaskCooldown = 0;
     c.hp = c.maxHp;
     c.mana = c.maxMana;
+    const rested = restFlasks(character.flasks);
+    if (rested) character.flasks = rested;
+    this.refreshFlasks();
     this.hud?.showMessage(this.ctx.i18n.t('hud.rested'));
-    this.ctx.events.emit('playerRested', { checkpointId: near.id });
+    this.ctx.events.emit('playerRested', { checkpointId });
     this.syncSave();
     this.ctx.persist();
+    this.openMenu((resume) =>
+      restPanel(
+        this.ctx,
+        {
+          flasks: () => character.flasks,
+          setHealth: (health) => {
+            // Still resting (the game is paused behind the panel): the new split, filled.
+            const next = restFlasks(character.flasks, health);
+            if (!next) return;
+            character.flasks = next;
+            this.refreshFlasks();
+            this.ctx.overlays.refreshTop();
+          },
+        },
+        () => {
+          this.ctx.persist();
+          resume();
+        },
+      ),
+    );
   }
 
   private interactWith(npc: Npc): void {
@@ -3082,7 +3255,7 @@ export class WorldState implements GameState, InstanceHost {
     if (!result) return;
     character.stats = result.points;
     this.applyGear(true);
-    this.refreshPotions();
+    this.refreshFlasks();
     this.ctx.events.emit('statsReset', { npcId: npc.id, eggs: result.paid, points: result.freed });
     this.hud?.showMessage(this.ctx.i18n.t('hud.statsReset', { n: result.freed }));
     this.syncSave();
@@ -3501,6 +3674,8 @@ export class WorldState implements GameState, InstanceHost {
     this.applyGearStats(c);
     this.applyStatEffects(c);
     applyStats(c, data.player, c.level);
+    // The bag, the Grimoire or an upgrade may have changed: which incantation can be cast.
+    this.pickIncantation();
     this.carriedKg = carriedWeight(character.inventory, this.items);
     // Heavier equipment stands firmer (fase S.6).
     const pc = data.player.poise;
@@ -3573,13 +3748,69 @@ export class WorldState implements GameState, InstanceHost {
     this.spell = (id && this.staff?.spells.get(id)) || null;
   }
 
-  /** Wheel / D-pad up: the next (or previous) spell in the staff's slots. */
+  /**
+   * The incantation the cast button fires (G.5): the selected prepared slot, or the first
+   * filled one when that slot is empty or gone. Known incantations that are not prepared, an
+   * element that is locked, a Grimoire that left the bag: none of them can be cast.
+   */
+  private pickIncantation(): void {
+    const prepared = this.preparedIncantations();
+    const id = selectedSpell(prepared, this.incantationSlot);
+    if (id !== null) this.incantationSlot = prepared.indexOf(id);
+    this.incantation = (id && this.staff?.incantations.get(id)) || null;
+  }
+
+  /** The prepared incantation slots as they are now (a view; see `Prepared.normalizePrepared`). */
+  private preparedIncantations(): string[] {
+    const data = this.ctx.data;
+    const character = this.ctx.session?.character;
+    if (!data || !character) return [];
+    const known = knownIncantations(
+      data.spells,
+      character.elements,
+      character.incantations,
+      this.knownIncantationIds,
+    );
+    const capacity = incantationCapacity(character.inventory, this.items, character.slotUpgrades);
+    return normalizePrepared(character.prepared.incantations, known, capacity);
+  }
+
+  /** The prepared main weapon slots as they are now (the weapon in hand fills a fresh set first). */
+  private preparedWeapons(): string[] {
+    const data = this.ctx.data;
+    const character = this.ctx.session?.character;
+    if (!data || !character) return [];
+    return normalizePrepared(
+      character.prepared.weapons,
+      eligibleWeapons(character.inventory, this.items),
+      weaponCapacity(data.player.prepared.mainWeapons, character.slotUpgrades),
+      character.equipment.weapon ?? null,
+    );
+  }
+
+  /**
+   * Wheel / D-pad up: with a legacy staff in hand the next (or previous) spell in its slots;
+   * otherwise the next prepared incantation (G.5). A fight only cycles, it never prepares.
+   */
   private cycleSpell(step: 1 | -1): void {
     if (this.deathTimer !== NOT_DYING) return;
     const character = this.ctx.session?.character;
+    this.hud?.rules.loadoutChanged();
+    if (this.weaponKind !== 'staff') {
+      const prepared = this.preparedIncantations();
+      const slot = cycleSpellSlot(prepared, this.incantationSlot, step);
+      if (slot < 0) {
+        this.hud?.showMessage(this.ctx.i18n.t('hud.noIncantation'));
+        return;
+      }
+      if (slot === this.incantationSlot && this.incantation) return;
+      this.incantationSlot = slot;
+      this.pickIncantation();
+      this.refreshLoadout();
+      return;
+    }
     const loadout = character && this.staffSlots > 0 ? character.spellLoadout : NO_SPELLS;
     const slot = cycleSpellSlot(loadout, this.spellSlot, step);
-    this.hud?.rules.loadoutChanged();
     if (slot < 0) {
       this.hud?.showMessage(this.ctx.i18n.t('hud.noSpell'));
       return;
@@ -3592,8 +3823,9 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /**
-   * 1 / D-pad left: the next weapon you carry (Loadout). In a fight too: switching weapons you
-   * have prepared is allowed, other gear stays locked (`changeGear`). The switch waits until
+   * 1 / D-pad left: the next prepared main weapon (G.5; `Prepared`). In a fight too: switching
+   * between what you prepared is allowed, other gear stays locked (`changeGear`). A legacy
+   * staff in hand is not prepared, so the first prepared weapon comes. The switch waits until
    * the attack, roll, parry or cast you are in is over, so no animation is cut off.
    */
   private cycleWeapon(): void {
@@ -3601,9 +3833,9 @@ export class WorldState implements GameState, InstanceHost {
     if (!character || this.deathTimer !== NOT_DYING) return;
     this.hud?.rules.loadoutChanged();
     const worn = character.equipment.weapon ?? null;
-    const list = preparedWeapons(character.inventory, this.items);
+    const list = preparedIds(this.preparedWeapons());
     const next = cycle(list, this.pendingWeapon ?? worn, 1);
-    if (next === null || list.length < 2) {
+    if (next === null || (list.length < 2 && next === worn)) {
       this.hud?.showMessage(this.ctx.i18n.t('hud.oneWeapon'));
       return;
     }
@@ -3620,7 +3852,7 @@ export class WorldState implements GameState, InstanceHost {
     const player = this.player;
     if (id === null || !character || !player) return;
     if (countItem(character.inventory, id) === 0) {
-      // Sold or stored meanwhile: nothing to switch to.
+      // Sold or stored meanwhile: nothing to switch to (it was prepared when it was chosen).
       this.pendingWeapon = null;
       this.refreshLoadout();
       return;
@@ -3642,37 +3874,24 @@ export class WorldState implements GameState, InstanceHost {
     this.hud?.showMessage(this.ctx.i18n.t('hud.noOffhand'));
   }
 
-  /** 3 / D-pad down: the next potion you carry becomes the quick item Q / X uses. */
-  private cycleQuickItem(): void {
+  /** 3 / D-pad down: the other Flask becomes the one Q / X uses (G.5; Health ↔ Mana). */
+  private cycleQuickFlask(): void {
     const character = this.ctx.session?.character;
-    const data = this.ctx.data;
-    if (!character || !data || this.deathTimer !== NOT_DYING) return;
+    if (!character || this.deathTimer !== NOT_DYING) return;
     this.hud?.rules.loadoutChanged();
-    const list = preparedConsumables(character.inventory, this.items);
-    const current = selectedConsumable(list, this.quickItem, data.player.potions.quickOrder);
-    const next = cycle(list, current, 1);
-    if (next === null) {
+    if (character.flasks.capacity === 0) {
       this.hud?.showMessage(this.ctx.i18n.t('hud.noItem'));
       return;
     }
-    this.quickItem = next;
-    this.refreshLoadout();
-  }
-
-  /** Q / X: uses the quick item (the default order from player.json until you pick one). */
-  private useQuickItem(): void {
-    const character = this.ctx.session?.character;
-    const data = this.ctx.data;
-    if (!character || !data) return;
-    const list = preparedConsumables(character.inventory, this.items);
-    const id = selectedConsumable(list, this.quickItem, data.player.potions.quickOrder);
-    this.drink(id);
+    this.quickFlask = this.quickFlask === 'health' ? 'mana' : 'health';
+    this.refreshFlasks();
   }
 
   /**
-   * The loadout cross in the HUD: the spell, the weapon (or the one waiting to be switched to),
-   * the off hand and the quick item with how many you have, each with its switch key. Called
-   * on a change only (a switch, other gear, a potion used, other keys or language).
+   * The loadout cross in the HUD: the spell (a staff's) or the prepared incantation, the weapon
+   * (or the one waiting to be switched to), the off hand and the selected Flask with its
+   * charges, each with its switch key. Called on a change only (a switch, other gear, a Flask
+   * used, other keys or language).
    */
   private refreshLoadout(): void {
     const hud = this.hud;
@@ -3687,20 +3906,30 @@ export class WorldState implements GameState, InstanceHost {
       empty: name === null,
       pending,
     });
-    const spell = this.spell
-      ? (data.spells.spells.find((entry) => entry.id === this.spell?.id)?.name ?? this.spell.id)
-      : null;
+    const spell =
+      this.weaponKind === 'staff'
+        ? this.spell
+          ? (data.spells.spells.find((entry) => entry.id === this.spell?.id)?.name ?? this.spell.id)
+          : null
+        : this.incantation
+          ? (data.spells.incantations.find((entry) => entry.id === this.incantation?.id)?.name ??
+            this.incantation.id)
+          : null;
     const weaponId = this.pendingWeapon ?? character.equipment.weapon ?? null;
     const weapon = weaponId ? (this.items.get(weaponId)?.name ?? weaponId) : null;
-    const list = preparedConsumables(character.inventory, this.items);
-    const itemId = selectedConsumable(list, this.quickItem, data.player.potions.quickOrder);
-    const count = itemId ? countItem(character.inventory, itemId) : 0;
-    const itemName = itemId ? (this.items.get(itemId)?.name ?? itemId) : null;
+    const flasks = character.flasks;
+    const kind = this.quickFlask;
+    const left = kind === 'health' ? flasks.healthLeft : flasks.manaLeft;
+    const max = kind === 'health' ? flasks.health : flasks.mana;
+    const flask =
+      flasks.capacity > 0
+        ? t.t('hud.flaskCount', { name: t.t(`hud.flask.${kind}`), left, max })
+        : null;
     hud.setLoadout({
       spell: cell('spell', 'spellNext', spell),
       weapon: cell('weapon', 'weaponNext', weapon, this.pendingWeapon !== null),
       offhand: cell('offhand', 'offhandNext', null),
-      item: cell('item', 'itemNext', itemName && count > 1 ? `${itemName} ×${count}` : itemName),
+      item: cell('item', 'itemNext', flask, this.flaskUse.drinking),
     });
   }
 
@@ -4453,6 +4682,7 @@ export class WorldState implements GameState, InstanceHost {
         resume,
         () => this.openStatus(),
         () => this.openSpellbook(),
+        () => this.openLoadout(),
       ),
     );
   }
@@ -4475,8 +4705,13 @@ export class WorldState implements GameState, InstanceHost {
     open((resume) =>
       bagPanel(
         this.ctx,
-        (itemId) => {
-          if (this.drink(itemId) === 'drunk') this.ctx.overlays.refreshTop();
+        {
+          list: () => this.bagFlasks(),
+          use: (kind) => this.startFlask(kind),
+          prepare: () => {
+            this.ctx.overlays.close();
+            this.openLoadout();
+          },
         },
         () => this.xpLine(),
         () => {
@@ -4512,6 +4747,128 @@ export class WorldState implements GameState, InstanceHost {
         resume,
       ),
     );
+  }
+
+  /**
+   * The loadout (G.5; pause menu and the bag): which owned main weapons and which known
+   * incantations are prepared. Looking is always allowed, changing only outside a fight.
+   */
+  private openLoadout(): void {
+    if (this.dialog?.isOpen || this.deathTimer !== NOT_DYING) return;
+    this.openMenu((resume) =>
+      loadoutPanel(
+        this.ctx,
+        {
+          locked: () => (this.player ? !canModifyLoadout(this.player.combat) : false),
+          weapons: () => this.weaponsView(),
+          setWeapon: (slot, itemId) => this.setPreparedWeapon(slot, itemId),
+          incantations: () => this.incantationsView(),
+          setIncantation: (slot, id) => this.setPreparedIncantation(slot, id),
+          flasks: () => this.ctx.session?.character?.flasks ?? normalizeFlasks(EMPTY_FLASKS),
+        },
+        resume,
+      ),
+    );
+  }
+
+  private weaponsView(): PreparedView {
+    const data = this.ctx.data;
+    const character = this.ctx.session?.character;
+    const base = data?.player.prepared.mainWeapons ?? 0;
+    const upgrades = character?.slotUpgrades.weaponHarness.length ?? 0;
+    return {
+      prepared: this.preparedWeapons(),
+      eligible: character ? eligibleWeapons(character.inventory, this.items) : [],
+      capacity: base + upgrades,
+      base,
+      upgrades,
+    };
+  }
+
+  private incantationsView(): PreparedView {
+    const data = this.ctx.data;
+    const character = this.ctx.session?.character;
+    const base = character ? grimoireSlots(character.inventory, this.items) : 0;
+    const upgrades = character?.slotUpgrades.grimoirePages.length ?? 0;
+    const known =
+      data && character
+        ? knownIncantations(data.spells, character.elements, character.incantations, [])
+        : [];
+    return {
+      prepared: this.preparedIncantations(),
+      eligible: known,
+      capacity: base === 0 ? 0 : base + upgrades,
+      base,
+      upgrades,
+    };
+  }
+
+  /**
+   * Puts a weapon in a prepared slot (never in a fight) and saves it. When the weapon in your
+   * hands is no longer prepared afterwards, the first prepared one goes in hand, so what you
+   * hold and what you prepared stay one thing (a legacy staff in hand is the exception).
+   */
+  private setPreparedWeapon(slot: number, itemId: string): void {
+    const character = this.ctx.session?.character;
+    const data = this.ctx.data;
+    if (!character || !data) return;
+    const view = this.weaponsView();
+    const next = setPrepared(
+      character.prepared.weapons,
+      slot,
+      itemId,
+      view.eligible,
+      view.capacity,
+      this.player ? !canModifyLoadout(this.player.combat) : false,
+      character.equipment.weapon ?? null,
+    );
+    if (!next) {
+      this.hud?.showMessage(this.ctx.i18n.t('loadout.inCombat'));
+      return;
+    }
+    character.prepared.weapons = next;
+    const worn = character.equipment.weapon;
+    const prepared = preparedIds(next);
+    const first = prepared[0];
+    if (worn !== undefined && !prepared.includes(worn) && first !== undefined) {
+      const def = this.items.get(worn);
+      // A legacy staff in hand stays (old quests need it); a sword makes way for a prepared one.
+      if (def?.weapon?.kind !== 'staff') {
+        character.equipment.weapon = first;
+        this.applyGear(false);
+        this.updatePlayerGear();
+      }
+    }
+    this.pendingWeapon = null;
+    this.refreshLoadout();
+    this.syncSave();
+    this.ctx.persist();
+    this.ctx.overlays.refreshTop();
+  }
+
+  /** Puts an incantation in a prepared slot (never in a fight), saves it and re-picks the cast. */
+  private setPreparedIncantation(slot: number, id: string): void {
+    const character = this.ctx.session?.character;
+    if (!character) return;
+    const view = this.incantationsView();
+    const next = setPrepared(
+      character.prepared.incantations,
+      slot,
+      id,
+      view.eligible,
+      view.capacity,
+      this.player ? !canModifyLoadout(this.player.combat) : false,
+    );
+    if (!next) {
+      this.hud?.showMessage(this.ctx.i18n.t('loadout.inCombat'));
+      return;
+    }
+    character.prepared.incantations = next;
+    this.pickIncantation();
+    this.refreshLoadout();
+    this.syncSave();
+    this.ctx.persist();
+    this.ctx.overlays.refreshTop();
   }
 
   /** The spellbook (pause menu): which known spells sit in the staff's slots. */
@@ -4643,8 +5000,24 @@ export class WorldState implements GameState, InstanceHost {
 
   private equipItem(itemId: string): boolean {
     const character = this.ctx.session?.character;
-    if (!character) return false;
-    return equip(character.equipment, character.inventory, this.items, itemId) === 'equipped';
+    const data = this.ctx.data;
+    if (!character || !data) return false;
+    const previous = character.equipment.weapon ?? null;
+    if (equip(character.equipment, character.inventory, this.items, itemId) !== 'equipped') {
+      return false;
+    }
+    // A weapon put on outside a fight stays prepared (G.5); a legacy staff never enters a slot.
+    if (character.equipment.weapon === itemId && itemId !== previous) {
+      const next = preparedAfterEquip(
+        character.prepared.weapons,
+        previous,
+        itemId,
+        eligibleWeapons(character.inventory, this.items),
+        weaponCapacity(data.player.prepared.mainWeapons, character.slotUpgrades),
+      );
+      if (next) character.prepared.weapons = next;
+    }
+    return true;
   }
 
   private unequipSlot(slot: EquipmentSlot): boolean {
@@ -4813,10 +5186,31 @@ export class WorldState implements GameState, InstanceHost {
     return true;
   }
 
-  /** Debug: XP, gold or potions for testing levels, dying and drinking. */
-  private grant(
-    kind: 'xp' | 'gold' | 'potions' | 'slimeGel' | 'gear' | 'packAnimal' | 'staff',
-  ): void {
+  /**
+   * Debug: XP, gold, materials, gear, the pack animal, a staff, or one of the permanent G.5
+   * upgrades (each press is its own unique debug discovery, so the real idempotence rules apply:
+   * the same id can never count twice, which the ids `debug_<kind>_<n>` make visible).
+   */
+  private grant(kind: CheatGrant): void {
+    const character = this.ctx.session?.character;
+    if (kind === 'flaskCapacity' && character) {
+      const id = `debug_flask_${character.flasks.discoveries.length + 1}`;
+      if (grantFlaskCapacity(character.flasks, id)) {
+        this.refreshFlasks();
+        this.ctx.persist();
+      }
+      return;
+    }
+    if ((kind === 'weaponHarness' || kind === 'grimoirePage') && character) {
+      const list = kind === 'weaponHarness' ? 'weaponHarness' : 'grimoirePages';
+      const id = `debug_${kind}_${character.slotUpgrades[list].length + 1}`;
+      if (grantSlotUpgrade(character.slotUpgrades, list, id)) {
+        this.applyGear(false);
+        this.refreshLoadout();
+        this.ctx.persist();
+      }
+      return;
+    }
     if (kind === 'packAnimal') {
       this.grantPackAnimal();
       return;
@@ -4836,7 +5230,6 @@ export class WorldState implements GameState, InstanceHost {
     if (kind === 'xp') this.gainXp(CHEAT_XP);
     else if (kind === 'gold') this.gainItem(GOLD_ITEM, CHEAT_GOLD);
     else if (kind === 'slimeGel') this.gainItem('slime_gel', CHEAT_SLIME_GEL);
-    else this.gainItem(this.ctx.data?.player.potions.quickOrder[0] ?? '', CHEAT_POTIONS);
   }
 
   /**
@@ -5084,17 +5477,7 @@ export class WorldState implements GameState, InstanceHost {
     player.state.sinceEnergySpent = data.player.regen.energyDelaySeconds;
     this.sword = swordConfig(data.player);
     this.staff = castConfig(data.player, data.spells);
-    const character = session?.character;
-    const known = knownIncantations(
-      data.spells,
-      character?.elements ?? NO_SPELLS,
-      character?.incantations ?? NO_SPELLS,
-      this.knownIncantationIds,
-    );
-    const incantationId = selectedIncantation(known);
-    this.pushIncantation = incantationId
-      ? (this.staff.incantations.get(incantationId) ?? null)
-      : null;
+    this.pickIncantation();
     this.lockCfg = lockOnConfig(data.player);
     this.lockMarkerHeight = data.player.lockOn.marker.heightFraction;
     this.castState.reset();
@@ -5543,7 +5926,7 @@ export class WorldState implements GameState, InstanceHost {
     this.shotWorld = null;
     this.locked = null;
     this.staff = null;
-    this.pushIncantation = null;
+    this.incantation = null;
     this.lockCfg = null;
     this.spell = null;
     this.enemies = null;
@@ -5663,12 +6046,14 @@ export class WorldState implements GameState, InstanceHost {
         `${s.recoverTime > 0 ? ' · getting up' : ''}${c.poise.staggered ? ' · staggered' : ''} · poise ${Math.round(c.poise.poise)}/${Math.round(c.poise.max)} · dmg ×${c.damageFactor.toFixed(2)} taken ×${c.damageTakenFactor.toFixed(2)}`,
     );
     const weapon = this.ctx.session?.character?.equipment.weapon ?? '-';
+    const flasks = this.ctx.session?.character?.flasks;
     debug.lines.set(
       'loadout',
       `spell ${this.spell?.id ?? '-'} (slot ${this.spellSlot})` +
         `${this.castState.castSpell ? ` casting ${this.castState.castSpell.id}` : ''} · ` +
         `weapon ${weapon}${this.pendingWeapon ? ` → ${this.pendingWeapon}` : ''} · ` +
-        `item ${this.quickItem ?? 'default'} · ` +
+        `incantation ${this.incantation?.id ?? '-'} (slot ${this.incantationSlot}) · ` +
+        `flask ${this.quickFlask} H ${flasks?.healthLeft ?? '-'}/${flasks?.health ?? '-'} M ${flasks?.manaLeft ?? '-'}/${flasks?.mana ?? '-'}${this.flaskUse.drinking ? ' drinking' : ''} · ` +
         `menu ${this.liveMenu ? 'open, fight goes on' : this.paused ? 'paused' : 'closed'} · ` +
         `mouse ${this.input?.pointerLocked ? 'captured' : 'free'}`,
     );

@@ -873,3 +873,86 @@ describe('Grimoire data foundation (G.1)', () => {
     );
   });
 });
+
+describe('legacy potions (G.5)', () => {
+  const { data } = validateGameData(readAllData(), options);
+  const LEGACY_POTIONS = [
+    'health_potion',
+    'greater_health_potion',
+    'mana_potion',
+    'greater_mana_potion',
+  ];
+  const isLegacyPotion = (id: string): boolean => LEGACY_POTIONS.includes(id);
+
+  it('the four potions are legacy items, and every potion in the data is', () => {
+    const potions = data?.items.items.filter((item) => item.type === 'potion') ?? [];
+    expect(potions.map((item) => item.id).sort()).toEqual([...LEGACY_POTIONS].sort());
+    for (const potion of potions) expect(potion.legacy).toBe(true);
+  });
+
+  it('no shop sells them any more; the validator refuses one that would', () => {
+    for (const npc of data?.npcs.npcs ?? []) {
+      for (const entry of npc.shop?.items ?? []) expect(isLegacyPotion(entry.item)).toBe(false);
+    }
+    const raw = freshData();
+    raw.npcs.npcs
+      .find((npc: { id: string }) => npc.id === 'marco')
+      .shop.items.push({ item: 'mana_potion', price: 1 });
+    expect(messages(raw)).toContainEqual(
+      expect.stringContaining('"mana_potion" is a legacy potion and not for sale'),
+    );
+  });
+
+  it('no quest hands one over on accepting, and no new quest rewards one', () => {
+    const rewarding: string[] = [];
+    for (const quest of data?.quests.quests ?? []) {
+      for (const stack of quest.grants?.items ?? []) expect(isLegacyPotion(stack.item)).toBe(false);
+      if (quest.rewards.items.some((stack) => isLegacyPotion(stack.item))) rewarding.push(quest.id);
+    }
+    // The three Greenwood side quests of before G.5 still reward one (a content decision for
+    // Bo/Lucas, not touched here); anything beyond these is a new, unintended reward.
+    expect(rewarding.sort()).toEqual(
+      ['blade_in_the_woods', 'shadows_in_the_greenwood', 'sparks_in_the_greenwood'].sort(),
+    );
+  });
+
+  it('only the monsters that dropped one before G.5 still do (a content decision, not new loot)', () => {
+    const dropping =
+      data?.monsters.monsters
+        .filter((monster) => monster.drops.some((drop) => isLegacyPotion(drop.item)))
+        .map((monster) => monster.id)
+        .sort() ?? [];
+    expect(dropping).toEqual(
+      [
+        'big_slime',
+        'water_big_slime',
+        'fire_big_slime',
+        'nature_big_slime',
+        'wind_big_slime',
+        'dark_big_slime',
+        'goblin',
+        'goblin_archer',
+        'goblin_chief',
+        'mossback',
+        'rootgnarl',
+        'fenstalker',
+        'bogmaw',
+        'hoarfrost_warden',
+        'hollow_whisperer',
+        'dunmar_sentinel',
+        'stonejaw',
+        'windlash',
+        'blightborn',
+      ].sort(),
+    );
+  });
+
+  it('the Marco tutorial quest buys a Straw Hat now, which he sells', () => {
+    const quest = data?.quests.quests.find((entry) => entry.id === 'just_for_you');
+    const objective = quest?.objectives[0];
+    expect(objective?.type).toBe('buy');
+    expect(objective && 'item' in objective ? objective.item : null).toBe('straw_hat');
+    const marco = data?.npcs.npcs.find((npc) => npc.id === 'marco');
+    expect(marco?.shop?.items.some((entry) => entry.item === 'straw_hat')).toBe(true);
+  });
+});

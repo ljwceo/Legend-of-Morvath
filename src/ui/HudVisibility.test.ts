@@ -14,6 +14,7 @@ function bars(): HudBars {
     gold: new HudVisibility(),
     abilities: new HudVisibility(),
     loadout: new HudVisibility(),
+    flasks: new HudVisibility(),
   };
 }
 

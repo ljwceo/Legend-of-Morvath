@@ -1,6 +1,4 @@
-import type { ItemDef } from '../data/types';
 import type { CombatState } from './Combat';
-import type { ItemStack } from './Inventory';
 import { activeSpell, EMPTY_SLOT } from './Spellbook';
 
 /**
@@ -10,10 +8,10 @@ import { activeSpell, EMPTY_SLOT } from './Spellbook';
  * the world scene and the menus ask these instead of reading `inCombat` themselves.
  *
  * Quick switching (Elden Ring-style, 2026-10-17): the D-pad, or 1 / 2 / 3 and the wheel,
- * cycle through what is prepared without opening a menu. Until the prepared slots of step
- * S.15 exist (decision S-9: 2 main weapons, 1 off hand, 4 potion slots), "prepared" is what
- * you carry in the bag: every weapon and every potion in it. Spells cycle through the filled
- * slots of your staff (the spellbook). The off hand has no items yet, so it stays empty.
+ * cycle through what is prepared without opening a menu. Since G.5 "prepared" is a real,
+ * saved choice (`Prepared.ts`): the prepared main weapons, the prepared incantations and the
+ * two Flasks (the quick item cycles Health ↔ Mana). A legacy staff in hand keeps cycling its
+ * own spell slots (the spellbook). The off hand has no modes yet (G.6), so it stays empty.
  */
 
 /**
@@ -53,35 +51,6 @@ export function canSwitchPrepared(
   );
 }
 
-/** Weapons in the bag, each id once, in the order of the bag. */
-export function preparedWeapons(
-  bag: readonly ItemStack[],
-  items: ReadonlyMap<string, ItemDef>,
-): string[] {
-  return prepared(bag, items, (def) => def.type === 'weapon');
-}
-
-/** Things you can use from the quick slot (potions), each id once, in the order of the bag. */
-export function preparedConsumables(
-  bag: readonly ItemStack[],
-  items: ReadonlyMap<string, ItemDef>,
-): string[] {
-  return prepared(bag, items, (def) => def.type === 'potion' && def.potion !== undefined);
-}
-
-function prepared(
-  bag: readonly ItemStack[],
-  items: ReadonlyMap<string, ItemDef>,
-  fits: (def: ItemDef) => boolean,
-): string[] {
-  const out: string[] = [];
-  for (const stack of bag) {
-    const def = items.get(stack.item);
-    if (stack.count > 0 && def && fits(def) && !out.includes(stack.item)) out.push(stack.item);
-  }
-  return out;
-}
-
 /**
  * The entry `step` places after `current` (1 = next, -1 = previous), wrapping around. With
  * `current` not in the list the first entry comes; an empty list gives null.
@@ -95,19 +64,6 @@ export function cycle(
   const at = current === null ? -1 : list.indexOf(current);
   if (at < 0) return list[0] as string;
   return list[(at + step + list.length) % list.length] as string;
-}
-
-/**
- * The selected quick item: `selected` while you still have it, else the first of `order`
- * (player.json `potions.quickOrder`) you have, else the first you have; null with none.
- */
-export function selectedConsumable(
-  list: readonly string[],
-  selected: string | null,
-  order: readonly string[],
-): string | null {
-  if (selected !== null && list.includes(selected)) return selected;
-  return order.find((id) => list.includes(id)) ?? list[0] ?? null;
 }
 
 /**
