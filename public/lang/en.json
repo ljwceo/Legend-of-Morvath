@@ -628,16 +628,16 @@
       }
     },
     "just_for_you": {
-      "desc": "Buy 2 Health Potions from Marco on the Market Square.",
+      "desc": "Buy a Straw Hat from Marco on the Market Square.",
       "offer": {
-        "1": "A new customer! And what a fine one. Today, and only for you, my Health Potions are a steal.",
-        "2": "Buy two, just to be safe. A wise traveller never leaves town without them. Trust me!"
+        "1": "A new customer! And what a fine one. Today, and only for you, my Straw Hats are a steal.",
+        "2": "Buy one, just to be safe. A wise traveller never leaves town bareheaded. Trust me!"
       },
       "progress": {
-        "1": "Still thinking it over? Two Health Potions, special price, just for you."
+        "1": "Still thinking it over? One Straw Hat, special price, just for you."
       },
       "complete": {
-        "1": "Pleasure doing business! Drink one with {keyPotion}, or tap the potion button, whenever you are hurt.",
+        "1": "Pleasure doing business! Wear it from your bag, and remember: your Flasks refill whenever you rest at a checkpoint.",
         "2": "Here, a little something back. Don't tell the other merchants."
       }
     },

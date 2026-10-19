@@ -628,16 +628,16 @@
       }
     },
     "just_for_you": {
-      "desc": "Koop 2 Health Potions bij Marco op de Market Square.",
+      "desc": "Koop een Straw Hat bij Marco op de Market Square.",
       "offer": {
-        "1": "Een nieuwe klant! En wat voor een. Vandaag, en alleen voor jou, zijn mijn Health Potions spotgoedkoop.",
-        "2": "Koop er twee, voor de zekerheid. Een wijze reiziger gaat nooit de stad uit zonder. Geloof me!"
+        "1": "Een nieuwe klant! En wat voor een. Vandaag, en alleen voor jou, zijn mijn Straw Hats spotgoedkoop.",
+        "2": "Koop er een, voor de zekerheid. Een wijze reiziger gaat nooit blootshoofds de stad uit. Geloof me!"
       },
       "progress": {
-        "1": "Nog aan het twijfelen? Twee Health Potions, speciale prijs, speciaal voor jou."
+        "1": "Nog aan het twijfelen? Eén Straw Hat, speciale prijs, speciaal voor jou."
       },
       "complete": {
-        "1": "Fijn zakendoen! Drink er een met {keyPotion}, of tik op de drankknop, als je gewond bent.",
+        "1": "Fijn zakendoen! Zet hem op vanuit je tas, en onthoud: je Flasks vullen zich weer als je rust bij een checkpoint.",
         "2": "Hier, een kleinigheidje terug. Niet tegen de andere kooplui zeggen."
       }
     },

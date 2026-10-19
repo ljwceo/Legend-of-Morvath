@@ -9,8 +9,11 @@ const sources = itemSources(data);
 
 describe('ItemSources (Sultan: "Where can I find…?")', () => {
   it('finds a shop first, then the monsters that drop it', () => {
+    const hat = sources.get('straw_hat') ?? [];
+    expect(hat[0]).toEqual({ kind: 'shop', npc: 'marco', zone: 'greyhaven' });
+    // The legacy potions (G.5) are sold nowhere any more; monsters still drop them.
     const potion = sources.get('health_potion') ?? [];
-    expect(potion[0]).toEqual({ kind: 'shop', npc: 'marco', zone: 'greyhaven' });
+    expect(potion.some((s) => s.kind === 'shop')).toBe(false);
     expect(potion.some((s) => s.kind === 'monster' && s.monster === 'goblin')).toBe(true);
   });
 

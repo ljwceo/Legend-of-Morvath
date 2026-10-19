@@ -1,6 +1,8 @@
 import type { Random } from '../core/Random';
 import type { AppearanceFile, PlayerConfig } from '../data/types';
 import type { SaveCharacter } from '../save/SaveData';
+import { createFlasks } from '../systems/Flasks';
+import { createSlotUpgrades } from '../systems/Prepared';
 
 /** The look of a character: one id per option list in appearance.json. */
 export type Appearance = SaveCharacter['appearance'];
@@ -129,5 +131,10 @@ export function createCharacter(
     upgrades: {},
     elements: [],
     incantations: [],
+    // G.5: the Flasks start full at the approved split; nothing is prepared or upgraded yet
+    // (the weapon in hand and Push fill the slots when the world reads them).
+    flasks: createFlasks(player.flasks),
+    prepared: { weapons: [], incantations: [] },
+    slotUpgrades: createSlotUpgrades(),
   };
 }

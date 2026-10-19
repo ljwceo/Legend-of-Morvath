@@ -177,8 +177,8 @@
       "objectives": [
         {
           "type": "buy",
-          "item": "health_potion",
-          "count": 2,
+          "item": "straw_hat",
+          "count": 1,
           "npc": "marco"
         }
       ],

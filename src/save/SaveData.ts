@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 21;
+export const SAVE_VERSION = 22;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -108,6 +108,42 @@ export const saveDataSchema = z.object({
        * an `alwaysUnlocked` element (Push) are known without an entry here. Filled in G.7.
        */
       incantations: z.array(id),
+      /**
+       * The reusable Flasks (G.5): permanent `capacity`, the split over the Health and the Mana
+       * Flask (`health` + `mana` = `capacity`), the charges left until the next rest, and the
+       * unique discoveries that gave capacity (each counts once). Loading never refills: what
+       * was saved is what you have. The relations are repaired, never rejected, on loading
+       * (`normalizeFlasks`), so a damaged save loses no progress and gains no charges.
+       */
+      flasks: z.object({
+        // Numbers, not strict counts: a damaged value is repaired on loading, never a reason
+        // to call the whole save corrupt (see `normalizeFlasks`).
+        capacity: finite,
+        health: finite,
+        mana: finite,
+        healthLeft: finite,
+        manaLeft: finite,
+        discoveries: z.array(z.string()),
+      }),
+      /**
+       * The prepared loadout (G.5): one entry per slot, '' for an empty slot; the main weapons
+       * you switch between in a fight and the incantations the cast button can fire. An empty
+       * list = never chosen (the weapon in hand and then the bag fill it; the known
+       * incantations in order). Only what you own / know and may prepare is read from it.
+       */
+      prepared: z.object({
+        weapons: z.array(z.string()),
+        incantations: z.array(z.string()),
+      }),
+      /**
+       * Permanent slot upgrades (G.5), unique ids each counted once: Weapon Harness Upgrades
+       * (one prepared main weapon each) and Grimoire Pages (one prepared incantation each; the
+       * shared second Academy slot of G.7 arrives here too). Untouched by a respec.
+       */
+      slotUpgrades: z.object({
+        weaponHarness: z.array(z.string()),
+        grimoirePages: z.array(z.string()),
+      }),
     }),
   ),
   /** Level, XP and how much HP / mana is left (null = full, e.g. a fresh game). */
@@ -250,6 +286,26 @@ export const ROOKIE_GRIMOIRE_ID = 'rookie_grimoire';
  */
 export const CRYSTAL_ELEMENT_IDS: readonly string[] = ['water', 'fire', 'nature', 'wind', 'dark'];
 
+/**
+ * The Flasks an existing save receives in the migration to version 22 (G.5; decided by Lucas on
+ * 2026-10-19): 2 charges, 1 Health and 1 Mana, both full once. This is the historical baseline
+ * of that one migration and stays as it is; a new character reads player.json `flasks` (a test
+ * keeps the two equal for now). Nothing about consumed potions or achievements is inferred.
+ */
+export const FLASK_START_V22 = { capacity: 2, health: 1, mana: 1 } as const;
+
+/**
+ * The ordinary potions of the old model (items.json `legacy: true` since G.5), replaced by the
+ * reusable Flasks. Kept so the migration and the tests can name them without reading items.json
+ * (a test checks the list); the items and what players own are never touched.
+ */
+export const LEGACY_POTION_IDS: readonly string[] = [
+  'health_potion',
+  'greater_health_potion',
+  'mana_potion',
+  'greater_mana_potion',
+];
+
 type RawStack = { item?: unknown; count?: unknown };
 
 /**
@@ -310,6 +366,39 @@ export function migrateCharacterToGrimoire(
     equipment.weapon = owned ?? fallback;
   }
   return { ...character, inventory, pack, equipment, elements, incantations: [] };
+}
+
+/**
+ * The loadout part of migration 21 → 22 on a raw character (G.5, exported for the tests). Adds
+ * the Flasks (the approved baseline `FLASK_START_V22`, full once: this is the one moment a
+ * migration fills them), the prepared loadout as "never chosen" (the weapon in hand and the bag
+ * fill the weapon slots, the known incantations the Grimoire's slot, deterministically, when
+ * the world reads it; nothing is learned or invented here) and empty slot upgrades. Everything
+ * else, the legacy potions in the bag and on the pack animal included, is left exactly as it
+ * was. A character that already carries these fields (a save migrated twice) keeps them.
+ */
+export function migrateCharacterToLoadout(
+  character: Record<string, unknown>,
+): Record<string, unknown> {
+  const has = (key: string): boolean =>
+    typeof character[key] === 'object' && character[key] !== null;
+  return {
+    ...character,
+    flasks: has('flasks')
+      ? character.flasks
+      : {
+          capacity: FLASK_START_V22.capacity,
+          health: FLASK_START_V22.health,
+          mana: FLASK_START_V22.mana,
+          healthLeft: FLASK_START_V22.health,
+          manaLeft: FLASK_START_V22.mana,
+          discoveries: [],
+        },
+    prepared: has('prepared') ? character.prepared : { weapons: [], incantations: [] },
+    slotUpgrades: has('slotUpgrades')
+      ? character.slotUpgrades
+      : { weaponHarness: [], grimoirePages: [] },
+  };
 }
 
 /** Upgrades a raw save object from version `v` to `v + 1`. */
@@ -451,6 +540,19 @@ export const migrations: Readonly<Record<number, Migration>> = {
       ...save,
       version: 21,
       character: character ? migrateCharacterToGrimoire(character) : null,
+    };
+  },
+  // v22 (Fase G, G.5): the reusable Flasks (2 charges, 1 Health / 1 Mana, full once), the
+  // prepared main weapons and incantations ("never chosen": filled deterministically from the
+  // weapon in hand, the bag and Push) and the permanent slot upgrades. The ordinary potions stay
+  // in the bag and on the pack animal exactly as they were; they are legacy items from now on.
+  // See `migrateCharacterToLoadout`.
+  21: (save) => {
+    const character = save.character as Record<string, unknown> | null | undefined;
+    return {
+      ...save,
+      version: 22,
+      character: character ? migrateCharacterToLoadout(character) : null,
     };
   },
   // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged

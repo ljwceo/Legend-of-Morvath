@@ -126,22 +126,6 @@
       "shop": {
         "items": [
           {
-            "item": "health_potion",
-            "price": 10
-          },
-          {
-            "item": "greater_health_potion",
-            "price": 40
-          },
-          {
-            "item": "mana_potion",
-            "price": 12
-          },
-          {
-            "item": "greater_mana_potion",
-            "price": 45
-          },
-          {
             "item": "straw_hat",
             "price": 15,
             "stock": { "max": 2, "restockSeconds": 600 }

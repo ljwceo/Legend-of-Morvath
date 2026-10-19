@@ -726,6 +726,7 @@
       "rarity": "common",
       "tradeable": true,
       "description": "item.health_potion.desc",
+      "legacy": true,
       "potion": {
         "hpPercent": 50
       }
@@ -737,6 +738,7 @@
       "rarity": "rare",
       "tradeable": true,
       "description": "item.greater_health_potion.desc",
+      "legacy": true,
       "potion": {
         "hpPercent": 100
       }
@@ -748,6 +750,7 @@
       "rarity": "common",
       "tradeable": true,
       "description": "item.mana_potion.desc",
+      "legacy": true,
       "potion": {
         "manaPercent": 30
       }
@@ -759,6 +762,7 @@
       "rarity": "rare",
       "tradeable": true,
       "description": "item.greater_mana_potion.desc",
+      "legacy": true,
       "potion": {
         "manaPercent": 60
       }

@@ -283,16 +283,27 @@ describe('validateGameData catches broken data', () => {
     expect(found).toContainEqual(expect.stringContaining('gold is not sold'));
   });
 
-  it('checks potions: what they restore, and the drink key order', () => {
+  it('checks potions: what they restore', () => {
     const raw = freshData();
     const potion = raw.items.items.find((item: { id: string }) => item.id === 'health_potion');
     delete potion.potion;
     raw.items.items.find((item: { id: string }) => item.id === 'wood').potion = { hp: 5 };
-    raw.player.potions.quickOrder = ['slime_gel', 'elixir'];
     const found = messages(raw);
     expect(found).toContainEqual(expect.stringContaining('required for) potions'));
-    expect(found).toContainEqual(expect.stringContaining('"slime_gel" is not a potion'));
-    expect(found).toContainEqual(expect.stringContaining('unknown item "elixir"'));
+  });
+
+  it('checks the Flasks (G.5): the start split adds up, and no shop sells a legacy item', () => {
+    const raw = freshData();
+    raw.player.flasks.startHealth = 2;
+    const marco = raw.npcs.npcs.find((npc: { id: string }) => npc.id === 'marco');
+    marco.shop.items.push({ item: 'health_potion', price: 10 });
+    const found = messages(raw);
+    expect(found).toContainEqual(
+      expect.stringContaining('startHealth + startMana (3) must equal startCapacity (2)'),
+    );
+    expect(found).toContainEqual(
+      expect.stringContaining('"health_potion" is a legacy potion and not for sale'),
+    );
   });
 
   it('reports NPCs placed outside their zone', () => {
