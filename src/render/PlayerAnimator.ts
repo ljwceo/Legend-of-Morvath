@@ -14,7 +14,7 @@ import { PLAYER_CLIP_ROLES } from '../data/schemas';
 import type { PlayerAnimationsDef, PlayerClipRole } from '../data/types';
 import type { CombatState, SwordConfig } from '../systems/Combat';
 import type { MoverState } from '../systems/Movement';
-import type { StaffState } from '../systems/StaffCombat';
+import type { CastState } from '../systems/Casting';
 import { SpringBones } from './SpringBones';
 
 /** The animator's states (PLAN.md, step A.3c). Attack and Cast each pick between a few clips. */
@@ -54,7 +54,7 @@ export interface PlayerAnimInput {
   swingSeconds: number;
   /** The combo place of that hit (1, 2, 3, ...: Slash_1/2/3 in turn), 0 for a heavy hit. */
   landedCombo: number;
-  /** The staff is gathering a shot; seconds since the last shot left it. */
+  /** A shot or Push is being prepared; seconds since the last one left. */
   gathering: boolean;
   sinceFired: number;
   sinceHurt: number;
@@ -95,8 +95,8 @@ export function createPlayerAnimInput(): PlayerAnimInput {
 export interface PlayerAnimSources {
   mover: MoverState;
   combat: CombatState;
-  /** The staff's state, or null with a sword. */
-  staff: StaffState | null;
+  /** The cast state: a staff gathering a shot, or the Grimoire preparing Push (G.3). */
+  staff: CastState | null;
   sword: SwordConfig;
   /** How long a dash and getting up after one last now (movement config, with the load). */
   dashSeconds: number;

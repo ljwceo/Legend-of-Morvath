@@ -1,6 +1,6 @@
 import type { PlayerConfig } from '../data/types';
 import type { PointXZ } from '../world/Colliders';
-import { canSpendEnergy, spendEnergy, stepEnergyRegen } from './Stamina';
+import { canSpendEnergy, canSpendEnergyAfterRegen, spendEnergy, stepEnergyRegen } from './Stamina';
 
 const DEG = Math.PI / 180;
 const EPSILON = 1e-4;
@@ -281,6 +281,29 @@ export function angleDelta(from: number, to: number): number {
 }
 
 /**
+ * Will `stepMovement` start a roll in the step about to run with this command? The same gate
+ * it uses, judged from before the step (the cooldown and the energy refill of that step are
+ * counted in), so the cast step that runs first can let a valid roll cut a cast short before
+ * the cast goes off (U-1, G.3). With `dt` 0 it is the gate as `stepMovement` sees it.
+ */
+export function dashStartsThisStep(
+  s: MoverState,
+  cmd: MoveCommand,
+  cfg: MovementConfig,
+  dt: number,
+): boolean {
+  return (
+    cmd.dash &&
+    cfg.canDash &&
+    s.recoverTime <= 0 &&
+    s.grounded &&
+    s.dashTime <= 0 &&
+    Math.max(0, s.dashCooldown - dt) <= 0 &&
+    canSpendEnergyAfterRegen(s, cfg, dt)
+  );
+}
+
+/**
  * Advances a character by one fixed step: energy refill, dash, walking and turning.
  * Speeds are per second and `dt` is the fixed step, so 60 and 120 fps play the same.
  */
@@ -308,14 +331,7 @@ export function stepMovement(
     return;
   }
 
-  if (
-    cmd.dash &&
-    cfg.canDash &&
-    s.grounded &&
-    s.dashTime <= 0 &&
-    s.dashCooldown <= 0 &&
-    canSpendEnergy(s)
-  ) {
+  if (dashStartsThisStep(s, cmd, cfg, 0)) {
     spendEnergy(s, cfg.dashEnergyCost);
     s.dashCooldown = cfg.dashCooldownSeconds;
     s.dashTime = cfg.dashDurationSeconds;

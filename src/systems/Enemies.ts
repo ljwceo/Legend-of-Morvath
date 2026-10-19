@@ -21,6 +21,7 @@ import {
   type EnemyWorld,
   engage,
   stepEnemyAi,
+  stepKnockback,
 } from './EnemyAI';
 
 /** Seconds of the white flash after a hit. */
@@ -427,6 +428,8 @@ export class Enemies {
         stepBoss(e, target, world, dt);
         if (e.alive) this.moving.push(e);
       } else if (d2 <= sim2) {
+        // A knockback first (it moves a staggered monster too), then its own doing.
+        if (e.knockTime > 0 && e.alive) stepKnockback(e, world.mover, dt);
         stepEnemyAi(e, e.speed, this.ai, target, world, dt);
         if (e.alive) this.moving.push(e);
       } else if (e.engaged || e.mode === 'return') {
@@ -529,6 +532,27 @@ export class Enemies {
     }
     defeat(e, this.ai);
     this.split(e);
+    return true;
+  }
+
+  /**
+   * Shoves a monster (Push, G.3): `meters` along (dirX, dirZ) over `seconds`, less its
+   * `knockbackResistance` (data, independent of poise: P-10). A boss and a static dummy are
+   * never shoved (P-1), nor is anything defeated. A new shove replaces one still running. The
+   * monster stops walking by itself while it lasts; an attack goes on unless poise broke it.
+   * Returns true when a shove started.
+   */
+  push(e: Enemy, dirX: number, dirZ: number, meters: number, seconds: number): boolean {
+    if (!e.alive || e.boss || e.def.behavior === 'static') return false;
+    const left = meters * (1 - (e.def.knockbackResistance ?? 0));
+    if (left <= 0 || seconds <= 0) return false;
+    const d = Math.hypot(dirX, dirZ);
+    if (d < 1e-6) return false;
+    e.knockDirX = dirX / d;
+    e.knockDirZ = dirZ / d;
+    e.knockLeft = left;
+    e.knockTime = seconds;
+    e.knockSpeed = left / seconds;
     return true;
   }
 
