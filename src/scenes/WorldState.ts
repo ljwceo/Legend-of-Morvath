@@ -121,7 +121,7 @@ import {
   stepCast,
 } from '../systems/Casting';
 import { guardHit, makeGuardResult, stepGuard, weaponFreeForGuard } from '../systems/Guard';
-import { hasGrimoireAccess, knownIncantations, selectedIncantation } from '../systems/Grimoire';
+import { knownIncantations, ownsGrimoire, selectedIncantation } from '../systems/Grimoire';
 import { backstabPoiseDamage, damagePoise, playerMaxPoise, stepPoise } from '../systems/Poise';
 import {
   carriedWeight,
@@ -1399,9 +1399,9 @@ export class WorldState implements GameState, InstanceHost {
     sources.staff = staffInHand;
     sources.spell = this.spell;
     sources.power = this.spellPower;
-    // The Grimoire: owning one is enough (never equipped); until G.4 every character may cast.
+    // The Grimoire: owning one is enough (never equipped; an old save got one in G.4).
     const bag = this.ctx.session?.character?.inventory;
-    sources.incantation = bag && hasGrimoireAccess(bag, this.items) ? this.pushIncantation : null;
+    sources.incantation = bag && ownsGrimoire(bag, this.items) ? this.pushIncantation : null;
     if (input.cast && !sources.incantation && !state.casting) this.sayNoGrimoire();
     // Push turns you towards your target or the nearest enemy in front while it is prepared.
     const preparing = state.pending === 'incantation' ? state.castIncantation : null;
@@ -5084,7 +5084,13 @@ export class WorldState implements GameState, InstanceHost {
     player.state.sinceEnergySpent = data.player.regen.energyDelaySeconds;
     this.sword = swordConfig(data.player);
     this.staff = castConfig(data.player, data.spells);
-    const known = knownIncantations(data.spells, this.knownIncantationIds);
+    const character = session?.character;
+    const known = knownIncantations(
+      data.spells,
+      character?.elements ?? NO_SPELLS,
+      character?.incantations ?? NO_SPELLS,
+      this.knownIncantationIds,
+    );
     const incantationId = selectedIncantation(known);
     this.pushIncantation = incantationId
       ? (this.staff.incantations.get(incantationId) ?? null)

@@ -3,7 +3,7 @@ import { PLAYER_PATHS, qualityLevelSchema } from '../data/schemas';
 import { LANGUAGES, type Language } from '../i18n/I18n';
 
 /** Current save format. Bump it and add `migrations[old]` whenever the shape changes. */
-export const SAVE_VERSION = 20;
+export const SAVE_VERSION = 21;
 
 /** Camera sensitivity for new saves (1 = 100%); the allowed range is in player.json. */
 export const DEFAULT_CAMERA_SENSITIVITY = 0.7;
@@ -96,6 +96,18 @@ export const saveDataSchema = z.object({
        * level 0. Per item id, so all copies of one weapon share the level.
        */
       upgrades: z.record(z.string(), z.int().check(z.positive())),
+      /**
+       * Elements unlocked for good (spells.json element ids; Fase G, G.4). An element that is
+       * `alwaysUnlocked` (Neutral) is never stored. Unlocking one never teaches its incantations
+       * (G.0); teachers and discoveries add to it in G.7. Untouched by a respec at Sultan.
+       */
+      elements: z.array(id),
+      /**
+       * Incantations learned one by one (spells.json incantation ids; G.4), apart from the
+       * elements: an incantation is usable only when its element is unlocked as well. Those of
+       * an `alwaysUnlocked` element (Push) are known without an entry here. Filled in G.7.
+       */
+      incantations: z.array(id),
     }),
   ),
   /** Level, XP and how much HP / mana is left (null = full, e.g. a fresh game). */
@@ -212,6 +224,67 @@ const OLD_PAD_DEFAULTS_V19: Readonly<Record<string, readonly string[]>> = {
   interact: ['Pad2'],
   potion: ['Pad3'],
 };
+
+/**
+ * The staffs of the old model (items.json `legacy: true`), which no longer belong in your
+ * hands since Fase G. A migration cannot read items.json, so the ids live here; a test checks
+ * they match the data. The items themselves stay in the bag, nothing is ever taken away.
+ */
+export const LEGACY_STAFF_IDS: readonly string[] = ['mage_staff', 'adept_staff'];
+
+/**
+ * What replaces a legacy staff in your hands (G.4, in this order): the first of these already
+ * in the bag is equipped; when neither is there, one of the last (the Rookie Sword, item id
+ * `old_sword`) is added and equipped. Deterministic, so two migrations give the same result.
+ */
+export const LEGACY_STAFF_REPLACEMENTS: readonly string[] = ['honed_old_sword', 'old_sword'];
+
+/** The Grimoire every character gets with G.4 (items.json type `grimoire`). */
+export const ROOKIE_GRIMOIRE_ID = 'rookie_grimoire';
+
+type RawStack = { item?: unknown; count?: unknown };
+
+/** How many of an item a raw stack list holds (tolerant: a malformed entry counts as nothing). */
+function rawCount(stacks: unknown, item: string): number {
+  if (!Array.isArray(stacks)) return 0;
+  let n = 0;
+  for (const entry of stacks) {
+    const stack = entry as RawStack | null;
+    if (stack?.item === item && typeof stack.count === 'number') n += stack.count;
+  }
+  return n;
+}
+
+/**
+ * The Grimoire part of migration 20 → 21 on a raw character (exported for the tests). Adds the
+ * permanent elements (the crystal's element, drawn in the Crystal Ceremony, is yours for good;
+ * nothing else) and the learned incantations (none yet: Push comes with Neutral), puts the
+ * Rookie Grimoire in the bag unless one is in the bag or on the pack animal already, and takes
+ * a legacy staff out of your hands for a valid sword (see `LEGACY_STAFF_REPLACEMENTS`); the
+ * staff stays in the bag. Everything else on the character is left exactly as it was.
+ */
+export function migrateCharacterToGrimoire(
+  character: Record<string, unknown>,
+): Record<string, unknown> {
+  const inventory = Array.isArray(character.inventory) ? [...character.inventory] : [];
+  const equipment = { ...((character.equipment ?? {}) as Record<string, unknown>) };
+  const crystal = character.crystal;
+  const elements = typeof crystal === 'string' && crystal.length > 0 ? [crystal] : [];
+  if (
+    rawCount(inventory, ROOKIE_GRIMOIRE_ID) + rawCount(character.pack, ROOKIE_GRIMOIRE_ID) ===
+    0
+  ) {
+    inventory.push({ item: ROOKIE_GRIMOIRE_ID, count: 1 });
+  }
+  const weapon = equipment.weapon;
+  if (typeof weapon === 'string' && LEGACY_STAFF_IDS.includes(weapon)) {
+    const owned = LEGACY_STAFF_REPLACEMENTS.find((id) => rawCount(inventory, id) > 0);
+    const fallback = LEGACY_STAFF_REPLACEMENTS[LEGACY_STAFF_REPLACEMENTS.length - 1] as string;
+    if (owned === undefined) inventory.push({ item: fallback, count: 1 });
+    equipment.weapon = owned ?? fallback;
+  }
+  return { ...character, inventory, equipment, elements, incantations: [] };
+}
 
 /** Upgrades a raw save object from version `v` to `v + 1`. */
 export type Migration = (save: Record<string, unknown>) => Record<string, unknown>;
@@ -341,6 +414,18 @@ export const migrations: Readonly<Record<number, Migration>> = {
       if (same) Reflect.deleteProperty(keybindings, `pad:${action}`);
     }
     return { ...save, version: 20, settings: { ...settings, keybindings } };
+  },
+  // v21 (Fase G, G.4): the Grimoire. Permanent elements and learned incantations join the
+  // character, everyone owns the Rookie Grimoire (so Push works without the temporary access
+  // of G.3), and a legacy staff in your hands makes way for a sword; the staff, the crystals,
+  // the spells you knew and all other progress stay. See `migrateCharacterToGrimoire`.
+  20: (save) => {
+    const character = save.character as Record<string, unknown> | null | undefined;
+    return {
+      ...save,
+      version: 21,
+      character: character ? migrateCharacterToGrimoire(character) : null,
+    };
   },
   // v11 (2026-10-12): the on-screen buttons on a phone (size, swapped sides, where you dragged
   // them). Everyone starts on the default size and the default places.

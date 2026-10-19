@@ -1,4 +1,11 @@
-import { migrate, saveDataSchema, type Migration, type SaveData, migrations } from './SaveData';
+import {
+  migrate,
+  saveDataSchema,
+  SAVE_VERSION,
+  type Migration,
+  type SaveData,
+  migrations,
+} from './SaveData';
 
 /** The part of `Storage` the save needs, so tests can pass an in-memory version. */
 export type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
@@ -7,9 +14,15 @@ export const SAVE_KEY = 'legend-of-morvath.save';
 const BACKUP_SUFFIX = '.backup';
 const EXPORT_PREFIX = 'LOM1:';
 
+/** The key under which the save as it was before a migration from `version` is kept. */
+export function migrationBackupKey(key: string, version: number): string {
+  return `${key}${BACKUP_SUFFIX}.v${version}`;
+}
+
 export type LoadResult =
   | { status: 'none' }
-  | { status: 'ok'; save: SaveData }
+  /** `migratedFrom`: the stored version when it was older and migrations ran (a backup was kept). */
+  | { status: 'ok'; save: SaveData; migratedFrom?: number }
   /** The stored save could not be read; a copy was kept under the backup key. */
   | { status: 'corrupt' }
   /** Made by a newer game version; left untouched so it is not lost. */
@@ -55,6 +68,12 @@ export class SaveManager {
 
     const result = this.parse(text);
     if (result.status === 'corrupt') this.keepBackup(text);
+    // An older save is about to be overwritten in its new form on the next write: keep the
+    // original once (G.4). A backup that is already there is never replaced, so a reload
+    // before the first write, or a later migration, cannot lose the oldest copy.
+    if (result.status === 'ok' && result.migratedFrom !== undefined) {
+      this.keepMigrationBackup(text, result.migratedFrom);
+    }
     return result;
   }
 
@@ -70,11 +89,14 @@ export class SaveManager {
     }
   }
 
-  /** Removes the save (Settings → delete, after confirming twice). The backup goes too. */
+  /** Removes the save (Settings → delete, after confirming twice). The backups go too. */
   delete(): void {
     try {
       this.storage?.removeItem(this.key);
       this.storage?.removeItem(this.key + BACKUP_SUFFIX);
+      for (let version = 1; version < SAVE_VERSION; version++) {
+        this.storage?.removeItem(migrationBackupKey(this.key, version));
+      }
     } catch {
       // Nothing else we can do; the next load will report what is there.
     }
@@ -120,7 +142,20 @@ export class SaveManager {
       return { status: 'corrupt' };
     }
     const checked = saveDataSchema.safeParse(migrated.save);
-    return checked.success ? { status: 'ok', save: checked.data } : { status: 'corrupt' };
+    if (!checked.success) return { status: 'corrupt' };
+    const from = (raw as { version?: unknown }).version;
+    return typeof from === 'number' && from < SAVE_VERSION
+      ? { status: 'ok', save: checked.data, migratedFrom: from }
+      : { status: 'ok', save: checked.data };
+  }
+
+  private keepMigrationBackup(text: string, from: number): void {
+    const key = migrationBackupKey(this.key, from);
+    try {
+      if (this.storage?.getItem(key) === null) this.storage.setItem(key, text);
+    } catch {
+      // Storage full: the migrated save is still written over the original on the next save.
+    }
   }
 
   private keepBackup(text: string): void {
