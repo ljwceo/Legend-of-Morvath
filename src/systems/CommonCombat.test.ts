@@ -606,9 +606,13 @@ class MemoryStorage implements StorageLike {
   }
 }
 
-/** A save as the game wrote it before G.2 (version 20), for a character on `path`. */
+/**
+ * A save as the game wrote it before G.2 (version 20), for a character on `path`. The fields
+ * of G.4 (`elements`, `incantations`) did not exist yet; the migration of G.4 adds them.
+ */
 function legacySave(path: PlayerPath, mana: number | null): string {
-  const save = createNewSave('en', new Date('2026-10-17T12:00:00Z'));
+  const save = createNewSave('en', new Date('2026-10-17T12:00:00Z')) as Record<string, unknown>;
+  save.version = 20;
   save.character = {
     name: 'Old',
     appearance: {
@@ -625,7 +629,7 @@ function legacySave(path: PlayerPath, mana: number | null): string {
     stats: { hp: 4, regen: 3 },
     spells: [],
     spellLoadout: [],
-    crystal: path === 'sword' ? null : path === 'light' ? 'wizard_crystal' : 'dark_crystal',
+    crystal: path === 'sword' ? null : path === 'light' ? 'fire' : 'dark',
     upgrades: {},
   };
   save.path = path;
@@ -642,13 +646,16 @@ function loadLegacy(text: string) {
 }
 
 describe('G.2: saves from before G.2 still load', () => {
-  it('the save version is unchanged and an old save loads as it was', () => {
-    expect(SAVE_VERSION).toBe(20);
+  it('an old save loads with its level, mana, path and stats as they were (G.4 migrates the rest)', () => {
+    expect(SAVE_VERSION).toBe(21);
     for (const path of PATHS) {
       const text = legacySave(path, path === 'sword' ? 0 : 17);
       const save = loadLegacy(text);
-      expect(save.version).toBe(20);
-      expect(save).toEqual(JSON.parse(text));
+      const raw = JSON.parse(text) as { progress: unknown; character: { stats: unknown } };
+      expect(save.version).toBe(21);
+      expect(save.path).toBe(path);
+      expect(save.progress).toEqual(raw.progress);
+      expect(save.character?.stats).toEqual(raw.character.stats);
     }
   });
 

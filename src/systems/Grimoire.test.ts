@@ -2,23 +2,18 @@ import { describe, expect, it } from 'vitest';
 import { itemsFileSchema, playerFileSchema, spellsFileSchema } from '../data/schemas';
 import type { ItemDef, ItemsFile, PlayerConfig, SpellsFile } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
-import {
-  hasGrimoireAccess,
-  knownIncantations,
-  LEGACY_GRIMOIRE_ACCESS,
-  ownsGrimoire,
-  selectedIncantation,
-} from './Grimoire';
+import { elementUnlocked, knownIncantations, ownsGrimoire, selectedIncantation } from './Grimoire';
 
 const items = itemsFileSchema.parse(readPublicJson('data/items.json')) as ItemsFile;
 const player = playerFileSchema.parse(readPublicJson('data/player.json')) as PlayerConfig;
 const spells = spellsFileSchema.parse(readPublicJson('data/spells.json')) as SpellsFile;
 const byId = new Map<string, ItemDef>(items.items.map((item) => [item.id, item]));
 
-describe('Grimoire access (G.3)', () => {
+const NONE: readonly string[] = [];
+
+describe('Grimoire access (G.3, G.4)', () => {
   it('a new character carries the Rookie Grimoire from the start kit and so owns one', () => {
     expect(ownsGrimoire(player.start.items, byId)).toBe(true);
-    expect(hasGrimoireAccess(player.start.items, byId)).toBe(true);
   });
 
   it('owning one is enough: it is never equipped, and an empty stack does not count', () => {
@@ -28,14 +23,21 @@ describe('Grimoire access (G.3)', () => {
     expect(ownsGrimoire([{ item: 'rookie_grimoire', count: 2 }], byId)).toBe(true);
   });
 
-  it('until G.4 an older save without the item may cast all the same (no migration, v20)', () => {
-    expect(LEGACY_GRIMOIRE_ACCESS).toBe(true);
-    expect(hasGrimoireAccess([], byId)).toBe(true);
-    expect(hasGrimoireAccess([{ item: 'mage_staff', count: 1 }], byId)).toBe(true);
+  it('without a Grimoire there is no casting: the temporary access of G.3 is gone (G.4)', () => {
+    expect(ownsGrimoire([], byId)).toBe(false);
+    expect(ownsGrimoire([{ item: 'mage_staff', count: 1 }], byId)).toBe(false);
+  });
+
+  it('Neutral is unlocked for everyone; another element only when the character unlocked it', () => {
+    expect(elementUnlocked(spells, NONE, 'neutral')).toBe(true);
+    expect(elementUnlocked(spells, NONE, 'dark')).toBe(false);
+    expect(elementUnlocked(spells, ['dark'], 'dark')).toBe(true);
+    expect(elementUnlocked(spells, ['dark'], 'fire')).toBe(false);
+    expect(elementUnlocked(spells, ['nothing'], 'nothing')).toBe(false);
   });
 
   it('knows exactly the incantations of an always-unlocked element: Push, and nothing by level', () => {
-    const known = knownIncantations(spells, []);
+    const known = knownIncantations(spells, NONE, NONE, []);
     expect(known).toEqual(['push']);
     expect(selectedIncantation(known)).toBe('push');
     expect(selectedIncantation([])).toBeNull();
@@ -52,7 +54,15 @@ describe('Grimoire access (G.3)', () => {
       ],
     };
     const out: string[] = ['stale'];
-    expect(knownIncantations(more, out)).toEqual(['push']);
+    expect(knownIncantations(more, NONE, NONE, out)).toEqual(['push']);
     expect(out).toEqual(['push']);
+    // Unlocking the element alone teaches nothing; learning it without the element casts nothing.
+    expect(knownIncantations(more, ['fire'], NONE, out)).toEqual(['push']);
+    expect(knownIncantations(more, NONE, ['ember_push'], out)).toEqual(['push']);
+    // Both together: known. Push needs no entry of its own, and an unknown id is ignored.
+    expect(knownIncantations(more, ['fire'], ['ember_push', 'nothing'], out)).toEqual([
+      'push',
+      'ember_push',
+    ]);
   });
 });

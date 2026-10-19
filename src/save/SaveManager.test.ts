@@ -1,14 +1,32 @@
 import { describe, expect, it } from 'vitest';
+import {
+  itemsFileSchema,
+  playerFileSchema,
+  spellsFileSchema,
+  statsFileSchema,
+} from '../data/schemas';
 import type { ItemDef } from '../data/types';
+import { createCharacter } from '../scenes/creator';
+import { handInEggs } from '../systems/Eggs';
 import { applyUpgrade, effectiveDamageBonus } from '../systems/Forge';
+import { equip } from '../systems/Gear';
+import { ownsGrimoire } from '../systems/Grimoire';
+import { countItem } from '../systems/Inventory';
+import { readPublicJson } from '../test/loadPublic';
 import {
   createNewSave,
+  CRYSTAL_ELEMENT_IDS,
   DEFAULT_CAMERA_SENSITIVITY,
+  LEGACY_STAFF_IDS,
+  LEGACY_STAFF_REPLACEMENTS,
   migrate,
+  migrateCharacterToGrimoire,
+  ROOKIE_GRIMOIRE_ID,
   SAVE_VERSION,
   type Migration,
+  type SaveCharacter,
 } from './SaveData';
-import { SAVE_KEY, SaveManager, type StorageLike } from './SaveManager';
+import { migrationBackupKey, SAVE_KEY, SaveManager, type StorageLike } from './SaveManager';
 
 class MemoryStorage implements StorageLike {
   readonly items = new Map<string, string>();
@@ -24,6 +42,10 @@ class MemoryStorage implements StorageLike {
     this.items.delete(key);
   }
 }
+
+/** The bag of an old save (one Old Sword), and what every old save gets on top (G.4). */
+const OLD_SWORD = { item: 'old_sword', count: 1 };
+const GRIMOIRE = { item: 'rookie_grimoire', count: 1 };
 
 function sampleSave() {
   const save = createNewSave('nl', new Date('2026-10-09T12:00:00Z'));
@@ -45,6 +67,8 @@ function sampleSave() {
     spellLoadout: [],
     crystal: null,
     upgrades: {},
+    elements: [],
+    incantations: [],
   };
   save.world = {
     zone: 'greyhaven',
@@ -195,7 +219,8 @@ describe('migrate', () => {
     if (result.status !== 'ok') return;
     expect(result.save.version).toBe(SAVE_VERSION);
     expect(result.save.character?.spells).toEqual([]);
-    expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
+    // The bag stays; the Rookie Grimoire joins it on the way through version 21 (G.4).
+    expect(result.save.character?.inventory).toEqual([OLD_SWORD, GRIMOIRE]);
   });
 
   it('upgrades a version 9 save: nothing spent, so every point is yours to spend again', () => {
@@ -212,7 +237,8 @@ describe('migrate', () => {
     expect(result.save.character?.stats).toEqual({});
     // Level, path, gear and quests are untouched; the points come back as unspent.
     expect(result.save.progress.level).toBe(4);
-    expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
+    // The bag stays; the Rookie Grimoire joins it on the way through version 21 (G.4).
+    expect(result.save.character?.inventory).toEqual([OLD_SWORD, GRIMOIRE]);
   });
 
   it('upgrades a version 15 save: Forge levels start empty, the rest stays', () => {
@@ -228,7 +254,8 @@ describe('migrate', () => {
     expect(result.save.version).toBe(SAVE_VERSION);
     expect(result.save.character?.upgrades).toEqual({});
     expect(result.save.progress.level).toBe(3);
-    expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
+    // The bag stays; the Rookie Grimoire joins it on the way through version 21 (G.4).
+    expect(result.save.character?.inventory).toEqual([OLD_SWORD, GRIMOIRE]);
   });
 
   it('keeps an upgraded weapon and its bonus through save and load', () => {
@@ -391,7 +418,8 @@ describe('migrate', () => {
     if (result.status !== 'ok') return;
     expect(result.save.version).toBe(SAVE_VERSION);
     expect(result.save.foundEggs).toEqual([]);
-    expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
+    // The bag stays; the Rookie Grimoire joins it on the way through version 21 (G.4).
+    expect(result.save.character?.inventory).toEqual([OLD_SWORD, GRIMOIRE]);
   });
 
   it('upgrades a version 14 save: the second exam moved from the Greenwood to the field', () => {
@@ -555,7 +583,8 @@ describe('migrate', () => {
     if (result.status !== 'ok') return;
     expect(result.save.version).toBe(SAVE_VERSION);
     expect(result.save.character?.pack).toEqual([]);
-    expect(result.save.character?.inventory).toEqual([{ item: 'old_sword', count: 1 }]);
+    // The bag stays; the Rookie Grimoire joins it on the way through version 21 (G.4).
+    expect(result.save.character?.inventory).toEqual([OLD_SWORD, GRIMOIRE]);
   });
 
   it('upgrades a version 5 save without a character', () => {
@@ -590,5 +619,413 @@ describe('migrate', () => {
       hp: 61.5,
       mana: 20,
     });
+  });
+});
+
+/** The data the migration cannot read itself, to check its ids against. */
+const itemsFile = itemsFileSchema.parse(readPublicJson('data/items.json'));
+const playerFile = playerFileSchema.parse(readPublicJson('data/player.json'));
+const statsFile = statsFileSchema.parse(readPublicJson('data/stats.json'));
+const spellsFile = spellsFileSchema.parse(readPublicJson('data/spells.json'));
+const itemsById = new Map<string, ItemDef>(itemsFile.items.map((item) => [item.id, item]));
+
+type RawSave = Record<string, unknown>;
+type RawCharacter = Record<string, unknown>;
+
+/**
+ * A save as the game wrote it before G.4 (version 20): the fields of G.4 do not exist yet.
+ * `path` sword / light / dark, with whatever is in the bag and the hands.
+ */
+function v20Save(
+  path: 'sword' | 'light' | 'dark',
+  bag: { item: string; count: number }[],
+  weapon: string,
+  more: Partial<RawCharacter> = {},
+): RawSave {
+  const save = sampleSave() as unknown as RawSave;
+  const character = { ...(save.character as RawCharacter) };
+  Reflect.deleteProperty(character, 'elements');
+  Reflect.deleteProperty(character, 'incantations');
+  character.inventory = bag;
+  character.equipment = { weapon, mantle: 'travel_mantle' };
+  character.gold = 340;
+  character.stats = { hp: 6, power: 5, regen: 2 };
+  character.upgrades = { old_sword: 2 };
+  character.spells = path === 'sword' ? [] : path === 'light' ? ['fireball'] : ['shadow_bolt'];
+  character.spellLoadout = path === 'sword' ? [] : character.spells;
+  character.crystal = path === 'sword' ? null : path === 'light' ? 'fire' : 'dark';
+  character.pack = [{ item: 'slime_gel', count: 4 }];
+  Object.assign(character, more);
+  return {
+    ...save,
+    version: 20,
+    path,
+    character,
+    progress: { level: 7, xp: 120, hp: 40, mana: 12 },
+    quests: {
+      active: [{ id: path === 'sword' ? 'first_form' : 'the_arcane_shard', counts: [5] }],
+      completed: ['your_resolve', 'defeat_sultan'],
+    },
+    unlocks: ['garden_plot'],
+    settings: {
+      ...(save.settings as RawSave),
+      keybindings: { interact: ['KeyF'], 'pad:dash': ['Pad1'] },
+      volume: 0.3,
+    },
+  };
+}
+
+/** The character of a migrated save (every G.4 fixture has one). */
+function characterOf(save: { character: SaveCharacter | null }): SaveCharacter {
+  if (!save.character) throw new Error('the save has no character');
+  return save.character;
+}
+
+function loadFrom(storage: MemoryStorage) {
+  const result = new SaveManager(storage).load();
+  if (result.status !== 'ok') throw new Error(`save did not load: ${result.status}`);
+  return result;
+}
+
+function loadV20(raw: RawSave) {
+  const storage = new MemoryStorage();
+  storage.setItem(SAVE_KEY, JSON.stringify(raw));
+  return { storage, ...loadFrom(storage) };
+}
+
+const STAFF = { item: 'mage_staff', count: 1 };
+const CRYSTAL = { item: 'wizard_crystal', count: 1 };
+const OLD = { item: 'old_sword', count: 1 };
+const HONED = { item: 'honed_old_sword', count: 1 };
+const POTIONS = { item: 'health_potion', count: 3 };
+
+/** Everything on the character the migration must not touch. */
+function untouched(character: SaveCharacter): Record<string, unknown> {
+  const { inventory, equipment, elements, incantations, ...rest } = character;
+  void inventory;
+  void equipment;
+  void elements;
+  void incantations;
+  return rest;
+}
+
+describe('G.4: migration to save version 21 (the Grimoire)', () => {
+  it('the migration ids match the data it cannot read: staffs, the Grimoire, the swords', () => {
+    const staffs = itemsFile.items.filter((item) => item.weapon?.kind === 'staff');
+    expect(staffs.map((item) => item.id).sort()).toEqual([...LEGACY_STAFF_IDS].sort());
+    for (const staff of staffs) expect(staff.legacy).toBe(true);
+    expect(itemsById.get(ROOKIE_GRIMOIRE_ID)?.type).toBe('grimoire');
+    expect(playerFile.start.items.some((stack) => stack.item === ROOKIE_GRIMOIRE_ID)).toBe(true);
+    for (const id of LEGACY_STAFF_REPLACEMENTS) {
+      const def = itemsById.get(id);
+      expect(def?.weapon?.kind).toBe('sword');
+      expect(def?.legacy).toBeUndefined();
+    }
+    expect(playerFile.start.equipment.weapon).toBe(LEGACY_STAFF_REPLACEMENTS.at(-1));
+    // The elements a crystal could hold: every crystal's elements, all real and none Neutral.
+    const fromCrystals = new Set<string>();
+    for (const item of itemsFile.items)
+      for (const e of item.crystal?.elements ?? []) fromCrystals.add(e);
+    expect([...fromCrystals].sort()).toEqual([...CRYSTAL_ELEMENT_IDS].sort());
+    for (const id of CRYSTAL_ELEMENT_IDS) {
+      const element = spellsFile.elements.find((entry) => entry.id === id);
+      expect(element).toBeDefined();
+      expect(element?.alwaysUnlocked).toBeUndefined();
+    }
+  });
+
+  it('only a real element from the crystal becomes permanent; the crystal field itself stays', () => {
+    const fire = characterOf(
+      loadV20(v20Save('light', [OLD], 'old_sword', { crystal: 'fire' })).save,
+    );
+    expect(fire.elements).toEqual(['fire']);
+    expect(fire.crystal).toBe('fire');
+    // An old fixture stored the crystal item id here: nothing is unlocked, nothing is lost.
+    const itemId = characterOf(
+      loadV20(v20Save('light', [OLD, CRYSTAL], 'old_sword', { crystal: 'wizard_crystal' })).save,
+    );
+    expect(itemId.elements).toEqual([]);
+    expect(itemId.crystal).toBe('wizard_crystal');
+    expect(countItem(itemId.inventory, 'wizard_crystal')).toBe(1);
+    const neutral = migrateCharacterToGrimoire({ crystal: 'neutral' });
+    expect(neutral.elements).toEqual([]);
+    expect(migrateCharacterToGrimoire({ crystal: null }).elements).toEqual([]);
+    expect(migrateCharacterToGrimoire({ crystal: '' }).elements).toEqual([]);
+    expect(migrateCharacterToGrimoire({ crystal: 7 }).elements).toEqual([]);
+    const missing = migrateCharacterToGrimoire({});
+    expect(missing.elements).toEqual([]);
+    expect(missing).not.toHaveProperty('crystal');
+  });
+
+  it('a new character starts on version 21 with the Grimoire, no elements and no incantations', () => {
+    const save = createNewSave('nl');
+    expect(save.version).toBe(21);
+    const character = createCharacter('Nieuw', characterOf(sampleSave()).appearance, playerFile);
+    expect(character.elements).toEqual([]);
+    expect(character.incantations).toEqual([]);
+    expect(ownsGrimoire(character.inventory, itemsById)).toBe(true);
+    save.character = character;
+    expect(migrate(save)).toEqual({ ok: true, save });
+  });
+
+  it('a sword fighter: the Grimoire joins the bag, the sword stays in hand, nothing else moves', () => {
+    const raw = v20Save('sword', [OLD, POTIONS], 'old_sword');
+    const { save } = loadV20(raw);
+    const character = characterOf(save);
+    expect(save.version).toBe(21);
+    expect(character.inventory).toEqual([OLD, POTIONS, { item: ROOKIE_GRIMOIRE_ID, count: 1 }]);
+    expect(character.equipment).toEqual({ weapon: 'old_sword', mantle: 'travel_mantle' });
+    expect(character.elements).toEqual([]);
+    expect(character.incantations).toEqual([]);
+    expect(ownsGrimoire(character.inventory, itemsById)).toBe(true);
+    const before = raw.character as RawCharacter;
+    expect(untouched(character)).toEqual({
+      name: before.name,
+      appearance: before.appearance,
+      gold: 340,
+      pack: [{ item: 'slime_gel', count: 4 }],
+      stats: { hp: 6, power: 5, regen: 2 },
+      spells: [],
+      spellLoadout: [],
+      crystal: null,
+      upgrades: { old_sword: 2 },
+    });
+    // Progress, quests, unlocks and the player's own settings are exactly what they were.
+    expect(save.progress).toEqual(raw.progress);
+    expect(save.quests).toEqual(raw.quests);
+    expect(save.unlocks).toEqual(raw.unlocks);
+    expect(save.path).toBe('sword');
+    expect(save.settings).toEqual(raw.settings);
+    expect(save.world).toEqual(raw.world);
+  });
+
+  it('a light mage with the staff in hand and a Honed Old Sword in the bag: that sword goes in hand', () => {
+    const { save } = loadV20(v20Save('light', [OLD, STAFF, HONED, CRYSTAL], 'mage_staff'));
+    const character = characterOf(save);
+    expect(character.equipment.weapon).toBe('honed_old_sword');
+    // The staff and the crystal stay; no second sword is added.
+    expect(character.inventory).toEqual([
+      OLD,
+      STAFF,
+      HONED,
+      CRYSTAL,
+      { item: ROOKIE_GRIMOIRE_ID, count: 1 },
+    ]);
+    expect(character.elements).toEqual(['fire']);
+    expect(character.incantations).toEqual([]);
+    expect(character.spells).toEqual(['fireball']);
+    expect(character.crystal).toBe('fire');
+  });
+
+  it('a light mage with the staff in hand and only an Old Sword: the Old Sword goes in hand', () => {
+    const { save } = loadV20(v20Save('light', [STAFF, OLD, CRYSTAL], 'mage_staff'));
+    const character = characterOf(save);
+    expect(character.equipment.weapon).toBe('old_sword');
+    expect(countItem(character.inventory, 'old_sword')).toBe(1);
+    expect(countItem(character.inventory, 'mage_staff')).toBe(1);
+  });
+
+  it('a dark mage with the staff in hand and no sword at all: one Old Sword is given and held', () => {
+    const { save } = loadV20(
+      v20Save('dark', [STAFF, { item: 'dark_crystal', count: 1 }], 'mage_staff'),
+    );
+    const character = characterOf(save);
+    expect(character.equipment.weapon).toBe('old_sword');
+    expect(countItem(character.inventory, 'old_sword')).toBe(1);
+    expect(countItem(character.inventory, 'mage_staff')).toBe(1);
+    expect(countItem(character.inventory, 'dark_crystal')).toBe(1);
+    expect(character.elements).toEqual(['dark']);
+    expect(character.spells).toEqual(['shadow_bolt']);
+  });
+
+  it('the Adept Staff in hand makes way as well; a staff in the bag with a sword in hand changes nothing', () => {
+    const adept = { item: 'adept_staff', count: 1 };
+    const held = characterOf(loadV20(v20Save('light', [adept, OLD], 'adept_staff')).save);
+    expect(held.equipment.weapon).toBe('old_sword');
+    expect(countItem(held.inventory, 'adept_staff')).toBe(1);
+    const spare = characterOf(loadV20(v20Save('light', [OLD, STAFF], 'old_sword')).save);
+    expect(spare.equipment.weapon).toBe('old_sword');
+    expect(spare.inventory).toEqual([OLD, STAFF, { item: ROOKIE_GRIMOIRE_ID, count: 1 }]);
+  });
+
+  it('a character with the Grimoire in the bag already gets no second one', () => {
+    const grimoire = { item: ROOKIE_GRIMOIRE_ID, count: 1 };
+    const inBag = characterOf(loadV20(v20Save('sword', [OLD, grimoire], 'old_sword')).save);
+    expect(countItem(inBag.inventory, ROOKIE_GRIMOIRE_ID)).toBe(1);
+    expect(inBag.pack).toEqual([{ item: 'slime_gel', count: 4 }]);
+  });
+
+  it('a Grimoire that lies on the pack animal only moves to the bag: casting needs it there', () => {
+    const grimoire = { item: ROOKIE_GRIMOIRE_ID, count: 1 };
+    const onBiscuit = characterOf(
+      loadV20(
+        v20Save('sword', [OLD], 'old_sword', { pack: [{ item: 'slime_gel', count: 4 }, grimoire] }),
+      ).save,
+    );
+    expect(countItem(onBiscuit.inventory, ROOKIE_GRIMOIRE_ID)).toBe(1);
+    expect(countItem(onBiscuit.pack, ROOKIE_GRIMOIRE_ID)).toBe(0);
+    expect(onBiscuit.pack).toEqual([{ item: 'slime_gel', count: 4 }]);
+    expect(ownsGrimoire(onBiscuit.inventory, itemsById)).toBe(true);
+    // Two on the pack animal: one comes over, the other stays; never a new one on top.
+    const two = migrateCharacterToGrimoire({
+      inventory: [OLD],
+      pack: [{ item: ROOKIE_GRIMOIRE_ID, count: 2 }],
+    });
+    expect(two.inventory).toEqual([OLD, { item: ROOKIE_GRIMOIRE_ID, count: 1 }]);
+    expect(two.pack).toEqual([{ item: ROOKIE_GRIMOIRE_ID, count: 1 }]);
+  });
+
+  it('an Academy quest that was under way stays under way, and the staff can go back in hand for it', () => {
+    const raw = v20Save('light', [STAFF, CRYSTAL], 'mage_staff');
+    raw.quests = {
+      active: [{ id: 'show_me_your_focus', counts: [3] }],
+      completed: ['your_resolve', 'the_arcane_shard', 'sparks_on_the_field'],
+    };
+    const { save } = loadV20(raw);
+    expect(save.quests).toEqual(raw.quests);
+    const character = characterOf(save);
+    // The exam counts charged spells only, which still needs the staff: it is in the bag and
+    // can be worn again (legacy, until the Academy quests are rewritten).
+    expect(character.equipment.weapon).toBe('old_sword');
+    expect(equip(character.equipment, character.inventory, itemsById, 'mage_staff')).toBe(
+      'equipped',
+    );
+    expect(character.equipment.weapon).toBe('mage_staff');
+  });
+
+  it('a save without a character migrates to version 21 as well', () => {
+    const raw = { ...(sampleSave() as unknown as RawSave), version: 20, character: null };
+    const { save } = loadV20(raw);
+    expect(save.version).toBe(21);
+    expect(save.character).toBeNull();
+  });
+
+  it('migrating twice changes nothing more and gives nothing twice', () => {
+    const raw = v20Save('dark', [STAFF], 'mage_staff');
+    const { storage, save } = loadV20(raw);
+    const manager = new SaveManager(storage);
+    expect(manager.write(save, new Date('2026-10-19T10:00:00Z'))).toBe(true);
+    const again = loadFrom(storage);
+    expect(again.migratedFrom).toBeUndefined();
+    expect(again.save).toEqual(save);
+    // The character step itself is idempotent too: a migrated character goes through unchanged.
+    const once = migrateCharacterToGrimoire(raw.character as RawCharacter);
+    expect(migrateCharacterToGrimoire(once)).toEqual(once);
+  });
+
+  it('keeps the original save as a backup exactly once, under its own version', () => {
+    const raw = v20Save('light', [STAFF], 'mage_staff');
+    const text = JSON.stringify(raw);
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, text);
+    const manager = new SaveManager(storage);
+    const key = migrationBackupKey(SAVE_KEY, 20);
+    expect(key).toBe(`${SAVE_KEY}.backup.v20`);
+    const first = manager.load();
+    expect(first.status).toBe('ok');
+    if (first.status !== 'ok') return;
+    expect(first.migratedFrom).toBe(20);
+    expect(storage.getItem(key)).toBe(text);
+    expect(storage.getItem(`${SAVE_KEY}.backup`)).toBeNull();
+    // A reload before the first write (the page refreshed) leaves the backup alone.
+    storage.setItem(key, 'the oldest copy');
+    manager.load();
+    expect(storage.getItem(key)).toBe('the oldest copy');
+    // After the first write the stored save is current: no migration, no new backup.
+    manager.write(first.save);
+    const second = manager.load();
+    expect(second.status === 'ok' && second.migratedFrom).toBeUndefined();
+    expect(storage.getItem(key)).toBe('the oldest copy');
+    expect(storage.getItem(migrationBackupKey(SAVE_KEY, 21))).toBeNull();
+    expect(JSON.parse(storage.getItem(SAVE_KEY) ?? '{}').version).toBe(21);
+  });
+
+  it('a current save makes no backup, and deleting the save takes the backups with it', () => {
+    const storage = new MemoryStorage();
+    const manager = new SaveManager(storage);
+    manager.write(sampleSave());
+    const loaded = manager.load();
+    expect(loaded.status === 'ok' && loaded.migratedFrom).toBeUndefined();
+    expect(storage.items.size).toBe(1);
+    storage.setItem(migrationBackupKey(SAVE_KEY, 20), 'old');
+    manager.delete();
+    expect(storage.items.size).toBe(0);
+  });
+
+  it('a full storage: the save loads, but is never written over its original until the backup is there', () => {
+    const storage = new MemoryStorage();
+    const text = JSON.stringify(v20Save('sword', [OLD], 'old_sword'));
+    storage.setItem(SAVE_KEY, text);
+    storage.failWrites = true;
+    const manager = new SaveManager(storage);
+    const loaded = manager.load();
+    expect(loaded.status).toBe('ok');
+    if (loaded.status !== 'ok') return;
+    expect(loaded.migratedFrom).toBe(20);
+    expect(storage.getItem(migrationBackupKey(SAVE_KEY, 20))).toBeNull();
+    expect(manager.backupPending).toBe(true);
+    // Writing is refused and the original stays exactly as it was.
+    expect(manager.write(loaded.save)).toBe(false);
+    expect(storage.getItem(SAVE_KEY)).toBe(text);
+    // Once there is room again the backup comes first, then the migrated save.
+    storage.failWrites = false;
+    expect(manager.write(loaded.save, new Date('2026-10-19T11:00:00Z'))).toBe(true);
+    expect(manager.backupPending).toBe(false);
+    expect(storage.getItem(migrationBackupKey(SAVE_KEY, 20))).toBe(text);
+    expect(JSON.parse(storage.getItem(SAVE_KEY) ?? '{}').version).toBe(21);
+    // A later write needs no backup any more.
+    storage.failWrites = true;
+    expect(manager.write(loaded.save)).toBe(false);
+    storage.failWrites = false;
+    expect(manager.write(loaded.save)).toBe(true);
+  });
+
+  it('a current save is written as before when storage fails and recovers; delete forgets a pending backup', () => {
+    const storage = new MemoryStorage();
+    const manager = new SaveManager(storage);
+    expect(manager.write(sampleSave())).toBe(true);
+    expect(manager.backupPending).toBe(false);
+    storage.failWrites = true;
+    expect(manager.write(sampleSave())).toBe(false);
+    storage.failWrites = false;
+    expect(manager.write(sampleSave())).toBe(true);
+    expect(storage.items.size).toBe(1);
+    // An old save whose backup failed, then deleted on purpose: nothing waits any more.
+    storage.setItem(SAVE_KEY, JSON.stringify(v20Save('sword', [OLD], 'old_sword')));
+    storage.failWrites = true;
+    const loaded = manager.load();
+    expect(loaded.status === 'ok' && manager.backupPending).toBe(true);
+    storage.failWrites = false;
+    manager.delete();
+    expect(manager.backupPending).toBe(false);
+    expect(storage.items.size).toBe(0);
+  });
+
+  it('an exported version 20 code imports as a migrated save, without touching the storage', () => {
+    const storage = new MemoryStorage();
+    const manager = new SaveManager(storage);
+    const raw = v20Save('dark', [STAFF], 'mage_staff');
+    const code = manager.exportCode(raw as never);
+    const imported = manager.importCode(code);
+    expect(imported?.version).toBe(21);
+    expect(imported?.character?.equipment.weapon).toBe('old_sword');
+    expect(storage.items.size).toBe(0);
+  });
+
+  it('a respec at Sultan touches the stats only: elements and incantations stay', () => {
+    const { save } = loadV20(
+      v20Save('dark', [STAFF, { item: 'mossback_egg', count: 1 }], 'mage_staff'),
+    );
+    const character = characterOf(save);
+    character.incantations.push('push');
+    const eggs = character.inventory.filter((stack) => itemsById.get(stack.item)?.type === 'egg');
+    expect(eggs.length).toBe(1);
+    const result = handInEggs(statsFile, character.inventory, itemsById, character.stats, 1);
+    if (!result) throw new Error('Sultan refused the egg');
+    // What the world does with the result (`takeEgg`): only the stats are replaced.
+    character.stats = result.points;
+    expect(character.elements).toEqual(['dark']);
+    expect(character.incantations).toEqual(['push']);
+    expect(character.equipment.weapon).toBe('old_sword');
   });
 });

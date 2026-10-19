@@ -45,6 +45,15 @@ export class BootState implements GameState {
     const { ctx } = this;
     const loaded = ctx.saves.load();
     if (loaded.status === 'ok') ctx.session = loaded.save;
+    if (loaded.status === 'ok' && loaded.migratedFrom !== undefined) {
+      // The original is backed up (SaveManager.load); store the migrated form right away, so
+      // what is stored and what the game plays never differ in version.
+      console.info(`save: migrated from version ${loaded.migratedFrom}`);
+      ctx.persist();
+      if (ctx.saves.backupPending) {
+        ctx.reportProblem('save: no room for a backup of the old save; it is kept as it was');
+      }
+    }
     if (loaded.status === 'corrupt') ctx.reportProblem('save: corrupt, backup kept');
     if (!ctx.saves.available) ctx.reportProblem('save: localStorage unavailable');
 
