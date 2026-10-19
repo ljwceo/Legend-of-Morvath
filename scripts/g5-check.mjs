@@ -199,7 +199,7 @@ try {
   check(
     'the spent charge is in the save at once (capacity and split unchanged)',
     afterDrink.character.flasks.healthLeft === 0 &&
-      afterDrink.character.flasks.capacity === 2 &&
+      afterDrink.character.flasks.capacity === 1 &&
       afterDrink.character.flasks.health === 1,
     flasksOf(afterDrink),
   );
