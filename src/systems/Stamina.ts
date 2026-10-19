@@ -38,6 +38,24 @@ export function spendEnergy(pool: EnergyPool, cost: number): number {
   return paid;
 }
 
+/**
+ * Whether an action may start in the step that is about to run, seen from before that step's
+ * refill (`stepEnergyRegen`): the same answer `canSpendEnergy` gives right after it, without
+ * changing the pool. With `dt` 0 it is simply `canSpendEnergy`.
+ */
+export function canSpendEnergyAfterRegen(
+  pool: EnergyPool,
+  cfg: StaminaConfig,
+  dt: number,
+): boolean {
+  const since = pool.sinceEnergySpent + dt;
+  const delay = pool.exhausted ? cfg.exhaustedDelaySeconds : cfg.energyDelaySeconds;
+  const energy =
+    since >= delay ? Math.min(cfg.maxEnergy, pool.energy + cfg.energyPerSecond * dt) : pool.energy;
+  const exhausted = pool.exhausted && energy < cfg.exhaustedRecoverEnergy;
+  return !exhausted && energy > 0;
+}
+
 /** One fixed step of refilling: only after the pause (longer when exhausted). */
 export function stepEnergyRegen(pool: EnergyPool, cfg: StaminaConfig, dt: number): void {
   pool.sinceEnergySpent += dt;

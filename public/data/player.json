@@ -214,6 +214,9 @@
       "arcDegrees": 50
     }
   },
+  "casting": {
+    "inputBufferSeconds": 0.5
+  },
   "lockOn": {
     "range": 18,
     "breakRange": 24,
@@ -269,6 +272,10 @@
       },
       {
         "item": "travel_mantle",
+        "count": 1
+      },
+      {
+        "item": "rookie_grimoire",
         "count": 1
       }
     ],

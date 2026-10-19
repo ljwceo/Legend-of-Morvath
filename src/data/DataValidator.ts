@@ -743,6 +743,14 @@ class CrossChecker {
     player.start.items.forEach((stack, i) =>
       this.ref('item', f, `start.items[${i}].item`, stack.item),
     );
+    // Every new character starts with exactly one Grimoire (G.0; cast from since G.3).
+    const grimoires = player.start.items.filter(
+      (stack) =>
+        this.data.items.items.find((entry) => entry.id === stack.item)?.type === 'grimoire',
+    );
+    if (grimoires.length !== 1) {
+      this.issue(f, 'start.items', `exactly one grimoire expected, found ${grimoires.length}`);
+    }
     for (const [slot, itemId] of Object.entries(player.start.equipment)) {
       this.ref('item', f, `start.equipment.${slot}`, itemId);
       if (!player.start.items.some((stack) => stack.item === itemId)) {
@@ -1562,9 +1570,18 @@ class CrossChecker {
     // Incantations (Fase G): an id may not also be a spell id, so a learned id means one thing.
     const spellIds = new Set(this.data.spells.spells.map((spell) => spell.id));
     this.data.spells.incantations.forEach((incantation, i) => {
-      this.ref('element', f, `incantations[${i}].element`, incantation.element);
+      const p = `incantations[${i}]`;
+      this.ref('element', f, `${p}.element`, incantation.element);
       if (spellIds.has(incantation.id)) {
-        this.issue(f, `incantations[${i}].id`, `"${incantation.id}" is also a spell id`);
+        this.issue(f, `${p}.id`, `"${incantation.id}" is also a spell id`);
+      }
+      // A cut-short cast restarts sooner than a finished one would (P-4).
+      if (incantation.cast.cancelLockoutSeconds > incantation.cast.cooldownSeconds) {
+        this.issue(f, `${p}.cast.cancelLockoutSeconds`, 'longer than the cooldown');
+      }
+      const effect = incantation.effect;
+      if (effect.kind === 'push' && effect.knockbackMeters > 0 && effect.knockbackSeconds <= 0) {
+        this.issue(f, `${p}.effect.knockbackSeconds`, 'a knockback with distance needs a time');
       }
     });
     // A staff cannot have more slots than the spellbook allows (step 4.3).

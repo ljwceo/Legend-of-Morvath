@@ -18,18 +18,20 @@ import {
   stepSword,
   swordConfig,
   type SwordResult,
+  tickCombatClock,
 } from './Combat';
 import { guardHit, makeGuardResult, stepGuard, weaponFreeForGuard } from './Guard';
 import { MoverState } from './Movement';
 import { applyPath } from './Paths';
 import {
   type ShotConfig,
-  type StaffInput,
-  type StaffResult,
-  StaffState,
-  staffConfig,
-  stepStaff,
-} from './StaffCombat';
+  type CastInput,
+  type CastResult,
+  type CastSources,
+  CastState,
+  castConfig,
+  stepCast,
+} from './Casting';
 import {
   applyStatsToCombat,
   computeStatEffects,
@@ -49,7 +51,7 @@ const stats = statsFileSchema.parse(readPublicJson('data/stats.json')) as StatsF
 const skills = skillsFileSchema.parse(readPublicJson('data/skills.json'));
 const spells = spellsFileSchema.parse(readPublicJson('data/spells.json')) as SpellsFile;
 const sword = swordConfig(player);
-const staff = staffConfig(player, spells);
+const staff = castConfig(player, spells);
 const guardCfg = player.guard;
 const PATHS: readonly PlayerPath[] = ['sword', 'light', 'dark'];
 /** Mana per second one Regen point gives every build (owners' decision for G.2). */
@@ -78,14 +80,24 @@ function energyPool(): MoverState {
   return s;
 }
 
-const NO_STAFF: StaffInput = { shard: false, spell: false, critRoll: 1 };
-const SHARD: StaffInput = { shard: true, spell: false, critRoll: 1 };
-const staffOut = (): StaffResult => ({
+const NO_STAFF: CastInput = { shard: false, spell: false, cast: false, critRoll: 1 };
+/** A staff in hand with `spell` selected (what `WorldState` hands `stepCast` every step). */
+const inHand = (spell: ShotConfig | null = null): CastSources => ({
+  staff: true,
+  spell,
+  power: 1,
+  incantation: null,
+});
+const SHARD: CastInput = { shard: true, spell: false, cast: false, critRoll: 1 };
+const staffOut = (): CastResult => ({
   fired: 'none',
   shot: null,
   damage: 0,
   charge: 0,
   crit: false,
+  effect: 'none',
+  incantation: null,
+  poiseDamage: 0,
 });
 const swordOut = (): SwordResult => ({
   landed: 'none',
@@ -215,7 +227,7 @@ describe('G.2: guard and parry for every build', () => {
     const c = new CombatState();
     applyStats(c, player, 1);
     c.mana = c.maxMana;
-    const st = new StaffState();
+    const st = new CastState();
     expect(weaponFreeForGuard(c, st)).toBe(true);
 
     // A sword swing or a heavy wind-up keeps it down.
@@ -238,12 +250,14 @@ describe('G.2: guard and parry for every build', () => {
     const idle = new CombatState();
     applyStats(idle, player, 1);
     idle.mana = idle.maxMana;
-    stepStaff(st, idle, SHARD, staff, null, 1, 1 / 60, staffOut());
+    stepCast(st, idle, energyPool(), SHARD, staff, inHand(), 1 / 60, staffOut());
     expect(st.casting).toBe(true);
     expect(weaponFreeForGuard(idle, st)).toBe(false);
     let fired = false;
     for (let i = 0; i < 120 && !fired; i++) {
-      fired = stepStaff(st, idle, NO_STAFF, staff, null, 1, 1 / 60, staffOut()).fired !== 'none';
+      fired =
+        stepCast(st, idle, energyPool(), NO_STAFF, staff, inHand(), 1 / 60, staffOut()).fired !==
+        'none';
     }
     expect(fired).toBe(true);
     expect(weaponFreeForGuard(idle, st)).toBe(true);
@@ -255,13 +269,15 @@ describe('G.2: guard and parry for every build', () => {
    */
   function guardedHit(path: PlayerPath, weapon: 'sword' | 'staff', hitAt: number) {
     const { c } = build(path);
-    const st = new StaffState();
+    const st = new CastState();
     const pool = energyPool();
     const out = makeGuardResult();
     const dt = 1 / 60;
     for (let step = 0; step < 600; step++) {
-      if (weapon === 'staff') stepStaff(st, c, NO_STAFF, staff, null, 1, dt, staffOut());
-      else stepSword(c, pool, { fast: false, heavy: false, critRoll: 1 }, sword, dt, swordOut());
+      if (weapon === 'staff') {
+        tickCombatClock(c, dt);
+        stepCast(st, c, pool, NO_STAFF, staff, inHand(), dt, staffOut());
+      } else stepSword(c, pool, { fast: false, heavy: false, critRoll: 1 }, sword, dt, swordOut());
       stepGuard(c.guard, pool, guardCfg, true, weaponFreeForGuard(c, st), dt);
       if (step * dt >= hitAt - 1e-9) {
         guardHit(c.guard, pool, guardCfg, 10, out);
@@ -310,7 +326,7 @@ describe('G.2: guard and parry for every build', () => {
 /** One player in a fight: combat numbers, staff, energy (the mover) and mana regen. */
 interface Fighter {
   c: CombatState;
-  st: StaffState;
+  st: CastState;
   pool: MoverState;
   manaPerSecond: number;
 }
@@ -318,7 +334,7 @@ interface Fighter {
 function fighter(path: PlayerPath, mana: number, regen = 0): Fighter {
   const { c, manaPerSecond } = build(path, { regen });
   c.mana = mana;
-  return { c, st: new StaffState(), pool: energyPool(), manaPerSecond };
+  return { c, st: new CastState(), pool: energyPool(), manaPerSecond };
 }
 
 /** What the player holds this step: block, the left button (fast hit / Shard), the right one. */
@@ -332,7 +348,7 @@ interface Held {
 interface StepTrace {
   up: boolean;
   casting: boolean;
-  fired: 'none' | 'shard' | 'spell' | 'fast' | 'heavy';
+  fired: 'none' | 'shard' | 'spell' | 'incantation' | 'fast' | 'heavy';
   staffCooldown: number;
 }
 
@@ -365,8 +381,10 @@ function playerStep(
   }
   let fired: StepTrace['fired'];
   if (weapon === 'staff') {
-    const input = { shard: light, spell: heavy, critRoll: 1 };
-    fired = stepStaff(st, c, input, staff, spell, 1, dt, staffOut()).fired;
+    const input = { shard: light, spell: heavy, cast: false, critRoll: 1 };
+    // With a staff the world ticks the fight clock itself (a sword does it in stepSword).
+    tickCombatClock(c, dt);
+    fired = stepCast(st, c, pool, input, staff, inHand(spell), dt, staffOut()).fired;
   } else {
     fired = stepSword(c, pool, { fast: light, heavy, critRoll: 1 }, sword, dt, swordOut()).landed;
   }

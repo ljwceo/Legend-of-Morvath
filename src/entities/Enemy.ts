@@ -60,6 +60,16 @@ export class Enemy implements SwordTarget, ShotTarget {
   wobble = 0;
   /** Stability (fase S.6): a broken poise staggers it. Max 0 (no `poise` in data) = never. */
   readonly poise = new PoiseState();
+  /**
+   * A knockback (Push, G.3): the direction it is shoved in, the metres and seconds left and
+   * its speed. While `knockTime` runs it does not walk by itself (`EnemyAI.move`), but an
+   * attack under way goes on: only a broken poise interrupts one. Bosses are never shoved.
+   */
+  knockDirX = 0;
+  knockDirZ = 1;
+  knockLeft = 0;
+  knockTime = 0;
+  knockSpeed = 0;
 
   mode: EnemyMode = 'idle';
   /** Seconds left in the current mode (pause, windup, strike, recover, lying down). */
@@ -168,6 +178,14 @@ export class Enemy implements SwordTarget, ShotTarget {
     this.struck = false;
     this.safe = false;
     this.guarded = false;
+    this.knockLeft = 0;
+    this.knockTime = 0;
+    this.knockSpeed = 0;
+  }
+
+  /** Being shoved right now (see `knockTime`). */
+  get knockedBack(): boolean {
+    return this.knockTime > 0;
   }
 
   beginStep(): void {

@@ -4,7 +4,7 @@ import type { AnimationsFile, PlayerClipRole } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
 import { CombatState, type SwordConfig } from '../systems/Combat';
 import { MoverState, stepAirTime } from '../systems/Movement';
-import { StaffState } from '../systems/StaffCombat';
+import { CastState } from '../systems/Casting';
 import {
   chooseGait,
   chooseLayers,
@@ -269,9 +269,20 @@ describe('fillPlayerAnimInput', () => {
     expect(out.sinceHurt).toBe(0);
   });
 
+  it('reads the cast state whatever is in hand: a staff shot or Push from the Grimoire (G.3)', () => {
+    const src = sources();
+    const cast = new CastState();
+    cast.pending = 'incantation';
+    cast.sinceFired = 0.2;
+    src.staff = cast;
+    const out = fillPlayerAnimInput(createPlayerAnimInput(), src, 0);
+    expect(out.gathering).toBe(true);
+    expect(out.sinceFired).toBeCloseTo(0.2, 9);
+  });
+
   it('reads the staff only when one is held', () => {
     const src = sources();
-    const staff = new StaffState();
+    const staff = new CastState();
     staff.pending = 'shard';
     staff.sinceFired = 0.3;
     expect(fillPlayerAnimInput(createPlayerAnimInput(), src, 0).gathering).toBe(false);

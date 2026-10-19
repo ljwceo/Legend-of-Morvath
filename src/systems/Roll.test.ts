@@ -4,7 +4,7 @@ import type { PlayerConfig } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
 import { SpatialHash } from '../world/SpatialHash';
 import { CollisionWorld } from './Collision';
-import { movementConfig, MoverState, stepMovement } from './Movement';
+import { dashStartsThisStep, movementConfig, MoverState, stepMovement } from './Movement';
 
 const player = readPublicJson('data/player.json') as PlayerConfig;
 const cfg = movementConfig(player);
@@ -83,5 +83,54 @@ describe('roll with invulnerable frames', () => {
     stepMovement(s, { x: 0, z: 1, dash: true }, cfg, 1 / 60, open);
     expect(s.dashTime).toBe(0);
     expect(s.energy).toBe(cfg.maxEnergy);
+  });
+});
+
+describe('G.3: whether a roll starts is known before the step (for cutting a cast short)', () => {
+  it('dashStartsThisStep agrees with stepMovement in every state it is asked about', () => {
+    // A little deterministic generator: many states of energy, cooldown, recovery and ground.
+    let seed = 12345;
+    const next = () => {
+      seed = (seed * 1664525 + 1013904223) % 4294967296;
+      return seed / 4294967296;
+    };
+    let agreed = 0;
+    let started = 0;
+    for (let i = 0; i < 2000; i++) {
+      const s = new MoverState();
+      s.energy = next() < 0.2 ? 0 : Math.floor(next() * cfg.maxEnergy);
+      s.exhausted = next() < 0.3;
+      s.sinceEnergySpent = next() * 2;
+      s.dashCooldown = next() < 0.5 ? 0 : next() * 0.05;
+      s.recoverTime = next() < 0.8 ? 0 : next() * 0.1;
+      s.grounded = next() < 0.85;
+      const cmd = { x: 0, z: 1, dash: next() < 0.7 };
+      const dt = next() < 0.5 ? 1 / 60 : 1 / 120;
+      const predicted = dashStartsThisStep(s, cmd, cfg, dt);
+      stepMovement(s, cmd, cfg, dt, open);
+      const did = s.dashTime > 0;
+      if (predicted === did) agreed++;
+      if (did) started++;
+    }
+    expect(agreed).toBe(2000);
+    expect(started).toBeGreaterThan(200);
+  });
+
+  it('sees the cooldown and the energy refill of the step itself', () => {
+    const s = new MoverState();
+    s.energy = cfg.maxEnergy;
+    s.sinceEnergySpent = 10;
+    // Exactly one step of cooldown left: the roll starts in the step about to run.
+    s.dashCooldown = 1 / 60;
+    expect(dashStartsThisStep(s, { x: 0, z: 1, dash: true }, cfg, 1 / 60)).toBe(true);
+    expect(dashStartsThisStep(s, { x: 0, z: 1, dash: true }, cfg, 0)).toBe(false);
+    // Exhausted with the recovery one refill step away: the roll may start after that step.
+    const tired = new MoverState();
+    tired.energy = cfg.exhaustedRecoverEnergy - cfg.energyPerSecond / 60 / 2;
+    tired.exhausted = true;
+    tired.sinceEnergySpent = cfg.exhaustedDelaySeconds;
+    expect(dashStartsThisStep(tired, { x: 0, z: 1, dash: true }, cfg, 1 / 60)).toBe(true);
+    expect(dashStartsThisStep(tired, { x: 0, z: 1, dash: true }, cfg, 0)).toBe(false);
+    expect(dashStartsThisStep(tired, { x: 0, z: 1, dash: false }, cfg, 1 / 60)).toBe(false);
   });
 });

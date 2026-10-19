@@ -905,6 +905,14 @@ export const playerFileSchema = z.strictObject({
     aimAssist: z.strictObject({ range: max(nonNegative, 100), arcDegrees: range(0, 360) }),
   }),
   /**
+   * Casting from the Grimoire (Fase G, G.3): the shared cast pipeline for incantations. The
+   * timings of an incantation are its own (spells.json); only the input buffer is the player's.
+   */
+  casting: z.strictObject({
+    /** A cast press while nothing may start yet is remembered this long (s), then dropped. */
+    inputBufferSeconds: max(nonNegative, 2),
+  }),
+  /**
    * Lock-on (the key or button bound to it, see controls.json): the camera keeps the target in
    * view, a white dot marks it and shots curve towards it. Like Elden Ring you can only lock on
    * to an enemy you can see: something between the camera and the enemy breaks the lock.
@@ -1245,6 +1253,11 @@ const monsterSchema = z.strictObject({
   poise: optional(max(positive, 100_000)),
   /** Poise damage its hit does to the player (see player.json `poise`); default 0. */
   poiseDamage: optional(max(nonNegative, 100_000)),
+  /**
+   * How much of a knockback (Push, G.3) it shrugs off: 0 = the full shove, 1 = none at all.
+   * Independent of poise (P-10). A boss and a static dummy are never shoved, whatever this says.
+   */
+  knockbackResistance: optional(fraction),
   groupSize: optional(z.strictObject({ min: posInt, max: posInt })),
   splitsInto: optional(z.strictObject({ monster: id, count: posInt })),
   transformsFrom: optional(id),
@@ -1739,12 +1752,45 @@ export const spellsFileSchema = z.strictObject({
     }),
   ),
   /**
-   * Grimoire incantations (Fase G, G.1: data only, nothing casts them yet). Only the contract
-   * that is decided: an element, and the mana it costs. Range, damage, stagger and recovery come
-   * with G.3, when casting moves from the staff to the Grimoire. Ids may not clash with
-   * `spells` ids, so a learned id can never mean two things.
+   * Grimoire incantations (Fase G). Since G.3 the Grimoire casts them without a staff: `cast`
+   * holds the timing and the stamina (every number a start value for Bo/Lucas), `effect` says
+   * what leaves the Grimoire. Ids may not clash with `spells` ids, so a learned id can never
+   * mean two things. Neutral's Push costs no mana (G.0).
    */
-  incantations: z.array(z.strictObject({ id, name, element: id, manaCost: nonNegative })),
+  incantations: z.array(
+    z.strictObject({
+      id,
+      name,
+      element: id,
+      manaCost: nonNegative,
+      cast: z.strictObject({
+        /** Preparing the cast takes this long (s) before the effect goes off. */
+        windupSeconds: max(nonNegative, 5),
+        /** After the effect went off nothing may start for this long (s). */
+        recoverySeconds: max(nonNegative, 5),
+        /** Seconds before this incantation may be cast again. */
+        cooldownSeconds: max(nonNegative, 120),
+        /** A cast a roll cut short may not start again for this long (s): shorter than the cooldown. */
+        cancelLockoutSeconds: max(nonNegative, 5),
+        /** Energy (stamina) paid when the cast starts; never refunded. */
+        energyCost: max(nonNegative, 100),
+      }),
+      effect: z.discriminatedUnion('kind', [
+        /** A short frontal cone that shoves: low damage, poise damage and a knockback (P-2). */
+        z.strictObject({
+          kind: z.literal('push'),
+          range: max(positive, 20),
+          arcDegrees: range(0, 360),
+          damage: nonNegative,
+          /** Poise damage to a monster; never scaled by the player's stats (P-9). */
+          poiseDamage: max(nonNegative, 1000),
+          /** How far (m) and how long (s) a light enemy is shoved; bosses never are (P-1). */
+          knockbackMeters: max(nonNegative, 20),
+          knockbackSeconds: max(nonNegative, 5),
+        }),
+      ]),
+    }),
+  ),
 });
 
 // ---------------------------------------------------------------- stats.json
@@ -1900,6 +1946,7 @@ export const CONTROL_ACTIONS = [
   'heavy',
   'dash',
   'block',
+  'cast',
   'interact',
   'potion',
   'bag',

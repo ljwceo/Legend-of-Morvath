@@ -1,4 +1,4 @@
-import { chargeScale, type ShotConfig } from './StaffCombat';
+import { chargeScale, type ShotConfig } from './Casting';
 
 /** Shots of the player in flight at the same time; the oldest is reused when all are busy. */
 export const SHOT_POOL_SIZE = 24;

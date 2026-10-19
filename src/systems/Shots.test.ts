@@ -11,12 +11,12 @@ import {
   SHOT_POOL_SIZE,
   steerShot,
 } from './Shots';
-import { type ShotConfig, staffConfig } from './StaffCombat';
+import { type ShotConfig, castConfig } from './Casting';
 
 const DT = 1 / 60;
 const player = playerFileSchema.parse(readPublicJson('data/player.json')) as PlayerConfig;
 const spells = spellsFileSchema.parse(readPublicJson('data/spells.json')) as SpellsFile;
-const cfg = staffConfig(player, spells);
+const cfg = castConfig(player, spells);
 const shard = cfg.shard;
 
 const flat: ShotWorld = { heightAt: () => 0, blocked: () => false };

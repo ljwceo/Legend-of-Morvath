@@ -71,6 +71,36 @@ export interface EnemyWorld {
 
 type Attack = NonNullable<Enemy['def']['attacks']>[number];
 
+/**
+ * One fixed step of a knockback (Push, G.3): the monster is shoved `knockSpeed` metres per
+ * second along `knockDir` through the world's mover, so walls, trunks, steps, steep slopes and
+ * deep water hold it exactly as they hold a walker, with no damage on impact (P-9). Counted
+ * in whole steps; it moves while staggered too. Returns true while it is still being shoved.
+ */
+export function stepKnockback(e: Enemy, mover: Mover, dt: number): boolean {
+  if (e.knockTime <= 0) return false;
+  const step = Math.min(e.knockLeft, e.knockSpeed * dt);
+  const fromX = e.x;
+  const fromZ = e.z;
+  if (step > 0) mover.moveCircle(e, e.radius, e.knockDirX * step, e.knockDirZ * step);
+  e.knockLeft = Math.max(0, e.knockLeft - step);
+  e.knockTime -= dt;
+  // Blocked (a wall, a cliff, deep water): the shove is over at once, so the monster is not
+  // held still for the rest of the time. Sliding along a wall still counts as being shoved;
+  // the same share of the asked step that counts as stuck for a walker (STUCK_PROGRESS).
+  const moved = Math.hypot(e.x - fromX, e.z - fromZ);
+  const blocked = step > 0 && moved < step * STUCK_PROGRESS;
+  if (blocked || e.knockTime <= KNOCK_EPSILON || e.knockLeft <= 0) {
+    e.knockTime = 0;
+    e.knockLeft = 0;
+    return false;
+  }
+  return true;
+}
+
+/** Seconds counted in whole fixed steps: a hair of float above zero must not buy a step. */
+const KNOCK_EPSILON = 1e-9;
+
 /** Starts fighting (noticed the player, or was hit). */
 export function engage(e: Enemy): void {
   if (!e.alive || e.engaged) return;
@@ -405,6 +435,8 @@ function move(
   dt: number,
 ): number {
   const before = Math.hypot(tx - e.x, tz - e.z);
+  // Being shoved (Push): no walking of its own until the knockback is over; it is not stuck.
+  if (e.knockTime > 0) return before;
   const hop = e.def.ai?.hop;
   let stepSpeed = speed;
   if (hop) {

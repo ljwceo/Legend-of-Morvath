@@ -143,6 +143,17 @@ export class CombatState {
 }
 
 /**
+ * The fight clock for one fixed step: seconds since the last sign of a fight and since the last
+ * hit taken. Ticked exactly once per step: by `stepSword` with a melee weapon in hand, and by
+ * the world itself with a staff (casting never ticks it, see `stepCast`), so a weapon and the
+ * Grimoire in the same step can never count a step twice.
+ */
+export function tickCombatClock(c: CombatState, dt: number): void {
+  c.sinceCombat += dt;
+  c.sinceHurt += dt;
+}
+
+/**
  * Keeps you in the fight while an enemy is fighting you (chasing or attacking) or a boss fight
  * runs, `engaged` (the world sets it every fixed step). The fight only ends `lingerSeconds`
  * after the last enemy let go (defeated, leashed home or calmed down), so walking along an
@@ -270,9 +281,8 @@ export function stepSword(
   const speed = c.attackSpeedFactor > 0 ? c.attackSpeedFactor : 1;
   c.attackCooldown = Math.max(0, c.attackCooldown - dt);
   c.sinceFastHit += dt;
-  c.sinceCombat += dt;
   c.sinceSwing += dt;
-  c.sinceHurt += dt;
+  tickCombatClock(c, dt);
   // Remember presses for a moment, so a click just before the sword is ready still counts.
   if (input.fast) c.bufferedFast = cfg.inputBufferSeconds + dt;
   if (input.heavy) c.bufferedHeavy = cfg.inputBufferSeconds + dt;
