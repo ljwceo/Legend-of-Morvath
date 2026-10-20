@@ -970,6 +970,12 @@ export const playerFileSchema = z.strictObject({
     drinkSeconds: max(nonNegative, 10),
     /** Seconds before the next flask can be started after a drink committed. */
     cooldownSeconds: max(nonNegative, 60),
+    /**
+     * A press during a swing, heavy wind-up, guard, roll, stagger or cast is kept this long and
+     * starts the drink as soon as you are free (like the sword's and the casting's buffers), so
+     * no press is silently lost.
+     */
+    inputBufferSeconds: max(nonNegative, 2),
   }),
   /**
    * The prepared loadout (Fase G, G.1 data, G.5 behaviour). `mainWeapons` is the base number

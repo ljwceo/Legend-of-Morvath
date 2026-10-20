@@ -1262,7 +1262,8 @@ export class WorldState implements GameState, InstanceHost {
     const doors = this.doors;
     doors?.begin(movement.radius);
     if (this.cheats.fly) {
-      // Debug cheat: Space / ▲ up, Shift / ▼ down, through walls.
+      // Debug cheat: Space / ▲ up, Shift / ▼ down, through walls. No drink runs in the air.
+      this.flaskUse.cancel();
       input.consumePressed('dash');
       this.command.dash = false;
       const vertical = (input.isPressed('dash') ? 1 : 0) - (input.isPressed('down') ? 1 : 0);
@@ -2497,23 +2498,44 @@ export class WorldState implements GameState, InstanceHost {
    * raised guard, a stagger, a roll or a cast: the same freedom a weapon switch needs). The
    * charge and the effect commit together when the drink completes (`stepFlask`), never here.
    */
-  private startFlask(kind: FlaskKind): void {
+  private startFlask(kind: FlaskKind, fromBuffer = false): void {
     const data = this.ctx.data;
     const character = this.ctx.session?.character;
     const player = this.player;
     if (!data || !character || !player || this.deathTimer !== NOT_DYING || this.knockedOut) return;
+    const use = this.flaskUse;
     const s = player.state;
+    const t = this.ctx.i18n;
+    const say = (text: string): void => {
+      // At once, above the player: the HUD message queue can be seconds behind at a checkpoint.
+      this.damageNumbers?.spawnText(s.x, s.y + 2, s.z, text, 'dodged');
+    };
+    if (this.cheats.fly) {
+      say(t.t('hud.flaskNotNow'));
+      return;
+    }
     this.action.rolling = this.command.dash || s.dashTime > 0 || s.recoverTime > 0;
     this.action.casting = this.castState.casting;
-    if (!canSwitchPrepared(player.combat, this.action)) return;
-    const result = this.flaskUse.start(kind, character.flasks, player.combat, this.flaskCooldown);
-    const t = this.ctx.i18n;
+    if (!canSwitchPrepared(player.combat, this.action)) {
+      // Not free (a swing, a guard, a roll, a stagger, a cast): the press is kept and the drink
+      // starts as soon as you are, like a buffered attack; it is never silently lost. A retry
+      // from the buffer does not restart its time, so a long lock lets the press lapse.
+      if (!fromBuffer) use.remember(kind, data.player.flasks.inputBufferSeconds);
+      return;
+    }
+    use.forget();
+    const result = use.start(kind, character.flasks, player.combat, this.flaskCooldown);
     if (result === 'empty') {
+      say(t.t('hud.flaskEmptyShort'));
       this.hud?.showMessage(t.t('hud.flaskEmpty', { flask: t.t(`hud.flask.${kind}`) }));
     } else if (result === 'full') {
+      say(t.t('hud.flaskFullShort'));
       this.hud?.showMessage(t.t('hud.alreadyFull'));
+    } else if (result === 'cooldown') {
+      say(t.t('hud.flaskNotNow'));
     } else if (result === 'started') {
       this.hud?.rules.loadoutChanged();
+      this.refreshLoadout();
     }
   }
 
@@ -2525,7 +2547,12 @@ export class WorldState implements GameState, InstanceHost {
    */
   private stepFlask(dt: number): void {
     const use = this.flaskUse;
-    if (!use.drinking) return;
+    if (!use.drinking) {
+      // A press kept while you were not free: try it again now, while its time lasts.
+      const kept = use.tick(dt);
+      if (kept !== null) this.startFlask(kept, true);
+      return;
+    }
     const data = this.ctx.data;
     const character = this.ctx.session?.character;
     const player = this.player;

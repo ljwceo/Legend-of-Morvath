@@ -222,9 +222,41 @@ export type FlaskStartResult = 'started' | 'empty' | 'full' | 'cooldown' | 'busy
 export class FlaskUse {
   pending: FlaskKind | null = null;
   progress = 0;
+  /**
+   * A press that came while you were not free (a swing, a guard, a roll, a stagger, a cast),
+   * kept for `bufferLeft` seconds so the drink starts as soon as you are (`flasks.inputBufferSeconds`).
+   */
+  buffered: FlaskKind | null = null;
+  bufferLeft = 0;
 
   get drinking(): boolean {
     return this.pending !== null;
+  }
+
+  /** Keeps a press that could not start yet; a later press of another kind replaces it. */
+  remember(kind: FlaskKind, seconds: number): void {
+    if (seconds <= 0) return;
+    this.buffered = kind;
+    this.bufferLeft = seconds;
+  }
+
+  /**
+   * One fixed step of the kept press: the kind to try again while its time lasts, else null.
+   * The caller clears it with `forget` once the drink started or was refused for good.
+   */
+  tick(dt: number): FlaskKind | null {
+    if (this.buffered === null) return null;
+    this.bufferLeft -= dt;
+    if (this.bufferLeft <= 0) {
+      this.forget();
+      return null;
+    }
+    return this.buffered;
+  }
+
+  forget(): void {
+    this.buffered = null;
+    this.bufferLeft = 0;
   }
 
   /**
@@ -261,11 +293,15 @@ export class FlaskUse {
     return kind;
   }
 
-  /** Interrupted before the commit point: no charge, no effect. True when a drink was dropped. */
+  /**
+   * Interrupted before the commit point: no charge, no effect; a kept press goes too. True when
+   * a drink was dropped.
+   */
   cancel(): boolean {
     const was = this.pending !== null;
     this.pending = null;
     this.progress = 0;
+    this.forget();
     return was;
   }
 }

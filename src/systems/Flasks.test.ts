@@ -10,6 +10,7 @@ import {
   flaskAmount,
   FlaskUse,
   flasksValid,
+  type FlaskKind,
   type FlaskState,
   grantFlaskCapacity,
   nextQuickFlask,
@@ -49,6 +50,7 @@ describe('Flasks (G.5): the approved start', () => {
     expect(cfg.mana.manaPercent).toBe(30);
     expect(cfg.drinkSeconds).toBe(0.6);
     expect(cfg.cooldownSeconds).toBe(1);
+    expect(cfg.inputBufferSeconds).toBe(0.5);
   });
 
   it('a new character starts with every charge full and no discoveries', () => {
@@ -230,6 +232,55 @@ describe('Flasks: use (the commit point)', () => {
     expect(use.start('health', eight(), fighter(), 0.5)).toBe('cooldown');
     expect(use.drinking).toBe(false);
     expect(use.step(DT, cfg.drinkSeconds)).toBeNull();
+  });
+});
+
+describe('Flasks: a press while you are not free (the input buffer)', () => {
+  it('keeps the press for the buffer time and hands it back every step until it starts', () => {
+    const use = new FlaskUse();
+    expect(use.tick(DT)).toBeNull();
+    use.remember('health', cfg.inputBufferSeconds);
+    // Still locked (a swing): the press comes back each step...
+    let steps = 0;
+    while (use.tick(DT) === 'health') steps++;
+    // ...for about the buffer time, then it lapses by itself (no drink, no charge).
+    expect(Math.abs(steps * DT - cfg.inputBufferSeconds)).toBeLessThan(2 * DT);
+    expect(use.buffered).toBeNull();
+    expect(use.drinking).toBe(false);
+  });
+
+  it('a later press of the other kind replaces the kept one; starting or cancelling forgets it', () => {
+    const use = new FlaskUse();
+    use.remember('health', 1);
+    use.remember('mana', 1);
+    expect(use.tick(DT)).toBe('mana');
+    use.forget();
+    expect(use.tick(DT)).toBeNull();
+    use.remember('health', 1);
+    use.cancel();
+    expect(use.tick(DT)).toBeNull();
+    // Zero buffer time keeps nothing.
+    use.remember('health', 0);
+    expect(use.tick(DT)).toBeNull();
+  });
+
+  it('the kept press starts a normal drink once free: one charge, one commit', () => {
+    const use = new FlaskUse();
+    const state = eight();
+    const c = fighter(40, 10);
+    use.remember('health', cfg.inputBufferSeconds);
+    // Locked for a few steps (the world does not call start), then free: start from the buffer.
+    for (let i = 0; i < 6; i++) expect(use.tick(DT)).toBe('health');
+    const kept = use.tick(DT);
+    expect(kept).toBe('health');
+    use.forget();
+    expect(use.start(kept as FlaskKind, state, c, 0)).toBe('started');
+    let kind = null;
+    while (kind === null) kind = use.step(DT, cfg.drinkSeconds);
+    expect(useFlask(state, kind, cfg, c, restored)).toBe('used');
+    expect(state.healthLeft).toBe(4);
+    expect(c.hp).toBe(90);
+    expect(use.tick(DT)).toBeNull();
   });
 });
 

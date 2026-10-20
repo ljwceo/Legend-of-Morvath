@@ -243,7 +243,8 @@
     "health": { "hpPercent": 50 },
     "mana": { "manaPercent": 30 },
     "drinkSeconds": 0.6,
-    "cooldownSeconds": 1
+    "cooldownSeconds": 1,
+    "inputBufferSeconds": 0.5
   },
   "prepared": {
     "mainWeapons": 2

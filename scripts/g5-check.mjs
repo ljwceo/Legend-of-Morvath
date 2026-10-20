@@ -185,6 +185,26 @@ try {
     loadoutLine?.get('loadout') ?? 'no loadout line',
   );
 
+  // 1b. Full HP: Q answers at once with "Full" above the player (the HUD message queue is slow).
+  await page.keyboard.press('KeyQ');
+  const fullText = await page
+    .locator('.ui-damage-dodged', { hasText: 'Full' })
+    .first()
+    .waitFor({ state: 'attached', timeout: 8_000 })
+    .then(() => true)
+    .catch(() => false);
+  check(
+    'Q at full HP shows "Full" above the player at once, no charge spent',
+    fullText,
+    `${fullText}`,
+  );
+  const stillFull = JSON.parse(await stored(page, SAVE_KEY));
+  check(
+    'a refused drink spends nothing',
+    stillFull.character.flasks.healthLeft === 1,
+    flasksOf(stillFull),
+  );
+
   // 2. Hurt: Q drinks the Health Flask; the charge is gone and stays gone after a reload.
   page = await reopenWith(page, { progress: { ...fresh.progress, hp: 10 } });
   await click(page, 'Continue');
