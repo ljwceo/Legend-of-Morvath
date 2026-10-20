@@ -592,6 +592,8 @@ Fases met een letter in plaats van een nummer. Een letter hoort bij precies éé
 
 ### Bekende problemen
 
+- **Checkpoint-herkenbaarheid (toekomstige UX/world-art-taak, Lucas handmatig getest 2026-10-20):** rusten met E bij Greyhaven Monastery werkt, maar het rustpunt is in de wereld lastig te herkennen. Voeg later een duidelijk zichtbaar, thematisch passend herkenningspunt toe (bijv. kampvuurtje, magisch altaar of subtiele lichtbron), met een herkenbaar silhouet en interactie-indicatie. Geldt ook voor Greenwood Shrine en Mournfen Monastery. **Niet in G.5 implementeren:** eerst Flask-, save- en combatchecks afmaken; locatie/rustregels blijven ongewijzigd.
+
 - Elke start logt `missing text "common.close" (en)` (open vraag 17): `src/ui/Overlays.ts` vraagt het label op vóórdat `I18n.setLanguage` iets geladen heeft. Onschuldig, maar het vervuilt de debuglijst. Oplossing: het `aria-label` pas zetten als de knop in beeld komt.
 - Three.js zelf is 548 kB in de bundel en kan niet verder opgesplitst worden.
 - Vanuit het bed in het klooster kun je de kloostergang, de westvleugel en de tuin in, maar nog niet de stad (open vraag 19).
