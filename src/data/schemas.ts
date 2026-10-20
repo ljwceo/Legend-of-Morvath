@@ -952,17 +952,36 @@ export const playerFileSchema = z.strictObject({
   }),
   /** Reaching a new level fills HP and mana. */
   levelUpRefill: z.boolean(),
-  potions: z.strictObject({
-    /** Seconds before the next potion can be drunk. */
+  /**
+   * The reusable Flasks (G.5, Lucas 2026-10-19): every character has `startCapacity` charges
+   * split over the Health Flask and the Mana Flask (`startHealth` + `startMana` must equal it;
+   * DataValidator). Hidden discoveries add permanent capacity; resting at a checkpoint refills
+   * the charges and is the only place to change the split. The ordinary potions are legacy
+   * items since G.5. All numbers are provisional start values.
+   */
+  flasks: z.strictObject({
+    startCapacity: nonNegInt,
+    startHealth: nonNegInt,
+    startMana: nonNegInt,
+    /** What one charge restores (of your maximum); Faith adds its potion bonus on top. */
+    health: z.strictObject({ hpPercent: range(0, 100) }),
+    mana: z.strictObject({ manaPercent: range(0, 100) }),
+    /** The drink takes this long; the charge and the effect commit together at the end. */
+    drinkSeconds: max(nonNegative, 10),
+    /** Seconds before the next flask can be started after a drink committed. */
     cooldownSeconds: max(nonNegative, 60),
-    /** The drink key / button takes the first of these potions you have. */
-    quickOrder: atLeast(z.array(id)),
+    /**
+     * A press during a swing, heavy wind-up, guard, roll, stagger or cast is kept this long and
+     * starts the drink as soon as you are free (like the sword's and the casting's buffers), so
+     * no press is silently lost.
+     */
+    inputBufferSeconds: max(nonNegative, 2),
   }),
   /**
-   * The prepared loadout (Fase G, G.1: data only; the loadout itself is built in G.5).
-   * `mainWeapons` is the base number of prepared main weapons (S-9); Weapon Harness Upgrades
-   * add to it later. Prepared incantations come from the Grimoire item (`grimoire` in
-   * items.json). No maximum has been decided, so none is set here.
+   * The prepared loadout (Fase G, G.1 data, G.5 behaviour). `mainWeapons` is the base number
+   * of prepared main weapons (S-9); Weapon Harness Upgrades (`character.slotUpgrades`) add to
+   * it. Prepared incantations come from the Grimoire item (`grimoire` in items.json) plus
+   * Grimoire Pages. No maximum has been decided, so none is set here.
    */
   prepared: z.strictObject({ mainWeapons: posInt }),
   death: z.strictObject({
@@ -1358,8 +1377,10 @@ const itemSchema = z.strictObject({
   dryTo: optional(id),
   dryHours: optional(positive),
   /**
-   * Kept only so old saves keep working (Fase G): the playable staves leave the active game.
-   * The id must never be removed; nothing reads this flag yet (G.4 migrates, G.9 cleans up).
+   * Kept only so old saves keep working (Fase G): the playable staves (G.4) and the ordinary
+   * potions (G.5, replaced by the reusable Flasks) leave the active game. The id must never be
+   * removed and what players own stays exactly as it is; a legacy item is never sold in a shop,
+   * never prepared and never used (DataValidator, Prepared, the bag). G.9 cleans up.
    */
   legacy: optional(z.boolean()),
   weapon: optional(
@@ -1689,6 +1710,13 @@ export const questsFileSchema = z.strictObject({
         upgrades: optional(z.array(z.strictObject({ from: id, to: id }))),
         /** Things that are now yours, kept in the save (e.g. your plot in the Garden). */
         unlocks: optional(z.array(id)),
+        /**
+         * One permanent Flask charge (G.5), granted once through the Flask discovery mechanism
+         * under the id `quest:<quest id>` (`Flasks.questFlaskDiscoveryId`): completing the
+         * quest again, a reload or a save migration can never grant it twice. The new
+         * capacity is empty until the next checkpoint rest.
+         */
+        flaskCapacity: optional(z.boolean()),
       }),
     }),
   ),

@@ -3,7 +3,8 @@ import type { ItemStack } from './Inventory';
 
 /**
  * Grimoire access (Fase G, G.3/G.4): who may cast incantations, and which ones are known.
- * Pure rules, no DOM; the world asks these every step and G.5 adds the prepared slots.
+ * Pure rules, no DOM; the world asks these every step. Which known incantation the cast button
+ * fires is a prepared slot since G.5 (`Prepared.ts`), never simply the first one known.
  *
  * Owning a Grimoire is what counts (P-5): a new character carries the Rookie Grimoire from the
  * start kit, an older save gets one from the migration to save version 21 (G.4). The
@@ -54,12 +55,4 @@ export function knownIncantations(
     if (known && elementUnlocked(spells, elements, element.id)) out.push(incantation.id);
   }
   return out;
-}
-
-/**
- * The incantation the cast button fires. Until the prepared slots of G.5 exist the Rookie
- * Grimoire holds one, so it is simply the first one known; null with none.
- */
-export function selectedIncantation(known: readonly string[]): string | null {
-  return known[0] ?? null;
 }

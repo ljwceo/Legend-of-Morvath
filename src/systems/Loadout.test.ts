@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-  itemsFileSchema,
-  monstersFileSchema,
-  playerFileSchema,
-  zonesFileSchema,
-} from '../data/schemas';
-import type { ItemDef, ItemsFile, MonstersFile, PlayerConfig } from '../data/types';
+import { monstersFileSchema, playerFileSchema, zonesFileSchema } from '../data/schemas';
+import type { MonstersFile, PlayerConfig } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
 import { CombatState, holdCombat, swordConfig } from './Combat';
 import { Enemies, type EnemiesWorld } from './Enemies';
@@ -16,9 +11,6 @@ import {
   cycle,
   cycleSpellSlot,
   type PlayerAction,
-  preparedConsumables,
-  preparedWeapons,
-  selectedConsumable,
   selectedSpell,
 } from './Loadout';
 
@@ -221,29 +213,6 @@ describe('switching what is prepared', () => {
   });
 });
 
-const file = itemsFileSchema.parse(readPublicJson('data/items.json')) as ItemsFile;
-const items = new Map<string, ItemDef>(file.items.map((item) => [item.id, item]));
-
-const bag = [
-  { item: 'health_potion', count: 2 },
-  { item: 'old_sword', count: 1 },
-  { item: 'slime_gel', count: 4 },
-  { item: 'mage_staff', count: 1 },
-  { item: 'mana_potion', count: 1 },
-  { item: 'old_sword', count: 1 },
-];
-
-describe('prepared lists come from the bag', () => {
-  it('weapons: each once, in bag order; nothing else', () => {
-    expect(preparedWeapons(bag, items)).toEqual(['old_sword', 'mage_staff']);
-  });
-
-  it('consumables: the potions you have, each once', () => {
-    expect(preparedConsumables(bag, items)).toEqual(['health_potion', 'mana_potion']);
-    expect(preparedConsumables([{ item: 'health_potion', count: 0 }], items)).toEqual([]);
-  });
-});
-
 describe('cycling', () => {
   const list = ['a', 'b', 'c'];
 
@@ -258,22 +227,6 @@ describe('cycling', () => {
     expect(cycle(list, null, 1)).toBe('a');
     expect(cycle([], 'a', 1)).toBeNull();
     expect(cycle(['a'], 'a', 1)).toBe('a');
-  });
-});
-
-describe('the quick item', () => {
-  const order = ['health_potion', 'greater_health_potion'];
-
-  it('keeps your choice while you have it', () => {
-    expect(selectedConsumable(['health_potion', 'mana_potion'], 'mana_potion', order)).toBe(
-      'mana_potion',
-    );
-  });
-
-  it('falls back to the quick order, then to anything you have', () => {
-    expect(selectedConsumable(['mana_potion', 'health_potion'], null, order)).toBe('health_potion');
-    expect(selectedConsumable(['mana_potion'], 'health_potion', order)).toBe('mana_potion');
-    expect(selectedConsumable([], 'health_potion', order)).toBeNull();
   });
 });
 

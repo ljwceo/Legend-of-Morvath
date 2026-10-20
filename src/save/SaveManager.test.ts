@@ -7,20 +7,34 @@ import {
 } from '../data/schemas';
 import type { ItemDef } from '../data/types';
 import { createCharacter } from '../scenes/creator';
+import { CombatState } from '../systems/Combat';
 import { handInEggs } from '../systems/Eggs';
 import { applyUpgrade, effectiveDamageBonus } from '../systems/Forge';
 import { equip } from '../systems/Gear';
+import {
+  grantFlaskCapacity,
+  normalizeFlasks,
+  questFlaskDiscoveryId,
+  questFlaskGrants,
+  restFlasks,
+  useFlask,
+} from '../systems/Flasks';
 import { ownsGrimoire } from '../systems/Grimoire';
+import { grantSlotUpgrade } from '../systems/Prepared';
 import { countItem } from '../systems/Inventory';
 import { readPublicJson } from '../test/loadPublic';
 import {
   createNewSave,
   CRYSTAL_ELEMENT_IDS,
   DEFAULT_CAMERA_SENSITIVITY,
+  FLASK_START_V22,
+  LEGACY_POTION_IDS,
   LEGACY_STAFF_IDS,
   LEGACY_STAFF_REPLACEMENTS,
   migrate,
   migrateCharacterToGrimoire,
+  migrateCharacterToLoadout,
+  migrations,
   ROOKIE_GRIMOIRE_ID,
   SAVE_VERSION,
   type Migration,
@@ -69,6 +83,9 @@ function sampleSave() {
     upgrades: {},
     elements: [],
     incantations: [],
+    flasks: { capacity: 2, health: 1, mana: 1, healthLeft: 1, manaLeft: 1, discoveries: [] },
+    prepared: { weapons: [], incantations: [] },
+    slotUpgrades: { weaponHarness: [], grimoirePages: [] },
   };
   save.world = {
     zone: 'greyhaven',
@@ -646,6 +663,9 @@ function v20Save(
   const character = { ...(save.character as RawCharacter) };
   Reflect.deleteProperty(character, 'elements');
   Reflect.deleteProperty(character, 'incantations');
+  Reflect.deleteProperty(character, 'flasks');
+  Reflect.deleteProperty(character, 'prepared');
+  Reflect.deleteProperty(character, 'slotUpgrades');
   character.inventory = bag;
   character.equipment = { weapon, mantle: 'travel_mantle' };
   character.gold = 340;
@@ -701,15 +721,19 @@ const POTIONS = { item: 'health_potion', count: 3 };
 
 /** Everything on the character the migration must not touch. */
 function untouched(character: SaveCharacter): Record<string, unknown> {
-  const { inventory, equipment, elements, incantations, ...rest } = character;
+  const { inventory, equipment, elements, incantations, flasks, prepared, slotUpgrades, ...rest } =
+    character;
   void inventory;
   void equipment;
   void elements;
   void incantations;
+  void flasks;
+  void prepared;
+  void slotUpgrades;
   return rest;
 }
 
-describe('G.4: migration to save version 21 (the Grimoire)', () => {
+describe('G.4: migration to save version 21 (the Grimoire; a v20 save now ends on 22)', () => {
   it('the migration ids match the data it cannot read: staffs, the Grimoire, the swords', () => {
     const staffs = itemsFile.items.filter((item) => item.weapon?.kind === 'staff');
     expect(staffs.map((item) => item.id).sort()).toEqual([...LEGACY_STAFF_IDS].sort());
@@ -757,9 +781,9 @@ describe('G.4: migration to save version 21 (the Grimoire)', () => {
     expect(missing).not.toHaveProperty('crystal');
   });
 
-  it('a new character starts on version 21 with the Grimoire, no elements and no incantations', () => {
+  it('a new character starts on the current version with the Grimoire, no elements and no incantations', () => {
     const save = createNewSave('nl');
-    expect(save.version).toBe(21);
+    expect(save.version).toBe(22);
     const character = createCharacter('Nieuw', characterOf(sampleSave()).appearance, playerFile);
     expect(character.elements).toEqual([]);
     expect(character.incantations).toEqual([]);
@@ -772,7 +796,7 @@ describe('G.4: migration to save version 21 (the Grimoire)', () => {
     const raw = v20Save('sword', [OLD, POTIONS], 'old_sword');
     const { save } = loadV20(raw);
     const character = characterOf(save);
-    expect(save.version).toBe(21);
+    expect(save.version).toBe(22);
     expect(character.inventory).toEqual([OLD, POTIONS, { item: ROOKIE_GRIMOIRE_ID, count: 1 }]);
     expect(character.equipment).toEqual({ weapon: 'old_sword', mantle: 'travel_mantle' });
     expect(character.elements).toEqual([]);
@@ -896,7 +920,7 @@ describe('G.4: migration to save version 21 (the Grimoire)', () => {
   it('a save without a character migrates to version 21 as well', () => {
     const raw = { ...(sampleSave() as unknown as RawSave), version: 20, character: null };
     const { save } = loadV20(raw);
-    expect(save.version).toBe(21);
+    expect(save.version).toBe(22);
     expect(save.character).toBeNull();
   });
 
@@ -937,7 +961,7 @@ describe('G.4: migration to save version 21 (the Grimoire)', () => {
     expect(second.status === 'ok' && second.migratedFrom).toBeUndefined();
     expect(storage.getItem(key)).toBe('the oldest copy');
     expect(storage.getItem(migrationBackupKey(SAVE_KEY, 21))).toBeNull();
-    expect(JSON.parse(storage.getItem(SAVE_KEY) ?? '{}').version).toBe(21);
+    expect(JSON.parse(storage.getItem(SAVE_KEY) ?? '{}').version).toBe(22);
   });
 
   it('a current save makes no backup, and deleting the save takes the backups with it', () => {
@@ -972,7 +996,7 @@ describe('G.4: migration to save version 21 (the Grimoire)', () => {
     expect(manager.write(loaded.save, new Date('2026-10-19T11:00:00Z'))).toBe(true);
     expect(manager.backupPending).toBe(false);
     expect(storage.getItem(migrationBackupKey(SAVE_KEY, 20))).toBe(text);
-    expect(JSON.parse(storage.getItem(SAVE_KEY) ?? '{}').version).toBe(21);
+    expect(JSON.parse(storage.getItem(SAVE_KEY) ?? '{}').version).toBe(22);
     // A later write needs no backup any more.
     storage.failWrites = true;
     expect(manager.write(loaded.save)).toBe(false);
@@ -1007,7 +1031,7 @@ describe('G.4: migration to save version 21 (the Grimoire)', () => {
     const raw = v20Save('dark', [STAFF], 'mage_staff');
     const code = manager.exportCode(raw as never);
     const imported = manager.importCode(code);
-    expect(imported?.version).toBe(21);
+    expect(imported?.version).toBe(22);
     expect(imported?.character?.equipment.weapon).toBe('old_sword');
     expect(storage.items.size).toBe(0);
   });
@@ -1027,5 +1051,387 @@ describe('G.4: migration to save version 21 (the Grimoire)', () => {
     expect(character.elements).toEqual(['dark']);
     expect(character.incantations).toEqual(['push']);
     expect(character.equipment.weapon).toBe('old_sword');
+  });
+});
+
+// ------------------------------------------------------------------------------------ G.5
+
+const HEALTH_POTIONS = { item: 'health_potion', count: 7 };
+const MANA_POTIONS = { item: 'mana_potion', count: 3 };
+/** The baseline a save without Flasks receives (1 charge, the Health Flask, full once). */
+const FLASKS_V22 = {
+  capacity: 1,
+  health: 1,
+  mana: 0,
+  healthLeft: 1,
+  manaLeft: 0,
+  discoveries: [] as string[],
+};
+/** The Flasks of `sampleSave`: a v22 save made with the earlier 2-charge baseline. */
+const DEV_FLASKS_V22 = {
+  capacity: 2,
+  health: 1,
+  mana: 1,
+  healthLeft: 1,
+  manaLeft: 1,
+  discoveries: [] as string[],
+};
+const GREENWOOD_QUESTS = [
+  'blade_in_the_woods',
+  'sparks_in_the_greenwood',
+  'shadows_in_the_greenwood',
+];
+const questsFile = readPublicJson('data/quests.json') as {
+  quests: { id: string; rewards: { flaskCapacity?: boolean } }[];
+};
+
+/** What the world does on entering it (G.5): the quests finished earlier grant their charge once. */
+function reconcileQuestFlasks(character: SaveCharacter, completed: readonly string[]): string[] {
+  const granted: string[] = [];
+  for (const id of questFlaskGrants(completed, questsFile.quests)) {
+    if (grantFlaskCapacity(character.flasks, questFlaskDiscoveryId(id))) granted.push(id);
+  }
+  return granted;
+}
+
+/** A save as G.4 wrote it (version 21): the v20 fixture through the G.4 step only. */
+function v21Save(
+  path: 'sword' | 'light' | 'dark',
+  bag: { item: string; count: number }[],
+  weapon: string,
+  more: Partial<RawCharacter> = {},
+): RawSave {
+  const step = migrations[20];
+  if (!step) throw new Error('no migration 20');
+  return step(v20Save(path, bag, weapon, more)) as RawSave;
+}
+
+describe('G.5: migration to save version 22 (Flasks and the prepared loadout)', () => {
+  it('the baseline and the legacy ids match the data: 1 charge (Health), the four potions', () => {
+    expect(SAVE_VERSION).toBe(22);
+    expect(FLASK_START_V22).toEqual({
+      capacity: playerFile.flasks.startCapacity,
+      health: playerFile.flasks.startHealth,
+      mana: playerFile.flasks.startMana,
+    });
+    const legacyPotions = itemsFile.items
+      .filter((item) => item.type === 'potion' && item.legacy)
+      .map((item) => item.id);
+    expect(legacyPotions.sort()).toEqual([...LEGACY_POTION_IDS].sort());
+    // Every potion in the data is legacy now: nothing new is drinkable.
+    expect(itemsFile.items.filter((item) => item.type === 'potion' && !item.legacy)).toEqual([]);
+  });
+
+  it('a new character starts on version 22: 1 Health Flask, full; nothing prepared or upgraded', () => {
+    const character = createCharacter('Nieuw', characterOf(sampleSave()).appearance, playerFile);
+    expect(character.flasks).toEqual(FLASKS_V22);
+    expect(character.prepared).toEqual({ weapons: [], incantations: [] });
+    expect(character.slotUpgrades).toEqual({ weaponHarness: [], grimoirePages: [] });
+    const save = createNewSave('nl');
+    save.character = character;
+    expect(migrate(save)).toEqual({ ok: true, save });
+  });
+
+  it('a version 21 save: the Flasks arrive full once, the potions stay exactly, nothing else moves', () => {
+    const raw = v21Save('sword', [OLD, HEALTH_POTIONS, MANA_POTIONS], 'old_sword', {
+      pack: [
+        { item: 'greater_health_potion', count: 2 },
+        { item: 'slime_gel', count: 4 },
+      ],
+    });
+    const { save, migratedFrom } = loadV20(raw);
+    expect(migratedFrom).toBe(21);
+    expect(save.version).toBe(22);
+    const character = characterOf(save);
+    expect(character.flasks).toEqual(FLASKS_V22);
+    expect(character.prepared).toEqual({ weapons: [], incantations: [] });
+    expect(character.slotUpgrades).toEqual({ weaponHarness: [], grimoirePages: [] });
+    expect(character.inventory).toEqual((raw.character as RawCharacter).inventory);
+    expect(countItem(character.inventory, 'health_potion')).toBe(7);
+    expect(countItem(character.inventory, 'mana_potion')).toBe(3);
+    expect(countItem(character.pack, 'greater_health_potion')).toBe(2);
+    expect(character.equipment).toEqual((raw.character as RawCharacter).equipment);
+    const before = raw.character as RawCharacter;
+    expect(untouched(character)).toEqual({
+      name: before.name,
+      appearance: before.appearance,
+      gold: 340,
+      pack: before.pack,
+      stats: before.stats,
+      spells: [],
+      spellLoadout: [],
+      crystal: null,
+      upgrades: { old_sword: 2 },
+    });
+    expect(save.progress).toEqual(raw.progress);
+    expect(save.quests).toEqual(raw.quests);
+    expect(save.settings).toEqual(raw.settings);
+  });
+
+  it('a version 20 save runs the whole chain: Grimoire once, Flasks once, potions exact, one backup', () => {
+    const raw = v20Save('light', [STAFF, CRYSTAL, HEALTH_POTIONS], 'mage_staff', {
+      pack: [MANA_POTIONS],
+    });
+    const { storage, save, migratedFrom } = loadV20(raw);
+    expect(migratedFrom).toBe(20);
+    expect(save.version).toBe(22);
+    const character = characterOf(save);
+    expect(countItem(character.inventory, ROOKIE_GRIMOIRE_ID)).toBe(1);
+    expect(countItem(character.inventory, 'old_sword')).toBe(1);
+    expect(countItem(character.inventory, 'mage_staff')).toBe(1);
+    expect(countItem(character.inventory, 'health_potion')).toBe(7);
+    expect(countItem(character.pack, 'mana_potion')).toBe(3);
+    expect(character.flasks).toEqual(FLASKS_V22);
+    expect(character.elements).toEqual(['fire']);
+    // The original is kept once, under the version it had; no backup for a version it never was.
+    expect(storage.getItem(migrationBackupKey(SAVE_KEY, 20))).toBe(JSON.stringify(raw));
+    expect(storage.getItem(migrationBackupKey(SAVE_KEY, 21))).toBeNull();
+  });
+
+  it('a version 21 save keeps its backup under v21, before the first write of the v22 form', () => {
+    const raw = v21Save('dark', [STAFF, HEALTH_POTIONS], 'mage_staff');
+    const text = JSON.stringify(raw);
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, text);
+    const manager = new SaveManager(storage);
+    const loaded = manager.load();
+    expect(loaded.status).toBe('ok');
+    if (loaded.status !== 'ok') return;
+    expect(loaded.migratedFrom).toBe(21);
+    expect(storage.getItem(migrationBackupKey(SAVE_KEY, 21))).toBe(text);
+    expect(storage.getItem(migrationBackupKey(SAVE_KEY, 20))).toBeNull();
+    expect(storage.getItem(SAVE_KEY)).toBe(text);
+    expect(manager.write(loaded.save, new Date('2026-10-19T12:00:00Z'))).toBe(true);
+    expect(JSON.parse(storage.getItem(SAVE_KEY) ?? '{}').version).toBe(22);
+    expect(storage.getItem(migrationBackupKey(SAVE_KEY, 21))).toBe(text);
+    // A full storage refuses to write the v22 form over a v21 original without its backup.
+    const storage2 = new MemoryStorage();
+    storage2.setItem(SAVE_KEY, text);
+    storage2.failWrites = true;
+    const manager2 = new SaveManager(storage2);
+    const loaded2 = manager2.load();
+    expect(loaded2.status === 'ok' && manager2.backupPending).toBe(true);
+    expect(loaded2.status === 'ok' && manager2.write(loaded2.save)).toBe(false);
+    expect(storage2.getItem(SAVE_KEY)).toBe(text);
+  });
+
+  it('migrating twice changes nothing more: no second Flask, no second slot, no second potion', () => {
+    const raw = v21Save('sword', [OLD, HEALTH_POTIONS], 'old_sword');
+    const { storage, save } = loadV20(raw);
+    const manager = new SaveManager(storage);
+    expect(manager.write(save, new Date('2026-10-19T12:00:00Z'))).toBe(true);
+    const again = loadFrom(storage);
+    expect(again.migratedFrom).toBeUndefined();
+    expect(again.save).toEqual(save);
+    expect(countItem(characterOf(again.save).inventory, 'health_potion')).toBe(7);
+    const once = migrateCharacterToLoadout(raw.character as RawCharacter);
+    expect(migrateCharacterToLoadout(once)).toEqual(once);
+    expect(migrateCharacterToGrimoire(once)).toEqual(once);
+  });
+
+  it('saving and loading with depleted Flasks never refills them; only a rest does', () => {
+    const save = sampleSave();
+    const character = characterOf(save);
+    character.flasks.healthLeft = 0;
+    character.flasks.manaLeft = 0;
+    const storage = new MemoryStorage();
+    const manager = new SaveManager(storage);
+    expect(manager.write(save)).toBe(true);
+    const loaded = characterOf(loadFrom(storage).save);
+    expect(loaded.flasks).toEqual({ ...DEV_FLASKS_V22, healthLeft: 0, manaLeft: 0 });
+    expect(normalizeFlasks(loaded.flasks)).toBe(loaded.flasks);
+    // Written and loaded a second time: still empty.
+    expect(manager.write(loadFrom(storage).save)).toBe(true);
+    expect(characterOf(loadFrom(storage).save).flasks.healthLeft).toBe(0);
+    // The rest at a checkpoint is the one thing that fills them, and a 5 / 3 split persists.
+    const eight = { ...loaded.flasks, capacity: 8 };
+    const rested = restFlasks(eight, 5);
+    if (!rested) throw new Error('rest refused');
+    character.flasks = rested;
+    manager.write(save);
+    expect(characterOf(loadFrom(storage).save).flasks).toEqual({
+      capacity: 8,
+      health: 5,
+      mana: 3,
+      healthLeft: 5,
+      manaLeft: 3,
+      discoveries: [],
+    });
+  });
+
+  it('a damaged Flask block loads repaired, never corrupt, and never with extra charges', () => {
+    const save = sampleSave() as unknown as RawSave;
+    (save.character as RawCharacter).flasks = {
+      capacity: 2,
+      health: 5,
+      mana: 1,
+      healthLeft: 9,
+      manaLeft: -2,
+      discoveries: ['x', 'x'],
+    };
+    const storage = new MemoryStorage();
+    storage.setItem(SAVE_KEY, JSON.stringify(save));
+    const loaded = loadFrom(storage);
+    expect(normalizeFlasks(characterOf(loaded.save).flasks)).toEqual({
+      capacity: 2,
+      health: 2,
+      mana: 0,
+      healthLeft: 2,
+      manaLeft: 0,
+      discoveries: ['x'],
+    });
+    // Everything else of the save is still there.
+    expect(characterOf(loaded.save).inventory).toEqual([OLD_SWORD]);
+  });
+
+  it('a respec at Sultan keeps Flask capacity, discoveries, slot upgrades and the prepared sets', () => {
+    const { save } = loadV20(
+      v20Save('sword', [OLD, { item: 'mossback_egg', count: 1 }, HEALTH_POTIONS], 'old_sword'),
+    );
+    const character = characterOf(save);
+    expect(grantFlaskCapacity(character.flasks, 'cave_shrine')).toBe(true);
+    expect(grantSlotUpgrade(character.slotUpgrades, 'weaponHarness', 'harness_1')).toBe(true);
+    expect(grantSlotUpgrade(character.slotUpgrades, 'grimoirePages', 'academy_second_slot')).toBe(
+      true,
+    );
+    character.prepared = { weapons: ['old_sword', ''], incantations: ['push'] };
+    const result = handInEggs(statsFile, character.inventory, itemsById, character.stats, 1);
+    if (!result) throw new Error('Sultan refused the egg');
+    character.stats = result.points;
+    expect(character.flasks.capacity).toBe(2);
+    expect(character.flasks.discoveries).toEqual(['cave_shrine']);
+    expect(character.slotUpgrades).toEqual({
+      weaponHarness: ['harness_1'],
+      grimoirePages: ['academy_second_slot'],
+    });
+    expect(character.prepared).toEqual({ weapons: ['old_sword', ''], incantations: ['push'] });
+    expect(countItem(character.inventory, 'health_potion')).toBe(7);
+    // The same discovery and the same upgrade can never be claimed again, after a reload either.
+    const storage = new MemoryStorage();
+    new SaveManager(storage).write(save);
+    const reloaded = characterOf(loadFrom(storage).save);
+    expect(grantFlaskCapacity(reloaded.flasks, 'cave_shrine')).toBe(false);
+    expect(grantSlotUpgrade(reloaded.slotUpgrades, 'grimoirePages', 'academy_second_slot')).toBe(
+      false,
+    );
+    expect(reloaded.flasks.capacity).toBe(2);
+  });
+
+  it('a used charge is gone after save and load; the capacity is not', () => {
+    const save = sampleSave();
+    const character = characterOf(save);
+    const c = new CombatState();
+    c.maxHp = 100;
+    c.hp = 10;
+    c.maxMana = 50;
+    c.mana = 50;
+    const restored = { kind: 'health' as const, amount: 0 };
+    expect(useFlask(character.flasks, 'health', playerFile.flasks, c, restored)).toBe('used');
+    expect(useFlask(character.flasks, 'health', playerFile.flasks, c, restored)).toBe('empty');
+    const storage = new MemoryStorage();
+    new SaveManager(storage).write(save);
+    const loaded = characterOf(loadFrom(storage).save);
+    expect(loaded.flasks).toEqual({ ...DEV_FLASKS_V22, healthLeft: 0 });
+  });
+
+  it('a v22 save made with the earlier 2-charge baseline keeps its 2 Flasks (no silent loss)', () => {
+    const save = sampleSave();
+    expect(characterOf(save).flasks).toEqual(DEV_FLASKS_V22);
+    const storage = new MemoryStorage();
+    new SaveManager(storage).write(save);
+    const loaded = loadFrom(storage);
+    expect(loaded.migratedFrom).toBeUndefined();
+    expect(characterOf(loaded.save).flasks).toEqual(DEV_FLASKS_V22);
+    expect(migrate(loaded.save)).toEqual({ ok: true, save: loaded.save });
+    // The step itself leaves a character that already has Flasks alone.
+    const raw = loaded.save.character as unknown as RawCharacter;
+    expect(migrateCharacterToLoadout(raw).flasks).toEqual(DEV_FLASKS_V22);
+  });
+
+  it('quests finished before the reward existed: one charge each on entering the world, 4 in all, once', () => {
+    const raw = v21Save('sword', [OLD, HEALTH_POTIONS], 'old_sword');
+    (raw.quests as { completed: string[] }).completed.push(...GREENWOOD_QUESTS);
+    const { storage, save } = loadV20(raw);
+    const character = characterOf(save);
+    // The migration itself grants nothing: the baseline only.
+    expect(character.flasks).toEqual(FLASKS_V22);
+    expect(reconcileQuestFlasks(character, save.quests.completed)).toEqual(GREENWOOD_QUESTS);
+    expect(character.flasks).toEqual({
+      capacity: 4,
+      health: 4,
+      mana: 0,
+      healthLeft: 1,
+      manaLeft: 0,
+      discoveries: GREENWOOD_QUESTS.map(questFlaskDiscoveryId),
+    });
+    // Entering the world again, a reload and a second migration pass: nothing more.
+    expect(reconcileQuestFlasks(character, save.quests.completed)).toEqual([]);
+    new SaveManager(storage).write(save);
+    const reloaded = characterOf(loadFrom(storage).save);
+    expect(reconcileQuestFlasks(reloaded, GREENWOOD_QUESTS)).toEqual([]);
+    expect(reloaded.flasks.capacity).toBe(4);
+    expect(migrateCharacterToLoadout(reloaded as unknown as RawCharacter).flasks).toEqual(
+      reloaded.flasks,
+    );
+    expect(countItem(reloaded.inventory, 'health_potion')).toBe(7);
+  });
+
+  it('a fresh completion and the reconciliation give the same entitlement, never both', () => {
+    const fresh = createCharacter('Nieuw', characterOf(sampleSave()).appearance, playerFile);
+    // Handing the quest in: the world grants under the quest's id (completeQuest).
+    expect(grantFlaskCapacity(fresh.flasks, questFlaskDiscoveryId('sparks_in_the_greenwood'))).toBe(
+      true,
+    );
+    expect(fresh.flasks.capacity).toBe(2);
+    // Entering the world later with that quest completed: nothing more for it.
+    expect(reconcileQuestFlasks(fresh, ['sparks_in_the_greenwood'])).toEqual([]);
+    expect(fresh.flasks.capacity).toBe(2);
+    // A save that finished all three the old way ends on the same 4 as one that finishes them now.
+    const old = createCharacter('Oud', characterOf(sampleSave()).appearance, playerFile);
+    reconcileQuestFlasks(old, GREENWOOD_QUESTS);
+    const now = createCharacter('Nu', characterOf(sampleSave()).appearance, playerFile);
+    for (const id of GREENWOOD_QUESTS) grantFlaskCapacity(now.flasks, questFlaskDiscoveryId(id));
+    expect(old.flasks).toEqual(now.flasks);
+    expect(now.flasks.capacity).toBe(4);
+  });
+
+  it('a dev v22 save with 2 Flasks that also finished a quest keeps both: 3, never reset to 1', () => {
+    const save = sampleSave();
+    save.quests.completed.push('blade_in_the_woods');
+    const character = characterOf(save);
+    expect(reconcileQuestFlasks(character, save.quests.completed)).toEqual(['blade_in_the_woods']);
+    expect(character.flasks).toEqual({
+      capacity: 3,
+      health: 2,
+      mana: 1,
+      healthLeft: 1,
+      manaLeft: 1,
+      discoveries: ['quest:blade_in_the_woods'],
+    });
+    const result = handInEggs(
+      statsFile,
+      [...character.inventory, { item: 'mossback_egg', count: 1 }],
+      itemsById,
+      character.stats,
+      1,
+    );
+    if (!result) throw new Error('Sultan refused the egg');
+    character.stats = result.points;
+    expect(character.flasks.capacity).toBe(3);
+    expect(reconcileQuestFlasks(character, save.quests.completed)).toEqual([]);
+  });
+
+  it('a respawn refills by the allocation and keeps capacity, split and discoveries', () => {
+    const save = sampleSave();
+    const character = characterOf(save);
+    reconcileQuestFlasks(character, GREENWOOD_QUESTS);
+    const split = restFlasks(character.flasks, 3);
+    if (!split) throw new Error('rest refused');
+    character.flasks = { ...split, healthLeft: 0, manaLeft: 0 };
+    // What `wakeUpAfterDeath` does.
+    const woke = restFlasks(character.flasks);
+    expect(woke).toEqual({ ...split, healthLeft: 3, manaLeft: 2 });
+    expect(woke?.capacity).toBe(5);
+    expect(woke?.discoveries).toEqual(GREENWOOD_QUESTS.map(questFlaskDiscoveryId));
   });
 });

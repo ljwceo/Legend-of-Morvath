@@ -28,7 +28,7 @@ export interface CheatPanelHandlers {
    * Gives XP, gold, potions, Slime Gel, gear or the pack animal (testing levels, dying,
    * drinking, quests, load, Biscuit).
    */
-  grant(kind: 'xp' | 'gold' | 'potions' | 'slimeGel' | 'gear' | 'packAnimal' | 'staff'): void;
+  grant(kind: CheatGrant): void;
   /** Starts the Sultan fight right away (no quests needed). */
   bossFight(): void;
   /** Counts Sultan as defeated without the fight (the teachers ask right away). */
@@ -65,6 +65,22 @@ export interface CheatPanelHandlers {
 }
 
 /**
+ * What the cheat menu can hand out. `flaskCapacity`, `weaponHarness` and `grimoirePage` are the
+ * permanent G.5 upgrades (each as its own unique debug discovery), because the world has no
+ * places to find them yet.
+ */
+export type CheatGrant =
+  | 'xp'
+  | 'gold'
+  | 'slimeGel'
+  | 'gear'
+  | 'packAnimal'
+  | 'staff'
+  | 'flaskCapacity'
+  | 'weaponHarness'
+  | 'grimoirePage';
+
+/**
  * What the cheat menu can set on the cape: on/off, multipliers on stiffness and gravity, and
  * whether its colliders are drawn as wire spheres (step A.4b).
  */
@@ -85,7 +101,7 @@ const MEASURE_SECONDS = 20;
 
 /**
  * Debug-only cheat menu for quick testing: walk faster, fly through walls, teleport to a zone,
- * show chunk borders, give XP, gold, potions or a staff, pick a spell, tune the aim help,
+ * show chunk borders, give XP, gold, Flask capacity or a staff, pick a spell, tune the aim help,
  * pick the debug overlay size. Opens with F6 or the "Cheats" button (both
  * in debug mode, also when the overlay is hidden). It is a
  * small panel at the side, so the game keeps running behind it. While flying on a touch screen,
@@ -281,7 +297,9 @@ export class CheatPanel {
           { className: 'ui-chips' },
           chip(t('cheats.grantXp'), false, () => this.handlers.grant('xp')),
           chip(t('cheats.grantGold'), false, () => this.handlers.grant('gold')),
-          chip(t('cheats.grantPotions'), false, () => this.handlers.grant('potions')),
+          chip(t('cheats.grantFlask'), false, () => this.handlers.grant('flaskCapacity')),
+          chip(t('cheats.grantHarness'), false, () => this.handlers.grant('weaponHarness')),
+          chip(t('cheats.grantPage'), false, () => this.handlers.grant('grimoirePage')),
           chip(t('cheats.grantSlimeGel'), false, () => this.handlers.grant('slimeGel')),
           chip(t('cheats.grantGear'), false, () => this.handlers.grant('gear')),
           chip(t('cheats.grantPackAnimal'), false, () => this.handlers.grant('packAnimal')),

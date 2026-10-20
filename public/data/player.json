@@ -236,9 +236,15 @@
     "lingerSeconds": 4
   },
   "levelUpRefill": true,
-  "potions": {
+  "flasks": {
+    "startCapacity": 1,
+    "startHealth": 1,
+    "startMana": 0,
+    "health": { "hpPercent": 50 },
+    "mana": { "manaPercent": 30 },
+    "drinkSeconds": 0.6,
     "cooldownSeconds": 1,
-    "quickOrder": ["health_potion", "greater_health_potion"]
+    "inputBufferSeconds": 0.5
   },
   "prepared": {
     "mainWeapons": 2

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { itemsFileSchema, playerFileSchema, spellsFileSchema } from '../data/schemas';
 import type { ItemDef, ItemsFile, PlayerConfig, SpellsFile } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
-import { elementUnlocked, knownIncantations, ownsGrimoire, selectedIncantation } from './Grimoire';
+import { elementUnlocked, knownIncantations, ownsGrimoire } from './Grimoire';
 
 const items = itemsFileSchema.parse(readPublicJson('data/items.json')) as ItemsFile;
 const player = playerFileSchema.parse(readPublicJson('data/player.json')) as PlayerConfig;
@@ -39,8 +39,6 @@ describe('Grimoire access (G.3, G.4)', () => {
   it('knows exactly the incantations of an always-unlocked element: Push, and nothing by level', () => {
     const known = knownIncantations(spells, NONE, NONE, []);
     expect(known).toEqual(['push']);
-    expect(selectedIncantation(known)).toBe('push');
-    expect(selectedIncantation([])).toBeNull();
     // A new incantation of a locked element is not known by itself.
     const more: SpellsFile = {
       ...spells,

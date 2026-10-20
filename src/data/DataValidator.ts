@@ -666,6 +666,16 @@ class CrossChecker {
       npc.shop?.items.forEach((entry, e) => {
         this.ref('item', f, `${p}.shop.items[${e}].item`, entry.item);
         if (entry.item === 'gold') this.issue(f, `${p}.shop.items[${e}].item`, 'gold is not sold');
+        // The ordinary potions are legacy since G.5 (Lucas, 2026-10-19): kept, never sold
+        // again. A legacy staff may still be sold until G.9 cleans the Academy up.
+        const sold = this.data.items.items.find((item) => item.id === entry.item);
+        if (sold?.legacy && sold.type === 'potion') {
+          this.issue(
+            f,
+            `${p}.shop.items[${e}].item`,
+            `"${entry.item}" is a legacy potion and not for sale`,
+          );
+        }
       });
       if (npc.forge && npc.interaction !== 'talk') {
         this.issue(f, `${p}.forge`, 'a forge needs an NPC you can talk to');
@@ -757,13 +767,15 @@ class CrossChecker {
         this.issue(f, `start.equipment.${slot}`, `"${itemId}" is equipped but not in start.items`);
       }
     }
-    player.potions.quickOrder.forEach((itemId, i) => {
-      this.ref('item', f, `potions.quickOrder[${i}]`, itemId);
-      const item = this.data.items.items.find((entry) => entry.id === itemId);
-      if (item && item.type !== 'potion') {
-        this.issue(f, `potions.quickOrder[${i}]`, `"${itemId}" is not a potion`);
-      }
-    });
+    // The Flasks (G.5): the start split must add up to the start capacity.
+    const flasks = player.flasks;
+    if (flasks.startHealth + flasks.startMana !== flasks.startCapacity) {
+      this.issue(
+        f,
+        'flasks',
+        `startHealth + startMana (${flasks.startHealth + flasks.startMana}) must equal startCapacity (${flasks.startCapacity})`,
+      );
+    }
     player.load.tiers.forEach((tier, i) => {
       this.text(f, `load.tiers[${i}].label`, tier.label);
       this.text(f, `load.tiers[${i}].message`, tier.message);
@@ -1471,9 +1483,18 @@ class CrossChecker {
       quest.requires.items?.forEach((stack, r) =>
         this.ref('item', f, `${p}.requires.items[${r}].item`, stack.item),
       );
-      quest.rewards.items.forEach((stack, r) =>
-        this.ref('item', f, `${p}.rewards.items[${r}].item`, stack.item),
-      );
+      quest.rewards.items.forEach((stack, r) => {
+        this.ref('item', f, `${p}.rewards.items[${r}].item`, stack.item);
+        // A quest that rewards permanent Flask capacity (G.5) gives no legacy potion with it.
+        const rewarded = this.data.items.items.find((item) => item.id === stack.item);
+        if (quest.rewards.flaskCapacity && rewarded?.legacy && rewarded.type === 'potion') {
+          this.issue(
+            f,
+            `${p}.rewards.items[${r}].item`,
+            `"${stack.item}" is a legacy potion; a quest that rewards Flask capacity gives none`,
+          );
+        }
+      });
       this.checkQuestPath(f, p, quest);
       this.checkQuestGrants(f, p, quest);
     });

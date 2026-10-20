@@ -13,6 +13,7 @@ export function pausePanel(
   onClose: () => void,
   onStatus?: () => void,
   onSpellbook?: () => void,
+  onLoadout?: () => void,
 ): Panel {
   return {
     build: () => {
@@ -26,6 +27,12 @@ export function pausePanel(
           ? button(t('status.title'), () => {
               ctx.overlays.close();
               onStatus();
+            })
+          : null,
+        onLoadout
+          ? button(t('pause.loadout'), () => {
+              ctx.overlays.close();
+              onLoadout();
             })
           : null,
         onSpellbook

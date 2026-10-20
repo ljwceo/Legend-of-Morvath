@@ -1,41 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { Random } from '../core/Random';
-import { itemsFileSchema, monstersFileSchema, playerFileSchema } from '../data/schemas';
-import type { ItemDef, MonsterDef, PlayerConfig, PotionDef } from '../data/types';
+import { monstersFileSchema } from '../data/schemas';
+import type { MonsterDef } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
-import { applyStats, CombatState } from './Combat';
-import {
-  addItem,
-  countItem,
-  drinkPotion,
-  type ItemStack,
-  potionHp,
-  potionMana,
-  removeItem,
-  rollDrops,
-} from './Inventory';
+import { addItem, countItem, type ItemStack, removeItem, rollDrops } from './Inventory';
 
-const player = playerFileSchema.parse(readPublicJson('data/player.json')) as PlayerConfig;
-const items = new Map(
-  itemsFileSchema.parse(readPublicJson('data/items.json')).items.map((item) => [item.id, item]),
-) as ReadonlyMap<string, ItemDef>;
 const monsters = monstersFileSchema.parse(readPublicJson('data/monsters.json')).monsters;
 const monster = (id: string): MonsterDef => monsters.find((m) => m.id === id) as MonsterDef;
-const order = player.potions.quickOrder;
-
-/**
- * A hurt player with the points of a suggested sword build spent (100 max HP, like the
- * concept), so these tests are about potions and not about the stats of fase 3.7.
- */
-function hurt(hp: number): CombatState {
-  const c = new CombatState();
-  c.statHp = 100 - player.base.hp;
-  c.statMana = 50 - player.base.mana;
-  applyStats(c, player, 1);
-  c.hp = hp;
-  c.mana = c.maxMana;
-  return c;
-}
 
 describe('bag', () => {
   it('stacks, counts and removes items', () => {
@@ -92,71 +63,5 @@ describe('loot', () => {
 
   it('training dummies drop nothing', () => {
     expect(rollDrops(monster('training_dummy'), new Random(1), [])).toEqual([]);
-  });
-});
-
-describe('potions', () => {
-  const healed = { item: '', hp: 0, mana: 0 };
-
-  it('heals and takes one potion from the bag, never above the maximum', () => {
-    const bag: ItemStack[] = [{ item: 'health_potion', count: 2 }];
-    const c = hurt(30);
-    expect(drinkPotion(bag, order, items, c, 0, healed)).toBe('drunk');
-    expect(c.hp).toBe(80);
-    expect(healed).toEqual({ item: 'health_potion', hp: 50, mana: 0 });
-    expect(countItem(bag, 'health_potion')).toBe(1);
-    expect(drinkPotion(bag, order, items, c, 0, healed)).toBe('drunk');
-    expect(c.hp).toBe(100);
-    expect(healed.hp).toBe(20);
-    expect(bag).toEqual([]);
-  });
-
-  it('says why it cannot: no potion, already full, too soon', () => {
-    expect(drinkPotion([], order, items, hurt(30), 0, healed)).toBe('none');
-    const bag: ItemStack[] = [{ item: 'health_potion', count: 1 }];
-    expect(drinkPotion(bag, order, items, hurt(100), 0, healed)).toBe('full');
-    expect(drinkPotion(bag, order, items, hurt(30), 0.5, healed)).toBe('cooldown');
-    expect(countItem(bag, 'health_potion')).toBe(1);
-  });
-
-  it('the drink key takes the first potion of quickOrder you have', () => {
-    const bag: ItemStack[] = [{ item: 'greater_health_potion', count: 1 }];
-    const c = hurt(10);
-    expect(drinkPotion(bag, order, items, c, 0, healed)).toBe('drunk');
-    expect(healed.item).toBe('greater_health_potion');
-    expect(c.hp).toBe(100);
-  });
-
-  it('restores a share of your maximum, so it grows with the points you spend', () => {
-    const low = hurt(1);
-    expect(low.maxHp).toBe(100);
-    expect(potionHp(items.get('health_potion')?.potion as PotionDef, low.maxHp)).toBe(50);
-
-    // Someone who kept spending points in HP (and so has more to heal).
-    const high = hurt(1);
-    high.statHp = 190 - player.base.hp;
-    applyStats(high, player, 10);
-    expect(high.maxHp).toBe(190);
-    expect(potionHp(items.get('health_potion')?.potion as PotionDef, high.maxHp)).toBe(95);
-    expect(potionMana(items.get('mana_potion')?.potion as PotionDef, high.maxMana)).toBeCloseTo(
-      high.maxMana * 0.3,
-      6,
-    );
-  });
-
-  it('a mana potion refills mana, also when your HP is full', () => {
-    const bag: ItemStack[] = [{ item: 'mana_potion', count: 1 }];
-    const c = hurt(100);
-    c.mana = 0;
-    expect(drinkPotion(bag, ['mana_potion'], items, c, 0, healed)).toBe('drunk');
-    expect(c.mana).toBeCloseTo(c.maxMana * 0.3, 6);
-    expect(healed.hp).toBe(0);
-    expect(bag).toEqual([]);
-  });
-
-  it('never drinks something that is not a potion', () => {
-    const bag: ItemStack[] = [{ item: 'slime_gel', count: 3 }];
-    expect(drinkPotion(bag, ['slime_gel'], items, hurt(10), 0, healed)).toBe('none');
-    expect(countItem(bag, 'slime_gel')).toBe(3);
   });
 });

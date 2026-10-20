@@ -283,16 +283,27 @@ describe('validateGameData catches broken data', () => {
     expect(found).toContainEqual(expect.stringContaining('gold is not sold'));
   });
 
-  it('checks potions: what they restore, and the drink key order', () => {
+  it('checks potions: what they restore', () => {
     const raw = freshData();
     const potion = raw.items.items.find((item: { id: string }) => item.id === 'health_potion');
     delete potion.potion;
     raw.items.items.find((item: { id: string }) => item.id === 'wood').potion = { hp: 5 };
-    raw.player.potions.quickOrder = ['slime_gel', 'elixir'];
     const found = messages(raw);
     expect(found).toContainEqual(expect.stringContaining('required for) potions'));
-    expect(found).toContainEqual(expect.stringContaining('"slime_gel" is not a potion'));
-    expect(found).toContainEqual(expect.stringContaining('unknown item "elixir"'));
+  });
+
+  it('checks the Flasks (G.5): the start split adds up, and no shop sells a legacy item', () => {
+    const raw = freshData();
+    raw.player.flasks.startHealth = 2;
+    const marco = raw.npcs.npcs.find((npc: { id: string }) => npc.id === 'marco');
+    marco.shop.items.push({ item: 'health_potion', price: 10 });
+    const found = messages(raw);
+    expect(found).toContainEqual(
+      expect.stringContaining('startHealth + startMana (2) must equal startCapacity (1)'),
+    );
+    expect(found).toContainEqual(
+      expect.stringContaining('"health_potion" is a legacy potion and not for sale'),
+    );
   });
 
   it('reports NPCs placed outside their zone', () => {
@@ -860,5 +871,110 @@ describe('Grimoire data foundation (G.1)', () => {
     expect(messages(raw)).toContainEqual(
       expect.stringContaining('no spell uses element "neutral" (no incantation either)'),
     );
+  });
+});
+
+describe('legacy potions (G.5)', () => {
+  const { data } = validateGameData(readAllData(), options);
+  const LEGACY_POTIONS = [
+    'health_potion',
+    'greater_health_potion',
+    'mana_potion',
+    'greater_mana_potion',
+  ];
+  const isLegacyPotion = (id: string): boolean => LEGACY_POTIONS.includes(id);
+
+  it('the four potions are legacy items, and every potion in the data is', () => {
+    const potions = data?.items.items.filter((item) => item.type === 'potion') ?? [];
+    expect(potions.map((item) => item.id).sort()).toEqual([...LEGACY_POTIONS].sort());
+    for (const potion of potions) expect(potion.legacy).toBe(true);
+  });
+
+  it('no shop sells them any more; the validator refuses one that would', () => {
+    for (const npc of data?.npcs.npcs ?? []) {
+      for (const entry of npc.shop?.items ?? []) expect(isLegacyPotion(entry.item)).toBe(false);
+    }
+    const raw = freshData();
+    raw.npcs.npcs
+      .find((npc: { id: string }) => npc.id === 'marco')
+      .shop.items.push({ item: 'mana_potion', price: 1 });
+    expect(messages(raw)).toContainEqual(
+      expect.stringContaining('"mana_potion" is a legacy potion and not for sale'),
+    );
+  });
+
+  it('no quest hands one over on accepting, and no new quest rewards one', () => {
+    const rewarding: string[] = [];
+    for (const quest of data?.quests.quests ?? []) {
+      for (const stack of quest.grants?.items ?? []) expect(isLegacyPotion(stack.item)).toBe(false);
+      if (quest.rewards.items.some((stack) => isLegacyPotion(stack.item))) rewarding.push(quest.id);
+    }
+    // The three Greenwood side quests reward permanent Flask capacity instead (G.5 correction,
+    // Lucas 2026-10-19); no quest rewards a legacy potion any more.
+    expect(rewarding).toEqual([]);
+    const capacity = (data?.quests.quests ?? [])
+      .filter((quest) => quest.rewards.flaskCapacity === true)
+      .map((quest) => quest.id)
+      .sort();
+    expect(capacity).toEqual(
+      ['blade_in_the_woods', 'shadows_in_the_greenwood', 'sparks_in_the_greenwood'].sort(),
+    );
+    // Their other rewards stayed (the mantle, the ring, the necklace; XP and gold).
+    for (const id of capacity) {
+      const quest = data?.quests.quests.find((entry) => entry.id === id);
+      expect(quest?.rewards.items.length).toBe(1);
+      expect(quest?.rewards.xp).toBe(150);
+      expect(quest?.rewards.gold).toBe(30);
+    }
+    // A capacity quest that also rewards a legacy potion is refused.
+    const raw = freshData();
+    raw.quests.quests
+      .find((quest: { id: string }) => quest.id === 'blade_in_the_woods')
+      .rewards.items.push({ item: 'greater_health_potion', count: 2 });
+    expect(messages(raw)).toContainEqual(
+      expect.stringContaining(
+        '"greater_health_potion" is a legacy potion; a quest that rewards Flask capacity gives none',
+      ),
+    );
+  });
+
+  it('only the monsters that dropped one before G.5 still do (a content decision, not new loot)', () => {
+    const dropping =
+      data?.monsters.monsters
+        .filter((monster) => monster.drops.some((drop) => isLegacyPotion(drop.item)))
+        .map((monster) => monster.id)
+        .sort() ?? [];
+    expect(dropping).toEqual(
+      [
+        'big_slime',
+        'water_big_slime',
+        'fire_big_slime',
+        'nature_big_slime',
+        'wind_big_slime',
+        'dark_big_slime',
+        'goblin',
+        'goblin_archer',
+        'goblin_chief',
+        'mossback',
+        'rootgnarl',
+        'fenstalker',
+        'bogmaw',
+        'hoarfrost_warden',
+        'hollow_whisperer',
+        'dunmar_sentinel',
+        'stonejaw',
+        'windlash',
+        'blightborn',
+      ].sort(),
+    );
+  });
+
+  it('the Marco tutorial quest buys a Straw Hat now, which he sells', () => {
+    const quest = data?.quests.quests.find((entry) => entry.id === 'just_for_you');
+    const objective = quest?.objectives[0];
+    expect(objective?.type).toBe('buy');
+    expect(objective && 'item' in objective ? objective.item : null).toBe('straw_hat');
+    const marco = data?.npcs.npcs.find((npc) => npc.id === 'marco');
+    expect(marco?.shop?.items.some((entry) => entry.item === 'straw_hat')).toBe(true);
   });
 });

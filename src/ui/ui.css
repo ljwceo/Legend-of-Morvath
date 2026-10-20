@@ -2772,3 +2772,59 @@
 .ui-enemy-poise-broken .ui-enemy-poise-fill {
   background: var(--gh-zonsondergang);
 }
+
+/*
+ * The Flask charges (G.5) under the HP / mana / energy bars: "Health Flask 1/1 · Mana Flask
+ * 0/1", a HUD part that shows whenever the bars do. Small and quiet, in the stats font.
+ */
+.ui-hud-flasks {
+  display: flex;
+  gap: 10px;
+  font: 600 13px var(--gh-font-stats);
+  color: var(--gh-zonlicht);
+  white-space: nowrap;
+}
+
+.ui-hud-flask-health {
+  color: var(--gh-zonsondergang);
+}
+
+.ui-hud-flask-mana {
+  color: var(--gh-magieblauw);
+}
+
+/* The rest panel (G.5): one row per Flask with its charges and − / + for the split. */
+.ui-rest {
+  width: min(420px, 100%);
+}
+
+.ui-rest-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.ui-rest-name {
+  font: 16px var(--gh-font-tekst);
+}
+
+.ui-rest-count {
+  min-width: 56px;
+  font: 600 16px var(--gh-font-stats);
+  text-align: right;
+}
+
+.ui-rest-step {
+  min-width: 44px;
+  padding: 6px 0;
+}
+
+/* The loadout panel (G.5) reuses the spellbook rows; it only needs a width. */
+.ui-loadout-panel {
+  width: min(560px, 100%);
+}
+
+.ui-bag-legacy {
+  opacity: 0.7;
+}

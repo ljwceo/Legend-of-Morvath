@@ -38,7 +38,8 @@
     "resume": "Resume",
     "settings": "Settings",
     "toTitle": "Back to title screen",
-    "spellbook": "Spellbook"
+    "spellbook": "Spellbook",
+    "loadout": "Loadout"
   },
   "settings": {
     "title": "Settings",
@@ -128,7 +129,7 @@
       "crit": "Critical {n}% ({factor}×)",
       "attackSpeed": "Attack speed +{n}%",
       "regen": "Regen {hp} HP/s · {mana} mana/s · {energy} energy/s",
-      "potion": "Potions +{n}%"
+      "potion": "Flasks +{n}%"
     },
     "reset": {
       "title": "Build yourself again",
@@ -280,7 +281,7 @@
       "itemNext": "{keyItemNext}"
     },
     "checkpointSet": "Checkpoint set",
-    "rested": "You rest in your bed. HP and mana are full again.",
+    "rested": "You rest. HP, mana and your Flasks are full again.",
     "qualityLowered": "Graphics lowered to {quality} to keep the game smooth.",
     "interact": "Interact",
     "dash": "Dash",
@@ -290,8 +291,18 @@
     "qualityChosen": "Graphics set to {quality} for this device. You can change it in Settings.",
     "protected": "{name} is protected here.",
     "levelUp": "Level up! You are now level {level}.",
-    "noPotion": "You have no potions.",
-    "alreadyFull": "Your HP is already full.",
+    "flaskEmpty": "Your {flask} is empty. Rest at a checkpoint to refill it.",
+    "flaskEmptyShort": "Empty",
+    "flaskFullShort": "Full",
+    "flaskNotNow": "Not now",
+    "alreadyFull": "Nothing to restore right now.",
+    "restInCombat": "You can't rest during a fight.",
+    "noIncantation": "No incantation prepared.",
+    "flaskCount": "{name} {left}/{max}",
+    "flask": {
+      "health": "Health Flask",
+      "mana": "Mana Flask"
+    },
     "loadChanged": "Load: {tier}",
     "gearInCombat": "You can't change gear during a fight.",
     "pack": "Open {name}'s pack",
@@ -317,7 +328,7 @@
     "noGrimoire": "You have no Grimoire to cast from.",
     "noOffhand": "Nothing to hold in your off hand yet.",
     "oneWeapon": "You carry no other weapon.",
-    "noItem": "Nothing to use from the quick slot."
+    "noItem": "No Flask to use."
   },
   "dialog": {
     "next": "Continue",
@@ -495,16 +506,16 @@
       "desc": "Sticky gel left behind by a slime."
     },
     "health_potion": {
-      "desc": "Restores 50% of your HP."
+      "desc": "An old potion from before the Flasks. Kept, but no longer drinkable."
     },
     "greater_health_potion": {
-      "desc": "Restores all of your HP."
+      "desc": "An old potion from before the Flasks. Kept, but no longer drinkable."
     },
     "mana_potion": {
-      "desc": "Restores 30% of your mana."
+      "desc": "An old potion from before the Flasks. Kept, but no longer drinkable."
     },
     "greater_mana_potion": {
-      "desc": "Restores 60% of your mana."
+      "desc": "An old potion from before the Flasks. Kept, but no longer drinkable."
     },
     "honed_old_sword": {
       "desc": "Your old sword, honed by Hilda. Every hit does 3 more damage."
@@ -628,16 +639,16 @@
       }
     },
     "just_for_you": {
-      "desc": "Buy 2 Health Potions from Marco on the Market Square.",
+      "desc": "Buy a Straw Hat from Marco on the Market Square.",
       "offer": {
-        "1": "A new customer! And what a fine one. Today, and only for you, my Health Potions are a steal.",
-        "2": "Buy two, just to be safe. A wise traveller never leaves town without them. Trust me!"
+        "1": "A new customer! And what a fine one. Today, and only for you, my Straw Hats are a steal.",
+        "2": "Buy one, just to be safe. A wise traveller never leaves town bareheaded. Trust me!"
       },
       "progress": {
-        "1": "Still thinking it over? Two Health Potions, special price, just for you."
+        "1": "Still thinking it over? One Straw Hat, special price, just for you."
       },
       "complete": {
-        "1": "Pleasure doing business! Drink one with {keyPotion}, or tap the potion button, whenever you are hurt.",
+        "1": "Pleasure doing business! Wear it from your bag, and remember: your Flasks refill whenever you rest at a checkpoint.",
         "2": "Here, a little something back. Don't tell the other merchants."
       }
     },
@@ -692,6 +703,8 @@
       "started": "New quest: {name}",
       "ready": "{name}: go back to {giver}",
       "completed": "Quest complete: {name}",
+      "flaskCapacity": "Your Flask capacity grew by one. Rest at a checkpoint to fill it.",
+      "flaskCapacityShort": "+1 Flask capacity",
       "progress": "{name} · {objective}",
       "upgraded": "{from} is now {to}",
       "objective": {
@@ -933,7 +946,7 @@
     "clickToLook": "Click to look around · Esc for the menu",
     "attack": "Attack",
     "heavy": "Heavy",
-    "potion": "Drink potion",
+    "potion": "Use Flask",
     "shard": "Shard",
     "spell": "Spell",
     "lock": "Lock-on",
@@ -1068,7 +1081,9 @@
     "grant": "Give",
     "grantXp": "+100 XP",
     "grantGold": "+50 Gold",
-    "grantPotions": "+5 Health Potion",
+    "grantFlask": "+1 Flask capacity",
+    "grantHarness": "+1 Weapon Harness",
+    "grantPage": "+1 Grimoire Page",
     "grantSlimeGel": "+3 Slime Gel",
     "boss": "Boss fight",
     "bossSultan": "Fight Sultan",
@@ -1114,7 +1129,12 @@
   },
   "bag": {
     "title": "Bag",
-    "drink": "Drink",
+    "legacy": "Legacy",
+    "use": "Use",
+    "flasks": "Flasks",
+    "flaskCharges": "{left}/{max}",
+    "flaskRefill": "Charges refill when you rest at a checkpoint.",
+    "prepare": "Prepare loadout",
     "equipped": "Equipped",
     "empty": "Your bag is empty.",
     "level": "Level {level} · {xp} / {need} XP",
@@ -1167,7 +1187,7 @@
       "grimoire": "Grimoires"
     },
     "padInCombat": "During a fight the bag cannot be opened with a controller yet.",
-    "liveFight": "The fight goes on while the bag is open. Only potions can be used now."
+    "liveFight": "The fight goes on while the bag is open. Only your Flasks can be used now."
   },
   "load": {
     "light": "Light",
@@ -1292,6 +1312,31 @@
       "title": "GODS HAVE FALLEN",
       "subtitle": "Even divinity has an end."
     }
+  },
+  "loadout": {
+    "title": "Loadout",
+    "hint": "What you prepare here is what you switch between in a fight: {keyWeaponNext} picks the next prepared weapon, {keySpellNext} the next prepared incantation.",
+    "weapons": "Prepared main weapons",
+    "incantations": "Prepared incantations",
+    "slot": "Slot {n}",
+    "empty": "Empty",
+    "weaponCapacity": "{n} slots: {base} from your harness + {upgrades} Weapon Harness Upgrades.",
+    "incantationCapacity": "{n} slots: {base} from your Grimoire + {upgrades} Grimoire Pages.",
+    "noGrimoire": "No Grimoire in your bag: nothing to prepare incantations in.",
+    "noWeapons": "No weapon to prepare.",
+    "noIncantations": "You know no incantations yet.",
+    "flasks": "Health Flask {healthLeft}/{health} · Mana Flask {manaLeft}/{mana} ({capacity} charges in all). The split changes when you rest at a checkpoint.",
+    "inCombat": "You can look, but not change anything during a fight."
+  },
+  "rest": {
+    "title": "Resting",
+    "capacity": "{capacity} Flask charges, all refilled.",
+    "charges": "{left} / {max}",
+    "hint": "Split your charges between the two Flasks. They stay full however you split them, until you use them.",
+    "lessHealth": "One Health Flask charge less",
+    "moreHealth": "One Health Flask charge more",
+    "lessMana": "One Mana Flask charge less",
+    "moreMana": "One Mana Flask charge more"
   },
   "spellbook": {
     "title": "Spellbook",

@@ -647,12 +647,12 @@ function loadLegacy(text: string) {
 
 describe('G.2: saves from before G.2 still load', () => {
   it('an old save loads with its level, mana, path and stats as they were (G.4 migrates the rest)', () => {
-    expect(SAVE_VERSION).toBe(21);
+    expect(SAVE_VERSION).toBe(22);
     for (const path of PATHS) {
       const text = legacySave(path, path === 'sword' ? 0 : 17);
       const save = loadLegacy(text);
       const raw = JSON.parse(text) as { progress: unknown; character: { stats: unknown } };
-      expect(save.version).toBe(21);
+      expect(save.version).toBe(22);
       expect(save.path).toBe(path);
       expect(save.progress).toEqual(raw.progress);
       expect(save.character?.stats).toEqual(raw.character.stats);

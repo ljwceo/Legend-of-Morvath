@@ -1,12 +1,17 @@
 import type { Random } from '../core/Random';
-import type { ItemDef, MonsterDef, PotionDef } from '../data/types';
-import type { CombatState } from './Combat';
+import type { MonsterDef } from '../data/types';
 
 /** One stack in the bag. */
 export interface ItemStack {
   item: string;
   count: number;
 }
+
+/**
+ * Drinking a potion is gone (G.5): the ordinary potions are legacy items, kept in the bag and on
+ * the pack animal exactly as they are, never used. Healing in a fight comes from the reusable
+ * Flasks (`Flasks.ts`).
+ */
 
 /** The item id that is not a bag item but the gold counter. */
 export const GOLD_ITEM = 'gold';
@@ -58,61 +63,4 @@ export function rollDrops(def: MonsterDef, rng: Random, out: ItemStack[]): ItemS
     if (count > 0) out.push({ item: drop.item, count });
   }
   return out;
-}
-
-export type DrinkResult = 'drunk' | 'none' | 'full' | 'cooldown';
-
-/**
- * How much HP a potion gives you: its flat amount plus its share of your maximum. Percentages
- * keep up with your level, so one potion stays worth the same while your bars grow.
- */
-export function potionHp(potion: PotionDef, maxHp: number): number {
-  return (potion.hp ?? 0) + ((potion.hpPercent ?? 0) / 100) * maxHp;
-}
-
-/** How much mana a potion gives you (see `potionHp`). */
-export function potionMana(potion: PotionDef, maxMana: number): number {
-  return (potion.mana ?? 0) + ((potion.manaPercent ?? 0) / 100) * maxMana;
-}
-
-/**
- * The drink key: the first potion from `order` that is in the bag. Fails when there is none,
- * HP and mana are already full, or the last potion was too recent. On success one potion
- * leaves the bag and HP / mana go up (never above the maximum); `healed` gets what was gained.
- * `healFactor` is what Faith adds (1 = exactly what the item says).
- */
-export function drinkPotion(
-  bag: ItemStack[],
-  order: readonly string[],
-  items: ReadonlyMap<string, ItemDef>,
-  c: CombatState,
-  cooldownLeft: number,
-  healed: { item: string; hp: number; mana: number },
-  healFactor = 1,
-): DrinkResult {
-  let def: ItemDef | undefined;
-  for (let i = 0; i < order.length; i++) {
-    const id = order[i] as string;
-    if (countItem(bag, id) > 0) {
-      def = items.get(id);
-      if (def?.potion) break;
-      def = undefined;
-    }
-  }
-  if (!def?.potion) return 'none';
-  // Faith makes a potion heal more (fase 3.7); 1 = as the item says.
-  const hp = potionHp(def.potion, c.maxHp) * healFactor;
-  const mana = potionMana(def.potion, c.maxMana) * healFactor;
-  const helps = (hp > 0 && c.hp < c.maxHp) || (mana > 0 && c.mana < c.maxMana);
-  if (!helps) return 'full';
-  if (cooldownLeft > 0) return 'cooldown';
-  removeItem(bag, def.id, 1);
-  const hpBefore = c.hp;
-  const manaBefore = c.mana;
-  c.hp = Math.min(c.maxHp, c.hp + hp);
-  c.mana = Math.min(c.maxMana, c.mana + mana);
-  healed.item = def.id;
-  healed.hp = c.hp - hpBefore;
-  healed.mana = c.mana - manaBefore;
-  return 'drunk';
 }
