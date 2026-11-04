@@ -314,6 +314,17 @@ class CrossChecker {
         if (door.openDegrees.left <= 0 && door.openDegrees.right <= 0) {
           this.issue(f, `${dp}.openDegrees`, 'at least one side must open (left or right > 0)');
         }
+        // Pulling opens towards you: only a door with exactly one side that never opens has one.
+        if (door.pull && door.openDegrees.left > 0 === door.openDegrees.right > 0) {
+          this.issue(f, `${dp}.pull`, 'only a one-way door (exactly one side 0) can be pulled');
+        }
+        // A double door is made of solid leaves, and a group of one is a typo.
+        if (door.group !== undefined) {
+          if (!door.pull) this.issue(f, `${dp}.group`, 'only a pull door can be part of a group');
+          if (scene.doors.filter((other) => other.group === door.group).length < 2) {
+            this.issue(f, `${dp}.group`, `group "${door.group}" needs at least two doors`);
+          }
+        }
       });
       scene.exits.forEach((exit, n) => {
         const ep = `${p}.scene.exits[${n}]`;
