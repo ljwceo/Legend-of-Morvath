@@ -72,7 +72,8 @@ import {
 import { CapeColliderView } from '../render/CapeColliderView';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
 import { Cheats, stepFlying } from '../systems/Cheats';
-import { SwingingDoors } from '../systems/Doors';
+import { SOLID_PASSES, SwingingDoors } from '../systems/Doors';
+import { interactionTarget } from '../systems/Interaction';
 import {
   applyStats,
   assistedHeading,
@@ -587,9 +588,13 @@ export class WorldState implements GameState, InstanceHost {
   private choiceAxis = 0;
   /** The NPC that E / the icon would use now (nearest in range), or null. */
   private targetNpc: Npc | null = null;
+  /** The pull door (index in `doors`) E / the icon would open now, or -1. */
+  private targetDoor = -1;
+  /** Reused for the door icon's position. */
+  private readonly doorMiddle = { x: 0, z: 0 };
   /** Cached icon label (made only when the target or the language changes). */
   private iconLabel = '';
-  private iconLabelFor: Npc | 'rest' | null = null;
+  private iconLabelFor: Npc | 'rest' | 'door' | null = null;
   /** True while the closed city gate holds the player back (the message shows once). */
   private gateBlocked = false;
   private readonly fogTarget = new Color();
@@ -1235,6 +1240,17 @@ export class WorldState implements GameState, InstanceHost {
       // Where the player stands now counts too: standing in a doorway keeps the door open.
       doors.add(s.x, s.z);
       doors.step(dt);
+      // Solid (pull) doors: what the leaf could not clear moves you back, then the walls again.
+      // Not while flying or while the door cheat draws the doors somewhere else.
+      const solid = !this.cheats.fly && this.cheats.doorAngleDegrees === null;
+      if (solid) {
+        for (let pass = 0; pass < SOLID_PASSES && doors.resolve(s, movement.radius); pass++) {
+          this.resolveCircle(s, movement.radius);
+        }
+      }
+      this.targetDoor = this.dialog?.isOpen ? -1 : doors.pullableAt(s.x, s.z);
+    } else {
+      this.targetDoor = -1;
     }
     // Position first: entering a zone autosaves, and that save must have the new position.
     this.syncSave();
@@ -2742,18 +2758,24 @@ export class WorldState implements GameState, InstanceHost {
 
   /**
    * E or a tap on the icon: talk to or pet the nearest NPC, otherwise rest in the bed at a
-   * checkpoint (full HP and mana, and a save).
+   * checkpoint (full HP and mana, and a save), otherwise pull a door open (`pull` doors).
    */
   private interact(): void {
     if (this.paused || this.liveMenu || this.dialog?.isOpen || this.deathTimer !== NOT_DYING) {
       return;
     }
     const npc = this.targetNpc;
-    if (npc) {
+    const near = this.checkpoints?.near;
+    const target = interactionTarget(npc !== null, !!near, this.targetDoor >= 0);
+    if (npc && target === 'npc') {
       this.interactWith(npc);
       return;
     }
-    const near = this.checkpoints?.near;
+    if (target === 'door') {
+      if (this.doors?.pull(this.targetDoor) && this.player) this.player.sinceInteract = 0;
+      this.targetDoor = -1;
+      return;
+    }
     const c = this.player?.combat;
     if (!near || !c || !this.player) return;
     this.player.sinceInteract = 0;
@@ -4187,7 +4209,7 @@ export class WorldState implements GameState, InstanceHost {
     u.lampCol.value.setHex(resolveColorToken(cfg.color)).multiplyScalar(cfg.strength * fade);
   }
 
-  /** The interaction icon above the checkpoint you stand at (projected to the screen). */
+  /** The interaction icon above the NPC, checkpoint or pull door in reach (on the screen). */
   private updateInteraction(
     camera: Camera,
     originX: number,
@@ -4197,9 +4219,10 @@ export class WorldState implements GameState, InstanceHost {
     const hud = this.hud;
     const npc = this.targetNpc;
     const near = npc ? null : this.checkpoints?.near;
+    const target = interactionTarget(npc !== null, !!near, this.targetDoor >= 0);
     const data = this.ctx.data;
     if (!hud) return;
-    if ((!npc && !near) || !data || this.paused || this.liveMenu || this.dialog?.isOpen) {
+    if (!target || !data || this.paused || this.liveMenu || this.dialog?.isOpen) {
       hud.setInteraction(null, 0, 0, false);
       return;
     }
@@ -4214,6 +4237,11 @@ export class WorldState implements GameState, InstanceHost {
       wx = near.x;
       wz = near.z;
       wy = this.groundHeight(near.x, near.z) + data.player.hud.interactHeight;
+    } else if (target === 'door' && this.doors && this.player) {
+      const middle = this.doors.middleOf(this.targetDoor, this.doorMiddle);
+      wx = middle.x;
+      wz = middle.z;
+      wy = this.player.state.y + data.player.hud.interactHeight;
     } else {
       return;
     }
@@ -4228,18 +4256,18 @@ export class WorldState implements GameState, InstanceHost {
     const h = window.innerHeight;
     const x = Math.min(w - ICON_MARGIN, Math.max(ICON_MARGIN, ((p.x + 1) / 2) * w));
     const sy = Math.min(h * 0.5, Math.max(ICON_MARGIN * 2, ((1 - p.y) / 2) * h));
-    hud.setInteraction(this.interactionLabel(npc), x, sy, !touch);
+    hud.setInteraction(this.interactionLabel(npc, target === 'door'), x, sy, !touch);
   }
 
-  /** "Talk to Marco the Merchant", "Pet Pringle" or "Rest"; made only when it changes. */
-  private interactionLabel(npc: Npc | null): string {
-    const target = npc ?? 'rest';
+  /** "Talk to Marco the Merchant", "Pet Pringle", "Rest" or "Open the door"; made on change. */
+  private interactionLabel(npc: Npc | null, door: boolean): string {
+    const target = npc ?? (door ? 'door' : 'rest');
     if (target === this.iconLabelFor) return this.iconLabel;
     const t = this.ctx.i18n;
     this.iconLabelFor = target;
     this.iconLabel = npc
       ? t.t(INTERACTION_LABELS[npc.def.interaction], { name: npc.def.name })
-      : t.t('hud.rest');
+      : t.t(door ? 'hud.openDoor' : 'hud.rest');
     return this.iconLabel;
   }
 
@@ -5565,6 +5593,7 @@ export class WorldState implements GameState, InstanceHost {
     if (this.sceneZone && this.sceneAssets) this.sceneZone.dispose(this.sceneAssets);
     this.sceneZone = null;
     this.doors = null;
+    this.targetDoor = -1;
     this.sceneAssets = null;
     this.sceneZoneDef = null;
     if (this.savedToneMapping !== null) {

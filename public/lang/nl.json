@@ -285,6 +285,7 @@
     "interact": "Gebruiken",
     "dash": "Dash",
     "rest": "Rusten",
+    "openDoor": "Deur openen",
     "talkTo": "Praat met {name}",
     "pet": "Aai {name}",
     "qualityChosen": "Graphics ingesteld op {quality} voor dit apparaat. Je kunt het wijzigen in Instellingen.",
