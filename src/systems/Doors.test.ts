@@ -129,7 +129,23 @@ describe('PusherList', () => {
 
 describe('doorBody', () => {
   it('builds every monastery door closed along hinge → tip with its stops in radians', () => {
-    expect(doors.length).toBe(3);
+    // The doors this build expects, in `zones.json` order (`setDoorAngle` uses that order).
+    expect(doors.map((def) => def.id)).toEqual([
+      'hall_cloister',
+      'hall_garden',
+      'church_portal_w',
+      'church_portal',
+      'garden_wallgate_w',
+      'garden_wallgate_e',
+      'church_cloister',
+    ]);
+    // Pulled: the two leaves of the church portal (GG.5.4.3, one group) and the church door
+    // between the cloister and the church (GG.5.3).
+    expect(doors.filter((def) => def.pull !== undefined).map((def) => def.id)).toEqual([
+      'church_portal_w',
+      'church_portal',
+      'church_cloister',
+    ]);
     for (const def of doors) {
       const body = doorBody(def);
       const tip = segmentAt(body, 0, { x: 0, z: 0 });
