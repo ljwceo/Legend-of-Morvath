@@ -28,6 +28,8 @@ export const KILL_HOTKEY = 'F8';
 /**
  * Debug-only test helpers (never saved, only available in debug mode): faster walking,
  * flying through walls and peaceful monsters. Gameplay never reads these outside debug mode.
+ * They last one play session, through area changes (`cheatsCarryOver`), and switch off on the
+ * title screen, a fresh page or when debug mode is left.
  */
 export class Cheats {
   speed: number = 1;
@@ -119,6 +121,28 @@ export class Cheats {
  */
 export function powerCheatsAllowed(params: URLSearchParams, devBuild: boolean): boolean {
   return devBuild || params.get('debug') === '1';
+}
+
+/**
+ * Cheats last as long as a play session, not as long as one area. Every area change (a room,
+ * tower or cellar; a gate between Greyhaven and the open world; a teleport or fast travel into
+ * another zone) leaves the world and enters it again (`ctx.goto('world')`), so only that keeps
+ * them. Every other way in or out starts or ends a session and switches them off: the title
+ * screen (Back to Title, Continue, New Game, another save imported), the language screen, a
+ * fresh page. Dying never leaves the world. Never saved either way.
+ */
+export function cheatsCarryOver(otherState: string | null): boolean {
+  return otherState === 'world';
+}
+
+/** The world is entered: the cheats stay only after an area change, and only in debug mode. */
+export function cheatsOnEnter(cheats: Cheats, from: string | null, debugEnabled: boolean): void {
+  if (!cheatsCarryOver(from) || !debugEnabled) cheats.reset();
+}
+
+/** The world is left: an area change keeps the cheats, every other way out switches them off. */
+export function cheatsOnExit(cheats: Cheats, to: string): void {
+  if (!cheatsCarryOver(to)) cheats.reset();
 }
 
 /**

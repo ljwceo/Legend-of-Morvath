@@ -73,6 +73,8 @@ import { CapeColliderView } from '../render/CapeColliderView';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
 import {
   Cheats,
+  cheatsOnEnter,
+  cheatsOnExit,
   KILL_HOTKEY,
   killAllowed,
   killHotkeyActive,
@@ -733,7 +735,7 @@ export class WorldState implements GameState, InstanceHost {
 
   constructor(private readonly ctx: GameContext) {}
 
-  enter(): void {
+  enter(from: string | null = null): void {
     const { ctx } = this;
     const session = ctx.session;
     const data = ctx.data;
@@ -753,7 +755,10 @@ export class WorldState implements GameState, InstanceHost {
     this.loadTierId = '';
     // Gear stats (max HP) are needed before HP is restored from the save in buildScene.
     this.items = new Map(data.items.items.map((item) => [item.id, item]));
-    this.cheats.reset();
+    // After an area change the cheats go on (this play session); otherwise they start off.
+    // The new area picks them up as it is built (Max All Stats in applyStatEffects, the rest
+    // every step or every hit).
+    cheatsOnEnter(this.cheats, from, ctx.debug.isEnabled);
 
     // Input surface first, so the pause button and touch buttons lie on top of it.
     this.surface = el('div', { className: 'ui-world-input' });
@@ -1028,7 +1033,7 @@ export class WorldState implements GameState, InstanceHost {
     ctx.quality.setMeasuring(this.loadingScreen === null);
   }
 
-  exit(): void {
+  exit(to: string = 'title'): void {
     this.ctx.quality.setMeasuring(false);
     this.cinematic?.dispose();
     this.cinematic = null;
@@ -1051,7 +1056,8 @@ export class WorldState implements GameState, InstanceHost {
     this.keepSessionOnExit = false;
     this.cheatPanel?.dispose();
     this.cheatPanel = null;
-    this.cheats.reset();
+    // An area change keeps the cheats; the title screen (or any other way out) ends them.
+    cheatsOnExit(this.cheats, to);
     this.input?.detach();
     this.input = null;
     this.touch?.dispose();
@@ -5458,7 +5464,8 @@ export class WorldState implements GameState, InstanceHost {
 
     const maxUnload = Math.max(...data.quality.presets.map((entry) => entry.chunkRings.unload));
     this.chunkDebug = new ChunkDebug(this.streamer, (maxUnload * 2 + 1) ** 2);
-    this.chunkDebug.lines.visible = false;
+    // Chunk borders kept on through an area change show in the new area too.
+    this.chunkDebug.lines.visible = this.cheats.chunkLines;
     worldRoot.add(this.chunkDebug.lines);
   }
 
