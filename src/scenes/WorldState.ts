@@ -73,6 +73,9 @@ import { CapeColliderView } from '../render/CapeColliderView';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
 import {
   Cheats,
+  KILL_HOTKEY,
+  killAllowed,
+  killHotkeyActive,
   maxedStatPoints,
   poolForSave,
   powerCheatsAllowed,
@@ -99,7 +102,7 @@ import {
   swordConfig,
   tickCombatClock,
 } from '../systems/Combat';
-import { Enemies, type EnemiesWorld } from '../systems/Enemies';
+import { Enemies, type EnemiesWorld, type KillNearResult } from '../systems/Enemies';
 import {
   followLockedTarget,
   headingTo,
@@ -868,6 +871,7 @@ export class WorldState implements GameState, InstanceHost {
         teleport: (zoneId) => this.teleport(zoneId),
         changed: () => this.applyCheats(),
         powerCheats: () => this.powerCheats,
+        killNearby: () => this.killNearby(),
         exportSave: () => this.exportSave(),
         importSave: (code) => this.importSave(code),
         rerunBenchmark: () => this.rerunBenchmark(),
@@ -1881,6 +1885,42 @@ export class WorldState implements GameState, InstanceHost {
   /** Max All Stats (debug) is on and allowed here: 999 in every stat, your own points kept. */
   private get statsMaxed(): boolean {
     return this.cheats.maxStats && this.powerCheats;
+  }
+
+  /** May Kill Nearby Enemies take this monster? Sultan only in his own fight, outside a cutscene. */
+  private readonly killAllow = (e: Enemy): boolean => {
+    const encounter = this.encounter;
+    const inOwnFight =
+      encounter !== null &&
+      encounter.fighting &&
+      encounter.boss === e &&
+      !encounter.cutscenePlaying;
+    return killAllowed(e.def, this.cheats.killBosses, inOwnFight);
+  };
+
+  /**
+   * Debug (cheat menu, or KILL_HOTKEY): every monster around you within the chosen radius falls
+   * at once, each through the normal defeat (`defeated`: XP, loot, the egg once, quests, the
+   * drill's waves, Sultan's ending). Says how many fell. Null when it cannot now (not allowed, no
+   * world yet, going down or a cutscene).
+   */
+  private killNearby(): KillNearResult | null {
+    const { player, enemies, enemyRenderer } = this;
+    if (!this.powerCheats || !this.ctx.debug.isEnabled) return null;
+    if (!player || !enemies || this.deathTimer !== NOT_DYING || this.cutscenePlaying) return null;
+    const s = player.state;
+    const radius = this.cheats.killRadius;
+    const result = enemies.killNear(s.x, s.z, radius, this.killAllow);
+    // As a last blow with the weapon in hand: Sultan's ending is the sword or the mage one.
+    for (const e of result.defeated) {
+      this.defeated(e, e.y + (enemyRenderer?.heightOf(e) ?? 1.5), this.weaponKind);
+    }
+    const t = this.ctx.i18n;
+    this.hud?.showMessage(
+      t.t('cheats.killHud', { n: result.defeated.length, radius }) +
+        (result.skipped > 0 ? ` ${t.t('cheats.killSkipped', { n: result.skipped })}` : ''),
+    );
+    return result;
   }
 
   /**
@@ -5803,6 +5843,7 @@ export class WorldState implements GameState, InstanceHost {
       'cheats',
       `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'}` +
         `${this.invincible ? ' · INVINCIBLE' : ''}${this.statsMaxedApplied ? ' · STATS 999' : ''}` +
+        `${killHotkeyActive(this.cheats, debug.isEnabled, this.powerCheats) ? ` · ${KILL_HOTKEY} = kill ${this.cheats.killRadius} m` : ''}` +
         ' · F6 = cheat menu',
     );
   };
@@ -5973,6 +6014,15 @@ export class WorldState implements GameState, InstanceHost {
       this.cheatPanel?.setDebugVisible(true);
       if (!this.cheatPanel?.isOpen) this.input?.releasePointerLock();
       this.cheatPanel?.toggle();
+    }
+    // F8: Kill Nearby Enemies (debug), only once its hotkey is on in the cheat menu.
+    if (
+      event.code === KILL_HOTKEY &&
+      !this.paused &&
+      killHotkeyActive(this.cheats, this.ctx.debug.isEnabled, this.powerCheats)
+    ) {
+      event.preventDefault();
+      this.killNearby();
     }
   };
 

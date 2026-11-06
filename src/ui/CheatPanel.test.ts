@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GameContext } from '../core/GameContext';
 import type { Input } from '../core/Input';
 import { Cheats } from '../systems/Cheats';
-import type { CheatPanelHandlers } from './CheatPanel';
+import type { CheatPanelHandlers, KillSummary } from './CheatPanel';
 
 // GG.8.5 step 1: the cheat menu (F6) must keep its scroll position when a cheat is used. It used
 // to build a whole new panel for every click, and the panel is what scrolls, so the list jumped
@@ -126,9 +126,12 @@ const { CheatPanel } = await import('./CheatPanel');
 
 /** Whether the strong cheats are offered (dev build or `?debug=1`); a test may switch it off. */
 let powerCheats = true;
+/** What the world answers to Kill Nearby Enemies (null = not now). */
+let killResult: KillSummary | null = null;
 const handlers: CheatPanelHandlers = {
   teleport: () => {},
   powerCheats: () => powerCheats,
+  killNearby: () => killResult,
   changed: () => {},
   exportSave: () => 'CODE-'.repeat(40),
   importSave: () => false,
@@ -203,6 +206,7 @@ function makePanel() {
 beforeEach(() => {
   fakeDocument.activeElement = null;
   powerCheats = true;
+  killResult = { defeated: [1, 2, 3], splits: 2, skipped: 1 };
 });
 
 describe('F6 cheat menu keeps its place (GG.8.5 step 1)', () => {
@@ -421,5 +425,95 @@ describe('F6 Max All Stats / Restore Stats (GG.8.5 step 4)', () => {
     expect([cheats.invincible, cheats.monsters, cheats.fly]).toEqual([true, false, true]);
     control('cheats.maxStats', RESTORE).click();
     expect([cheats.invincible, cheats.monsters, cheats.fly]).toEqual([true, false, true]);
+  });
+});
+
+describe('F6 Kill Nearby Enemies (GG.8.5 step 5)', () => {
+  const KILL = 'cheats.kill';
+  /** A control of the kill section by its place (its two Off/On rows share their labels). */
+  const keyed = (panel: FakeElement | null, n: number): FakeElement => {
+    const found = panel
+      ?.querySelectorAll('[data-cheat-key]')
+      .find((c) => c.getAttribute('data-cheat-key') === `${KILL}#${n}`);
+    if (!found) throw new Error(`no control ${KILL}#${n}`);
+    return found;
+  };
+  /** The notes under the kill section (the result line among them). */
+  const notes = (panel: FakeElement | null): string[] =>
+    (panel?.querySelectorAll('.ui-cheats-section') ?? [])
+      .find((s) => s.children[0]?.textContent === KILL)
+      ?.querySelectorAll('.ui-note')
+      .map((n) => n.textContent) ?? [];
+
+  it('the button asks the world once, says how many fell, and the menu keeps its place', () => {
+    const kill = vi.spyOn(handlers, 'killNearby');
+    const { menu, panel, control } = makePanel();
+    menu.toggle();
+    const scroller = panel();
+    if (!scroller) throw new Error('closed');
+    scroller.scrollTop = 610;
+    expect(notes(scroller)).not.toContain('cheats.killResult');
+    control(KILL, 'cheats.killNow').click();
+    expect(kill).toHaveBeenCalledTimes(1);
+    expect(panel()).toBe(scroller);
+    expect(scroller.scrollTop).toBe(610);
+    expect(notes(scroller)).toContain('cheats.killResult');
+    // Pressing again asks again (the world decides what is still standing).
+    control(KILL, 'cheats.killNow').click();
+    expect(kill).toHaveBeenCalledTimes(2);
+    expect(scroller.scrollTop).toBe(610);
+    kill.mockRestore();
+  });
+
+  it('"not now" when the world cannot (going down, a cutscene)', () => {
+    killResult = null;
+    const { menu, panel, control } = makePanel();
+    menu.toggle();
+    control(KILL, 'cheats.killNow').click();
+    expect(notes(panel())).toContain('cheats.killNotNow');
+  });
+
+  it('radius, Include Bosses and the hotkey: each keeps the place', () => {
+    const { menu, cheats, panel, control } = makePanel();
+    menu.toggle();
+    const scroller = panel();
+    if (!scroller) throw new Error('closed');
+    scroller.scrollTop = 333;
+    expect(control(KILL, '15 m').getAttribute('aria-pressed')).toBe('true');
+    control(KILL, '25 m').click();
+    expect(cheats.killRadius).toBe(25);
+    expect(scroller.scrollTop).toBe(333);
+    // Places: 0 the button, 1-5 the radii, 6/7 Include Bosses Off/On, 8/9 the hotkey Off/On.
+    keyed(scroller, 7).click();
+    expect(cheats.killBosses).toBe(true);
+    expect(scroller.scrollTop).toBe(333);
+    keyed(scroller, 9).click();
+    expect(cheats.killHotkey).toBe(true);
+    expect(panel()).toBe(scroller);
+    expect(scroller.scrollTop).toBe(333);
+    keyed(scroller, 6).click();
+    keyed(scroller, 8).click();
+    expect([cheats.killBosses, cheats.killHotkey]).toEqual([false, false]);
+  });
+
+  it('is not offered when the strong cheats are not allowed (debug mode only from the Settings)', () => {
+    powerCheats = false;
+    const { menu, panel } = makePanel();
+    menu.toggle();
+    const titles = (panel()?.querySelectorAll('.ui-cheats-section') ?? []).map(
+      (s) => s.children[0]?.textContent,
+    );
+    expect(titles).not.toContain(KILL);
+  });
+
+  it('leaving debug mode resets the radius, Include Bosses and the hotkey', () => {
+    const { menu, cheats, panel, control } = makePanel();
+    menu.toggle();
+    control(KILL, '50 m').click();
+    keyed(panel(), 7).click();
+    keyed(panel(), 9).click();
+    expect([cheats.killRadius, cheats.killBosses, cheats.killHotkey]).toEqual([50, true, true]);
+    menu.setDebugVisible(false);
+    expect([cheats.killRadius, cheats.killBosses, cheats.killHotkey]).toEqual([15, false, false]);
   });
 });

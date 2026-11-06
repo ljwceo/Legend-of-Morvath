@@ -15,6 +15,15 @@ export const CHEAT_SIGHT_SCALES = [0, 1, 2, 5] as const;
 export const CHEAT_DOOR_ANGLES = [-85, -45, 0, 45, 85] as const;
 /** Highest a flying player may go above the ground (m). */
 export const FLY_MAX_ABOVE_GROUND = 400;
+/** Radii (m) offered for Kill Nearby Enemies, and the one it starts with. */
+export const CHEAT_KILL_RADII = [5, 10, 15, 25, 50] as const;
+export const DEFAULT_KILL_RADIUS = 15;
+/**
+ * The key that does Kill Nearby Enemies while playing, once its hotkey is switched on in the
+ * cheat menu. Not an action in controls.json (so never in the key settings or a save), and a
+ * key without a browser job of its own (F5 reloads, F7 asks about caret browsing).
+ */
+export const KILL_HOTKEY = 'F8';
 
 /**
  * Debug-only test helpers (never saved, only available in debug mode): faster walking,
@@ -39,6 +48,14 @@ export class Cheats {
    * touched. A strong cheat: only offered when `powerCheatsAllowed` says so.
    */
   maxStats = false;
+  /**
+   * Kill Nearby Enemies: how far around you (m, flat on the ground), whether bosses and
+   * mini-bosses count too (`killAllowed`), and whether KILL_HOTKEY does it while playing
+   * (`killHotkeyActive`). Strong cheats: only offered when `powerCheatsAllowed` says so.
+   */
+  killRadius: number = DEFAULT_KILL_RADIUS;
+  killBosses = false;
+  killHotkey = false;
   /**
    * Aim help, as multipliers on the numbers in player.json (1 = as the game ships): how wide
    * attacks and shots look for a target, how far you can lock on, and how fast shots curve
@@ -67,6 +84,9 @@ export class Cheats {
       !this.monsters ||
       this.invincible ||
       this.maxStats ||
+      this.killRadius !== DEFAULT_KILL_RADIUS ||
+      this.killBosses ||
+      this.killHotkey ||
       this.aimAssist !== 1 ||
       this.lockRange !== 1 ||
       this.homing !== 1 ||
@@ -81,6 +101,9 @@ export class Cheats {
     this.monsters = true;
     this.invincible = false;
     this.maxStats = false;
+    this.killRadius = DEFAULT_KILL_RADIUS;
+    this.killBosses = false;
+    this.killHotkey = false;
     this.aimAssist = 1;
     this.lockRange = 1;
     this.homing = 1;
@@ -96,6 +119,32 @@ export class Cheats {
  */
 export function powerCheatsAllowed(params: URLSearchParams, devBuild: boolean): boolean {
   return devBuild || params.get('debug') === '1';
+}
+
+/**
+ * May Kill Nearby Enemies defeat this monster? An ordinary monster: yes. Bosses and mini-bosses
+ * (`rank` in monsters.json) only with Include Bosses. A mini-boss then falls the normal way (its
+ * egg once, as always); a boss with a fight of its own (Sultan) only while that fight runs
+ * (`inOwnFight`), so its defeat takes its own way too: the ending, the rewards and the quest.
+ * Training dummies and guardians in their own city never fall (see `Enemies.killNear`).
+ */
+export function killAllowed(
+  def: { readonly rank?: 'miniboss' | 'boss' | undefined; readonly boss?: unknown },
+  includeBosses: boolean,
+  inOwnFight: boolean,
+): boolean {
+  if (!def.rank) return true;
+  if (!includeBosses) return false;
+  return def.boss === undefined || inOwnFight;
+}
+
+/** Does KILL_HOTKEY do Kill Nearby Enemies now? Only with its hotkey on, in debug mode, allowed. */
+export function killHotkeyActive(
+  cheats: Pick<Cheats, 'killHotkey'>,
+  debugEnabled: boolean,
+  powerCheats: boolean,
+): boolean {
+  return cheats.killHotkey && debugEnabled && powerCheats;
 }
 
 /** What Max All Stats puts in every stat (far above `maxPointsPerStat`, on purpose). */
