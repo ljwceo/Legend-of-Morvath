@@ -161,7 +161,7 @@ import {
 import { WaveFight, type WaveResetReason } from '../systems/WaveFight';
 import { addXp, deathGoldLoss, xpFraction, xpToNext } from '../systems/Progression';
 import { canPickUpMarker, markerAfterDeath } from '../systems/GoldMarker';
-import type { EnemyTarget } from '../systems/EnemyAI';
+import { applyMonsterStance, type EnemyTarget } from '../systems/EnemyAI';
 import { keepInArena } from '../systems/BossAI';
 import { BossEncounter, type KillingBlow } from './BossEncounter';
 import { ARROW_HEIGHT, Projectiles, type ProjectileWorld } from '../systems/Projectiles';
@@ -1828,8 +1828,9 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /**
-   * Monsters and their arrows for one step. They only attack while the player can be attacked
-   * (not with monsters switched off in the cheat menu).
+   * Monsters and their arrows for one step. They only attack while the player can be attacked:
+   * not while you are down (they go home), and not with monsters switched off or while flying in
+   * the cheat menu (they leave you alone, but still take damage and are never healed by it).
    */
   private updateEnemies(dt: number): void {
     const { enemies, player, movement, enemiesWorld, projectiles, projectileWorld } = this;
@@ -1838,7 +1839,7 @@ export class WorldState implements GameState, InstanceHost {
     t.x = player.state.x;
     t.z = player.state.z;
     t.radius = movement.radius;
-    t.hostile = this.cheats.monsters && !this.cheats.fly && this.deathTimer === NOT_DYING;
+    applyMonsterStance(t, this.cheats.monsters, this.cheats.fly, this.deathTimer !== NOT_DYING);
     enemies.step(dt, t, enemiesWorld);
     // A monster fighting you, or a boss fight, keeps you in the fight (and the loadout locked).
     holdCombat(player.combat, enemies.anyEngaged || (this.encounter?.fighting ?? false));

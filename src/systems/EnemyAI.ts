@@ -56,8 +56,34 @@ export interface EnemyTarget {
   x: number;
   z: number;
   radius: number;
-  /** False while the player is down or enemies are switched off (debug): monsters go home. */
+  /** False while the player is down: monsters stop fighting, go home and heal there. */
   hostile: boolean;
+  /**
+   * Debug only ("Monsters attack: Off" or flying, see `applyMonsterStance`): monsters do not
+   * notice, attack or hurt the player. They still take damage and die as usual, and this never
+   * sends them home or heals them: a monster that was fighting simply stops where it is.
+   */
+  peaceful?: boolean;
+}
+
+/**
+ * How monsters treat the player this step (allocation-free: fills `target`). Going down is the
+ * game's own rule (`hostile` false: monsters go home). The cheats only make monsters peaceful,
+ * so switching them off for testing never resets or heals a monster.
+ */
+export function applyMonsterStance(
+  target: EnemyTarget,
+  monstersOn: boolean,
+  flying: boolean,
+  playerDown: boolean,
+): void {
+  target.hostile = !playerDown;
+  target.peaceful = !monstersOn || flying;
+}
+
+/** May a monster's attack (or its arrow) hurt the player now? */
+export function canHurt(target: { hostile: boolean; peaceful?: boolean }): boolean {
+  return target.hostile && target.peaceful !== true;
 }
 
 /** What the AI does to the world: walking, hurting the player, arrows, calling its pack. */
@@ -177,13 +203,16 @@ export function stepEnemyAi(
     if (!target.hostile || leashed || calm || e.safe) {
       // An attack already swinging finishes first (except when the player is gone).
       if (!e.attacking || !target.hostile) goHome(e);
+    } else if (target.peaceful) {
+      // Monsters off (debug): it stops fighting right where it is, hurt as it was.
+      standDown(e, cfg);
     }
   }
 
   switch (e.mode) {
     case 'idle':
     case 'wander':
-      if (target.hostile && !e.def.neutral && distance <= ai.aggroRadius) {
+      if (target.hostile && !target.peaceful && !e.def.neutral && distance <= ai.aggroRadius) {
         engage(e);
         world.alert(e);
         break;
@@ -220,6 +249,15 @@ function goHome(e: Enemy): void {
   e.mode = 'return';
   e.stuckTime = 0;
   e.hopTime = 0;
+}
+
+/** Stops fighting on the spot (peaceful, debug): calm again, but not sent home and not healed. */
+function standDown(e: Enemy, cfg: EnemyAiConfig): void {
+  e.mode = 'idle';
+  e.timer = cfg.wanderPauseMin;
+  e.stuckTime = 0;
+  e.hopTime = 0;
+  e.attackCount = 0;
 }
 
 function wander(e: Enemy, speed: number, cfg: EnemyAiConfig, mover: Mover, dt: number): void {
@@ -335,7 +373,7 @@ function windup(
   if (special) {
     e.timer = special.recoverySeconds ?? attack.recoverySeconds;
     const area = special.areaRadius ?? 0;
-    if (target.hostile && distance <= area + target.radius) world.hitPlayer(e, special.damage);
+    if (canHurt(target) && distance <= area + target.radius) world.hitPlayer(e, special.damage);
     return;
   }
   // Phase 2 starts: the hit window (`hitSeconds`). Nothing hurts before it or after it.
@@ -365,7 +403,7 @@ function hitWindow(
   if (!attack) return;
   switch (attack.style) {
     case 'strike': {
-      if (e.struck || !target.hostile) break;
+      if (e.struck || !canHurt(target)) break;
       const delta = Math.abs(angleDelta(e.heading, Math.atan2(dx, dz)));
       const widen = distance > 1e-6 ? Math.asin(Math.min(1, target.radius / distance)) : Math.PI;
       if (gap <= attack.range + cfg.hitGrace && delta <= cfg.hitHalfArc + widen) {
@@ -380,7 +418,7 @@ function hitWindow(
     case 'shoot':
       if (!e.struck) {
         e.struck = true;
-        if (target.hostile) {
+        if (canHurt(target)) {
           world.shoot(e, target.x, target.z, attack.projectileSpeed ?? 15, rollDamage(e));
         }
       }
@@ -412,7 +450,7 @@ function lunge(
       Math.cos(e.heading) * distance,
     );
   }
-  if (!e.struck && target.hostile) {
+  if (!e.struck && canHurt(target)) {
     const nowGap = Math.hypot(target.x - e.x, target.z - e.z) - target.radius - e.radius;
     if (nowGap <= LUNGE_CONTACT) {
       e.struck = true;
