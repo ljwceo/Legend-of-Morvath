@@ -11,6 +11,10 @@ import {
   type Cheats,
 } from '../systems/Cheats';
 import { el } from './dom';
+import { keepScrollOnFocus } from './scroll';
+
+/** Data attribute that names a control by its section and place, so a rebuild can refocus it. */
+const KEY_ATTRIBUTE = 'data-cheat-key';
 
 export interface CheatPanelHandlers {
   teleport(zoneId: string): void;
@@ -95,7 +99,13 @@ export class CheatPanel {
   readonly root: HTMLElement;
   private readonly openButton: HTMLButtonElement;
   private readonly flyButtons: HTMLElement;
+  /**
+   * The open panel, which is also what scrolls. It is made once when the menu opens and kept
+   * until it closes: a cheat only replaces what is inside it, so the scroll position stays.
+   */
   private panel: HTMLElement | null = null;
+  /** Stops the browser from scrolling a tapped button into view (see `keepScrollOnFocus`). */
+  private releaseScrollGuard: (() => void) | null = null;
   private debugVisible = false;
   private saveTool: SaveTool = 'none';
   private saveCode = '';
@@ -161,12 +171,18 @@ export class CheatPanel {
     this.root.remove();
   }
 
+  /** Opens the menu at the top: a new panel (the scroll container) with fresh content. */
   private open(): void {
-    this.panel = this.build();
-    this.root.append(this.panel);
+    const panel = el('div', { className: 'ui-panel ui-cheats', attrs: { role: 'dialog' } });
+    this.panel = panel;
+    this.fill(panel);
+    this.releaseScrollGuard = keepScrollOnFocus(panel);
+    this.root.append(panel);
   }
 
   private close(): void {
+    this.releaseScrollGuard?.();
+    this.releaseScrollGuard = null;
     this.panel?.remove();
     this.panel = null;
     this.saveTool = 'none';
@@ -174,11 +190,47 @@ export class CheatPanel {
     this.importFailed = false;
   }
 
+  /**
+   * Shows the cheats as they are now. Only the content is replaced, never the panel itself:
+   * the panel is what scrolls, so where you were stays where you were (a shorter list is
+   * clamped by the browser). The control that had the focus gets it back (keyboard), and the
+   * save code box keeps its own scroll.
+   */
   private rebuild(): void {
-    if (!this.panel) return;
-    const next = this.build();
-    this.panel.replaceWith(next);
-    this.panel = next;
+    const panel = this.panel;
+    if (!panel) return;
+    const top = panel.scrollTop;
+    const focused = this.focusedKey(panel);
+    const code = panel.querySelector('textarea');
+    const codeTop = code ? code.scrollTop : 0;
+    this.fill(panel);
+    // The same element keeps its scroll; this only corrects a browser that reset it anyway.
+    if (panel.scrollTop !== top) panel.scrollTop = top;
+    const nextCode = panel.querySelector('textarea');
+    if (nextCode && codeTop > 0) nextCode.scrollTop = codeTop;
+    if (focused !== null) this.focusKey(panel, focused);
+  }
+
+  /** Puts the current content into the panel, in one go (no layout in between). */
+  private fill(panel: HTMLElement): void {
+    panel.setAttribute('aria-label', this.ctx.i18n.t('cheats.title'));
+    panel.replaceChildren(...this.build());
+  }
+
+  /** The key of the control inside the panel that has the focus, or null. */
+  private focusedKey(panel: HTMLElement): string | null {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || !panel.contains(active)) return null;
+    return active.getAttribute(KEY_ATTRIBUTE);
+  }
+
+  /** Focuses the control with this key again, without scrolling to it. */
+  private focusKey(panel: HTMLElement, key: string): void {
+    for (const control of panel.querySelectorAll<HTMLElement>(`[${KEY_ATTRIBUTE}]`)) {
+      if (control.getAttribute(KEY_ATTRIBUTE) !== key) continue;
+      control.focus({ preventScroll: true });
+      return;
+    }
   }
 
   private changed(): void {
@@ -194,7 +246,8 @@ export class CheatPanel {
     this.updateDayNightText();
   }
 
-  private build(): HTMLElement {
+  /** The content of the panel (the panel itself is made once, in `open`). */
+  private build(): HTMLElement[] {
     const t = this.ctx.i18n.t.bind(this.ctx.i18n);
     const { cheats } = this;
     const chip = (label: string, active: boolean, onClick: () => void): HTMLButtonElement =>
@@ -211,20 +264,21 @@ export class CheatPanel {
         chip(t('cheats.off'), !value, () => set(false)),
         chip(t('cheats.on'), value, () => set(true)),
       );
-    const section = (label: string, ...content: (HTMLElement | null)[]): HTMLElement =>
-      el(
+    const section = (label: string, ...content: (HTMLElement | null)[]): HTMLElement => {
+      const element = el(
         'div',
         { className: 'ui-cheats-section' },
         el('p', { className: 'ui-label', text: label }),
         ...content,
       );
+      // Every control is named by its section and place, the same after each rebuild.
+      element.querySelectorAll('button, textarea').forEach((control, n) => {
+        control.setAttribute(KEY_ATTRIBUTE, `${label}#${n}`);
+      });
+      return element;
+    };
 
-    return el(
-      'div',
-      {
-        className: 'ui-panel ui-cheats',
-        attrs: { role: 'dialog', 'aria-label': t('cheats.title') },
-      },
+    const content: (HTMLElement | null)[] = [
       el('h2', { className: 'ui-heading', text: t('cheats.title') }),
       el('p', { className: 'ui-note', text: t('cheats.note') }),
       section(
@@ -476,10 +530,11 @@ export class CheatPanel {
       el('button', {
         className: 'ui-button',
         text: t('cheats.close'),
-        attrs: { type: 'button' },
+        attrs: { type: 'button', [KEY_ATTRIBUTE]: 'close' },
         onClick: () => this.close(),
       }),
-    );
+    ];
+    return content.filter((element): element is HTMLElement => element !== null);
   }
 
   /** Force a season (or follow the calendar again). Same as F4, but also on a phone. */
