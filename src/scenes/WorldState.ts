@@ -71,7 +71,7 @@ import {
 } from '../render/PlayerAnimator';
 import { CapeColliderView } from '../render/CapeColliderView';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
-import { Cheats, stepFlying } from '../systems/Cheats';
+import { Cheats, powerCheatsAllowed, stepFlying } from '../systems/Cheats';
 import { SOLID_PASSES, SwingingDoors } from '../systems/Doors';
 import { interactionTarget } from '../systems/Interaction';
 import {
@@ -80,6 +80,7 @@ import {
   type CombatState,
   damageTaken,
   holdCombat,
+  hpAfterHit,
   inSwingArc,
   regenMana,
   regenOutOfCombat,
@@ -851,6 +852,7 @@ export class WorldState implements GameState, InstanceHost {
       {
         teleport: (zoneId) => this.teleport(zoneId),
         changed: () => this.applyCheats(),
+        powerCheats: () => this.powerCheats,
         exportSave: () => this.exportSave(),
         importSave: (code) => this.importSave(code),
         rerunBenchmark: () => this.rerunBenchmark(),
@@ -1849,10 +1851,25 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /**
+   * The strong cheats (invincibility) only work in a dev build or with `?debug=1`, never with
+   * debug mode switched on in the Settings (see `powerCheatsAllowed`).
+   */
+  private get powerCheats(): boolean {
+    return powerCheatsAllowed(this.ctx.params, import.meta.env.DEV);
+  }
+
+  /** Invincibility (debug) is on and allowed here: hits cost no HP. */
+  private get invincible(): boolean {
+    return this.cheats.invincible && this.powerCheats;
+  }
+
+  /**
    * A monster or an arrow hits the player: HP down, a red number and glow, maybe knocked out.
    * `from` is the monster that hit (not set for an arrow or for burning): its hit leaves its
    * status effects on you, and a leeching monster (the Nature slime) heals from the damage it
-   * really dealt.
+   * really dealt. This is the only way HP is lost (monsters, bosses, arrows, burning), so
+   * invincibility (debug) lives here: the hit still lands (guard, parry, poise, effects), it
+   * just costs no HP, and so it can never knock you out.
    */
   private readonly hurtPlayer = (damage: number, from?: Enemy, guardable = true): void => {
     const player = this.player;
@@ -1883,15 +1900,27 @@ export class WorldState implements GameState, InstanceHost {
       const key = verdict.outcome === 'block' ? 'controls.blocked' : 'controls.guardBroken';
       this.damageNumbers?.spawnText(s.x, s.y + 2.4, s.z, this.ctx.i18n.t(key), 'dodged');
     }
-    c.hp = Math.max(0, c.hp - taken);
+    const invincible = this.invincible;
+    c.hp = hpAfterHit(c.hp, taken, invincible);
     c.sinceCombat = 0;
     c.sinceHurt = 0;
-    this.damageNumbers?.spawn(s.x, s.y + 2, s.z, taken, 'player');
-    this.hud?.hurt();
+    if (invincible) {
+      this.damageNumbers?.spawnText(
+        s.x,
+        s.y + 2,
+        s.z,
+        this.ctx.i18n.t('controls.invincible'),
+        'dodged',
+      );
+    } else {
+      this.damageNumbers?.spawn(s.x, s.y + 2, s.z, taken, 'player');
+      this.hud?.hurt();
+    }
     if (from && from.def.poiseDamage) {
       this.breakPlayerPoise(from.def.poiseDamage * (verdict ? verdict.poiseFactor : 1));
     }
-    if (from) this.applyOnHit(from, taken);
+    // Leech heals from what the hit really took: nothing from an invincible player.
+    if (from) this.applyOnHit(from, invincible ? 0 : taken);
     if (c.hp <= 0) this.knockedOut = true;
   };
 
@@ -5723,7 +5752,8 @@ export class WorldState implements GameState, InstanceHost {
     debug.lines.set('cape', this.playerAnimator?.cape?.debugLine() ?? '-');
     debug.lines.set(
       'cheats',
-      `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'} · F6 = cheat menu`,
+      `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'}` +
+        `${this.invincible ? ' · INVINCIBLE' : ''} · F6 = cheat menu`,
     );
   };
 

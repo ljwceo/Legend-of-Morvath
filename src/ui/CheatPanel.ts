@@ -20,6 +20,11 @@ export interface CheatPanelHandlers {
   teleport(zoneId: string): void;
   /** A cheat setting changed (speed, fly or chunk borders). */
   changed(): void;
+  /**
+   * May the strong cheats (invincibility) be offered? Only in a dev build or with `?debug=1`,
+   * not with debug mode switched on in the Settings (`powerCheatsAllowed`).
+   */
+  powerCheats(): boolean;
   /** The current save as a text code (the world writes its latest state first). */
   exportSave(): string;
   /** Replaces the save with an exported code; false when the code is not valid. */
@@ -328,6 +333,16 @@ export class CheatPanel {
           this.changed();
         }),
       ),
+      this.handlers.powerCheats()
+        ? section(
+            t('cheats.invincible'),
+            toggle(cheats.invincible, (on) => {
+              cheats.invincible = on;
+              this.changed();
+            }),
+            el('p', { className: 'ui-note', text: t('cheats.invincibleNote') }),
+          )
+        : null,
       section(
         t('cheats.grant'),
         el(

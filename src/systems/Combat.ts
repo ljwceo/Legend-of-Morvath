@@ -366,6 +366,16 @@ export function damageTaken(c: CombatState, damage: number): number {
   return Math.max(1, Math.round(damage * c.damageTakenFactor));
 }
 
+/**
+ * Your HP after a hit that would take `taken` (after gear and guard): never below 0, never NaN.
+ * Not a positive number (0, negative, NaN) changes nothing; Infinity takes everything. With
+ * invincibility (debug) nothing is taken at all.
+ */
+export function hpAfterHit(hp: number, taken: number, invincible: boolean): number {
+  if (invincible || !(taken > 0)) return hp;
+  return Math.max(0, hp - taken);
+}
+
 /** HP refills slowly outside a fight (player.json `regen.hpPerSecondOutOfCombat`). */
 export function regenOutOfCombat(c: CombatState, hpPerSecond: number, dt: number): void {
   if (c.inCombat || c.hp >= c.maxHp) return;

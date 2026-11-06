@@ -124,8 +124,11 @@ vi.stubGlobal('requestAnimationFrame', (fn: () => void) => fn());
 
 const { CheatPanel } = await import('./CheatPanel');
 
+/** Whether the strong cheats are offered (dev build or `?debug=1`); a test may switch it off. */
+let powerCheats = true;
 const handlers: CheatPanelHandlers = {
   teleport: () => {},
+  powerCheats: () => powerCheats,
   changed: () => {},
   exportSave: () => 'CODE-'.repeat(40),
   importSave: () => false,
@@ -199,6 +202,7 @@ function makePanel() {
 
 beforeEach(() => {
   fakeDocument.activeElement = null;
+  powerCheats = true;
 });
 
 describe('F6 cheat menu keeps its place (GG.8.5 step 1)', () => {
@@ -313,5 +317,42 @@ describe('F6 cheat menu keeps its place (GG.8.5 step 1)', () => {
     const buttons = panel()?.querySelectorAll('button') ?? [];
     expect(keys.length).toBe(buttons.length);
     expect(new Set(keys).size).toBe(keys.length);
+  });
+});
+
+describe('F6 Invincibility (GG.8.5 step 3)', () => {
+  it('turns on and off in the menu, and the menu keeps its place', () => {
+    const { menu, cheats, panel, control } = makePanel();
+    menu.toggle();
+    const scroller = panel();
+    if (!scroller) throw new Error('closed');
+    scroller.scrollTop = 450;
+    control('cheats.invincible', 'cheats.on').click();
+    expect(cheats.invincible).toBe(true);
+    expect(panel()).toBe(scroller);
+    expect(scroller.scrollTop).toBe(450);
+    control('cheats.invincible', 'cheats.off').click();
+    expect(cheats.invincible).toBe(false);
+    expect(scroller.scrollTop).toBe(450);
+  });
+
+  it('is not offered when the strong cheats are not allowed (debug mode only from the Settings)', () => {
+    powerCheats = false;
+    const { menu, panel } = makePanel();
+    menu.toggle();
+    const titles = (panel()?.querySelectorAll('.ui-cheats-section') ?? []).map(
+      (s) => s.children[0]?.textContent,
+    );
+    expect(titles).toContain('cheats.monsters');
+    expect(titles).not.toContain('cheats.invincible');
+  });
+
+  it('leaving debug mode switches it off at once', () => {
+    const { menu, cheats, control } = makePanel();
+    menu.toggle();
+    control('cheats.invincible', 'cheats.on').click();
+    expect(cheats.invincible).toBe(true);
+    menu.setDebugVisible(false);
+    expect(cheats.invincible).toBe(false);
   });
 });

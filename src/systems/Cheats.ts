@@ -26,6 +26,12 @@ export class Cheats {
   /** Off = monsters never notice or attack you (walk around in peace while testing). */
   monsters = true;
   /**
+   * On = you take no HP damage and cannot go down; everything else of a fight goes on (monsters
+   * still attack, your guard, rolls and poise work as usual). A strong cheat: only offered when
+   * `powerCheatsAllowed` says so.
+   */
+  invincible = false;
+  /**
    * Aim help, as multipliers on the numbers in player.json (1 = as the game ships): how wide
    * attacks and shots look for a target, how far you can lock on, and how fast shots curve
    * towards a locked target. For finding the numbers that feel right (step 3.5).
@@ -51,6 +57,7 @@ export class Cheats {
       this.doorAngleDegrees !== null ||
       this.fly ||
       !this.monsters ||
+      this.invincible ||
       this.aimAssist !== 1 ||
       this.lockRange !== 1 ||
       this.homing !== 1 ||
@@ -63,12 +70,22 @@ export class Cheats {
     this.fly = false;
     this.chunkLines = false;
     this.monsters = true;
+    this.invincible = false;
     this.aimAssist = 1;
     this.lockRange = 1;
     this.homing = 1;
     this.lockSight = 1;
     this.doorAngleDegrees = null;
   }
+}
+
+/**
+ * The strong cheats (invincibility, and the later ones like it) are for development only: a
+ * dev build (`npm run dev`) or an explicit `?debug=1` in the address. Debug mode switched on in
+ * the Settings or with F3 is not enough for them.
+ */
+export function powerCheatsAllowed(params: URLSearchParams, devBuild: boolean): boolean {
+  return devBuild || params.get('debug') === '1';
 }
 
 /**
