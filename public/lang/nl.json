@@ -138,6 +138,7 @@
   },
   "status": {
     "title": "Status",
+    "debugStats": "Debug: Alle stats op 999 staat aan. Elke stat telt voorlopig als 999, en de getallen hieronder laten dat zien. Je eigen punten en je resterende punten blijven bewaard, en komen precies terug met Stats herstellen in F6. Punten uitgeven kan tot dan niet.",
     "inCombat": "Niet terwijl je vecht.",
     "fromGear": "Van je gear",
     "noGear": "Nog niets."
@@ -1069,6 +1070,10 @@
     "monsters": "Monsters vallen aan",
     "invincible": "Onkwetsbaar",
     "invincibleNote": "Je krijgt geen schade en gaat niet neer. Monsters vallen je nog steeds aan, en blokken, rollen en poise werken zoals altijd. Alleen in een dev-build of met ?debug=1.",
+    "maxStats": "Alle stats",
+    "maxStatsOn": "Alle stats op {n}",
+    "maxStatsRestore": "Stats herstellen",
+    "maxStatsNote": "Alle stats op max: elke stat telt voorlopig als {n}, en HP, mana, schade, herstel en de rest volgen, onder de eigen plafonds van de game (verdediging, crit, aanvalssnelheid). Je eigen punten veranderen niet en worden nooit opgeslagen; Stats herstellen zet ze precies terug. Alleen in een dev-build of met ?debug=1.",
     "grant": "Geven",
     "grantXp": "+100 XP",
     "grantGold": "+50 Gold",

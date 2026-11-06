@@ -356,3 +356,70 @@ describe('F6 Invincibility (GG.8.5 step 3)', () => {
     expect(cheats.invincible).toBe(false);
   });
 });
+
+describe('F6 Max All Stats / Restore Stats (GG.8.5 step 4)', () => {
+  const MAX = 'cheats.maxStatsOn';
+  const RESTORE = 'cheats.maxStatsRestore';
+
+  it('Max and Restore, each twice in a row: no stacking, nothing breaks, the menu keeps its place', () => {
+    const changed = vi.spyOn(handlers, 'changed');
+    const { menu, cheats, panel, control } = makePanel();
+    menu.toggle();
+    const scroller = panel();
+    if (!scroller) throw new Error('closed');
+    scroller.scrollTop = 520;
+    for (let i = 0; i < 2; i++) {
+      control('cheats.maxStats', MAX).click();
+      expect(cheats.maxStats).toBe(true);
+      expect(control('cheats.maxStats', MAX).getAttribute('aria-pressed')).toBe('true');
+      expect(control('cheats.maxStats', RESTORE).getAttribute('aria-pressed')).toBe('false');
+      expect(panel()).toBe(scroller);
+      expect(scroller.scrollTop).toBe(520);
+    }
+    for (let i = 0; i < 2; i++) {
+      control('cheats.maxStats', RESTORE).click();
+      expect(cheats.maxStats).toBe(false);
+      expect(control('cheats.maxStats', RESTORE).getAttribute('aria-pressed')).toBe('true');
+      expect(panel()).toBe(scroller);
+      expect(scroller.scrollTop).toBe(520);
+    }
+    // Every press tells the world, which works the stats out again (WorldState.applyCheats).
+    expect(changed).toHaveBeenCalledTimes(4);
+    changed.mockRestore();
+  });
+
+  it('is not offered when the strong cheats are not allowed (debug mode only from the Settings)', () => {
+    powerCheats = false;
+    const { menu, panel } = makePanel();
+    menu.toggle();
+    const titles = (panel()?.querySelectorAll('.ui-cheats-section') ?? []).map(
+      (s) => s.children[0]?.textContent,
+    );
+    expect(titles).toContain('cheats.monsters');
+    expect(titles).not.toContain('cheats.maxStats');
+  });
+
+  it('leaving debug mode restores the stats at once, and tells the world', () => {
+    const changed = vi.spyOn(handlers, 'changed');
+    const { menu, cheats, control } = makePanel();
+    menu.toggle();
+    control('cheats.maxStats', MAX).click();
+    changed.mockClear();
+    menu.setDebugVisible(false);
+    expect(cheats.maxStats).toBe(false);
+    expect(changed).toHaveBeenCalledTimes(1);
+    changed.mockRestore();
+  });
+
+  it('the other cheats stay as they are', () => {
+    const { menu, cheats, control } = makePanel();
+    menu.toggle();
+    control('cheats.invincible', 'cheats.on').click();
+    control('cheats.monsters', 'cheats.off').click();
+    control('cheats.fly', 'cheats.on').click();
+    control('cheats.maxStats', MAX).click();
+    expect([cheats.invincible, cheats.monsters, cheats.fly]).toEqual([true, false, true]);
+    control('cheats.maxStats', RESTORE).click();
+    expect([cheats.invincible, cheats.monsters, cheats.fly]).toEqual([true, false, true]);
+  });
+});

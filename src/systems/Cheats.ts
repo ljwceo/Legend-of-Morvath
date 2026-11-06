@@ -1,5 +1,7 @@
+import type { StatsFile } from '../data/types';
 import type { MoveCommand, MoverState } from './Movement';
 import type { Bounds } from './Collision';
+import type { StatPoints } from './Stats';
 
 /** Speed multipliers offered in the cheat menu. */
 export const CHEAT_SPEEDS = [1, 2, 5, 10, 25] as const;
@@ -32,6 +34,12 @@ export class Cheats {
    */
   invincible = false;
   /**
+   * On = Max All Stats: the game counts with MAX_STATS_POINTS in every stat instead of your own
+   * points (see `statPointsInUse`); Restore Stats switches it off. Your own points are never
+   * touched. A strong cheat: only offered when `powerCheatsAllowed` says so.
+   */
+  maxStats = false;
+  /**
    * Aim help, as multipliers on the numbers in player.json (1 = as the game ships): how wide
    * attacks and shots look for a target, how far you can lock on, and how fast shots curve
    * towards a locked target. For finding the numbers that feel right (step 3.5).
@@ -58,6 +66,7 @@ export class Cheats {
       this.fly ||
       !this.monsters ||
       this.invincible ||
+      this.maxStats ||
       this.aimAssist !== 1 ||
       this.lockRange !== 1 ||
       this.homing !== 1 ||
@@ -71,6 +80,7 @@ export class Cheats {
     this.chunkLines = false;
     this.monsters = true;
     this.invincible = false;
+    this.maxStats = false;
     this.aimAssist = 1;
     this.lockRange = 1;
     this.homing = 1;
@@ -86,6 +96,39 @@ export class Cheats {
  */
 export function powerCheatsAllowed(params: URLSearchParams, devBuild: boolean): boolean {
   return devBuild || params.get('debug') === '1';
+}
+
+/** What Max All Stats puts in every stat (far above `maxPointsPerStat`, on purpose). */
+export const MAX_STATS_POINTS = 999;
+
+/**
+ * MAX_STATS_POINTS in every stat of stats.json. The normal per-stat maximum is not applied
+ * here, but every soft cap and the ceilings in stats.json (`clampStatEffects`) still are.
+ */
+export function maxedStatPoints(file: StatsFile): StatPoints {
+  const out: StatPoints = {};
+  for (const def of file.stats) out[def.id] = MAX_STATS_POINTS;
+  return out;
+}
+
+/**
+ * The points the game counts with: your own, or the maxed ones while Max All Stats is on.
+ * Your own points are only read, never changed, so Restore is switching this off again.
+ */
+export function statPointsInUse(
+  file: StatsFile,
+  own: Readonly<StatPoints>,
+  maxed: boolean,
+): Readonly<StatPoints> {
+  return maxed ? maxedStatPoints(file) : own;
+}
+
+/**
+ * HP or mana as the save may hold it: while Max All Stats is on they can be above what your
+ * own points allow (`ownMax`), and the save never gets more than that.
+ */
+export function poolForSave(now: number, ownMax: number, maxed: boolean): number {
+  return maxed ? Math.min(now, ownMax) : now;
 }
 
 /**

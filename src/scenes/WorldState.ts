@@ -71,13 +71,20 @@ import {
 } from '../render/PlayerAnimator';
 import { CapeColliderView } from '../render/CapeColliderView';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
-import { Cheats, powerCheatsAllowed, stepFlying } from '../systems/Cheats';
+import {
+  Cheats,
+  maxedStatPoints,
+  poolForSave,
+  powerCheatsAllowed,
+  statPointsInUse,
+  stepFlying,
+} from '../systems/Cheats';
 import { SOLID_PASSES, SwingingDoors } from '../systems/Doors';
 import { interactionTarget } from '../systems/Interaction';
 import {
   applyStats,
   assistedHeading,
-  type CombatState,
+  CombatState,
   damageTaken,
   holdCombat,
   hpAfterHit,
@@ -515,6 +522,14 @@ export class WorldState implements GameState, InstanceHost {
   private critRng = new Random(2);
   /** What your stat points add up to (fase 3.7); refreshed by `applyGear`. */
   private readonly statEffects: StatEffects = emptyStatEffects();
+  /** Max All Stats (debug) was on at the last `applyStatEffects`: the 999 points are in use. */
+  private statsMaxedApplied = false;
+  /**
+   * While Max All Stats is on: what your own points give (maxima only), so the save never
+   * holds more HP or mana than your own build allows. Unused otherwise.
+   */
+  private readonly ownStatEffects: StatEffects = emptyStatEffects();
+  private readonly ownMaxima = new CombatState();
   private items: ReadonlyMap<string, ItemDef> = new Map();
   /** Seconds until "protected here" may show again. */
   private protectedMessageTimer = 0;
@@ -1861,6 +1876,11 @@ export class WorldState implements GameState, InstanceHost {
   /** Invincibility (debug) is on and allowed here: hits cost no HP. */
   private get invincible(): boolean {
     return this.cheats.invincible && this.powerCheats;
+  }
+
+  /** Max All Stats (debug) is on and allowed here: 999 in every stat, your own points kept. */
+  private get statsMaxed(): boolean {
+    return this.cheats.maxStats && this.powerCheats;
   }
 
   /**
@@ -3512,14 +3532,32 @@ export class WorldState implements GameState, InstanceHost {
    */
   private applyStatEffects(c: CombatState): void {
     const data = this.ctx.data;
-    const session = this.ctx.session;
     if (!data) return;
-    const points = session?.character?.stats ?? {};
-    const path = session?.path ?? null;
-    computeStatEffects(data.stats, points, path, this.statEffects);
+    const own = this.ctx.session?.character?.stats ?? {};
+    // Debug (F6 → Max All Stats): 999 in every stat instead of your own points. Those are only
+    // read here, never changed, so Restore Stats is just this switched off again.
+    const maxed = this.statsMaxed;
+    this.statsMaxedApplied = maxed;
+    this.pointsToCombat(statPointsInUse(data.stats, own, maxed), this.statEffects, c);
+    if (maxed) {
+      // What your own points would give, for the save (see `syncSave`).
+      const mine = this.ownMaxima;
+      mine.gearHp = c.gearHp;
+      mine.gearMana = c.gearMana;
+      this.pointsToCombat(own, this.ownStatEffects, mine);
+      applyStats(mine, data.player, c.level);
+    }
+  }
+
+  /** Stat points → what they add up to, your path's perks on top, then into `c`. */
+  private pointsToCombat(points: Readonly<StatPoints>, effects: StatEffects, c: CombatState): void {
+    const data = this.ctx.data;
+    if (!data) return;
+    const path = this.ctx.session?.path ?? null;
+    computeStatEffects(data.stats, points, path, effects);
     // Your path and its perks come on top of your points (fase 3.8).
-    applyPath(data.player, data.skills, data.stats, path, this.statEffects);
-    applyStatsToCombat(data.stats, this.statEffects, c, this.gearStatsOut.damageReductionPercent);
+    applyPath(data.player, data.skills, data.stats, path, effects);
+    applyStatsToCombat(data.stats, effects, c, this.gearStatsOut.damageReductionPercent);
   }
 
   /** Worn gear → extra max HP / mana and damage factors (no level or load changes). */
@@ -4495,8 +4533,12 @@ export class WorldState implements GameState, InstanceHost {
     world.heading = s.heading;
     const progress = this.ctx.session?.progress;
     if (progress) {
-      progress.hp = player.combat.hp;
-      progress.mana = player.combat.mana;
+      // Max All Stats (debug) can lift HP and mana above what your own points allow; the save
+      // never gets more than that.
+      const c = player.combat;
+      const maxed = this.statsMaxedApplied;
+      progress.hp = poolForSave(c.hp, this.ownMaxima.maxHp, maxed);
+      progress.mana = poolForSave(c.mana, this.ownMaxima.maxMana, maxed);
     }
   }
 
@@ -4565,6 +4607,8 @@ export class WorldState implements GameState, InstanceHost {
         {
           spend: (points) => this.spendPoints(points),
           canSpend: () => !(this.player?.combat.inCombat ?? false),
+          debugStats: () =>
+            this.statsMaxedApplied && this.ctx.data ? maxedStatPoints(this.ctx.data.stats) : null,
           xpLine: () => this.xpLine(),
         },
         resume,
@@ -4622,6 +4666,8 @@ export class WorldState implements GameState, InstanceHost {
     const character = this.ctx.session?.character;
     const c = this.player?.combat;
     if (!data || !character || !c) return;
+    // The status window shows the 999 of Max All Stats then; they must never become your own.
+    if (this.statsMaxedApplied) return;
     if (c.inCombat) {
       this.hud?.showMessage(this.ctx.i18n.t('status.inCombat'));
       return;
@@ -4770,6 +4816,9 @@ export class WorldState implements GameState, InstanceHost {
 
   /** Applies the cheat settings: walking speed, landing after flying, chunk borders. */
   private applyCheats(): void {
+    // Max All Stats or Restore Stats (also when leaving debug mode switched every cheat off):
+    // everything that follows from your stats is worked out again.
+    if (this.statsMaxed !== this.statsMaxedApplied) this.applyGear(false);
     const { movement, player } = this;
     if (movement) movement.walkSpeed = this.baseWalkSpeed * this.cheats.speed;
     if (player && (this.streamer || this.sceneZone) && !this.cheats.fly) {
@@ -5753,7 +5802,8 @@ export class WorldState implements GameState, InstanceHost {
     debug.lines.set(
       'cheats',
       `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'}` +
-        `${this.invincible ? ' · INVINCIBLE' : ''} · F6 = cheat menu`,
+        `${this.invincible ? ' · INVINCIBLE' : ''}${this.statsMaxedApplied ? ' · STATS 999' : ''}` +
+        ' · F6 = cheat menu',
     );
   };
 

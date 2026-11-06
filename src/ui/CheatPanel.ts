@@ -9,6 +9,7 @@ import {
   CHEAT_DOOR_ANGLES,
   CHEAT_SPEEDS,
   type Cheats,
+  MAX_STATS_POINTS,
 } from '../systems/Cheats';
 import { el } from './dom';
 import { keepScrollOnFocus } from './scroll';
@@ -341,6 +342,27 @@ export class CheatPanel {
               this.changed();
             }),
             el('p', { className: 'ui-note', text: t('cheats.invincibleNote') }),
+          )
+        : null,
+      this.handlers.powerCheats()
+        ? section(
+            t('cheats.maxStats'),
+            el(
+              'div',
+              { className: 'ui-chips' },
+              chip(t('cheats.maxStatsOn', { n: MAX_STATS_POINTS }), cheats.maxStats, () => {
+                cheats.maxStats = true;
+                this.changed();
+              }),
+              chip(t('cheats.maxStatsRestore'), !cheats.maxStats, () => {
+                cheats.maxStats = false;
+                this.changed();
+              }),
+            ),
+            el('p', {
+              className: 'ui-note',
+              text: t('cheats.maxStatsNote', { n: MAX_STATS_POINTS }),
+            }),
           )
         : null,
       section(

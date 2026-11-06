@@ -138,6 +138,7 @@
   },
   "status": {
     "title": "Status",
+    "debugStats": "Debug: Max All Stats is on. Every stat counts as 999 for now, and the numbers below show that. Your own points and the points you have left are kept, and come back exactly with Restore Stats in F6. Spending points is off until then.",
     "inCombat": "Not while you are fighting.",
     "fromGear": "From your gear",
     "noGear": "Nothing yet."
@@ -1069,6 +1070,10 @@
     "monsters": "Monsters attack",
     "invincible": "Invincibility",
     "invincibleNote": "You take no damage and cannot go down. Monsters still attack you, and blocking, rolling and poise work as usual. Only in a dev build or with ?debug=1.",
+    "maxStats": "All stats",
+    "maxStatsOn": "Max All Stats ({n})",
+    "maxStatsRestore": "Restore Stats",
+    "maxStatsNote": "Max All Stats: every stat counts as {n} for now, and HP, mana, damage, regen and the rest follow, under the game's own ceilings (defense, crit, attack speed). Your own points are not changed and never saved; Restore Stats brings them back exactly. Only in a dev build or with ?debug=1.",
     "grant": "Give",
     "grantXp": "+100 XP",
     "grantGold": "+50 Gold",
