@@ -13,6 +13,11 @@ export interface StatusHandlers {
   spend(points: StatPoints): void;
   /** False in a fight: you can look, but not spend (concept: not while fighting). */
   canSpend(): boolean;
+  /**
+   * The points the game counts with while Max All Stats (debug) is on, null otherwise. The
+   * window then shows those, says so, and spends nothing.
+   */
+  debugStats(): Readonly<StatPoints> | null;
   /** "Level 3 · 120 / 220 XP". */
   xpLine(): string;
 }
@@ -35,10 +40,14 @@ export function statusPanel(
       const { t } = bindT(ctx);
       const session = ctx.session;
       const level = session?.progress.level ?? 1;
-      const points: StatPoints = { ...(session?.character?.stats ?? {}) };
+      const own: StatPoints = { ...(session?.character?.stats ?? {}) };
+      // Max All Stats (debug): the numbers are the 999 the game counts with now, and spending
+      // is off, so they can never end up as your own points. "Points left" stays your own.
+      const debug = handlers.debugStats();
+      const points: StatPoints = debug ? { ...debug } : own;
       const path = session?.path ?? null;
-      const canSpend = handlers.canSpend();
-      const left = pointsLeftText(ctx, level, points);
+      const canSpend = handlers.canSpend() && !debug;
+      const left = pointsLeftText(ctx, level, own);
       return el(
         'div',
         {
@@ -47,8 +56,14 @@ export function statusPanel(
         },
         el('h2', { className: 'ui-heading', text: t('status.title') }),
         el('p', { className: 'ui-note', text: handlers.xpLine() }),
+        debug
+          ? el('p', {
+              className: 'ui-note ui-note-warn ui-status-debug',
+              text: t('status.debugStats'),
+            })
+          : null,
         el('p', { className: 'ui-stat-left', attrs: { 'aria-live': 'polite' }, text: left.text }),
-        left.left > 0 && !canSpend
+        left.left > 0 && !canSpend && !debug
           ? el('p', { className: 'ui-note ui-note-warn', text: t('status.inCombat') })
           : null,
         statsEditor(ctx, {

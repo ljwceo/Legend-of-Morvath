@@ -4,18 +4,42 @@ import { PLAYER_PATHS, type PlayerClipRole, type PlayerPath } from '../data/sche
 import { DEBUG_VIEWS } from '../render/DebugOverlay';
 import {
   CHEAT_AIM_SCALES,
+  CHEAT_KILL_RADII,
   CHEAT_LOCK_SCALES,
   CHEAT_SIGHT_SCALES,
   CHEAT_DOOR_ANGLES,
   CHEAT_SPEEDS,
   type Cheats,
+  KILL_HOTKEY,
+  MAX_STATS_POINTS,
 } from '../systems/Cheats';
 import { el } from './dom';
+import { keepScrollOnFocus } from './scroll';
+
+/** Data attribute that names a control by its section and place, so a rebuild can refocus it. */
+const KEY_ATTRIBUTE = 'data-cheat-key';
+
+/** What one Kill Nearby Enemies did, as the menu shows it (see `Enemies.killNear`). */
+export interface KillSummary {
+  readonly defeated: readonly unknown[];
+  readonly splits: number;
+  readonly skipped: number;
+}
 
 export interface CheatPanelHandlers {
   teleport(zoneId: string): void;
   /** A cheat setting changed (speed, fly or chunk borders). */
   changed(): void;
+  /**
+   * May the strong cheats (invincibility) be offered? Only in a dev build or with `?debug=1`,
+   * not with debug mode switched on in the Settings (`powerCheatsAllowed`).
+   */
+  powerCheats(): boolean;
+  /**
+   * Kill Nearby Enemies with the radius and Include Bosses from the cheat menu: how many fell,
+   * how many of those split from one that fell, how many bosses were left. Null = not now.
+   */
+  killNearby(): KillSummary | null;
   /** The current save as a text code (the world writes its latest state first). */
   exportSave(): string;
   /** Replaces the save with an exported code; false when the code is not valid. */
@@ -95,13 +119,21 @@ export class CheatPanel {
   readonly root: HTMLElement;
   private readonly openButton: HTMLButtonElement;
   private readonly flyButtons: HTMLElement;
+  /**
+   * The open panel, which is also what scrolls. It is made once when the menu opens and kept
+   * until it closes: a cheat only replaces what is inside it, so the scroll position stays.
+   */
   private panel: HTMLElement | null = null;
+  /** Stops the browser from scrolling a tapped button into view (see `keepScrollOnFocus`). */
+  private releaseScrollGuard: (() => void) | null = null;
   private debugVisible = false;
   private saveTool: SaveTool = 'none';
   private saveCode = '';
   private importFailed = false;
   /** Live text of the day-night section (phase and time left), updated by `sync`. */
   private dayNightText: HTMLElement | null = null;
+  /** What the last Kill Nearby Enemies from this menu did ("not now" = null result). */
+  private lastKill: { result: KillSummary | null; radius: number } | null = null;
 
   constructor(
     private readonly ctx: GameContext,
@@ -161,24 +193,67 @@ export class CheatPanel {
     this.root.remove();
   }
 
+  /** Opens the menu at the top: a new panel (the scroll container) with fresh content. */
   private open(): void {
-    this.panel = this.build();
-    this.root.append(this.panel);
+    const panel = el('div', { className: 'ui-panel ui-cheats', attrs: { role: 'dialog' } });
+    this.panel = panel;
+    this.fill(panel);
+    this.releaseScrollGuard = keepScrollOnFocus(panel);
+    this.root.append(panel);
   }
 
   private close(): void {
+    this.releaseScrollGuard?.();
+    this.releaseScrollGuard = null;
     this.panel?.remove();
     this.panel = null;
     this.saveTool = 'none';
     this.saveCode = '';
     this.importFailed = false;
+    this.lastKill = null;
   }
 
+  /**
+   * Shows the cheats as they are now. Only the content is replaced, never the panel itself:
+   * the panel is what scrolls, so where you were stays where you were (a shorter list is
+   * clamped by the browser). The control that had the focus gets it back (keyboard), and the
+   * save code box keeps its own scroll.
+   */
   private rebuild(): void {
-    if (!this.panel) return;
-    const next = this.build();
-    this.panel.replaceWith(next);
-    this.panel = next;
+    const panel = this.panel;
+    if (!panel) return;
+    const top = panel.scrollTop;
+    const focused = this.focusedKey(panel);
+    const code = panel.querySelector('textarea');
+    const codeTop = code ? code.scrollTop : 0;
+    this.fill(panel);
+    // The same element keeps its scroll; this only corrects a browser that reset it anyway.
+    if (panel.scrollTop !== top) panel.scrollTop = top;
+    const nextCode = panel.querySelector('textarea');
+    if (nextCode && codeTop > 0) nextCode.scrollTop = codeTop;
+    if (focused !== null) this.focusKey(panel, focused);
+  }
+
+  /** Puts the current content into the panel, in one go (no layout in between). */
+  private fill(panel: HTMLElement): void {
+    panel.setAttribute('aria-label', this.ctx.i18n.t('cheats.title'));
+    panel.replaceChildren(...this.build());
+  }
+
+  /** The key of the control inside the panel that has the focus, or null. */
+  private focusedKey(panel: HTMLElement): string | null {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement) || !panel.contains(active)) return null;
+    return active.getAttribute(KEY_ATTRIBUTE);
+  }
+
+  /** Focuses the control with this key again, without scrolling to it. */
+  private focusKey(panel: HTMLElement, key: string): void {
+    for (const control of panel.querySelectorAll<HTMLElement>(`[${KEY_ATTRIBUTE}]`)) {
+      if (control.getAttribute(KEY_ATTRIBUTE) !== key) continue;
+      control.focus({ preventScroll: true });
+      return;
+    }
   }
 
   private changed(): void {
@@ -194,7 +269,8 @@ export class CheatPanel {
     this.updateDayNightText();
   }
 
-  private build(): HTMLElement {
+  /** The content of the panel (the panel itself is made once, in `open`). */
+  private build(): HTMLElement[] {
     const t = this.ctx.i18n.t.bind(this.ctx.i18n);
     const { cheats } = this;
     const chip = (label: string, active: boolean, onClick: () => void): HTMLButtonElement =>
@@ -211,20 +287,21 @@ export class CheatPanel {
         chip(t('cheats.off'), !value, () => set(false)),
         chip(t('cheats.on'), value, () => set(true)),
       );
-    const section = (label: string, ...content: (HTMLElement | null)[]): HTMLElement =>
-      el(
+    const section = (label: string, ...content: (HTMLElement | null)[]): HTMLElement => {
+      const element = el(
         'div',
         { className: 'ui-cheats-section' },
         el('p', { className: 'ui-label', text: label }),
         ...content,
       );
+      // Every control is named by its section and place, the same after each rebuild.
+      element.querySelectorAll('button, textarea').forEach((control, n) => {
+        control.setAttribute(KEY_ATTRIBUTE, `${label}#${n}`);
+      });
+      return element;
+    };
 
-    return el(
-      'div',
-      {
-        className: 'ui-panel ui-cheats',
-        attrs: { role: 'dialog', 'aria-label': t('cheats.title') },
-      },
+    const content: (HTMLElement | null)[] = [
       el('h2', { className: 'ui-heading', text: t('cheats.title') }),
       el('p', { className: 'ui-note', text: t('cheats.note') }),
       section(
@@ -274,6 +351,38 @@ export class CheatPanel {
           this.changed();
         }),
       ),
+      this.handlers.powerCheats()
+        ? section(
+            t('cheats.invincible'),
+            toggle(cheats.invincible, (on) => {
+              cheats.invincible = on;
+              this.changed();
+            }),
+            el('p', { className: 'ui-note', text: t('cheats.invincibleNote') }),
+          )
+        : null,
+      this.handlers.powerCheats()
+        ? section(
+            t('cheats.maxStats'),
+            el(
+              'div',
+              { className: 'ui-chips' },
+              chip(t('cheats.maxStatsOn', { n: MAX_STATS_POINTS }), cheats.maxStats, () => {
+                cheats.maxStats = true;
+                this.changed();
+              }),
+              chip(t('cheats.maxStatsRestore'), !cheats.maxStats, () => {
+                cheats.maxStats = false;
+                this.changed();
+              }),
+            ),
+            el('p', {
+              className: 'ui-note',
+              text: t('cheats.maxStatsNote', { n: MAX_STATS_POINTS }),
+            }),
+          )
+        : null,
+      this.handlers.powerCheats() ? this.killSection(chip, toggle, section) : null,
       section(
         t('cheats.grant'),
         el(
@@ -476,9 +585,70 @@ export class CheatPanel {
       el('button', {
         className: 'ui-button',
         text: t('cheats.close'),
-        attrs: { type: 'button' },
+        attrs: { type: 'button', [KEY_ATTRIBUTE]: 'close' },
         onClick: () => this.close(),
       }),
+    ];
+    return content.filter((element): element is HTMLElement => element !== null);
+  }
+
+  /**
+   * Kill Nearby Enemies (strong cheat): the radius, Include Bosses, the hotkey, the button and
+   * what it did last. Every control keeps the menu where it is (`changed` / `rebuild`).
+   */
+  private killSection(
+    chip: (label: string, active: boolean, onClick: () => void) => HTMLButtonElement,
+    toggle: (value: boolean, set: (on: boolean) => void) => HTMLElement,
+    section: (label: string, ...content: (HTMLElement | null)[]) => HTMLElement,
+  ): HTMLElement {
+    const t = this.ctx.i18n.t.bind(this.ctx.i18n);
+    const { cheats } = this;
+    const last = this.lastKill;
+    const lastText = !last
+      ? null
+      : !last.result
+        ? t('cheats.killNotNow')
+        : t('cheats.killResult', {
+            n: last.result.defeated.length,
+            radius: last.radius,
+            splits: last.result.splits,
+            skipped: last.result.skipped,
+          });
+    return section(
+      t('cheats.kill'),
+      el(
+        'div',
+        { className: 'ui-chips' },
+        chip(t('cheats.killNow'), false, () => {
+          this.lastKill = { result: this.handlers.killNearby(), radius: cheats.killRadius };
+          this.rebuild();
+        }),
+      ),
+      lastText
+        ? el('p', { className: 'ui-note', attrs: { 'aria-live': 'polite' }, text: lastText })
+        : null,
+      el('p', { className: 'ui-label', text: t('cheats.killRadius') }),
+      el(
+        'div',
+        { className: 'ui-chips' },
+        ...CHEAT_KILL_RADII.map((radius) =>
+          chip(`${radius} m`, cheats.killRadius === radius, () => {
+            cheats.killRadius = radius;
+            this.changed();
+          }),
+        ),
+      ),
+      el('p', { className: 'ui-label', text: t('cheats.killBosses') }),
+      toggle(cheats.killBosses, (on) => {
+        cheats.killBosses = on;
+        this.changed();
+      }),
+      el('p', { className: 'ui-label', text: t('cheats.killHotkey', { key: KILL_HOTKEY }) }),
+      toggle(cheats.killHotkey, (on) => {
+        cheats.killHotkey = on;
+        this.changed();
+      }),
+      el('p', { className: 'ui-note', text: t('cheats.killNote', { key: KILL_HOTKEY }) }),
     );
   }
 

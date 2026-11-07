@@ -67,6 +67,8 @@ export interface ProjectileTarget {
   z: number;
   radius: number;
   hostile: boolean;
+  /** Monsters off or flying (debug, `EnemyTarget.peaceful`): arrows fly past without hurting. */
+  peaceful?: boolean;
 }
 
 /**
@@ -138,7 +140,7 @@ export class Projectiles {
       p.z += p.dirZ * p.speed * dt;
       const dx = target.x - p.x;
       const dz = target.z - p.z;
-      if (target.hostile && dx * dx + dz * dz <= reach * reach) {
+      if (target.hostile && target.peaceful !== true && dx * dx + dz * dz <= reach * reach) {
         p.active = false;
         onHit(p.damage);
         continue;

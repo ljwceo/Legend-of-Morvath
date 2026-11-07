@@ -71,15 +71,28 @@ import {
 } from '../render/PlayerAnimator';
 import { CapeColliderView } from '../render/CapeColliderView';
 import { colorTokens, numberToHex, palette, resolveColorToken } from '../render/palette';
-import { Cheats, stepFlying } from '../systems/Cheats';
+import {
+  Cheats,
+  cheatsOnEnter,
+  cheatsOnExit,
+  KILL_HOTKEY,
+  killAllowed,
+  killHotkeyActive,
+  maxedStatPoints,
+  poolForSave,
+  powerCheatsAllowed,
+  statPointsInUse,
+  stepFlying,
+} from '../systems/Cheats';
 import { SOLID_PASSES, SwingingDoors } from '../systems/Doors';
 import { interactionTarget } from '../systems/Interaction';
 import {
   applyStats,
   assistedHeading,
-  type CombatState,
+  CombatState,
   damageTaken,
   holdCombat,
+  hpAfterHit,
   inSwingArc,
   regenMana,
   regenOutOfCombat,
@@ -91,7 +104,7 @@ import {
   swordConfig,
   tickCombatClock,
 } from '../systems/Combat';
-import { Enemies, type EnemiesWorld } from '../systems/Enemies';
+import { Enemies, type EnemiesWorld, type KillNearResult } from '../systems/Enemies';
 import {
   followLockedTarget,
   headingTo,
@@ -161,7 +174,7 @@ import {
 import { WaveFight, type WaveResetReason } from '../systems/WaveFight';
 import { addXp, deathGoldLoss, xpFraction, xpToNext } from '../systems/Progression';
 import { canPickUpMarker, markerAfterDeath } from '../systems/GoldMarker';
-import type { EnemyTarget } from '../systems/EnemyAI';
+import { applyMonsterStance, type EnemyTarget } from '../systems/EnemyAI';
 import { keepInArena } from '../systems/BossAI';
 import { BossEncounter, type KillingBlow } from './BossEncounter';
 import { ARROW_HEIGHT, Projectiles, type ProjectileWorld } from '../systems/Projectiles';
@@ -514,6 +527,14 @@ export class WorldState implements GameState, InstanceHost {
   private critRng = new Random(2);
   /** What your stat points add up to (fase 3.7); refreshed by `applyGear`. */
   private readonly statEffects: StatEffects = emptyStatEffects();
+  /** Max All Stats (debug) was on at the last `applyStatEffects`: the 999 points are in use. */
+  private statsMaxedApplied = false;
+  /**
+   * While Max All Stats is on: what your own points give (maxima only), so the save never
+   * holds more HP or mana than your own build allows. Unused otherwise.
+   */
+  private readonly ownStatEffects: StatEffects = emptyStatEffects();
+  private readonly ownMaxima = new CombatState();
   private items: ReadonlyMap<string, ItemDef> = new Map();
   /** Seconds until "protected here" may show again. */
   private protectedMessageTimer = 0;
@@ -714,7 +735,7 @@ export class WorldState implements GameState, InstanceHost {
 
   constructor(private readonly ctx: GameContext) {}
 
-  enter(): void {
+  enter(from: string | null = null): void {
     const { ctx } = this;
     const session = ctx.session;
     const data = ctx.data;
@@ -734,7 +755,10 @@ export class WorldState implements GameState, InstanceHost {
     this.loadTierId = '';
     // Gear stats (max HP) are needed before HP is restored from the save in buildScene.
     this.items = new Map(data.items.items.map((item) => [item.id, item]));
-    this.cheats.reset();
+    // After an area change the cheats go on (this play session); otherwise they start off.
+    // The new area picks them up as it is built (Max All Stats in applyStatEffects, the rest
+    // every step or every hit).
+    cheatsOnEnter(this.cheats, from, ctx.debug.isEnabled);
 
     // Input surface first, so the pause button and touch buttons lie on top of it.
     this.surface = el('div', { className: 'ui-world-input' });
@@ -851,6 +875,8 @@ export class WorldState implements GameState, InstanceHost {
       {
         teleport: (zoneId) => this.teleport(zoneId),
         changed: () => this.applyCheats(),
+        powerCheats: () => this.powerCheats,
+        killNearby: () => this.killNearby(),
         exportSave: () => this.exportSave(),
         importSave: (code) => this.importSave(code),
         rerunBenchmark: () => this.rerunBenchmark(),
@@ -1007,7 +1033,7 @@ export class WorldState implements GameState, InstanceHost {
     ctx.quality.setMeasuring(this.loadingScreen === null);
   }
 
-  exit(): void {
+  exit(to: string = 'title'): void {
     this.ctx.quality.setMeasuring(false);
     this.cinematic?.dispose();
     this.cinematic = null;
@@ -1030,7 +1056,8 @@ export class WorldState implements GameState, InstanceHost {
     this.keepSessionOnExit = false;
     this.cheatPanel?.dispose();
     this.cheatPanel = null;
-    this.cheats.reset();
+    // An area change keeps the cheats; the title screen (or any other way out) ends them.
+    cheatsOnExit(this.cheats, to);
     this.input?.detach();
     this.input = null;
     this.touch?.dispose();
@@ -1828,8 +1855,9 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /**
-   * Monsters and their arrows for one step. They only attack while the player can be attacked
-   * (not with monsters switched off in the cheat menu).
+   * Monsters and their arrows for one step. They only attack while the player can be attacked:
+   * not while you are down (they go home), and not with monsters switched off or while flying in
+   * the cheat menu (they leave you alone, but still take damage and are never healed by it).
    */
   private updateEnemies(dt: number): void {
     const { enemies, player, movement, enemiesWorld, projectiles, projectileWorld } = this;
@@ -1838,7 +1866,7 @@ export class WorldState implements GameState, InstanceHost {
     t.x = player.state.x;
     t.z = player.state.z;
     t.radius = movement.radius;
-    t.hostile = this.cheats.monsters && !this.cheats.fly && this.deathTimer === NOT_DYING;
+    applyMonsterStance(t, this.cheats.monsters, this.cheats.fly, this.deathTimer !== NOT_DYING);
     enemies.step(dt, t, enemiesWorld);
     // A monster fighting you, or a boss fight, keeps you in the fight (and the loadout locked).
     holdCombat(player.combat, enemies.anyEngaged || (this.encounter?.fighting ?? false));
@@ -1848,10 +1876,66 @@ export class WorldState implements GameState, InstanceHost {
   }
 
   /**
+   * The strong cheats (invincibility) only work in a dev build or with `?debug=1`, never with
+   * debug mode switched on in the Settings (see `powerCheatsAllowed`).
+   */
+  private get powerCheats(): boolean {
+    return powerCheatsAllowed(this.ctx.params, import.meta.env.DEV);
+  }
+
+  /** Invincibility (debug) is on and allowed here: hits cost no HP. */
+  private get invincible(): boolean {
+    return this.cheats.invincible && this.powerCheats;
+  }
+
+  /** Max All Stats (debug) is on and allowed here: 999 in every stat, your own points kept. */
+  private get statsMaxed(): boolean {
+    return this.cheats.maxStats && this.powerCheats;
+  }
+
+  /** May Kill Nearby Enemies take this monster? Sultan only in his own fight, outside a cutscene. */
+  private readonly killAllow = (e: Enemy): boolean => {
+    const encounter = this.encounter;
+    const inOwnFight =
+      encounter !== null &&
+      encounter.fighting &&
+      encounter.boss === e &&
+      !encounter.cutscenePlaying;
+    return killAllowed(e.def, this.cheats.killBosses, inOwnFight);
+  };
+
+  /**
+   * Debug (cheat menu, or KILL_HOTKEY): every monster around you within the chosen radius falls
+   * at once, each through the normal defeat (`defeated`: XP, loot, the egg once, quests, the
+   * drill's waves, Sultan's ending). Says how many fell. Null when it cannot now (not allowed, no
+   * world yet, going down or a cutscene).
+   */
+  private killNearby(): KillNearResult | null {
+    const { player, enemies, enemyRenderer } = this;
+    if (!this.powerCheats || !this.ctx.debug.isEnabled) return null;
+    if (!player || !enemies || this.deathTimer !== NOT_DYING || this.cutscenePlaying) return null;
+    const s = player.state;
+    const radius = this.cheats.killRadius;
+    const result = enemies.killNear(s.x, s.z, radius, this.killAllow);
+    // As a last blow with the weapon in hand: Sultan's ending is the sword or the mage one.
+    for (const e of result.defeated) {
+      this.defeated(e, e.y + (enemyRenderer?.heightOf(e) ?? 1.5), this.weaponKind);
+    }
+    const t = this.ctx.i18n;
+    this.hud?.showMessage(
+      t.t('cheats.killHud', { n: result.defeated.length, radius }) +
+        (result.skipped > 0 ? ` ${t.t('cheats.killSkipped', { n: result.skipped })}` : ''),
+    );
+    return result;
+  }
+
+  /**
    * A monster or an arrow hits the player: HP down, a red number and glow, maybe knocked out.
    * `from` is the monster that hit (not set for an arrow or for burning): its hit leaves its
    * status effects on you, and a leeching monster (the Nature slime) heals from the damage it
-   * really dealt.
+   * really dealt. This is the only way HP is lost (monsters, bosses, arrows, burning), so
+   * invincibility (debug) lives here: the hit still lands (guard, parry, poise, effects), it
+   * just costs no HP, and so it can never knock you out.
    */
   private readonly hurtPlayer = (damage: number, from?: Enemy, guardable = true): void => {
     const player = this.player;
@@ -1882,15 +1966,27 @@ export class WorldState implements GameState, InstanceHost {
       const key = verdict.outcome === 'block' ? 'controls.blocked' : 'controls.guardBroken';
       this.damageNumbers?.spawnText(s.x, s.y + 2.4, s.z, this.ctx.i18n.t(key), 'dodged');
     }
-    c.hp = Math.max(0, c.hp - taken);
+    const invincible = this.invincible;
+    c.hp = hpAfterHit(c.hp, taken, invincible);
     c.sinceCombat = 0;
     c.sinceHurt = 0;
-    this.damageNumbers?.spawn(s.x, s.y + 2, s.z, taken, 'player');
-    this.hud?.hurt();
+    if (invincible) {
+      this.damageNumbers?.spawnText(
+        s.x,
+        s.y + 2,
+        s.z,
+        this.ctx.i18n.t('controls.invincible'),
+        'dodged',
+      );
+    } else {
+      this.damageNumbers?.spawn(s.x, s.y + 2, s.z, taken, 'player');
+      this.hud?.hurt();
+    }
     if (from && from.def.poiseDamage) {
       this.breakPlayerPoise(from.def.poiseDamage * (verdict ? verdict.poiseFactor : 1));
     }
-    if (from) this.applyOnHit(from, taken);
+    // Leech heals from what the hit really took: nothing from an invincible player.
+    if (from) this.applyOnHit(from, invincible ? 0 : taken);
     if (c.hp <= 0) this.knockedOut = true;
   };
 
@@ -3482,14 +3578,32 @@ export class WorldState implements GameState, InstanceHost {
    */
   private applyStatEffects(c: CombatState): void {
     const data = this.ctx.data;
-    const session = this.ctx.session;
     if (!data) return;
-    const points = session?.character?.stats ?? {};
-    const path = session?.path ?? null;
-    computeStatEffects(data.stats, points, path, this.statEffects);
+    const own = this.ctx.session?.character?.stats ?? {};
+    // Debug (F6 → Max All Stats): 999 in every stat instead of your own points. Those are only
+    // read here, never changed, so Restore Stats is just this switched off again.
+    const maxed = this.statsMaxed;
+    this.statsMaxedApplied = maxed;
+    this.pointsToCombat(statPointsInUse(data.stats, own, maxed), this.statEffects, c);
+    if (maxed) {
+      // What your own points would give, for the save (see `syncSave`).
+      const mine = this.ownMaxima;
+      mine.gearHp = c.gearHp;
+      mine.gearMana = c.gearMana;
+      this.pointsToCombat(own, this.ownStatEffects, mine);
+      applyStats(mine, data.player, c.level);
+    }
+  }
+
+  /** Stat points → what they add up to, your path's perks on top, then into `c`. */
+  private pointsToCombat(points: Readonly<StatPoints>, effects: StatEffects, c: CombatState): void {
+    const data = this.ctx.data;
+    if (!data) return;
+    const path = this.ctx.session?.path ?? null;
+    computeStatEffects(data.stats, points, path, effects);
     // Your path and its perks come on top of your points (fase 3.8).
-    applyPath(data.player, data.skills, data.stats, path, this.statEffects);
-    applyStatsToCombat(data.stats, this.statEffects, c, this.gearStatsOut.damageReductionPercent);
+    applyPath(data.player, data.skills, data.stats, path, effects);
+    applyStatsToCombat(data.stats, effects, c, this.gearStatsOut.damageReductionPercent);
   }
 
   /** Worn gear → extra max HP / mana and damage factors (no level or load changes). */
@@ -4465,8 +4579,12 @@ export class WorldState implements GameState, InstanceHost {
     world.heading = s.heading;
     const progress = this.ctx.session?.progress;
     if (progress) {
-      progress.hp = player.combat.hp;
-      progress.mana = player.combat.mana;
+      // Max All Stats (debug) can lift HP and mana above what your own points allow; the save
+      // never gets more than that.
+      const c = player.combat;
+      const maxed = this.statsMaxedApplied;
+      progress.hp = poolForSave(c.hp, this.ownMaxima.maxHp, maxed);
+      progress.mana = poolForSave(c.mana, this.ownMaxima.maxMana, maxed);
     }
   }
 
@@ -4535,6 +4653,8 @@ export class WorldState implements GameState, InstanceHost {
         {
           spend: (points) => this.spendPoints(points),
           canSpend: () => !(this.player?.combat.inCombat ?? false),
+          debugStats: () =>
+            this.statsMaxedApplied && this.ctx.data ? maxedStatPoints(this.ctx.data.stats) : null,
           xpLine: () => this.xpLine(),
         },
         resume,
@@ -4592,6 +4712,8 @@ export class WorldState implements GameState, InstanceHost {
     const character = this.ctx.session?.character;
     const c = this.player?.combat;
     if (!data || !character || !c) return;
+    // The status window shows the 999 of Max All Stats then; they must never become your own.
+    if (this.statsMaxedApplied) return;
     if (c.inCombat) {
       this.hud?.showMessage(this.ctx.i18n.t('status.inCombat'));
       return;
@@ -4740,6 +4862,9 @@ export class WorldState implements GameState, InstanceHost {
 
   /** Applies the cheat settings: walking speed, landing after flying, chunk borders. */
   private applyCheats(): void {
+    // Max All Stats or Restore Stats (also when leaving debug mode switched every cheat off):
+    // everything that follows from your stats is worked out again.
+    if (this.statsMaxed !== this.statsMaxedApplied) this.applyGear(false);
     const { movement, player } = this;
     if (movement) movement.walkSpeed = this.baseWalkSpeed * this.cheats.speed;
     if (player && (this.streamer || this.sceneZone) && !this.cheats.fly) {
@@ -5339,7 +5464,8 @@ export class WorldState implements GameState, InstanceHost {
 
     const maxUnload = Math.max(...data.quality.presets.map((entry) => entry.chunkRings.unload));
     this.chunkDebug = new ChunkDebug(this.streamer, (maxUnload * 2 + 1) ** 2);
-    this.chunkDebug.lines.visible = false;
+    // Chunk borders kept on through an area change show in the new area too.
+    this.chunkDebug.lines.visible = this.cheats.chunkLines;
     worldRoot.add(this.chunkDebug.lines);
   }
 
@@ -5722,7 +5848,10 @@ export class WorldState implements GameState, InstanceHost {
     debug.lines.set('cape', this.playerAnimator?.cape?.debugLine() ?? '-');
     debug.lines.set(
       'cheats',
-      `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'} · F6 = cheat menu`,
+      `speed ${this.cheats.speed}× · fly ${this.cheats.fly ? 'on' : 'off'}` +
+        `${this.invincible ? ' · INVINCIBLE' : ''}${this.statsMaxedApplied ? ' · STATS 999' : ''}` +
+        `${killHotkeyActive(this.cheats, debug.isEnabled, this.powerCheats) ? ` · ${KILL_HOTKEY} = kill ${this.cheats.killRadius} m` : ''}` +
+        ' · F6 = cheat menu',
     );
   };
 
@@ -5892,6 +6021,15 @@ export class WorldState implements GameState, InstanceHost {
       this.cheatPanel?.setDebugVisible(true);
       if (!this.cheatPanel?.isOpen) this.input?.releasePointerLock();
       this.cheatPanel?.toggle();
+    }
+    // F8: Kill Nearby Enemies (debug), only once its hotkey is on in the cheat menu.
+    if (
+      event.code === KILL_HOTKEY &&
+      !this.paused &&
+      killHotkeyActive(this.cheats, this.ctx.debug.isEnabled, this.powerCheats)
+    ) {
+      event.preventDefault();
+      this.killNearby();
     }
   };
 

@@ -127,6 +127,16 @@ interface NightArea {
   maxZ: number;
 }
 
+/** What one Kill Nearby Enemies did (debug, see `Enemies.killNear`). */
+export interface KillNearResult {
+  /** Every monster that fell, in order, each once: the world pays their rewards. */
+  readonly defeated: Enemy[];
+  /** How many of them split from a monster that fell in this same go. */
+  splits: number;
+  /** Alive within the radius but left standing by `allow` (bosses without Include Bosses). */
+  skipped: number;
+}
+
 /** The world as monsters see it: walking (EnemyWorld), boss events and the ground height. */
 export interface EnemiesWorld extends EnemyWorld, Pick<BossWorld, 'bossEvent'> {
   heightAt(x: number, z: number): number;
@@ -533,6 +543,48 @@ export class Enemies {
     defeat(e, this.ai);
     this.split(e);
     return true;
+  }
+
+  /**
+   * Debug (cheat menu → Kill Nearby Enemies): every living monster within `radius` m of (x, z),
+   * measured flat on the ground, falls at once through `hit`, so its defeat is the normal one (a
+   * Big Slime splits). Never a training dummy or a guardian in its own city (`safe`); `allow`
+   * decides the rest (`killAllowed`: bosses). The slimes a monster defeated here split into are
+   * taken in the same go when they land within the radius; nothing else that appears is (a new
+   * wave only comes from the world's next steps). Each monster falls at most once, so the
+   * caller pays every reward exactly once. Not on the fixed step: allocating is fine.
+   */
+  killNear(x: number, z: number, radius: number, allow: (e: Enemy) => boolean): KillNearResult {
+    const result: KillNearResult = { defeated: [], splits: 0, skipped: 0 };
+    const r2 = radius * radius;
+    const candidate = (e: Enemy): boolean =>
+      e.active &&
+      e.alive &&
+      !e.safe &&
+      e.def.behavior !== 'static' &&
+      (e.x - x) ** 2 + (e.z - z) ** 2 <= r2;
+    const queue: Enemy[] = [];
+    for (let i = 0; i < this.list.length; i++) {
+      const e = this.list[i] as Enemy;
+      if (!candidate(e)) continue;
+      if (allow(e)) queue.push(e);
+      else result.skipped++;
+    }
+    const first = queue.length;
+    for (let i = 0; i < queue.length; i++) {
+      const e = queue[i] as Enemy;
+      if (!this.hit(e, Math.max(1, e.hp), 0)) continue;
+      result.defeated.push(e);
+      if (i >= first) result.splits++;
+      // It split just now: its new slimes are part of this go when they landed close enough.
+      const pack = this.packOf.get(e);
+      if (!e.def.splitsInto || !pack) continue;
+      for (let c = 0; c < pack.children.length; c++) {
+        const child = pack.children[c] as Enemy;
+        if (candidate(child) && allow(child) && !queue.includes(child)) queue.push(child);
+      }
+    }
+    return result;
   }
 
   /**

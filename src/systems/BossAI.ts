@@ -149,8 +149,9 @@ export function stepBoss(e: Enemy, target: EnemyTarget, world: BossWorld, dt: nu
     boss.enraged = true;
     world.bossEvent(e, 'enraged', null);
   }
-  if (!target.hostile) {
-    // The player is down: it stops (an attack in the air still lands somewhere).
+  if (!target.hostile || target.peaceful) {
+    // The player is down, or monsters are off / you fly (debug, unchanged): it stops (an
+    // attack in the air still lands somewhere).
     if (boss.phase !== 'idle') {
       boss.phase = 'idle';
       boss.hitting = false;
