@@ -134,6 +134,16 @@ const sceneBoxSchema = z.strictObject({
  * (x, z on the ground, world); `tip` is the free end of the closed door. `openDegrees` are the
  * stops per side, seen from the hinge looking at the tip (0 = that side never opens). The box also
  * works as an opening: the door is never part of the collision mesh.
+ *
+ * `pull` (one-way doors only) makes the leaf solid for the player: pushed open from one side as
+ * before, and from the side it swings to opened with interact, driven open for `holdSeconds`
+ * when the player stands within `reach` (m) of the closed leaf. `thickness` (m) is the leaf's.
+ *
+ * `group` (pull doors only) joins the leaves of a double door: the same id on two or more doors
+ * of the zone. Of those, only the leaf the player touched first gives way while the player keeps
+ * touching the group; the other leaves hold like a stop until the player lets go of them all (or
+ * the leaf that gave way has swung shut again). Exactly between two leaves the first in the list
+ * gives way.
  */
 const sceneDoorSchema = z.strictObject({
   id,
@@ -141,6 +151,14 @@ const sceneDoorSchema = z.strictObject({
   tip: pointSchema,
   box: sceneBoxSchema,
   openDegrees: z.strictObject({ left: range(0, 180), right: range(0, 180) }),
+  pull: optional(
+    z.strictObject({
+      holdSeconds: range(0.5, 10),
+      reach: range(0.3, 3),
+      thickness: range(0, 0.5),
+    }),
+  ),
+  group: optional(id),
 });
 
 /** Shared physics numbers for the doors of a zone (`HingedBodies.HingeSettings`). */

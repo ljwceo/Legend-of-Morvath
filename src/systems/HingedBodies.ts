@@ -13,6 +13,10 @@ import type { PointXZ } from '../world/Colliders';
  *   origin is the hinge and whose geometry lies along the closed direction.
  * - Stops: the angle stays within [-openRight, openLeft]. A stop of 0 means that side never opens.
  *
+ * A segment can also be solid (`stepSolid`): then one circle never overlaps it, the segment turns
+ * exactly out of its way or stops against it, and `pushOutCircle` moves the circle back out of
+ * what the segment could not clear.
+ *
  * Everything here runs on the fixed step and allocates nothing per step.
  */
 
@@ -82,6 +86,13 @@ export class PusherList {
     pusher.radius = this.radius;
     pusher.fromX = this.hasLast ? this.lastX : x;
     pusher.fromZ = this.hasLast ? this.lastZ : z;
+    this.lastX = x;
+    this.lastZ = z;
+    this.hasLast = true;
+  }
+
+  /** The circle was moved after the step (pushed out of a solid door): its next move starts here. */
+  relocate(x: number, z: number): void {
     this.lastX = x;
     this.lastZ = z;
     this.hasLast = true;
@@ -286,4 +297,236 @@ export function step(
     body.angle = 0;
     body.angularVelocity = 0;
   }
+}
+
+// ---------------------------------------------------------------- solid segments
+
+/**
+ * What `stepSolid` found about its circle. Filled in place (no allocations while playing).
+ */
+export interface SolidStep {
+  /**
+   * The side of the segment the circle belongs on: +1 left, -1 right, 0 when it is too far away
+   * to touch the segment. A circle that went through the segment within the step (a dash) still
+   * belongs on the side it came from.
+   */
+  side: number;
+  /** True when the circle held the segment back this step (it turned less than it wanted to). */
+  stalled: boolean;
+}
+
+/** An empty result for `stepSolid` to fill. */
+export function solidStep(): SolidStep {
+  return { side: 0, stalled: false };
+}
+
+/**
+ * Half the range of angles (radians, around the direction from the hinge to the circle's
+ * centre) in which a segment of `length` from the hinge touches a circle at `distance` from the
+ * hinge: π when the circle covers the hinge, 0 when it is out of reach.
+ */
+export function blockedHalfWidth(distance: number, radius: number, length: number): number {
+  if (distance <= radius) return Math.PI;
+  if (distance >= length + radius) return 0;
+  // Touching along the side of the segment while the tangent point lies on it, else at the tip.
+  if (distance * distance - radius * radius <= length * length) return Math.asin(radius / distance);
+  const cos = (length * length + distance * distance - radius * radius) / (2 * length * distance);
+  return Math.acos(cos > 1 ? 1 : cos < -1 ? -1 : cos);
+}
+
+/**
+ * A solid segment and one circle (the player) that must never overlap it: one fixed step, in
+ * place of `step` for segments that are solid. The segment's own turning is the damped spring of
+ * `step`, or `drive` (rad/s, signed like the angle) instead while that is not 0. Then the circle:
+ *
+ * - A circle that moved into the segment turns it away just far enough to clear it, within the
+ *   step however fast the circle came (a solid door gives way, it is not walked through); it keeps
+ *   at most `maxAngularSpeed` of that (it swings on a little, as with `step`, never flies open).
+ * - A circle in the segment's way stops it where it touches: neither the spring nor `drive` ever
+ *   turns the segment into the circle.
+ * - A circle over the hinge has no lever: the segment does not move.
+ *
+ * Whatever the segment cannot clear (a stop, the hinge) is left for
+ * `pushOutCircle`, which moves the circle back to `out.side`. `circle.radius` is the circle's
+ * radius plus half the segment's thickness; `fromX` / `fromZ` is where it was a step ago.
+ *
+ * With `yields` false the segment does not give way to the circle this step (the other leaf of a
+ * double door does): it holds where it is, still never turns into the circle, and the circle is
+ * moved out of it by `pushOutCircle` like at a stop.
+ */
+export function stepSolid(
+  body: HingedBody,
+  circle: Pusher | null,
+  settings: HingeSettings,
+  dt: number,
+  drive: number,
+  out: SolidStep,
+  yields = true,
+): void {
+  body.prevAngle = body.angle;
+  out.side = 0;
+  out.stalled = false;
+
+  if (drive !== 0) {
+    body.angularVelocity = drive;
+  } else {
+    const acceleration = -settings.stiffness * body.angle - settings.damping * body.angularVelocity;
+    body.angularVelocity += acceleration * dt;
+  }
+  if (body.angularVelocity > settings.maxAngularSpeed) {
+    body.angularVelocity = settings.maxAngularSpeed;
+  } else if (body.angularVelocity < -settings.maxAngularSpeed) {
+    body.angularVelocity = -settings.maxAngularSpeed;
+  }
+
+  const from = body.angle;
+  const maxSpeed = settings.maxAngularSpeed;
+  let next = from + body.angularVelocity * dt;
+
+  if (circle) {
+    const px = circle.x - body.hingeX;
+    const pz = circle.z - body.hingeZ;
+    const width = blockedHalfWidth(Math.sqrt(px * px + pz * pz), circle.radius, body.length);
+    const cos = Math.cos(from);
+    const sin = Math.sin(from);
+    const dirX = body.closedDirX * cos + body.closedDirZ * sin;
+    const dirZ = -body.closedDirX * sin + body.closedDirZ * cos;
+    const along = px * dirX + pz * dirZ;
+    const sideNow = px * dirZ - pz * dirX;
+    let side = sideNow > 0 ? 1 : sideNow < 0 ? -1 : 0;
+    // Through the segment within the step (a dash, or so fast it is out of reach already): it
+    // still belongs on the side it came from.
+    let crossed = false;
+    if (circle.fromX !== undefined && circle.fromZ !== undefined) {
+      const came = sideComingFrom(body, circle.fromX, circle.fromZ, dirX, dirZ, along, sideNow);
+      const cameSide = came > 0 ? 1 : came < 0 ? -1 : side;
+      crossed = cameSide !== side && cameSide !== 0;
+      side = cameSide;
+    }
+    if (width > 0 || crossed) {
+      // Exactly on the segment's line: it belongs on the side that lets the segment open most.
+      if (side === 0) side = body.openLeft - from >= from + body.openRight ? -1 : 1;
+      out.side = side;
+    }
+    // The circle's direction from the hinge, as an angle from the segment (+ = left).
+    const delta = Math.atan2(sideNow, along);
+
+    if (width > 0) {
+      if (width >= Math.PI) {
+        if (next !== from) out.stalled = true;
+        next = from;
+        body.angularVelocity = 0;
+      } else if (side > 0) {
+        // The circle is (or belongs) on the left: the segment stays right of it.
+        const limit = from + delta - width;
+        if (next > limit) {
+          out.stalled = true;
+          if (limit < from && yields) {
+            next = limit;
+            body.angularVelocity = Math.max(-maxSpeed, (next - from) / dt);
+          } else if (limit < from) {
+            // Not its turn to give way: it holds (turning further away by itself is fine).
+            if (next > from) {
+              next = from;
+              body.angularVelocity = 0;
+            }
+          } else {
+            next = limit;
+            body.angularVelocity = 0;
+          }
+        }
+      } else {
+        const limit = from + delta + width;
+        if (next < limit) {
+          out.stalled = true;
+          if (limit > from && yields) {
+            next = limit;
+            body.angularVelocity = Math.min(maxSpeed, (next - from) / dt);
+          } else if (limit > from) {
+            if (next < from) {
+              next = from;
+              body.angularVelocity = 0;
+            }
+          } else {
+            next = limit;
+            body.angularVelocity = 0;
+          }
+        }
+      }
+    }
+  }
+
+  if (next >= body.openLeft) {
+    next = body.openLeft;
+    if (body.angularVelocity > 0) body.angularVelocity = 0;
+  }
+  if (next <= -body.openRight) {
+    next = -body.openRight;
+    if (body.angularVelocity < 0) body.angularVelocity = 0;
+  }
+  body.angle = next;
+
+  if (
+    out.side === 0 &&
+    Math.abs(body.angle) < REST_EPSILON &&
+    Math.abs(body.angularVelocity) < REST_EPSILON
+  ) {
+    body.angle = 0;
+    body.angularVelocity = 0;
+  }
+}
+
+/**
+ * How far a circle is from a segment at its current angle (m; 0 = touching, below 0 = overlapping).
+ * A circle that went through the segment itself within the step (from `fromX` / `fromZ`) is as
+ * deep in it as can be (-Infinity).
+ */
+export function circleGap(body: HingedBody, circle: Pusher): number {
+  const cos = Math.cos(body.angle);
+  const sin = Math.sin(body.angle);
+  const dirX = body.closedDirX * cos + body.closedDirZ * sin;
+  const dirZ = -body.closedDirX * sin + body.closedDirZ * cos;
+  const px = circle.x - body.hingeX;
+  const pz = circle.z - body.hingeZ;
+  const along = px * dirX + pz * dirZ;
+  const sideNow = px * dirZ - pz * dirX;
+  if (circle.fromX !== undefined && circle.fromZ !== undefined) {
+    const came = sideComingFrom(body, circle.fromX, circle.fromZ, dirX, dirZ, along, sideNow);
+    if (came !== 0 && sideNow !== 0 && came > 0 !== sideNow > 0) return -Infinity;
+  }
+  const lever = along < 0 ? 0 : along > body.length ? body.length : along;
+  return Math.hypot(px - lever * dirX, pz - lever * dirZ) - circle.radius;
+}
+
+/**
+ * Moves a circle (world x, z, in place) out of a solid segment at its current angle, to `side`
+ * (+1 left, -1 right; 0 = the side it is on). `radius` is the circle's radius plus half the
+ * segment's thickness. Returns true when the circle was moved.
+ */
+export function pushOutCircle(body: HingedBody, p: PointXZ, radius: number, side: number): boolean {
+  const cos = Math.cos(body.angle);
+  const sin = Math.sin(body.angle);
+  const dirX = body.closedDirX * cos + body.closedDirZ * sin;
+  const dirZ = -body.closedDirX * sin + body.closedDirZ * cos;
+  const px = p.x - body.hingeX;
+  const pz = p.z - body.hingeZ;
+  const along = px * dirX + pz * dirZ;
+  const lever = along < 0 ? 0 : along > body.length ? body.length : along;
+  const ex = px - lever * dirX;
+  const ez = pz - lever * dirZ;
+  const distance = Math.sqrt(ex * ex + ez * ez);
+  const sideNow = px * dirZ - pz * dirX;
+  const wanted = side !== 0 ? side : sideNow >= 0 ? 1 : -1;
+  // Went through the segment (beside it, not round the tip or the hinge), however far.
+  const through = sideNow * wanted < 0 && along >= 0 && along <= body.length;
+  if (distance >= radius && !through) return false;
+  if (through || sideNow === 0 || distance < LEVER_EPSILON) {
+    // On the wrong side (or on the segment): back to its own side, square off the segment.
+    p.x = body.hingeX + lever * dirX + dirZ * wanted * radius;
+    p.z = body.hingeZ + lever * dirZ - dirX * wanted * radius;
+  } else {
+    p.x = body.hingeX + lever * dirX + (ex / distance) * radius;
+    p.z = body.hingeZ + lever * dirZ + (ez / distance) * radius;
+  }
+  return true;
 }

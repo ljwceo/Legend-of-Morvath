@@ -265,6 +265,55 @@ describe('validateGameData catches broken data', () => {
     expect(found).toContainEqual(expect.stringContaining(`duplicate id "${third.id}"`));
   });
 
+  it('only lets a one-way door be pulled (GG.5.2c)', () => {
+    const raw = freshData();
+    const scene = raw.zones.zones.find((z: { scene?: unknown }) => z.scene).scene;
+    const doorById = (id: string) => scene.doors.find((d: { id: string }) => d.id === id);
+    const pull = { holdSeconds: 2.5, reach: 1.2, thickness: 0.11 };
+    // The church portal leaves open one way and are pulled (GG.5.4.3): fine.
+    doorById('church_portal').pull = { ...pull };
+    expect(messages(raw)).toEqual([]);
+    // A two-way door cannot be pulled.
+    doorById('hall_cloister').pull = { ...pull };
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('doors[0].pull'));
+    expect(found).toContainEqual(expect.stringContaining('only a one-way door'));
+    // And the numbers stay in range (a schema error).
+    doorById('hall_cloister').pull = undefined;
+    doorById('church_portal').pull = { ...pull, reach: 9 };
+    expect(messages(raw)).toContainEqual(expect.stringContaining('doors[3].pull.reach'));
+  });
+
+  it('joins only pull doors into a double door, and never just one (GG.5.4.2)', () => {
+    const raw = freshData();
+    const scene = raw.zones.zones.find((z: { scene?: unknown }) => z.scene).scene;
+    const doorById = (id: string) => scene.doors.find((d: { id: string }) => d.id === id);
+    const pull = { holdSeconds: 2.5, reach: 1.2, thickness: 0.11 };
+    // The two church portal leaves are one group (GG.5.4.3): fine, and a third pull door may join.
+    expect(messages(raw)).toEqual([]);
+    doorById('church_cloister').group = 'church_portal';
+    expect(messages(raw)).toEqual([]);
+    doorById('church_cloister').group = undefined;
+    // A group of one.
+    doorById('church_portal_w').group = 'portal';
+    expect(messages(raw)).toContainEqual(expect.stringContaining('needs at least two doors'));
+    doorById('church_portal_w').group = 'church_portal';
+    // Without pull it is no double door leaf.
+    doorById('church_portal_w').pull = undefined;
+    expect(messages(raw)).toContainEqual(expect.stringContaining('doors[2].group'));
+    doorById('church_portal_w').pull = { ...pull };
+    // A door without pull in a group.
+    doorById('hall_cloister').group = 'portal';
+    const found = messages(raw);
+    expect(found).toContainEqual(expect.stringContaining('doors[0].group'));
+    expect(found).toContainEqual(
+      expect.stringContaining('only a pull door can be part of a group'),
+    );
+    // And the id is checked like any other (a schema error).
+    doorById('hall_cloister').group = 'Not An Id';
+    expect(messages(raw)).toContainEqual(expect.stringContaining('doors[0].group'));
+  });
+
   it('checks quests: places, checkpoints, shops, dialogue and upgrades', () => {
     const raw = freshData();
     const quest = (id: string) => raw.quests.quests.find((q: { id: string }) => q.id === id);

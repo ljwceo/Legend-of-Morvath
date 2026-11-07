@@ -174,14 +174,59 @@
             "openDegrees": { "left": 85, "right": 85 }
           },
           {
+            "id": "church_portal_w",
+            "hinge": { "x": -1788.89, "z": 67.17 },
+            "tip": { "x": -1787.506, "z": 67.17 },
+            "box": {
+              "min": { "x": -1788.903, "y": 9.367, "z": 67.0826 },
+              "max": { "x": -1787.503, "y": 13.803, "z": 67.2516 }
+            },
+            "openDegrees": { "left": 85, "right": 0 },
+            "pull": { "holdSeconds": 2.5, "reach": 1.6, "thickness": 0.12 },
+            "group": "church_portal"
+          },
+          {
             "id": "church_portal",
             "hinge": { "x": -1786.11, "z": 67.17 },
-            "tip": { "x": -1787.49, "z": 67.17 },
+            "tip": { "x": -1787.494, "z": 67.17 },
             "box": {
-              "min": { "x": -1787.55, "y": 8.95, "z": 67.05 },
-              "max": { "x": -1786.05, "y": 13.9, "z": 67.23 }
+              "min": { "x": -1787.497, "y": 9.367, "z": 67.0831 },
+              "max": { "x": -1786.097, "y": 13.803, "z": 67.2549 }
             },
-            "openDegrees": { "left": 0, "right": 85 }
+            "openDegrees": { "left": 0, "right": 85 },
+            "pull": { "holdSeconds": 2.5, "reach": 1.6, "thickness": 0.12 },
+            "group": "church_portal"
+          },
+          {
+            "id": "garden_wallgate_w",
+            "hinge": { "x": -1763.23, "z": 65.309 },
+            "tip": { "x": -1762.008, "z": 65.309 },
+            "box": {
+              "min": { "x": -1763.26, "y": 9.05, "z": 65.234 },
+              "max": { "x": -1762.004, "y": 11.0, "z": 65.384 }
+            },
+            "openDegrees": { "left": 85, "right": 85 }
+          },
+          {
+            "id": "garden_wallgate_e",
+            "hinge": { "x": -1760.77, "z": 65.309 },
+            "tip": { "x": -1761.992, "z": 65.309 },
+            "box": {
+              "min": { "x": -1761.996, "y": 9.05, "z": 65.234 },
+              "max": { "x": -1760.74, "y": 11.0, "z": 65.384 }
+            },
+            "openDegrees": { "left": 85, "right": 85 }
+          },
+          {
+            "id": "church_cloister",
+            "hinge": { "x": -1792.3, "z": 84.22 },
+            "tip": { "x": -1792.3, "z": 82.77 },
+            "box": {
+              "min": { "x": -1792.3501, "y": 9.137, "z": 82.767 },
+              "max": { "x": -1792.237, "y": 11.7028, "z": 84.2439 }
+            },
+            "openDegrees": { "left": 0, "right": 85 },
+            "pull": { "holdSeconds": 2.5, "reach": 1.6, "thickness": 0.11 }
           }
         ],
         "doorSettings": {

@@ -62,7 +62,8 @@ export function redistributePanel(
           onChange: (next) => handlers.change(next),
         }),
         statSummary(ctx, points, level, path),
-        button(t('stats.reset.done'), onClose, true),
+        // Through the stack, like ✕ and Escape: the window goes first, then `onClose` resumes.
+        button(t('stats.reset.done'), () => ctx.overlays.close(), true),
       );
     },
     onClose,

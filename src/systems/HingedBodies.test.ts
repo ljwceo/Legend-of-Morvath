@@ -2,14 +2,19 @@ import { describe, expect, it } from 'vitest';
 import type { PlayerConfig } from '../data/types';
 import { readPublicJson } from '../test/loadPublic';
 import {
+  blockedHalfWidth,
+  circleGap,
   createHingedBody,
   type HingedBody,
   type HingeSettings,
   interpolatedAngle,
   pushFromCircle,
+  pushOutCircle,
   type Pusher,
   segmentAt,
+  solidStep,
   step,
+  stepSolid,
 } from './HingedBodies';
 
 const player = readPublicJson('data/player.json') as PlayerConfig;
@@ -308,5 +313,184 @@ describe('HingedBodies pushers that remember where they came from', () => {
     const body = door();
     expect(pushFromCircle(body, { x: 0.5, z: 0.1, radius: RADIUS }, settings)).toBe(true);
     expect(body.angularVelocity).toBeGreaterThan(0);
+  });
+});
+
+describe('HingedBodies solid segments (GG.5.2c)', () => {
+  /** Distance from a point to the segment at its current angle. */
+  function distanceTo(body: HingedBody, x: number, z: number): number {
+    const tip = segmentAt(body, body.angle, { x: 0, z: 0 });
+    const ax = tip.x - body.hingeX;
+    const az = tip.z - body.hingeZ;
+    const t = Math.max(
+      0,
+      Math.min(1, ((x - body.hingeX) * ax + (z - body.hingeZ) * az) / (ax * ax + az * az)),
+    );
+    return Math.hypot(x - (body.hingeX + ax * t), z - (body.hingeZ + az * t));
+  }
+
+  it('knows the range of angles in which the segment touches a circle', () => {
+    expect(blockedHalfWidth(0.3, 0.4, 1)).toBe(Math.PI);
+    expect(blockedHalfWidth(1.5, 0.4, 1)).toBe(0);
+    expect(blockedHalfWidth(0.8, 0.4, 1)).toBeCloseTo(Math.asin(0.5), 12);
+    // Where touching moves from the side to the tip both formulas agree.
+    const edge = Math.sqrt(1 + 0.4 * 0.4);
+    expect(blockedHalfWidth(edge - 1e-9, 0.4, 1)).toBeCloseTo(
+      blockedHalfWidth(edge + 1e-9, 0.4, 1),
+      6,
+    );
+  });
+
+  it('without a circle and without drive it turns exactly like step', () => {
+    const a = door();
+    const b = door();
+    a.angle = b.angle = 40 * DEG;
+    const out = solidStep();
+    for (let i = 0; i < 300; i++) {
+      step(a, noPushers, 0, settings, DT);
+      stepSolid(b, null, settings, DT, 0, out);
+      expect(b.angle).toBe(a.angle);
+      expect(b.angularVelocity).toBe(a.angularVelocity);
+    }
+  });
+
+  it('drive turns it to the stop and no further', () => {
+    const body = door(0, 85 * DEG);
+    const out = solidStep();
+    for (let i = 0; i < 60; i++)
+      stepSolid(body, null, settings, DT, -settings.maxAngularSpeed, out);
+    expect(body.angle).toBe(-85 * DEG);
+    stepSolid(body, null, settings, DT, settings.maxAngularSpeed, out);
+    expect(body.angle).toBeLessThan(-85 * DEG + settings.maxAngularSpeed * DT + 1e-12);
+  });
+
+  it('drive stops against a circle in its way and never turns into it', () => {
+    const body = door(0, 85 * DEG);
+    const out = solidStep();
+    // On the right (+z), 0.8 m out from the hinge: in the way of a door opening to the right.
+    const circle: Pusher = { x: 0.5, z: 0.7, radius: 0.45, fromX: 0.5, fromZ: 0.7 };
+    for (let i = 0; i < 120; i++) {
+      stepSolid(body, circle, settings, DT, -settings.maxAngularSpeed, out);
+      expect(distanceTo(body, circle.x, circle.z)).toBeGreaterThanOrEqual(circle.radius - 1e-9);
+    }
+    expect(out.stalled).toBe(true);
+    expect(out.side).toBe(-1);
+    expect(body.angle).toBeLessThan(-5 * DEG);
+    expect(body.angle).toBeGreaterThan(-85 * DEG);
+  });
+
+  it('a circle walking into it turns it exactly out of the way (no overlap left)', () => {
+    const body = door(85 * DEG, 85 * DEG);
+    const out = solidStep();
+    const circle: Pusher = { x: 0.6, z: -0.5, radius: 0.45, fromX: 0.6, fromZ: -0.5 };
+    for (let i = 0; i < 40; i++) {
+      circle.fromZ = circle.z;
+      circle.z += WALK_SPEED * DT;
+      stepSolid(body, circle, settings, DT, 0, out);
+      const p = { x: circle.x, z: circle.z };
+      pushOutCircle(body, p, circle.radius, out.side);
+      circle.x = p.x;
+      circle.z = p.z;
+      expect(distanceTo(body, circle.x, circle.z)).toBeGreaterThanOrEqual(circle.radius - 1e-9);
+    }
+    // From the left it opened to the right.
+    expect(body.angle).toBeLessThan(-20 * DEG);
+  });
+
+  it('at a stop it cannot give way: the circle is put back on its own side', () => {
+    const body = door(0, 85 * DEG);
+    const out = solidStep();
+    // From the right (+z) into a door that only opens to the right: it cannot turn left.
+    const circle: Pusher = { x: 0.5, z: 0.2, radius: 0.45, fromX: 0.5, fromZ: 0.6 };
+    stepSolid(body, circle, settings, DT, 0, out);
+    expect(body.angle).toBe(0);
+    expect(out.side).toBe(-1);
+    const p = { x: circle.x, z: circle.z };
+    expect(pushOutCircle(body, p, circle.radius, out.side)).toBe(true);
+    expect(p.z).toBeCloseTo(0.45, 12);
+    expect(p.x).toBeCloseTo(0.5, 12);
+  });
+
+  it('a circle that went through within one step (a dash) still belongs on the side it came from', () => {
+    const body = door(0, 85 * DEG);
+    const out = solidStep();
+    const circle: Pusher = { x: 0.5, z: -0.2, radius: 0.45, fromX: 0.5, fromZ: 0.5 };
+    stepSolid(body, circle, settings, DT, 0, out);
+    expect(out.side).toBe(-1);
+    const p = { x: circle.x, z: circle.z };
+    pushOutCircle(body, p, circle.radius, out.side);
+    expect(p.z).toBeCloseTo(0.45, 12);
+  });
+
+  it('a circle over the hinge has no lever: the segment does not move', () => {
+    const body = door(85 * DEG, 85 * DEG);
+    body.angle = 30 * DEG;
+    const out = solidStep();
+    const circle: Pusher = { x: 0.1, z: 0.1, radius: 0.45, fromX: 0.1, fromZ: 0.1 };
+    stepSolid(body, circle, settings, DT, 0, out);
+    expect(body.angle).toBe(30 * DEG);
+    expect(body.angularVelocity).toBe(0);
+  });
+});
+
+describe('HingedBodies solid segments that do not give way (GG.5.4.2, double doors)', () => {
+  it('a circle walking into it: it holds where it is, the circle is put back on its side', () => {
+    const body = door(85 * DEG, 85 * DEG);
+    const out = solidStep();
+    const circle: Pusher = { x: 0.6, z: -0.5, radius: 0.45, fromX: 0.6, fromZ: -0.5 };
+    for (let i = 0; i < 40; i++) {
+      circle.fromZ = circle.z;
+      circle.z += WALK_SPEED * DT;
+      stepSolid(body, circle, settings, DT, 0, out, false);
+      expect(body.angle).toBe(0);
+      const p = { x: circle.x, z: circle.z };
+      pushOutCircle(body, p, circle.radius, out.side);
+      circle.x = p.x;
+      circle.z = p.z;
+      expect(circle.z).toBeLessThanOrEqual(-0.45 + 1e-12);
+    }
+    expect(out.side).toBe(1);
+    expect(out.stalled).toBe(true);
+  });
+
+  it('open, it does not turn further away from a circle, nor back into it', () => {
+    const body = door(85 * DEG, 85 * DEG);
+    body.angle = -30 * DEG;
+    const out = solidStep();
+    // Pressing on the left face of a leaf turned 30 degrees to the right.
+    const tip = segmentAt(body, body.angle, { x: 0, z: 0 });
+    const circle: Pusher = { x: tip.x * 0.7 - 0.3, z: tip.z * 0.7 - 0.1, radius: 0.45 };
+    circle.fromX = circle.x;
+    circle.fromZ = circle.z;
+    stepSolid(body, circle, settings, DT, 0, out, false);
+    expect(body.angle).toBe(-30 * DEG);
+    expect(body.angularVelocity).toBe(0);
+  });
+
+  it('without overlap it moves exactly as a segment that gives way (drive, spring, a circle in its path)', () => {
+    const a = door(0, 85 * DEG);
+    const b = door(0, 85 * DEG);
+    const outA = solidStep();
+    const outB = solidStep();
+    const circle: Pusher = { x: 0.5, z: 0.7, radius: 0.45, fromX: 0.5, fromZ: 0.7 };
+    for (let i = 0; i < 200; i++) {
+      const drive = i < 120 ? -settings.maxAngularSpeed : 0;
+      stepSolid(a, circle, settings, DT, drive, outA);
+      stepSolid(b, circle, settings, DT, drive, outB, false);
+      expect(b.angle).toBe(a.angle);
+      expect(b.angularVelocity).toBe(a.angularVelocity);
+    }
+  });
+
+  it('measures how far a circle is from the segment, and a circle gone through as deepest', () => {
+    const body = door(85 * DEG, 85 * DEG);
+    expect(circleGap(body, { x: 0.5, z: 0.7, radius: 0.45 })).toBeCloseTo(0.25, 12);
+    expect(circleGap(body, { x: 1.3, z: 0.4, radius: 0.45 })).toBeCloseTo(0.05, 12);
+    expect(circleGap(body, { x: 0.5, z: 0.2, radius: 0.45 })).toBeCloseTo(-0.25, 12);
+    expect(circleGap(body, { x: 0.5, z: -0.2, radius: 0.45, fromX: 0.5, fromZ: 0.5 })).toBe(
+      -Infinity,
+    );
+    body.angle = 90 * DEG; // turned left: now along -z
+    expect(circleGap(body, { x: 0.7, z: -0.5, radius: 0.45 })).toBeCloseTo(0.25, 12);
   });
 });

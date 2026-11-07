@@ -285,6 +285,7 @@
     "interact": "Interact",
     "dash": "Dash",
     "rest": "Rest",
+    "openDoor": "Open the door",
     "talkTo": "Talk to {name}",
     "pet": "Pet {name}",
     "qualityChosen": "Graphics set to {quality} for this device. You can change it in Settings.",
